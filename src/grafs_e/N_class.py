@@ -1,5 +1,6 @@
 import os
 import re
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,9 +9,17 @@ import seaborn as sns
 from matplotlib.colors import LogNorm
 from pulp import LpContinuous, LpMinimize, LpProblem, LpStatus, LpVariable, lpSum
 
+# Afficher toutes les colonnes
+pd.set_option("display.max_columns", None)
+
+# Afficher toutes les lignes
+pd.set_option("display.max_rows", None)
+
 from grafs_e.donnees import *
 
-print("hey")
+current_dir = Path.cwd()  # Répertoire de travail actuel
+file_path = current_dir / "src/data/full_grafs.xlsx"
+sheets_dict = pd.read_excel(file_path, sheet_name=None)
 
 
 class DataLoader:
@@ -705,7 +714,7 @@ class NitrogenFlowModel:
             data[data["index_excel"] == 27][region].item() * data[data["index_excel"] == 23][region].item()
         )
         moyenne_reel_prairies = (
-            data[data["index_excel"] == 29][region].item() * data[data["index_excel"] == 22][region].item()
+            data[data["index_excel"] == 29][region].item() * data[data["index_excel"] == 22][region].item() / 10**6
         )
 
         df_prairies.loc[:, "Azote à épendre (ktN) corrigé"] = moyenne_reel_prairies
