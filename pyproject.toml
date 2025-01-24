@@ -4,13 +4,26 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
-    { name = "AdrienFausteGay", email = "adrien.gaypens.psl.eu" }
+    { name = "AdrienFausteGay", email = "adrien.fauste-gay@univ-grenoble-alpes.fr" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "matplotlib>=3.10.0",
+    "numpy>=2.2.2",
+    "pandas>=2.2.3",
+    "pulp>=2.9.0",
+    "seaborn>=0.13.2",
+]
 
 [project.scripts]
 grafs-e = "grafs_e:main"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+# Enable reformatting of code snippets in docstrings.
+docstring-code-format = true
 
 [build-system]
 requires = ["hatchling"]
