@@ -5,10 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from donnees import *
 from matplotlib.colors import LogNorm
 from pulp import LpContinuous, LpMinimize, LpProblem, LpStatus, LpVariable, lpSum
-
-from src.grafs_e.donnees import *
 
 print("hey")
 
