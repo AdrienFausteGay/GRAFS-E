@@ -15,21 +15,25 @@ pd.set_option("display.max_columns", None)
 # Afficher toutes les lignes
 pd.set_option("display.max_rows", None)
 
+pd.set_option("future.no_silent_downcasting", True)
+
 from grafs_e.donnees import *
 
-current_dir = Path.cwd()  # Répertoire de travail actuel
-file_path = current_dir / "src/data/full_grafs.xlsx"
-sheets_dict = pd.read_excel(file_path, sheet_name=None)
+# current_dir = Path.cwd()  # Répertoire de travail actuel
+# file_path = current_dir.parent / "data/full_grafs.xlsx"
+# sheets_dict = pd.read_excel(file_path, sheet_name=None)
 
 
 class DataLoader:
-    def __init__(self, sheets_dict, year, region):
-        self.sheets_dict = sheets_dict
+    def __init__(self, year, region):
+        current_dir = Path.cwd()  # Répertoire de travail actuel
+        file_path = current_dir.parent
+        self.sheets_dict = pd.read_excel(file_path / "data/full_grafs.xlsx", sheet_name=None)
         self.year = year
         self.region = region
         self.df = self.pre_process_df()
         self.data = self.df[["nom", self.region, "index_excel"]]
-        self.data_path = "C:/Users/faustega/Documents/These/informatique/Donnees/GRAFS-E"
+        self.data_path = file_path / "data"
 
     def pre_process_df(self):
         df = self.sheets_dict["pvar" + self.year].copy()
@@ -182,9 +186,8 @@ class FluxGenerator:
 
 class NitrogenFlowModel:
     def __init__(
-        self, sheets_dict, year, region, categories_mapping, labels, cultures, legumineuses, prairies, betail, Pop, ext
+        self, data, year, region, categories_mapping, labels, cultures, legumineuses, prairies, betail, Pop, ext
     ):
-        self.sheets_dict = sheets_dict
         self.year = year
         self.region = region
         self.categories_mapping = categories_mapping
@@ -196,7 +199,7 @@ class NitrogenFlowModel:
         self.Pop = Pop
         self.ext = ext
 
-        self.data_loader = DataLoader(sheets_dict, year, region)
+        self.data_loader = data  # DataLoader(year, region)
         self.culture_data = CultureData(self.data_loader, categories_mapping)
         self.elevage_data = ElevageData(self.data_loader)
         self.flux_generator = FluxGenerator(labels, region, year)
@@ -252,7 +255,6 @@ class NitrogenFlowModel:
         data_loader = self.data_loader
         flux_generator = self.flux_generator
         data = data_loader.data
-        sheets_dict = self.sheets_dict
         year = self.year
 
         # Calcul de l'azote disponible pour les cultures
@@ -1353,7 +1355,13 @@ class NitrogenFlowModel:
 
         # On redonne à df_elevage sa forme d'origine et à import_feed_net sa vraie valeur
         # Utiliser `infer_objects(copy=False)` pour éviter l'avertissement sur le downcasting
-        df_elevage = df_elevage.combine_first(df_elevage_comp).fillna(0).infer_objects(copy=False)
+        df_elevage = df_elevage.combine_first(df_elevage_comp)
+
+        # Remplir les valeurs manquantes avec 0
+        df_elevage = df_elevage.fillna(0)
+
+        # Inférer les types pour éviter le warning sur les colonnes object
+        df_elevage = df_elevage.infer_objects(copy=False)
 
         export_feed = supp_export
 
@@ -1938,8 +1946,11 @@ class NitrogenFlowModel:
 
 
 # # Créer une instance du modèle
+
+# data = DataLoader(year, region)
+
 # nitrogen_model = NitrogenFlowModel(
-#     sheets_dict=sheets_dict,
+#     data = data,
 #     year=year,
 #     region=region,
 #     categories_mapping=categories_mapping,
