@@ -311,10 +311,7 @@ dependencies = [
     { name = "pulp" },
     { name = "seaborn" },
     { name = "streamlit" },
-<<<<<<< HEAD
     { name = "streamlit-folium" },
-=======
->>>>>>> 625c684 (Add files for streamlit visualization)
 ]
 
 [package.dev-dependencies]
@@ -333,10 +330,7 @@ requires-dist = [
     { name = "pulp", specifier = ">=2.9.0" },
     { name = "seaborn", specifier = ">=0.13.2" },
     { name = "streamlit", specifier = ">=1.41.1" },
-<<<<<<< HEAD
     { name = "streamlit-folium", specifier = ">=0.24.0" },
-=======
->>>>>>> 625c684 (Add files for streamlit visualization)
 ]
 
 [package.metadata.requires-dev]
@@ -1112,7 +1106,6 @@ wheels = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "streamlit-folium"
 version = "0.24.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1128,8 +1121,21 @@ wheels = [
 ]
 
 [[package]]
-=======
->>>>>>> 625c684 (Add files for streamlit visualization)
+name = "streamlit-folium"
+version = "0.24.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "branca" },
+    { name = "folium" },
+    { name = "jinja2" },
+    { name = "streamlit" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7c/48/4f4d782de753c209fb6f38f90eda2941e893d4d298c75a56c4da74c12bed/streamlit_folium-0.24.0.tar.gz", hash = "sha256:f59238feb8e4c1ec0cc54f19fc45d1ee198a8ca55f025bc0b906f48eb7fa5c10", size = 330745 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/49/60/947005f9f03632a80444e1870ff261b5528b4c8d53dd5f419fd5f4367d20/streamlit_folium-0.24.0-py3-none-any.whl", hash = "sha256:e7b1d30c5a5db018442a459644d085a397754da8c32047999e83f6bdf434345d", size = 328493 },
+]
+
+[[package]]
 name = "tenacity"
 version = "9.0.0"
 source = { registry = "https://pypi.org/simple" }

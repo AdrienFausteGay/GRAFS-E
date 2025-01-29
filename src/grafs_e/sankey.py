@@ -34,7 +34,17 @@ def create_sankey():
         "Cereals food export",
     ]
 
-    color_labels = ["red", "yellow", "yellow", "darkgreen", "yellow", "yellow", "gray", "lightblue", "gray"]
+    color_labels = [
+        "red",
+        "yellow",
+        "yellow",
+        "darkgreen",
+        "yellow",
+        "yellow",
+        "gray",
+        "lightblue",
+        "gray",
+    ]
 
     # Définir les liens entre les nœuds
     # source, target, value (proportions ou flux entre les nœuds)
@@ -45,12 +55,28 @@ def create_sankey():
     sources = [0, 0, 0, 0, 2, 3, 4, 5, 7]
     targets = [1, 2, 3, 4, 6, 7, 8, 8, 3]
     values = [16.99, 15.26, 28, 81.47, 22.61, 13.96, 70.2, 11.28, 18.66]
-    color_links = ["red", "red", "red", "red", "yellow", "darkgreen", "yellow", "yellow", "lightblue"]
+    color_links = [
+        "red",
+        "red",
+        "red",
+        "red",
+        "yellow",
+        "darkgreen",
+        "yellow",
+        "yellow",
+        "lightblue",
+    ]
 
     # Créer le diagramme de Sankey
     fig = go.Figure(
         go.Sankey(
-            node=dict(pad=7, thickness=20, line=dict(color="black", width=0.5), label=labels, color=color_labels),
+            node=dict(
+                pad=7,
+                thickness=20,
+                line=dict(color="black", width=0.5),
+                label=labels,
+                color=color_labels,
+            ),
             link=dict(source=sources, target=targets, value=values, color=color_links),
         )
     )
@@ -81,7 +107,9 @@ def create_sankey_from_transition_matrix(transition_matrix, main_node, scope=2):
 
     # Générer les labels à partir des nœuds
     for i in range(n_nodes):
-        labels.append(index_to_label[i])  # Utiliser les indices des nœuds comme labels de base
+        labels.append(
+            index_to_label[i]
+        )  # Utiliser les indices des nœuds comme labels de base
 
     # Fonction récursive pour ajouter les flux dans la direction descendante
     def add_flows(node, depth, parent=None):
@@ -104,7 +132,9 @@ def create_sankey_from_transition_matrix(transition_matrix, main_node, scope=2):
     # Créer le diagramme de Sankey
     fig = go.Figure(
         go.Sankey(
-            node=dict(pad=15, thickness=20, line=dict(color="black", width=0.5), label=labels),
+            node=dict(
+                pad=15, thickness=20, line=dict(color="black", width=0.5), label=labels
+            ),
             link=dict(source=sources, target=targets, value=values),
         )
     )
@@ -117,7 +147,11 @@ def create_sankey_from_transition_matrix(transition_matrix, main_node, scope=2):
 
 
 def create_sankey_from_transition_matrix_2(
-    transition_matrix, main_node, scope=1, index_to_label=index_to_label, index_to_color=node_color
+    transition_matrix,
+    main_node,
+    scope=1,
+    index_to_label=index_to_label,
+    index_to_color=node_color,
 ):
     """
     Crée un diagramme de Sankey montrant à la fois les flux entrants (sources) et sortants (cibles) d'un nœud principal.
@@ -141,11 +175,17 @@ def create_sankey_from_transition_matrix_2(
     for i in range(n_nodes):
         if index_to_label[i] == "cereals (excluding rice) food nitrogen import-export":
             labels.append("cereals food export")
-        elif index_to_label[i] == "cereals (excluding rice) feed nitrogen import-export":
+        elif (
+            index_to_label[i] == "cereals (excluding rice) feed nitrogen import-export"
+        ):
             labels.append("cereals feed export")
         else:
-            labels.append(index_to_label[i])  # Utiliser les indices des nœuds comme labels de base
-        node_colors.append(index_to_color[i])  # Définir une couleur de base pour les nœuds (par exemple, lightblue)
+            labels.append(
+                index_to_label[i]
+            )  # Utiliser les indices des nœuds comme labels de base
+        node_colors.append(
+            index_to_color[i]
+        )  # Définir une couleur de base pour les nœuds (par exemple, lightblue)
 
     # Ajouter les flux sortants (cibles) à partir du nœud principal
     def add_forward_flows(node, depth):
@@ -157,7 +197,9 @@ def create_sankey_from_transition_matrix_2(
                 sources.append(node)
                 targets.append(target_node)
                 values.append(flow)
-                link_colors.append(index_to_color[target_node])  # Couleur des flux sortants
+                link_colors.append(
+                    index_to_color[target_node]
+                )  # Couleur des flux sortants
                 add_forward_flows(target_node, depth + 1)
 
     # Ajouter les flux entrants (sources) vers le nœud principal
@@ -170,7 +212,9 @@ def create_sankey_from_transition_matrix_2(
                 sources.append(source_node)
                 targets.append(node)
                 values.append(flow)
-                link_colors.append(index_to_color[source_node])  # Couleur des flux entrants
+                link_colors.append(
+                    index_to_color[source_node]
+                )  # Couleur des flux entrants
                 add_backward_flows(source_node, depth + 1)
 
     # Ajouter les flux sortants (cibles) et entrants (sources)
@@ -330,22 +374,41 @@ def create_sankey_agreg(transition_matrix):
     # Créer les flux entre les groupes de nœuds fusionnés
     for i, group_i in enumerate(groups.values()):
         for j, group_j in enumerate(groups.values()):
-            flow = np.sum(transition_matrix[np.ix_(group_i, group_j)])  # Additionner les flux entre les groupes
+            flow = np.sum(
+                transition_matrix[np.ix_(group_i, group_j)]
+            )  # Additionner les flux entre les groupes
             if flow > 0:  # Si un flux existe entre ces deux groupes
                 sources.append(i)
                 targets.append(j)
                 values.append(flow)
-                link_colors.append(node_colors[i])  # Appliquer la couleur du groupe source
+                link_colors.append(
+                    node_colors[i]
+                )  # Appliquer la couleur du groupe source
 
     # Organiser les nœuds dans les trois colonnes
     col1_nodes = [0, 1, 2, 3]  # Nœuds "Industry", "Cereals", "Oleaginous", "Roots"
-    col2_nodes = [4, 5, 6]  # Nœuds "Fruits and vegetables", "Grasslands and forages", "Leguminous"
-    col3_nodes = [7, 8, 9, 10]  # Nœuds "Livestock", "Population", "Losses", "Trade", "Atmosphere"
+    col2_nodes = [
+        4,
+        5,
+        6,
+    ]  # Nœuds "Fruits and vegetables", "Grasslands and forages", "Leguminous"
+    col3_nodes = [
+        7,
+        8,
+        9,
+        10,
+    ]  # Nœuds "Livestock", "Population", "Losses", "Trade", "Atmosphere"
 
     # Créer le diagramme de Sankey
     fig = go.Figure(
         go.Sankey(
-            node=dict(pad=3, thickness=10, line=dict(color="black", width=0.5), label=labels, color=node_colors),
+            node=dict(
+                pad=3,
+                thickness=10,
+                line=dict(color="black", width=0.5),
+                label=labels,
+                color=node_colors,
+            ),
             link=dict(
                 source=sources,
                 target=targets,
@@ -359,7 +422,9 @@ def create_sankey_agreg(transition_matrix):
     fig.show()
 
 
-def streamlit_sankey(transition_matrix, main_node, scope=1, index_to_label=None, index_to_color=None):
+def streamlit_sankey(
+    transition_matrix, main_node, scope=1, index_to_label=None, index_to_color=None
+):
     """
     Crée un diagramme de Sankey interactif sous Streamlit, affichant les flux
     entrants et sortants d'un nœud principal avec un affichage personnalisé au survol.
@@ -400,7 +465,9 @@ def streamlit_sankey(transition_matrix, main_node, scope=1, index_to_label=None,
     for i in range(n_nodes):
         if index_to_label[i] == "cereals (excluding rice) food nitrogen import-export":
             labels.append("cereals food export")
-        elif index_to_label[i] == "cereals (excluding rice) feed nitrogen import-export":
+        elif (
+            index_to_label[i] == "cereals (excluding rice) feed nitrogen import-export"
+        ):
             labels.append("cereals feed export")
         else:
             labels.append(index_to_label[i])
@@ -408,7 +475,9 @@ def streamlit_sankey(transition_matrix, main_node, scope=1, index_to_label=None,
         node_colors.append(index_to_color[i])
 
         # Ajout des tooltips des nœuds avec Throughflow
-        node_hover_texts.append(f"Node: {labels[i]}<br>Throughflow: {format_scientific(throughflows[i])}")
+        node_hover_texts.append(
+            f"Node: {labels[i]}<br>Throughflow: {format_scientific(throughflows[i])}"
+        )
 
     # Ajout des flux sortants (cibles)
     def add_forward_flows(node, depth):
@@ -587,7 +656,11 @@ def streamlit_sankey_fertilization(
     target_categories = sorted(all_targets_merged)
 
     # -- 3) Couleur des nœuds fusionnés (ex. palette simple + couleurs d'origine) ---
-    color_dict = {"population": "darkblue", "livestock": "lightblue", "industry": "purple"}
+    color_dict = {
+        "population": "darkblue",
+        "livestock": "lightblue",
+        "industry": "purple",
+    }
     # On récupère éventuellement certaines couleurs d'origine
     # On suppose model.node_color: dict(index->couleur) ou dict(label->couleur)
     for k, v in node_color.items():
@@ -619,7 +692,9 @@ def streamlit_sankey_fertilization(
                 targets_raw.append(target_new_idx)
                 values.append(flow)
 
-                link_color = new_node_colors[source_new_idx]  # couleur du lien = couleur source
+                link_color = new_node_colors[
+                    source_new_idx
+                ]  # couleur du lien = couleur source
                 link_colors.append(link_color)
 
                 link_hover_texts.append(
@@ -682,7 +757,9 @@ def streamlit_sankey_fertilization(
         lbl = new_labels[old_idx]
         node_labels.append(lbl)
         node_colors_final.append(new_node_colors[old_idx])
-        node_hover_data.append(f"Node: {lbl}<br>Throughflow: {format_scientific(throughflows[old_idx])}")
+        node_hover_data.append(
+            f"Node: {lbl}<br>Throughflow: {format_scientific(throughflows[old_idx])}"
+        )
 
     # -- 9) Construction du Sankey final --
     fig = go.Figure(
@@ -724,7 +801,10 @@ def streamlit_sankey_food_flows(
             "cereals (excluding rice) food trade",
             "cereals (excluding rice) feed trade",
         ],
-        "fruits and vegetables trade": ["fruits and vegetables food trade", "fruits and vegetables feed trade"],
+        "fruits and vegetables trade": [
+            "fruits and vegetables food trade",
+            "fruits and vegetables feed trade",
+        ],
         "leguminous trade": ["leguminous food trade", "leguminous feed trade"],
         "oleaginous trade": ["oleaginous food trade", "oleaginous feed trade"],
     },
@@ -777,7 +857,11 @@ def streamlit_sankey_food_flows(
             targets_merged.add(new_i)
 
     # 3) Couleur des nœuds fusionnés (on peut reprendre la même logique)
-    color_dict = {"population": "darkblue", "livestock": "lightblue", "industry": "purple"}
+    color_dict = {
+        "population": "darkblue",
+        "livestock": "lightblue",
+        "industry": "purple",
+    }
     # Si le modèle a un node_color (optionnel)
     for k, v in node_color.items():
         if index_to_label[k] in labels:
@@ -807,7 +891,9 @@ def streamlit_sankey_food_flows(
                 sources_raw.append(s_idx)
                 targets_raw.append(t_idx)
                 values.append(flow)
-                link_colors.append(new_node_colors[s_idx])  # Couleur du lien = couleur de la source
+                link_colors.append(
+                    new_node_colors[s_idx]
+                )  # Couleur du lien = couleur de la source
                 link_hover_texts.append(
                     f"Source: {new_labels[s_idx]}<br>Target: {new_labels[t_idx]}<br>Value: {format_scientific(flow)}"
                 )
@@ -869,7 +955,9 @@ def streamlit_sankey_food_flows(
         lbl = new_labels[old_idx]
         node_labels.append(lbl)
         node_final_colors.append(new_node_colors[old_idx])
-        node_hover_data.append(f"Node: {lbl}<br>Throughflow: {format_scientific(throughflows[old_idx])}")
+        node_hover_data.append(
+            f"Node: {lbl}<br>Throughflow: {format_scientific(throughflows[old_idx])}"
+        )
 
     # 9) Sankey final
     fig = go.Figure(

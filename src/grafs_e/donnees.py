@@ -279,7 +279,13 @@ node_color = {
         "yellow"
         if label in categories_mapping
         and categories_mapping[label]
-        in ["cereals (excluding rice)", "fruits and vegetables", "roots", "forages", "oleaginous"]
+        in [
+            "cereals (excluding rice)",
+            "fruits and vegetables",
+            "roots",
+            "forages",
+            "oleaginous",
+        ]
         else "lightgreen"
         if label in categories_mapping and categories_mapping[label] == "leguminous"
         else "darkgreen"
@@ -440,7 +446,12 @@ animal_type_mapping = {
 
 ## Régimes
 
-herbes = ["Natural meadow ", "Non-legume temporary meadow", "Alfalfa and clover", "Straw"]
+herbes = [
+    "Natural meadow ",
+    "Non-legume temporary meadow",
+    "Alfalfa and clover",
+    "Straw",
+]
 
 regime_elevage = {
     "bovines": {
@@ -470,7 +481,13 @@ regime_elevage = {
         0.28: ["Wheat"],
         0.10: ["Grain maize"],
         0.57: ["Soybean", "Horse beans and faba beans"],
-        0.05: ["Rapeseed", "Sunflower", "Other oil crops", "Peas", "Other protein crops"],
+        0.05: [
+            "Rapeseed",
+            "Sunflower",
+            "Other oil crops",
+            "Peas",
+            "Other protein crops",
+        ],
     },
     "porcines": {
         0.18: ["Wheat"],
@@ -487,9 +504,9 @@ regime_humains = {
     "cereals (excluding rice)": 0.35,
     "rice": 0.20,
     "leguminous": 0.10,
-    "fruits and vegetables": 0.05,
-    "oleaginous": 0.15,
-    "roots": 0.15,
+    "fruits and vegetables": 0.25,
+    "oleaginous": 0.05,
+    "roots": 0.05,
 }
 
 
