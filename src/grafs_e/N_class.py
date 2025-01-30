@@ -5,6 +5,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 import seaborn as sns
 from matplotlib.colors import LogNorm
 from pulp import LpContinuous, LpMinimize, LpProblem, LpStatus, LpVariable, lpSum
@@ -212,19 +213,20 @@ class NitrogenFlowModel:
         self.compute_fluxes()
 
     def plot_heatmap(self):
-        plt.figure(figsize=(11, 11), dpi=500)
+        plt.figure(figsize=(10, 12), dpi=500)
         ax = plt.gca()
 
         # Créer la heatmap sans grille pour le moment
         norm = LogNorm(vmin=10**-4, vmax=self.adjacency_matrix.max())
         sns.heatmap(
             self.adjacency_matrix,
-            xticklabels=self.labels,
-            yticklabels=self.labels,
+            xticklabels=range(1, len(self.labels)),
+            yticklabels=range(1, len(self.labels)),
             cmap="plasma_r",
             annot=False,
             norm=norm,
             ax=ax,
+            cbar_kws={"label": "ktN/year", "orientation": "horizontal", "pad": 0.02},
         )
 
         # Ajouter la grille en gris clair
@@ -235,15 +237,173 @@ class NitrogenFlowModel:
         ax.xaxis.set_label_position("top")  # Placer le label en haut
 
         # Rotation des labels de l'axe x
-        plt.xticks(rotation=90)
-
+        plt.xticks(rotation=90, fontsize=8)
+        plt.yticks(rotation=0, fontsize=8)
+        # Assurer que les axes sont égaux
+        ax.set_aspect("equal", adjustable="box")
         # Ajouter des labels et un titre
         plt.xlabel("Target", fontsize=14, fontweight="bold")
         plt.ylabel("Source", fontsize=14, fontweight="bold")
-        plt.title(f"Heatmap of adjacency matrix for {self.region} in {self.year}")
+        # plt.title(f'Heatmap of adjacency matrix for {region} in {year}')
 
+        legend_labels = [f"{i + 1}: {label}" for i, label in enumerate(self.labels)]
+        for i, label in enumerate(legend_labels):
+            ax.text(
+                1.05,
+                1 - 1.1 * (i + 0.5) / len(legend_labels),
+                label,
+                transform=ax.transAxes,
+                fontsize=10,
+                va="center",
+                ha="left",
+                color="black",
+                verticalalignment="center",
+                horizontalalignment="left",
+                linespacing=20,
+            )  # Augmenter l'espacement entre les lignes
+
+        # plt.subplots_adjust(bottom=0.2, right=0.85)  # Réduire l'espace vertical entre la heatmap et la colorbar
         # Afficher la heatmap
         plt.show()
+
+    def plot_heatmap_interactive(self):
+        """
+        Génére une heatmap interactive (Plotly) :
+        - Échelle 'log' simulée via log10(z).
+        - Colorbar horizontale en bas.
+        - Légende index -> label à droite sans chevauchement.
+        - Axe X en haut et titre centré.
+        """
+
+        # 1) Préparation des labels numériques
+        x_labels = list(range(1, len(self.labels) + 1))
+        y_labels = list(range(1, len(self.labels) + 1))
+
+        # Si vous ignorez la dernière ligne/colonne comme dans votre code :
+        adjacency_subset = self.adjacency_matrix[: len(self.labels), : len(self.labels)]
+
+        # 2) Gestion min/max et transformation log10
+        cmin = max(1e-4, np.min(adjacency_subset[adjacency_subset > 0]))
+        cmax = 100  # np.max(adjacency_subset)
+        log_matrix = np.where(adjacency_subset > 0, np.log10(adjacency_subset), np.nan)
+
+        # 3) Construire un tableau 2D de chaînes pour le survol
+        #    Même dimension que log_matrix
+        strings_matrix = []
+        for row_i, y_val in enumerate(y_labels):
+            row_texts = []
+            for col_i, x_val in enumerate(x_labels):
+                # Valeur réelle (non log) => adjacency_subset[row_i, col_i]
+                real_val = adjacency_subset[row_i, col_i]
+                if np.isnan(real_val):
+                    real_val_str = "0"
+                else:
+                    real_val_str = f"{real_val:.2e}"  # format décimal / exposant
+                # Construire la chaîne pour la tooltip
+                # y_val et x_val sont les indices 1..N
+                # self.labels[y_val] = nom de la source, self.labels[x_val] = nom de la cible
+                tooltip_str = f"Source : {self.labels[y_val - 1]}<br>Target : {self.labels[x_val - 1]}<br>Value  : {real_val_str} ktN/yr"
+                row_texts.append(tooltip_str)
+            strings_matrix.append(row_texts)
+
+        # 3) Tracé Heatmap avec go.Figure + go.Heatmap
+        #    On règle "zmin" et "zmax" en valeurs log10
+        #    pour contrôler la gamme de couleurs
+        trace = go.Heatmap(
+            z=log_matrix,
+            x=x_labels,
+            y=y_labels,
+            colorscale="Plasma_r",
+            zmin=np.log10(cmin),
+            zmax=np.log10(cmax),
+            text=strings_matrix,  # tableau 2D de chaînes
+            hoverinfo="text",  # on n'affiche plus x, y, z bruts
+            # Colorbar horizontale
+            colorbar=dict(
+                title="ktN/year",
+                orientation="h",
+                x=0.5,  # centré horizontalement
+                xanchor="center",
+                y=-0.15,  # en dessous de la figure
+                thickness=15,  # épaisseur
+                len=1,  # longueur en fraction de la largeur
+            ),
+            # Valeurs de survol -> vous verrez log10(...) par défaut
+            # Pour afficher la valeur réelle, on peut plus tard utiliser "customdata"
+        )
+
+        # Créer la figure et y ajouter le trace
+        fig = go.Figure(data=[trace])
+
+        # 4) Discrétisation manuelle des ticks sur la colorbar
+        #    On veut afficher l'échelle réelle (et pas log10)
+        #    => calcul de tickvals en log10, et ticktext en 10^(tickvals)
+        tickvals = np.linspace(np.floor(np.log10(cmin)), np.ceil(np.log10(cmax)), num=7)
+        ticktext = [10**x for x in range(-4, 3, 1)]  # [f"{10**v:.2e}" for v in tickvals]
+        # Mettre à jour le trace pour forcer l'affichage
+        fig.data[0].update(
+            colorbar=dict(
+                title="ktN/year",
+                orientation="h",
+                x=0.5,
+                xanchor="center",
+                y=-0.15,
+                thickness=25,
+                len=1,
+                tickmode="array",
+                tickvals=tickvals,
+                ticktext=ticktext,
+            )
+        )
+
+        # 5) Configuration de la mise en page
+        fig.update_layout(
+            width=1980,
+            height=800,
+            margin=dict(t=0, b=0, l=0, r=150),  # espace à droite pour la légende
+        )
+
+        # Axe X en haut
+        fig.update_xaxes(
+            title="Target",
+            side="top",  # place les ticks en haut
+            tickangle=90,  # rotation
+            tickmode="array",
+            tickfont=dict(size=10),
+            tickvals=x_labels,  # forcer l'affichage 1..N
+            ticktext=[str(x) for x in x_labels],
+        )
+
+        # Axe Y : inverser l'ordre pour un style "matriciel" standard
+        fig.update_yaxes(
+            title="Source",
+            autorange="reversed",
+            tickmode="array",
+            tickfont=dict(size=10),
+            tickvals=y_labels,
+            ticktext=[str(y) for y in y_labels],
+        )
+
+        # 6) Ajouter la légende à droite
+        #    Format : "1: label[0]" ... vertical
+        legend_text = "<br>".join(f"{i + 1} : {lbl}" for i, lbl in enumerate(self.labels))
+        fig.add_annotation(
+            x=1.3,  # un peu à droite
+            y=0.5,  # centré en hauteur
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+            text=legend_text,
+            align="left",
+            valign="middle",
+            font=dict(size=9),
+            bordercolor="rgba(0,0,0,0)",
+            borderwidth=1,
+            borderpad=4,
+            bgcolor="rgba(0,0,0,0)",
+        )
+
+        return fig
 
     def compute_fluxes(self):
         # Extraire les variables nécessaires
@@ -1298,7 +1458,7 @@ class NitrogenFlowModel:
                         categorie = df_cultures.loc[culture, "catégories"]
 
                         # Construction du label source pour l'importation
-                        label_source = f"{categorie} feed nitrogen import-export"
+                        label_source = f"{categorie} feed trade"
 
                         # Accumuler les flux par catégorie
                         if label_source in flux:
@@ -1319,7 +1479,7 @@ class NitrogenFlowModel:
                     for categorie in df_cultures["catégories"].unique():
                         # On exporte pas en feed des catégories dédiées aux humains
                         if categorie not in ["rice, fruits and vegetables", "roots"]:
-                            label_source = f"{categorie} feed nitrogen import-export"
+                            label_source = f"{categorie} feed trade"
 
                             # Calculer la quantité inutilisée par catégorie proportionnellement aux catégories présentes dans df_cultures
                             total_per_categorie = df_cultures[df_cultures["catégories"] == categorie][
@@ -1471,7 +1631,7 @@ class NitrogenFlowModel:
             # Envoi des flux vers les bonnes catégories
             for culture, flux_value in source.items():
                 if flux_value > 0:
-                    label_target = f"{df_cultures.loc[culture, 'catégories']} feed nitrogen import-export"
+                    label_target = f"{df_cultures.loc[culture, 'catégories']} feed trade"
                     source = {culture: flux_value}
                     target = {label_target: 1}
                     flux_generator.generate_flux(source, target)
@@ -1586,6 +1746,8 @@ class NitrogenFlowModel:
 
             # Filtrer les lignes en supprimant celles dont 'Azote_alloue' est très proche de zéro
             allocations_df = allocations_df[allocations_df["Consommation humaine"].abs() >= 1e-7]
+
+            self.allocation_humain = allocations_df
 
             # Importations nécessaires
             importations = []
@@ -1746,7 +1908,7 @@ class NitrogenFlowModel:
         for culture, azote_exporte in df_cultures[df_cultures["Azote exporté net"] > 0]["Azote exporté net"].items():
             categorie = df_cultures.loc[culture, "catégories"]
             if categorie not in ["forages", "grasslands"]:
-                label_target = f"{categorie} food nitrogen import-export"
+                label_target = f"{categorie} food trade"
                 flux_exports[label_target] = flux_exports.get(label_target, 0) + azote_exporte
 
         # Envoi des flux d'exportation par catégorie
@@ -1766,7 +1928,7 @@ class NitrogenFlowModel:
         for culture, azote_importe in df_cultures[df_cultures["Azote importé"] > 0]["Azote importé"].items():
             categorie = df_cultures.loc[culture, "catégories"]
             if categorie not in ["forages", "grasslands"]:
-                label_source = f"{categorie} food nitrogen import-export"
+                label_source = f"{categorie} food trade"
                 flux_imports[label_source] = flux_imports.get(label_source, 0) + azote_importe
 
         # Envoi des flux d'importation par catégorie
@@ -1819,7 +1981,7 @@ class NitrogenFlowModel:
 
             target = {"urban": prop_urb * cons_viande_import, "rural": (1 - prop_urb) * cons_viande_import}
             source = {
-                "animal nitrogen import-export": 1
+                "animal trade": 1
             }  # commerce["Ratio"].to_dict() On peut distinguer les différents types d'azote importé
             flux_generator.generate_flux(source, target)
             # Et on reporte ce qu'il manque dans la colonne "Azote animal exporté net"
@@ -1827,7 +1989,7 @@ class NitrogenFlowModel:
 
         if cons_viande < df_elevage["Azote comestible"].sum():
             source = df_elevage["Azote animal exporté net"].to_dict()
-            target = {"animal nitrogen import-export": 1}
+            target = {"animal trade": 1}
             flux_generator.generate_flux(source, target)
 
         # Calcul des déséquilibres négatifs
@@ -1897,6 +2059,9 @@ class NitrogenFlowModel:
     def get_allocation_elevage(self):
         return self.allocation_elevage
 
+    def get_allocation_humain(self):
+        return self.allocation_humain
+
     def get_transition_matrix(self):
         return self.adjacency_matrix
 
@@ -1938,7 +2103,7 @@ class NitrogenFlowModel:
         # Extraire la sous-matrice C (bloc bas-gauche)
         C = self.adjacency_matrix[core_size:n, :core_size]
 
-        if clean == True:
+        if clean:
             C = C[:][:, self.non_zero_rows]
             B = B[self.non_zero_rows, :][:]
 
