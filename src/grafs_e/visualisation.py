@@ -3,12 +3,12 @@ import json
 
 import folium
 import streamlit as st
-from N_class import DataLoader, NitrogenFlowModel
 from PIL import Image
 from sankey import merge_nodes, streamlit_sankey, streamlit_sankey_fertilization, streamlit_sankey_food_flows
 from streamlit_folium import st_folium
 
 from grafs_e.donnees import *
+from grafs_e.N_class import DataLoader, NitrogenFlowModel
 
 # %%
 
