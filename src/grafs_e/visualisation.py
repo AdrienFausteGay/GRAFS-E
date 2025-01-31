@@ -4,11 +4,11 @@ import json
 import folium
 import streamlit as st
 from PIL import Image
-from sankey import merge_nodes, streamlit_sankey, streamlit_sankey_fertilization, streamlit_sankey_food_flows
 from streamlit_folium import st_folium
 
 from grafs_e.donnees import *
 from grafs_e.N_class import DataLoader, NitrogenFlowModel
+from grafs_e.sankey import merge_nodes, streamlit_sankey, streamlit_sankey_fertilization, streamlit_sankey_food_flows
 
 # %%
 
@@ -47,7 +47,7 @@ with tab1:
     )
 
     # Charger l’image et récupérer ses dimensions
-    image_path = "metabolism.png"  # Remplacez par le chemin de votre image
+    image_path = "./metabolism.png"  # Remplacez par le chemin de votre image
     img = Image.open(image_path)
     width, height = img.size
 

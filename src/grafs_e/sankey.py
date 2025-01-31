@@ -1,8 +1,9 @@
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
-from donnees import *
-from N_class import *
+
+from grafs_e.donnees import *
+from grafs_e.N_class import *
 
 
 def create_sankey():
