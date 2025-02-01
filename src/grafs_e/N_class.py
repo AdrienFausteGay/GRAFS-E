@@ -1,6 +1,5 @@
 import os
 import re
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,14 +26,13 @@ from grafs_e.donnees import *
 
 class DataLoader:
     def __init__(self, year, region):
-        current_dir = Path.cwd()  # Répertoire de travail actuel
-        file_path = current_dir.parent
-        self.sheets_dict = pd.read_excel(file_path / "data/full_grafs.xlsx", sheet_name=None)
+        file_path = os.path.dirname(__file__)
+        self.sheets_dict = pd.read_excel(os.path.join(file_path, "data/full_grafs.xlsx"), sheet_name=None)
         self.year = year
         self.region = region
         self.df = self.pre_process_df()
         self.data = self.df[["nom", self.region, "index_excel"]]
-        self.data_path = file_path / "data"
+        self.data_path = os.path.join(file_path, "data")
 
     def pre_process_df(self):
         df = self.sheets_dict["pvar" + self.year].copy()
@@ -2111,7 +2109,8 @@ class NitrogenFlowModel:
 
 
 # # Créer une instance du modèle
-
+# year = "2010"
+# region = "Picardie"
 # data = DataLoader(year, region)
 
 # nitrogen_model = NitrogenFlowModel(

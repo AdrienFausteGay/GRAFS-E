@@ -299,7 +299,7 @@ wheels = [
 
 [[package]]
 name = "grafs-e"
-version = "0.1.0"
+version = "0.3.68"
 source = { editable = "." }
 dependencies = [
     { name = "folium" },

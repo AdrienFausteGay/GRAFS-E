@@ -1,10 +1,6 @@
 # %%
 import json
-
-import folium
-<<<<<<< HEAD
-# %%
-import json
+import os
 
 import folium
 import streamlit as st
@@ -13,9 +9,22 @@ from streamlit_folium import st_folium
 
 from grafs_e.donnees import *
 from grafs_e.N_class import DataLoader, NitrogenFlowModel
-from grafs_e.sankey import merge_nodes, streamlit_sankey, streamlit_sankey_fertilization, streamlit_sankey_food_flows
+from grafs_e.sankey import (
+    merge_nodes,
+    streamlit_sankey,
+    streamlit_sankey_fertilization,
+    streamlit_sankey_food_flows,
+)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+
+geojson_path = os.path.join(DATA_DIR, "contour-GRAFS.geojson")
+image_path = os.path.join(DATA_DIR, "metabolism.png")
 
 # %%
+
+st.set_page_config(page_title="GRAFS-E App")  # , layout="wide")
 
 # Initialisation de l'interface Streamlit
 st.title("GRAFS-E")
@@ -43,7 +52,9 @@ tab1, tab2, tab3, tab4 = st.tabs(["Documentation", "Run", "Sankey", "Detailed da
 with tab1:
     st.title("Documentation")
 
-    st.header("GRAFS-Extended: Comprehensive Analysis of Nitrogen Flux in Agricultural Systems")
+    st.header(
+        "GRAFS-Extended: Comprehensive Analysis of Nitrogen Flux in Agricultural Systems"
+    )
 
     st.subheader("Overview")
 
@@ -52,7 +63,6 @@ with tab1:
     )
 
     # Charger l’image et récupérer ses dimensions
-    image_path = "./metabolism.png"  # Remplacez par le chemin de votre image
     img = Image.open(image_path)
     width, height = img.size
 
@@ -83,14 +93,18 @@ with tab1:
     st.text(
         "Go to 'Run' tab to select a year and region to run GRAFS-E. This will display the nitrogen transition matrix for this territory"
     )
-    st.text("Then use 'Sankey' tab to analyse direct input and output flows for each object.")
+    st.text(
+        "Then use 'Sankey' tab to analyse direct input and output flows for each object."
+    )
 
     st.subheader("Methods")
 
     st.text(
         "The GRAFS-E model is designed to encapsulate the nitrogen utilization process in agricultural systems by considering historical transformations in French agricultural practices. It captures the transition from traditional crop-livestock agriculture to more intensive, specialized systems."
     )
-    st.text("GRAFS-E uses optimization model to allocate plant productions to livestock, population and trade.")
+    st.text(
+        "GRAFS-E uses optimization model to allocate plant productions to livestock, population and trade."
+    )
 
     st.text(
         "By integrating optimization techniques and new mechanisms, GRAFS-E allows for the detailed study of nitrogen flows at a finer resolution than the original GRAFS model, covering 64 distinct objects, including various types of crops, livestock, population groups, industrial sectors, import/export category, and 6 environment category. The extension of GRAFS makes it possible to examine the topology and properties of the graph build with this flow model. This approach, provides a deeper understanding of the structure of the system, notably identifying invariants and hubs."
@@ -142,7 +156,7 @@ with tab2:
     st.session_state.year = st.selectbox("", annees_disponibles, index=0)
 
     # Charger les données GeoJSON
-    with open("contour-GRAFS.geojson", "r") as f:
+    with open(geojson_path, "r") as f:
         geojson_data = json.load(f)
 
     st.subheader("Select a territory")
@@ -180,7 +194,11 @@ with tab2:
     # 🔹 Mettre à jour `st.session_state.selected_region` avec la sélection utilisateur
     if map_data and "last_active_drawing" in map_data:
         last_drawing = map_data["last_active_drawing"]
-        if last_drawing and "properties" in last_drawing and "nom" in last_drawing["properties"]:
+        if (
+            last_drawing
+            and "properties" in last_drawing
+            and "nom" in last_drawing["properties"]
+        ):
             st.session_state.selected_region = last_drawing["properties"]["nom"]
 
     # ✅ Affichage des sélections (se met à jour dynamiquement)
@@ -224,7 +242,9 @@ with tab2:
             heatmap_fig = model.plot_heatmap_interactive()
             st.plotly_chart(heatmap_fig, use_container_width=True)
         else:
-            st.warning("❌ Veuillez sélectionner une année et une région avant de lancer l'analyse.")
+            st.warning(
+                "❌ Veuillez sélectionner une année et une région avant de lancer l'analyse."
+            )
 
 with tab3:
     st.title("Sankey")
@@ -258,7 +278,14 @@ with tab3:
             labels,
             {
                 "population": ["urban", "rural"],
-                "livestock": ["bovines", "ovines", "equine", "poultry", "porcines", "caprines"],
+                "livestock": [
+                    "bovines",
+                    "ovines",
+                    "equine",
+                    "poultry",
+                    "porcines",
+                    "caprines",
+                ],
                 "industry": ["haber-bosch", "other sectors"],
             },
         )
@@ -294,7 +321,9 @@ with tab4:
     if "model" not in st.session_state:
         st.warning("⚠️ Please run the model first in the 'Run' tab.")
     else:
-        st.text("This tab is to access to detailed data used in input but also processed by the model")
+        st.text(
+            "This tab is to access to detailed data used in input but also processed by the model"
+        )
 
         st.subheader("Cultures data")
 
@@ -312,28 +341,3 @@ with tab4:
 
 
 # %%
-=======
-from N_class import NitrogenFlowModel
-import streamlit as st
-
-# Initialisation de l'interface Streamlit
-st.title("Interface pour le modèle NitrogenFlowModel")
-st.write("Cette interface permet de visualiser les sorties du modèle de flux d'azote.")
-
-year = "2010"
-region = "Picardie"
-
-model = NitrogenFlowModel(
-    sheets_dict=sheets_dict,
-    year=year,
-    region=region,
-    categories_mapping=categories_mapping,
-    labels=labels,
-    cultures=cultures,
-    legumineuses=legumineuses,
-    prairies=prairies,
-    betail=betail,
-    Pop=Pop,
-    ext=ext
-)
->>>>>>> 625c684 (Add files for streamlit visualization)

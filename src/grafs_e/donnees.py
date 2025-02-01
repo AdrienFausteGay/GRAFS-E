@@ -504,9 +504,9 @@ regime_humains = {
     "cereals (excluding rice)": 0.35,
     "rice": 0.20,
     "leguminous": 0.10,
-    "fruits and vegetables": 0.25,
-    "oleaginous": 0.05,
-    "roots": 0.05,
+    "fruits and vegetables": 0.05,
+    "oleaginous": 0.15,
+    "roots": 0.15,
 }
 
 
