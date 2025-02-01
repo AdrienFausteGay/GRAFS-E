@@ -23,10 +23,22 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 geojson_path = os.path.join(DATA_DIR, "contour-GRAFS.geojson")
 image_path = os.path.join(DATA_DIR, "metabolism.png")
 
-# %%
-
 st.set_page_config(page_title="GRAFS-E App")  # , layout="wide")
 
+
+# Charger les données
+@st.cache_data
+def load_data():
+    # votre DataLoader (ou équivalent)
+    return DataLoader()
+
+
+if "data" not in st.session_state:
+    st.session_state["data"] = load_data()
+
+data = st.session_state["data"]
+
+# %%
 # Initialisation de l'interface Streamlit
 st.title("GRAFS-E")
 st.title("Nitrogen Flow Simulation Model: A Territorial Ecology Approach")
@@ -217,7 +229,7 @@ with tab2:
     if st.button("Run"):
         if st.session_state.selected_region and st.session_state.year:
             # Charger les données avec les valeurs mises à jour
-            data = DataLoader(st.session_state.year, st.session_state.selected_region)
+            # data = DataLoader(st.session_state.year, st.session_state.selected_region)
 
             # Initialiser le modèle avec les paramètres
             model = NitrogenFlowModel(

@@ -1,6 +1,6 @@
 [project]
 name = "grafs_e"
-version = "0.3.81"
+version = "0.3.91"
 description = "Metabolic analysis of Agricultural systems"
 readme = "README.md"
 licence = {file="LICENCE"}

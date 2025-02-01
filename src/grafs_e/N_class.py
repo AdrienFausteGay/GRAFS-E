@@ -19,42 +19,36 @@ pd.set_option("future.no_silent_downcasting", True)
 
 from grafs_e.donnees import *
 
-# current_dir = Path.cwd()  # Répertoire de travail actuel
-# file_path = current_dir.parent / "data/full_grafs.xlsx"
-# sheets_dict = pd.read_excel(file_path, sheet_name=None)
-
 
 class DataLoader:
-    def __init__(self, year, region):
+    def __init__(self):  # , year, region):
         file_path = os.path.dirname(__file__)
         self.sheets_dict = pd.read_excel(os.path.join(file_path, "data/full_grafs.xlsx"), sheet_name=None)
-        self.year = year
-        self.region = region
-        self.df = self.pre_process_df()
-        self.data = self.df[["nom", self.region, "index_excel"]]
         self.data_path = os.path.join(file_path, "data")
 
-    def pre_process_df(self):
-        df = self.sheets_dict["pvar" + self.year].copy()
+    def pre_process_df(self, year, region):
+        df = self.sheets_dict["pvar" + year].copy()
         df.loc[df.index[0], "Primary data, parameters, pre-treatments "] = "nom"
         df.columns = df.iloc[0]
         df["index_excel"] = df.index + 2
+        df[["nom", region, "index_excel"]]
         return df
 
-    def get_import_feed(self):
-        df = self.sheets_dict["GRAFS" + self.year].copy()
+    def get_import_feed(self, year, region):
+        df = self.sheets_dict["GRAFS" + year].copy()
         df.columns = df.iloc[0]
         correct_region = {"Pyrénées occid": "Pyrénées occidentales", "Pyrénées Orient": "Pyrénées Orientales"}
-        region = self.region
+        region = region
         if region in correct_region.keys():
             region = correct_region[region]
         return df[region].iloc[32]
 
 
 class CultureData:
-    def __init__(self, data_loader, categories_mapping):
-        self.df = data_loader.df
-        self.region = data_loader.region
+    def __init__(self, data_loader, year, region, categories_mapping):
+        self.region = region
+        self.year = year
+        self.df = data_loader.pre_process_df(self.year, self.region)
         self.data_path = data_loader.data_path
         self.categories_mapping = categories_mapping
         self.df_cultures = self.create_culture_dataframe()
@@ -106,14 +100,15 @@ class CultureData:
 
 
 class ElevageData:
-    def __init__(self, data_loader):
-        self.data = data_loader.data
-        self.region = data_loader.region
+    def __init__(self, data_loader, year, region):
+        self.region = region
+        self.year = year
+        self.df = data_loader.pre_process_df(self.year, self.region)
         self.data_path = data_loader.data_path
         self.df_elevage = self.create_elevage_dataframe()
 
     def create_elevage_dataframe(self):
-        df = self.data
+        df = self.df
         region = self.region
         data_path = self.data_path
 
@@ -199,8 +194,8 @@ class NitrogenFlowModel:
         self.ext = ext
 
         self.data_loader = data  # DataLoader(year, region)
-        self.culture_data = CultureData(self.data_loader, categories_mapping)
-        self.elevage_data = ElevageData(self.data_loader)
+        self.culture_data = CultureData(self.data_loader, self.year, self.region, categories_mapping)
+        self.elevage_data = ElevageData(self.data_loader, self.year, self.region)
         self.flux_generator = FluxGenerator(labels, region, year)
 
         self.df_cultures = self.culture_data.df_cultures
@@ -409,11 +404,11 @@ class NitrogenFlowModel:
         df_elevage = self.df_elevage
         adjacency_matrix = self.adjacency_matrix
         label_to_index = self.label_to_index
+        year = self.year
         region = self.region
         data_loader = self.data_loader
         flux_generator = self.flux_generator
-        data = data_loader.data
-        year = self.year
+        data = data_loader.pre_process_df(year, region)
 
         # Calcul de l'azote disponible pour les cultures
         df_cultures["Azote disponible"] = df_cultures["Production végétale"] * df_cultures["Teneur en azote"] / 100
@@ -940,7 +935,7 @@ class NitrogenFlowModel:
         flux_generator.generate_flux(source_non_comestible, target_other_sectors)
 
         # On va chercher les éventuelles corrections apportées par JLN (=0 si export, donc pas vraiment net...)
-        import_feed_net = self.data_loader.get_import_feed()
+        import_feed_net = self.data_loader.get_import_feed(year, region)
         # Et la valeur net
         import_feed_net_tot = data[data["index_excel"] == 1009][region].item()
 
@@ -2111,7 +2106,7 @@ class NitrogenFlowModel:
 # # Créer une instance du modèle
 # year = "2010"
 # region = "Picardie"
-# data = DataLoader(year, region)
+# data = DataLoader()
 
 # nitrogen_model = NitrogenFlowModel(
 #     data = data,
