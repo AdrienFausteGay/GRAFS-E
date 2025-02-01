@@ -1174,8 +1174,8 @@ def streamlit_sankey_systemic_flows(
 
     fig.update_layout(
         # title="Systemic Sankey Diagram: All Flows",
-        width=5000,
-        height=1000,
+        width=2000,
+        height=500,
     )
 
     st.plotly_chart(fig, use_container_width=False)
