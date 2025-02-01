@@ -14,6 +14,7 @@ from grafs_e.sankey import (
     streamlit_sankey,
     streamlit_sankey_fertilization,
     streamlit_sankey_food_flows,
+    streamlit_sankey_systemic_flows,
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -314,6 +315,14 @@ with tab3:
         ]
 
         streamlit_sankey_food_flows(model, cultures, legumineuses, prairies, trades)
+
+        st.subheader("Territorial Systemic Overview")
+        st.write(
+            "This Sankey diagram presents the primary flows (>1ktN/yr) within the model, organized by key categories."
+        )
+        st.write("For optimal visualization, please switch to full screen mode.")
+
+        streamlit_sankey_systemic_flows(model, THRESHOLD=1)
 
 with tab4:
     st.title("Detailed data")

@@ -989,3 +989,193 @@ def streamlit_sankey_food_flows(
     )
 
     st.plotly_chart(fig, use_container_width=False)
+
+
+def streamlit_sankey_systemic_flows(
+    model,
+    merges={
+        "cereals (excluding rice)": [
+            "Wheat",
+            "Rye",
+            "Barley",
+            "Oat",
+            "Grain maize",
+            "Rice",
+            "Other cereals",
+            "Straw",
+        ],
+        "fruits and vegetables": [
+            "Dry vegetables",
+            "Dry fruits",
+            "Squash and melons",
+            "Cabbage",
+            "Leaves vegetables",
+            "Fruits",
+            "Olives",
+            "Citrus",
+        ],
+        "leguminous": legumineuses,
+        "oleaginous": [
+            "Rapeseed",
+            "Sunflower",
+            "Other oil crops",
+        ],
+        "meadow and forage": ["Natural meadow ", "Non-legume temporary meadow", "Forage maize", "Forage cabbages"],
+        "trade": [
+            "animal trade",
+            "cereals (excluding rice) food trade",
+            "fruits and vegetables food trade",
+            "leguminous food trade",
+            "oleaginous food trade",
+            "roots food trade",
+            "rice food trade",
+            "cereals (excluding rice) feed trade",
+            "forages feed trade",
+            "leguminous feed trade",
+            "oleaginous feed trade",
+            "grasslands feed trade",
+        ],
+        "ruminants": ["bovines", "ovines", "caprines", "equine"],
+        "monogastrics": ["porcines", "poultry"],
+        "population": ["urban", "rural"],
+        "losses": ["NH3 volatilization", "N2O emission", "hydro-system", "other losses"],
+        "roots": ["Sugar beet", "Potatoes", "Other roots"],
+    },
+    THRESHOLD=1e-1,
+):
+    """
+    Crée un diagramme de Sankey systémique montrant tous les flux de la matrice d'adjacence du modèle.
+    Les nœuds sont fusionnés selon les règles de `merges`, et les flux inférieurs à `THRESHOLD` sont éliminés.
+
+    :param model: Modèle contenant la matrice d'adjacence (model.adjacency_matrix) et les labels (model.labels).
+    :param merges: Dictionnaire définissant les fusions de nœuds.
+    :param THRESHOLD: Seuil en dessous duquel les flux sont supprimés (par défaut : 1e-1).
+    """
+    import numpy as np
+    import plotly.graph_objects as go
+    import streamlit as st
+
+    if model is None:
+        st.error("❌ Le modèle n'est pas encore exécuté. Lancez d'abord le modèle.")
+        return
+
+    # 1) Fusion des nœuds
+    adjacency_matrix = model.adjacency_matrix
+    labels = model.labels
+    new_matrix, new_labels, old_to_new = merge_nodes(adjacency_matrix, labels, merges)
+
+    n_new = len(new_labels)
+
+    # 2) Définir les couleurs des nœuds fusionnés
+    color_dict = {
+        "cereals (excluding rice)": "gold",
+        "fruits and vegetables": "lightgreen",
+        "leguminous": "darkgreen",
+        "oleaginous": "lightgreen",
+        "meadow and forage": "green",
+        "trade": "gray",
+        "monogastrics": "lightblue",
+        "ruminants": "lightblue",
+        "population": "darkblue",
+        "losses": "red",
+        "roots": "orange",
+    }
+    # Ajouter les couleurs des labels d'origine si disponibles
+    for k, v in node_color.items():
+        if index_to_label[k] in labels:
+            color_dict[index_to_label[k]] = v
+    default_color = "gray"
+
+    def get_color_for_label(lbl):
+        return color_dict.get(lbl, default_color)
+
+    new_node_colors = [get_color_for_label(lbl) for lbl in new_labels]
+
+    # 3) Collecter tous les flux de la matrice fusionnée
+    sources_raw = []
+    targets_raw = []
+    values = []
+    link_colors = []
+    link_hover_texts = []
+
+    def format_scientific(value):
+        return f"{value:.2e} ktN/yr"
+
+    for s_idx in range(n_new):
+        for t_idx in range(n_new):
+            flow = new_matrix[s_idx, t_idx]
+            if flow > THRESHOLD:  # Seuil pour éliminer les petits flux
+                sources_raw.append(s_idx)
+                targets_raw.append(t_idx)
+                values.append(flow)
+                link_colors.append(new_node_colors[s_idx])  # Couleur des liens selon la source
+                link_hover_texts.append(
+                    f"Source: {new_labels[s_idx]}<br>Target: {new_labels[t_idx]}<br>Value: {format_scientific(flow)}"
+                )
+
+    # 4) Calcul du throughflow pour chaque nœud (flux entrants + sortants)
+    throughflows = np.sum(new_matrix, axis=0) + np.sum(new_matrix, axis=1)
+
+    # 5) Filtrage des nœuds avec throughflow < THRESHOLD
+    kept_nodes = [i for i in range(n_new) if throughflows[i] >= THRESHOLD]
+
+    # Filtrer les flux qui impliquent des nœuds supprimés
+    final_links = [
+        idx for idx in range(len(sources_raw)) if sources_raw[idx] in kept_nodes and targets_raw[idx] in kept_nodes
+    ]
+
+    sources_raw = [sources_raw[i] for i in final_links]
+    targets_raw = [targets_raw[i] for i in final_links]
+    values = [values[i] for i in final_links]
+    link_colors = [link_colors[i] for i in final_links]
+    link_hover_texts = [link_hover_texts[i] for i in final_links]
+
+    # 6) Re-mappage des indices pour le Sankey
+    unique_final_nodes = []
+    for idx in sources_raw + targets_raw:
+        if idx not in unique_final_nodes:
+            unique_final_nodes.append(idx)
+
+    node_map = {old_i: new_i for new_i, old_i in enumerate(unique_final_nodes)}
+
+    sankey_sources = [node_map[s] for s in sources_raw]
+    sankey_targets = [node_map[t] for t in targets_raw]
+
+    # 7) Création des labels et couleurs finaux pour les nœuds
+    node_labels = [new_labels[idx] for idx in unique_final_nodes]
+    node_final_colors = [new_node_colors[idx] for idx in unique_final_nodes]
+    node_hover_data = [
+        f"Node: {new_labels[idx]}<br>Throughflow: {format_scientific(throughflows[idx])}" for idx in unique_final_nodes
+    ]
+
+    # 8) Création du Sankey final
+    fig = go.Figure(
+        go.Sankey(
+            node=dict(
+                pad=20,
+                thickness=20,
+                line=dict(color="black", width=0.5),
+                label=node_labels,
+                color=node_final_colors,
+                customdata=node_hover_data,
+                hovertemplate="%{customdata}<extra></extra>",
+            ),
+            link=dict(
+                source=sankey_sources,
+                target=sankey_targets,
+                value=values,
+                color=link_colors,
+                customdata=link_hover_texts,
+                hovertemplate="%{customdata}<extra></extra>",
+            ),
+            arrangement="snap",
+        )
+    )
+
+    fig.update_layout(
+        # title="Systemic Sankey Diagram: All Flows",
+        width=5000,
+        height=1000,
+    )
+
+    st.plotly_chart(fig, use_container_width=False)
