@@ -354,11 +354,13 @@ with tab4:
 
         st.dataframe(model.df_elevage)
 
-        st.subheader("Culture allocation to Livestock")
+        st.subheader("Culture allocation to livestock and population")
 
-        st.dataframe(model.allocation_elevage)
+        st.dataframe(model.allocation_vege)
 
-        st.dataframe(model.allocation_humain)
+        st.subheader("Diet deviations from defined diet")
+
+        st.dataframe(model.deviations_df)
 
 
 # %%

@@ -479,15 +479,27 @@ class NitrogenFlowModel:
         flux_generator.generate_flux(source_fixation, target_fixation)
         df_cultures["Fixation symbiotique"] = df_cultures.index.map(target_fixation).fillna(0)
 
-        # Épandage de boue sur les champs
+        ## Épandage de boue sur les champs
         FE_N_N02_em = 0.002
         FE_N_NH3_em = 0.118
         FE_N_N2_em = 0.425
         pop = data[data["index_excel"] == 5][region].item()
-        N_boue = (
-            data[data["nom"] == "Total per capita protein ingestion"][region].item() * pop
-        )  # data[data["nom"] == "N Sludges to cropland"][region].item()
         prop_urb = data[data["nom"] == "Urban population"][region].item() / 100
+        N_cons_cap = data[data["index_excel"] == 8][region].item()
+        N_cap_vege = data[data["index_excel"] == 9][region].item()
+        N_cap_viande = data[data["index_excel"] == 10][region].item()
+        N_boue = pop * N_cons_cap
+        N_vege = pop * N_cap_vege
+        N_viande = pop * N_cap_viande
+        # Et calcul rapide sur les ingestions de produits de la pêche
+        N_fish = N_boue - N_vege - N_viande
+        source = {"fishery products": N_fish}
+        target = {"urban": prop_urb, "rural": 1 - prop_urb}
+        flux_generator.generate_flux(source, target)
+
+        # Revenons aux boues
+        # data[data["nom"] == "Total per capita protein ingestion"][region].item() * pop Formule fausse dans PVAR
+        # data[data["nom"] == "N Sludges to cropland"][region].item()
         prop_recy_urb = data[data["nom"] == "N recycling rate of human excretion in urban area"][region].item() / 100
         prop_recy_rur = data[data["nom"] == "N recycling rate of human excretion in rural area"][region].item() / 100
 
@@ -521,7 +533,7 @@ class NitrogenFlowModel:
         target = {"hydro-system": 1}
         source = {
             "urban": N_boue * prop_urb * (1 - prop_recy_urb - FE_N_N02_em - FE_N_NH3_em - FE_N_N2_em),
-            "rural": N_boue * (1 - prop_urb) * (1 - prop_recy_rur - FE_N_NH3_em - FE_N_N02_em),
+            "rural": N_boue * (1 - prop_urb) * (1 - prop_recy_rur - FE_N_NH3_em - FE_N_N02_em - FE_N_N2_em),
         }
         # Remplir la matrice d'adjacence
         flux_generator.generate_flux(source, target)
@@ -940,21 +952,31 @@ class NitrogenFlowModel:
         import_feed_net_tot = data[data["index_excel"] == 1009][region].item()
 
         df_elevage_comp = df_elevage.copy()
-        df_elevage = df_elevage.loc[df_elevage["Ingestion"] > 10**-8]
+        df_cons_vege = df_elevage.loc[df_elevage["Ingestion"] > 10**-8, "Ingestion"]
+
+        # On ajoute l'ingestion humaine
+        # Une ligne urban, une ligne rural. Cela simplifiera la distinction de regime si un jour c'est pertinent
+
+        df_cons_vege.loc["urban"] = N_vege * prop_urb
+        df_cons_vege.loc["rural"] = N_vege * (1 - prop_urb)
+
+        # On distingue les imports feed et food #TODO dans l'optim
+        import_food_net = df_cons_vege.sum() - df_cultures["Azote disponible"].sum() - import_feed_net_tot
+        import_food = max(0, import_food_net)
 
         supp_export = 0
         if import_feed_net > df_elevage["Ingestion"].sum():
             supp_export = import_feed_net - df_elevage["Ingestion"].sum()  # On augmentera d'autant les exports
             import_feed_net = df_elevage["Ingestion"].sum()
 
-        if len(df_elevage) > 0:
+        if len(df_cons_vege) > 0:
             # Dictionnaire enregistrant toutes les cultures présentes dans le régime d'un élevage
-            all_cultures_regime_elevage = {}
-            for elevage in df_elevage.index:
+            all_cultures_regime = {}
+            for cons in df_cons_vege.index:
                 cultures_name = set()
-                for cultures_liste in regime_elevage[elevage].values():
+                for cultures_liste in regimes[cons].values():
                     cultures_name.update(cultures_liste)
-                all_cultures_regime_elevage[elevage] = cultures_name
+                all_cultures_regime[cons] = cultures_name
 
             # Initialisation du problème
             prob = LpProblem("Allocation_Azote_Animaux", LpMinimize)
@@ -962,19 +984,15 @@ class NitrogenFlowModel:
             # Variables de décision pour les allocations
             x_vars = LpVariable.dicts(
                 "x",
-                [(culture, elevage) for culture in df_cultures.index for elevage in df_elevage.index],
+                [(culture, cons) for culture in df_cultures.index for cons in df_cons_vege.index],
                 lowBound=0,
                 cat="Continuous",
             )
 
-            # Variable de depassement des importations
-            E_vars = LpVariable.dicts(
+            # Variable de depassement des importations feed
+            E_vars_feed = LpVariable.dicts(
                 "E",
-                [
-                    (elevage, culture)
-                    for elevage in df_elevage.index
-                    for culture in all_cultures_regime_elevage[elevage]
-                ],
+                [(cons, culture) for cons in df_cons_vege.index[:-2] for culture in all_cultures_regime[cons]],
                 lowBound=0,
                 cat="Continuous",
             )
@@ -982,202 +1000,248 @@ class NitrogenFlowModel:
             # Variables de déviation des régimes alimentaires
             delta_vars = LpVariable.dicts(
                 "delta",
-                [
-                    (elevage, proportion)
-                    for elevage in df_elevage.index
-                    for proportion in regime_elevage[elevage].keys()
-                ],
+                [(cons, proportion) for cons in df_cons_vege.index for proportion in regimes[cons].keys()],
                 lowBound=0,
                 cat=LpContinuous,
             )
 
             # Variables de pénalité pour la concentration des allocations
-            penalite_vars = LpVariable.dicts(
-                "penalite",
-                [(culture, elevage) for culture in df_cultures.index for elevage in df_elevage.index],
-                lowBound=0,
-                cat=LpContinuous,
-            )
+            # penalite_vars = LpVariable.dicts(
+            #     "penalite",
+            #     [(culture, cons) for culture in df_cultures.index for cons in df_cons_vege.index],
+            #     lowBound=0,
+            #     cat=LpContinuous,
+            # )
 
             # Variables de pénalité pour la distribution au sein des catégories
             penalite_culture_vars = LpVariable.dicts(
                 "penalite_culture",
                 [
-                    (elevage, proportion, culture)
-                    for elevage in df_elevage.index
-                    for proportion in regime_elevage[elevage].keys()
-                    for culture in regime_elevage[elevage][proportion]
+                    (cons, proportion, culture)
+                    for cons in df_cons_vege.index
+                    for proportion in regimes[cons].keys()
+                    for culture in regimes[cons][proportion]
                 ],
                 lowBound=0,
                 cat=LpContinuous,
             )
 
             # Variables d'importation pour chaque élevage et catégorie
-            I_vars = LpVariable.dicts(
+            I_vars_feed = LpVariable.dicts(
                 "I",
-                [
-                    (elevage, culture)
-                    for elevage in df_elevage.index
-                    for culture in all_cultures_regime_elevage[elevage]
-                ],
+                [(cons, culture) for cons in df_cons_vege.index[:-2] for culture in all_cultures_regime[cons]],
                 lowBound=0,
                 cat="Continuous",
             )
 
-            # Variables pour capturer les importations associées aux déviations négatives
-            delta_import_vars = LpVariable.dicts(
-                "delta_import",
-                [
-                    (elevage, proportion)
-                    for elevage in df_elevage.index
-                    for proportion in regime_elevage[elevage].keys()
-                ],
+            # Variables d'importation pour chaque population et catégorie
+            I_vars_food = LpVariable.dicts(
+                "I",
+                [(cons, culture) for cons in df_cons_vege.index[-2:] for culture in all_cultures_regime[cons]],
                 lowBound=0,
-                cat=LpContinuous,
+                cat="Continuous",
             )
+
+            # # Variables pour capturer les importations associées aux déviations négatives
+            # delta_import_vars = LpVariable.dicts(
+            #     "delta_import",
+            #     [(cons, proportion) for cons in df_cons_vege.index for proportion in regimes[cons].keys()],
+            #     lowBound=0,
+            #     cat=LpContinuous,
+            # )
 
             # Pondération pour le terme de pénalité
             poids_penalite_deviation = 10
 
-            poids_penalite = 0  # Ajustez ce poids selon vos préférences
+            # poids_penalite = 0  # Ajustez ce poids selon vos préférences
 
-            # Poids pour le nouveau terme de pénalité
+            # Poids pour équilibrer la distribution des cultures dans les categories
             poids_penalite_culture = 0.5  # À ajuster selon vos préférences
 
             # Définir un poids élevé pour pénaliser les importations
             if int(year) > 1960:
-                poids_exces_import = 1
+                poids_exces_import = 1.0
+                poids_import_food = 1.0
             else:
                 poids_exces_import = 1000.0  # Ajustez ce poids selon vos préférences
+                poids_import_food = 1000.0
 
-            # poids pour évacuer un éventuel surplus d'import
-            poids_export = 50  # Ajustez ce poids selon vos préférences
-
-            poids_delta_import = (
-                500.0  # Poids supplémentaire pour orienter les importations pour minimiser les fortes déviations
-            )
+            # poids_delta_import = (
+            #     0.5  # Poids supplémentaire pour orienter les importations pour minimiser les fortes déviations
+            # )
 
             prob += (
                 poids_penalite_deviation
                 * lpSum(
-                    delta_vars[(elevage, proportion)]
-                    for elevage in df_elevage.index
-                    for proportion in regime_elevage[elevage].keys()
+                    delta_vars[(cons, proportion)] for cons in df_cons_vege.index for proportion in regimes[cons].keys()
                 )
-                + poids_delta_import
-                * lpSum(
-                    delta_import_vars[(elevage, proportion)]
-                    for elevage in df_elevage.index
-                    for proportion in regime_elevage[elevage].keys()
-                )
-                + poids_penalite
-                * lpSum(
-                    penalite_vars[(culture, elevage)] for culture in df_cultures.index for elevage in df_elevage.index
-                )
+                # + poids_delta_import
+                # * lpSum(
+                #     delta_import_vars[(cons, proportion)]
+                #     for cons in df_cons_vege.index
+                #     for proportion in regimes[cons].keys()
+                # )
+                # + poids_penalite
+                # * lpSum(penalite_vars[(culture, cons)] for culture in df_cultures.index for cons in df_cons_vege.index)
                 + poids_penalite_culture
                 * lpSum(
-                    penalite_culture_vars[(elevage, proportion, culture)]
-                    for elevage in df_elevage.index
-                    for proportion in regime_elevage[elevage].keys()
-                    for culture in regime_elevage[elevage][proportion]
+                    penalite_culture_vars[(cons, proportion, culture)]
+                    for cons in df_cons_vege.index
+                    for proportion in regimes[cons].keys()
+                    for culture in regimes[cons][proportion]
                 )
                 + poids_exces_import
                 * lpSum(
-                    E_vars[(elevage, culture)]
-                    for elevage in df_elevage.index
-                    for culture in all_cultures_regime_elevage[elevage]
+                    E_vars_feed[(cons, culture)]
+                    for cons in df_cons_vege.index[:-2]
+                    for culture in all_cultures_regime[cons]
+                )
+                + poids_import_food
+                * lpSum(
+                    I_vars_food[(cons, culture)]
+                    for cons in df_cons_vege.index[-2:]
+                    for culture in all_cultures_regime[cons]
                 ),
                 "Minimiser_Deviations_Penalties_Et_Excès_Importation",
             )
 
-            for elevage in df_elevage.index:
-                besoin = df_elevage.loc[elevage, "Ingestion"]
+            # Les besoins en feed sont complétés par la prod locale, l'importation de feed (donnees GRAFS) et un eventuel import excedentaire
+            for cons in df_cons_vege.index[:-2]:
+                besoin = df_cons_vege.loc[cons]
                 prob += (
-                    lpSum(x_vars[(culture, elevage)] for culture in df_cultures.index)
-                    + lpSum(I_vars[(elevage, culture)] for culture in all_cultures_regime_elevage[elevage])
-                    + lpSum(E_vars[(elevage, culture)] for culture in all_cultures_regime_elevage[elevage])
+                    lpSum(x_vars[(culture, cons)] for culture in df_cultures.index)
+                    + lpSum(I_vars_feed[(cons, culture)] for culture in all_cultures_regime[cons])
+                    + lpSum(E_vars_feed[(cons, culture)] for culture in all_cultures_regime[cons])
                     == besoin,
-                    f"Besoin_{elevage}",
+                    f"Besoin_{cons}",
                 )
 
-            # Cette contrainte assure que la somme de l'azote alloué de chaque culture aux différents types d'élevage ne dépasse pas l'azote disponible pour cette culture.
+            # Les besoins en food sont complétés par la production locale et les imports de food
+            for cons in df_cons_vege.index[-2:]:
+                besoin = df_cons_vege.loc[cons]
+                prob += (
+                    lpSum(x_vars[(culture, cons)] for culture in df_cultures.index)
+                    + lpSum(I_vars_food[(cons, culture)] for culture in all_cultures_regime[cons])
+                    == besoin,
+                    f"Besoin_{cons}",
+                )
+
+            # Cette contrainte assure que la somme de l'azote alloué de chaque culture aux différents types de consommateurs ne dépasse pas l'azote disponible pour cette culture.
             for culture in df_cultures.index:
                 azote_disponible = df_cultures.loc[culture, "Azote disponible"]
                 prob += (
-                    lpSum(x_vars[(culture, elevage)] for elevage in df_elevage.index) <= azote_disponible,
+                    lpSum(x_vars[(culture, cons)] for cons in df_cons_vege.index) <= azote_disponible,
                     f"Disponibilite_{culture}",
                 )
 
-            for elevage in df_elevage.index:
+            # interdiction de consommation locale et d'import pour des cultures qui ne sont pas dans le feed regime
+            for cons in df_cons_vege.index[:-2]:
                 cultures_autorisees = set()
-                for cultures_liste in regime_elevage[elevage].values():
+                for cultures_liste in regimes[cons].values():
                     cultures_autorisees.update(cultures_liste)
                 for culture in df_cultures.index:
                     if culture not in cultures_autorisees:
-                        prob += x_vars[(culture, elevage)] == 0, f"Culture_Non_Autorisee_{culture}_{elevage}"
+                        prob += x_vars[(culture, cons)] == 0, f"Culture_Non_Autorisee_{culture}_{cons}"
                         # Vérifier si la variable I_vars existe avant d'ajouter la contrainte
-                        if (elevage, culture) in I_vars:
-                            prob += I_vars[(elevage, culture)] == 0, f"Import_Non_Autorise_{elevage}_{culture}"
-                        if (elevage, culture) in E_vars:
+                        if (cons, culture) in I_vars_feed:
+                            prob += I_vars_feed[(cons, culture)] == 0, f"Import_Non_Autorise_{cons}_{culture}"
+                        if (cons, culture) in E_vars_feed:
                             prob += (
-                                E_vars[(elevage, culture)] == 0,
-                                f"Import_excedentaire_Non_Autorise_{elevage}_{culture}",
+                                E_vars_feed[(cons, culture)] == 0,
+                                f"Import_excedentaire_Non_Autorise_{cons}_{culture}",
                             )
 
+            # même chose pour food
+            for cons in df_cons_vege.index[-2:]:
+                cultures_autorisees = set()
+                for cultures_liste in regimes[cons].values():
+                    cultures_autorisees.update(cultures_liste)
+                for culture in df_cultures.index:
+                    if culture not in cultures_autorisees:
+                        prob += x_vars[(culture, cons)] == 0, f"Culture_Non_Autorisee_{culture}_{cons}"
+                        # Vérifier si la variable I_vars existe avant d'ajouter la contrainte
+                        if (cons, culture) in I_vars_food:
+                            prob += I_vars_food[(cons, culture)] == 0, f"Import_Non_Autorise_{cons}_{culture}"
+
             # Ces contraintes calculent les déviations entre les proportions effectives des catégories consommées par chaque élevage et les proportions initiales du régime alimentaire.
-            for elevage in df_elevage.index:
-                besoin = df_elevage.loc[elevage, "Ingestion"]
-                for proportion_initiale, cultures_liste in regime_elevage[elevage].items():
+            for cons in df_cons_vege.index[:-2]:
+                besoin = df_cons_vege.loc[cons]
+                for proportion_initiale, cultures_liste in regimes[cons].items():
                     # Azote total des cultures dans la liste
-                    azote_cultures = lpSum(
-                        x_vars[(culture, elevage)] for culture in cultures_liste if culture in df_cultures.index
-                    ) + lpSum(I_vars[(elevage, culture)] for culture in cultures_liste)
+                    azote_cultures = (
+                        lpSum(x_vars[(culture, cons)] for culture in cultures_liste if culture in df_cultures.index)
+                        + lpSum(I_vars_feed[(cons, culture)] for culture in cultures_liste)
+                        + lpSum(E_vars_feed[(cons, culture)] for culture in cultures_liste)
+                    )
                     proportion_effective = azote_cultures / besoin
                     # Déviation par rapport à la proportion initiale
-                    delta_var = delta_vars[(elevage, proportion_initiale)]
+                    delta_var = delta_vars[(cons, proportion_initiale)]
                     prob += (
                         proportion_effective - proportion_initiale <= delta_var,
-                        f"Deviation_Plus_{elevage}_{proportion_initiale}",
+                        f"Deviation_Plus_{cons}_{proportion_initiale}",
                     )
                     prob += (
                         proportion_initiale - proportion_effective <= delta_var,
-                        f"Deviation_Moins_{elevage}_{proportion_initiale}",
+                        f"Deviation_Moins_{cons}_{proportion_initiale}",
                     )
 
+            # Pareil pour food
+            for cons in df_cons_vege.index[-2:]:
+                besoin = df_cons_vege.loc[cons]
+                for proportion_initiale, cultures_liste in regimes[cons].items():
+                    # Azote total des cultures dans la liste
+                    azote_cultures = lpSum(
+                        x_vars[(culture, cons)] for culture in cultures_liste if culture in df_cultures.index
+                    ) + lpSum(I_vars_food[(cons, culture)] for culture in cultures_liste)
+                    proportion_effective = azote_cultures / besoin
+                    # Déviation par rapport à la proportion initiale
+                    delta_var = delta_vars[(cons, proportion_initiale)]
+                    prob += (
+                        proportion_effective - proportion_initiale <= delta_var,
+                        f"Deviation_Plus_{cons}_{proportion_initiale}",
+                    )
+                    prob += (
+                        proportion_initiale - proportion_effective <= delta_var,
+                        f"Deviation_Moins_{cons}_{proportion_initiale}",
+                    )
+
+            # Les importations normales de feed sont égales aux données de GRAFS
             prob += (
                 lpSum(
-                    I_vars[(elevage, culture)]
-                    for elevage in df_elevage.index
-                    for culture in all_cultures_regime_elevage[elevage]
+                    I_vars_feed[(cons, culture)]
+                    for cons in df_cons_vege.index[:-2]
+                    for culture in all_cultures_regime[cons]
                 )
                 == import_feed_net,
                 "Limite_Imports_Normaux",
             )
 
-            # Calcul de l'allocation cible (par exemple, allocation uniforme)
-            for culture in df_cultures.index:
-                azote_disponible_culture = df_cultures.loc[culture, "Azote disponible"]
-                allocation_cible = azote_disponible_culture / len(df_elevage.index)  # Allocation uniforme
-                for elevage in df_elevage.index:
-                    allocation_reelle = x_vars[(culture, elevage)]
-                    # Pénalité est la valeur absolue de la différence entre l'allocation réelle et l'allocation cible
-                    prob += (
-                        allocation_reelle - allocation_cible <= penalite_vars[(culture, elevage)],
-                        f"Penalite_Plus_{culture}_{elevage}",
-                    )
-                    prob += (
-                        allocation_cible - allocation_reelle <= penalite_vars[(culture, elevage)],
-                        f"Penalite_Moins_{culture}_{elevage}",
-                    )
+            # # Calcul de l'allocation cible (par exemple, allocation uniforme)
+            # for culture in df_cultures.index:
+            #     azote_disponible_culture = df_cultures.loc[culture, "Azote disponible"]
+            #     allocation_cible = azote_disponible_culture / len(df_cons_vege.index)  # Allocation uniforme
+            #     for cons in df_cons_vege.index:
+            #         allocation_reelle = x_vars[(culture, cons)]
+            #         # Pénalité est la valeur absolue de la différence entre l'allocation réelle et l'allocation cible
+            #         prob += (
+            #             allocation_reelle - allocation_cible <= penalite_vars[(culture, cons)],
+            #             f"Penalite_Plus_{culture}_{cons}",
+            #         )
+            #         prob += (
+            #             allocation_cible - allocation_reelle <= penalite_vars[(culture, cons)],
+            #             f"Penalite_Moins_{culture}_{cons}",
+            #         )
 
             # Pénaliser si on nourrit les animaux avec une seule culture dans chaque groupe de proportions
-            for elevage in df_elevage.index:
-                besoin = df_elevage.loc[elevage, "Ingestion"]
-                for proportion, cultures_liste in regime_elevage[elevage].items():
+            for cons in df_cons_vege.index[:-2]:
+                besoin = df_cons_vege.loc[cons]
+                for proportion, cultures_liste in regimes[cons].items():
                     # Allocation totale pour ce groupe de cultures
-                    allocation_groupe = lpSum(
-                        x_vars[(culture, elevage)] for culture in cultures_liste if culture in df_cultures.index
-                    ) + lpSum(I_vars[(elevage, culture)] for culture in cultures_liste)
+                    allocation_groupe = (
+                        lpSum(x_vars[(culture, cons)] for culture in cultures_liste if culture in df_cultures.index)
+                        + lpSum(I_vars_feed[(cons, culture)] for culture in cultures_liste)
+                        + lpSum(E_vars_feed[(cons, culture)] for culture in cultures_liste)
+                    )
                     # Azote total disponible pour ce groupe de cultures
                     azote_total_groupe = df_cultures.loc[
                         df_cultures.index.isin(cultures_liste), "Azote disponible"
@@ -1191,36 +1255,86 @@ class NitrogenFlowModel:
                                     azote_disponible_culture / azote_total_groupe
                                 ) * allocation_groupe
                                 # Allocation réelle
-                                allocation_reelle_culture = x_vars[(culture, elevage)]
+                                allocation_reelle_culture = x_vars[(culture, cons)]
                                 # Pénalités pour la déviation
                                 prob += (
                                     allocation_reelle_culture - allocation_cible_culture
-                                    <= penalite_culture_vars[(elevage, proportion, culture)],
-                                    f"Penalite_Culture_Plus_{elevage}_{proportion}_{culture}",
+                                    <= penalite_culture_vars[(cons, proportion, culture)],
+                                    f"Penalite_Culture_Plus_{cons}_{proportion}_{culture}",
                                 )
                                 prob += (
                                     allocation_cible_culture - allocation_reelle_culture
-                                    <= penalite_culture_vars[(elevage, proportion, culture)],
-                                    f"Penalite_Culture_Moins_{elevage}_{proportion}_{culture}",
+                                    <= penalite_culture_vars[(cons, proportion, culture)],
+                                    f"Penalite_Culture_Moins_{cons}_{proportion}_{culture}",
                                 )
                     else:
                         pass
 
-            # Contrainte pour importer là où les déviations sont les plus importantes
-            for elevage in df_elevage.index:
-                for proportion, cultures_liste in regime_elevage[elevage].items():
+            # Pareil pour les humains
+            for cons in df_cons_vege.index[-2:]:
+                besoin = df_cons_vege.loc[cons]
+                for proportion, cultures_liste in regimes[cons].items():
+                    # Allocation totale pour ce groupe de cultures
+                    allocation_groupe = lpSum(
+                        x_vars[(culture, cons)] for culture in cultures_liste if culture in df_cultures.index
+                    ) + lpSum(I_vars_food[(cons, culture)] for culture in cultures_liste)
+                    # Azote total disponible pour ce groupe de cultures
+                    azote_total_groupe = df_cultures.loc[
+                        df_cultures.index.isin(cultures_liste), "Azote disponible"
+                    ].sum()
+                    if azote_total_groupe > 0:
+                        for culture in cultures_liste:
+                            if culture in df_cultures.index:
+                                azote_disponible_culture = df_cultures.loc[culture, "Azote disponible"]
+                                # Calcul de l'allocation cible proportionnelle à la disponibilité
+                                allocation_cible_culture = (
+                                    azote_disponible_culture / azote_total_groupe
+                                ) * allocation_groupe
+                                # Allocation réelle
+                                allocation_reelle_culture = x_vars[(culture, cons)]
+                                # Pénalités pour la déviation
+                                prob += (
+                                    allocation_reelle_culture - allocation_cible_culture
+                                    <= penalite_culture_vars[(cons, proportion, culture)],
+                                    f"Penalite_Culture_Plus_{cons}_{proportion}_{culture}",
+                                )
+                                prob += (
+                                    allocation_cible_culture - allocation_reelle_culture
+                                    <= penalite_culture_vars[(cons, proportion, culture)],
+                                    f"Penalite_Culture_Moins_{cons}_{proportion}_{culture}",
+                                )
+                    else:
+                        pass
+
+            # Contrainte pour importer le feed là où les déviations sont les plus importantes
+            for cons in df_cons_vege.index[:-2]:
+                for proportion, cultures_liste in regimes[cons].items():
                     # Total des importations pour cette proportion
                     azote_importe = lpSum(
-                        I_vars[(elevage, culture)] + E_vars[(elevage, culture)]
+                        I_vars_feed[(cons, culture)] + E_vars_feed[(cons, culture)]
                         for culture in cultures_liste
                         if culture in df_cultures.index
                     )
-                    # Lier aux variables de déviation
-                    prob += (
-                        delta_import_vars[(elevage, proportion)]
-                        >= azote_importe - delta_vars[(elevage, proportion)] * df_elevage.loc[elevage, "Ingestion"],
-                        f"Delta_Import_Lien_{elevage}_{proportion}",
+                    # # Lier aux variables de déviation
+                    # prob += (
+                    #     delta_import_vars[(cons, proportion)]
+                    #     >= azote_importe - delta_vars[(cons, proportion)] * df_cons_vege.loc[cons],
+                    #     f"Delta_Import_Lien_{cons}_{proportion}",
+                    # )
+
+            # Pareil pour les humains
+            for cons in df_cons_vege.index[-2:]:
+                for proportion, cultures_liste in regimes[cons].items():
+                    # Total des importations pour cette proportion
+                    azote_importe = lpSum(
+                        I_vars_food[(cons, culture)] for culture in cultures_liste if culture in df_cultures.index
                     )
+                    # # Lier aux variables de déviation
+                    # prob += (
+                    #     delta_import_vars[(cons, proportion)]
+                    #     >= azote_importe - delta_vars[(cons, proportion)] * df_cons_vege.loc[cons],
+                    #     f"Delta_Import_Lien_{cons}_{proportion}",
+                    # )
 
             # Résolution du problème
             prob.solve()
@@ -1232,7 +1346,7 @@ class NitrogenFlowModel:
                 allocations = []
                 for var in prob.variables():
                     if var.name.startswith("x") and var.varValue > 0:
-                        # Nom de la variable : x_(culture, elevage)
+                        # Nom de la variable : x_(culture, cons)
                         chaine = str(var)
                         matches = re.findall(r"'([^']*)'", chaine)
                         parts = [match.replace("_", " ").strip() for match in matches]
@@ -1242,41 +1356,49 @@ class NitrogenFlowModel:
                             culture = "Non-legume temporary meadow"
                         if culture == "Natural meadow":
                             culture = "Natural meadow "
-                        elevage = parts[1]
+                        cons = parts[1]
+                        if any(index in var.name for index in df_elevage.index):
+                            Type = "Culture Locale feed"
+                        else:
+                            Type = "Culture Locale food"
                         allocations.append(
                             {
                                 "Culture": culture,
-                                "Elevage": elevage,
+                                "Consommateur": cons,
                                 "Azote_alloue": var.varValue,
-                                "Type": "Culture Locale",
+                                "Type": Type,
                             }
                         )
                     elif var.name.startswith("I") and var.varValue > 0:
-                        # Nom de la variable : I_(elevage, culture)
+                        # Nom de la variable : I_(cons, culture)
                         chaine = str(var)
                         matches = re.findall(r"'([^']*)'", chaine)
                         parts = [match.replace("_", " ").strip() for match in matches]
-                        elevage = parts[0]
+                        cons = parts[0]
                         culture = parts[1]
                         if culture == "Non legume temporary meadow":
                             culture = "Non-legume temporary meadow"
                         if culture == "Natural meadow":
                             culture = "Natural meadow "
+                        if any(index in var.name for index in df_elevage.index):
+                            Type = "Importation feed"
+                        else:
+                            Type = "Importation food"
                         allocations.append(
                             {
                                 "Culture": culture,
-                                "Elevage": elevage,
+                                "Consommateur": cons,
                                 "Azote_alloue": var.varValue,
-                                "Type": "Importation",
+                                "Type": Type,
                             }
                         )
 
                     elif var.name.startswith("E") and var.varValue > 0:
-                        # Nom de la variable : E_(elevage, culture)
+                        # Nom de la variable : E_(cons, culture)
                         chaine = str(var)
                         matches = re.findall(r"'([^']*)'", chaine)
                         parts = [match.replace("_", " ").strip() for match in matches]
-                        elevage = parts[0]
+                        cons = parts[0]
                         culture = parts[1]
                         if culture == "Non legume temporary meadow":
                             culture = "Non-legume temporary meadow"
@@ -1285,9 +1407,9 @@ class NitrogenFlowModel:
                         allocations.append(
                             {
                                 "Culture": culture,
-                                "Elevage": elevage,
+                                "Consommateur": cons,
                                 "Azote_alloue": var.varValue,
-                                "Type": "Importation excedentaire",
+                                "Type": "Importation excedentaire feed",
                             }
                         )
 
@@ -1296,135 +1418,207 @@ class NitrogenFlowModel:
                 # Filtrer les lignes en supprimant celles dont 'Azote_alloue' est très proche de zéro
                 allocations_df = allocations_df[allocations_df["Azote_alloue"].abs() >= 1e-6]
 
-                self.allocation_elevage = allocations_df
+                self.allocation_vege = allocations_df
 
                 # Extraction des déviations avec le signe
                 deviations = []
-                for elevage in df_elevage.index:
-                    for proportion in regime_elevage[elevage].keys():
+                for cons in df_cons_vege.index[:-2]:
+                    for proportion in regimes[cons].keys():
                         proportion_rounded = round(proportion, 5)
-                        delta_var_key = (elevage, proportion_rounded)
+                        delta_var_key = (cons, proportion_rounded)
                         deviation = delta_vars[delta_var_key].varValue
                         if deviation != 0:
                             # Récupérer la liste des cultures associées à cette proportion
-                            cultures_liste = regime_elevage[elevage][proportion]
+                            cultures_liste = regimes[cons][proportion]
                             cultures_str = ", ".join(cultures_liste)
 
                             # Calcul de l'allocation totale (local et importée)
-                            azote_cultures = (
+                            azote_cultures_feed = (
                                 sum(
-                                    x_vars[(culture, elevage)].varValue
+                                    x_vars[(culture, cons)].varValue
                                     for culture in cultures_liste
-                                    if (culture, elevage) in x_vars
+                                    if (culture, cons) in x_vars
                                 )
                                 + sum(
-                                    I_vars[(elevage, culture)].varValue
+                                    I_vars_feed[(cons, culture)].varValue
                                     for culture in cultures_liste
-                                    if (elevage, culture) in I_vars
+                                    if (cons, culture) in I_vars_feed
                                 )
                                 + sum(
-                                    E_vars[(elevage, culture)].varValue
+                                    E_vars_feed[(cons, culture)].varValue
                                     for culture in cultures_liste
-                                    if (elevage, culture) in E_vars
+                                    if (cons, culture) in E_vars_feed
                                 )
                             )
-                            besoin_total = df_elevage.loc[elevage, "Ingestion"]
+                            besoin_total = df_cons_vege.loc[cons]
 
                             # Calcul de la proportion effective
-                            proportion_effective = azote_cultures / besoin_total if besoin_total > 0 else 0
+                            proportion_effective = azote_cultures_feed / besoin_total if besoin_total > 0 else 0
 
                             # Déterminer le signe
                             signe = 1 if proportion_effective > proportion else -1
 
                             deviations.append(
                                 {
-                                    "Élevage": elevage,
+                                    "Consommateur": cons,
                                     "Proportion attendue (%)": proportion_rounded * 100,
                                     "Déviation (%)": signe * round(deviation, 4) * 100,  # Convertir en pourcentage
+                                    "Porportion attribuée (%)": proportion_rounded * 100
+                                    + signe * round(deviation, 4) * 100,
                                     "Cultures": cultures_str,
                                 }
                             )
-                deviations_df = pd.DataFrame(deviations)
+                for cons in df_cons_vege.index[-2:]:
+                    for proportion in regimes[cons].keys():
+                        proportion_rounded = round(proportion, 5)
+                        delta_var_key = (cons, proportion_rounded)
+                        deviation = delta_vars[delta_var_key].varValue
+                        if deviation != 0:
+                            # Récupérer la liste des cultures associées à cette proportion
+                            cultures_liste = regimes[cons][proportion]
+                            cultures_str = ", ".join(cultures_liste)
+
+                            # Calcul de l'allocation totale (local et importée)
+                            azote_cultures_food = sum(
+                                x_vars[(culture, cons)].varValue
+                                for culture in cultures_liste
+                                if (culture, cons) in x_vars
+                            ) + sum(
+                                I_vars_food[(cons, culture)].varValue
+                                for culture in cultures_liste
+                                if (cons, culture) in I_vars_food
+                            )
+                            besoin_total = df_cons_vege.loc[cons]
+
+                            # Calcul de la proportion effective
+                            proportion_effective = azote_cultures_food / besoin_total if besoin_total > 0 else 0
+
+                            # Déterminer le signe
+                            signe = 1 if proportion_effective > proportion else -1
+
+                            deviations.append(
+                                {
+                                    "Consommateur": cons,
+                                    "Proportion attendue (%)": proportion_rounded * 100,
+                                    "Déviation (%)": signe * round(deviation, 4) * 100,  # Convertir en pourcentage
+                                    "Porportion attribuée (%)": proportion_rounded * 100
+                                    + signe * round(deviation, 4) * 100,
+                                    "Cultures": cultures_str,
+                                }
+                            )
+                self.deviations_df = pd.DataFrame(deviations)
 
                 # Extraction des importations normales
                 importations = []
-                for elevage in df_elevage.index:
-                    for culture in all_cultures_regime_elevage[elevage]:
-                        if (elevage, culture) in I_vars:
-                            import_value = I_vars[(elevage, culture)].varValue
+                for cons in df_cons_vege.index[:-2]:
+                    for culture in all_cultures_regime[cons]:
+                        if (cons, culture) in I_vars_feed:
+                            import_value = I_vars_feed[(cons, culture)].varValue
                             if import_value > 0:
                                 importations.append(
                                     {
-                                        "Élevage": elevage,
+                                        "Consommateur": cons,
                                         "Culture": culture,
-                                        "Type": "Normal",
+                                        "Type": "Normal feed",
+                                        "Azote importé": import_value,
+                                    }
+                                )
+                for cons in df_cons_vege.index[-2:]:
+                    for culture in all_cultures_regime[cons]:
+                        if (cons, culture) in I_vars_food:
+                            import_value = I_vars_food[(cons, culture)].varValue
+                            if import_value > 0:
+                                importations.append(
+                                    {
+                                        "Consommateur": cons,
+                                        "Culture": culture,
+                                        "Type": "Normal food",
                                         "Azote importé": import_value,
                                     }
                                 )
 
                 # Extraction des imports excédentaires
-                for elevage in df_elevage.index:
-                    for culture in all_cultures_regime_elevage[elevage]:
-                        if (elevage, culture) in E_vars:
-                            excess_value = E_vars[(elevage, culture)].varValue
+                for cons in df_cons_vege.index[:-2]:
+                    for culture in all_cultures_regime[cons]:
+                        if (cons, culture) in E_vars_feed:
+                            excess_value = E_vars_feed[(cons, culture)].varValue
                             if excess_value > 0:
                                 importations.append(
                                     {
-                                        "Élevage": elevage,
+                                        "Consommateur": cons,
                                         "Culture": culture,
-                                        "Type": "Excédentaire",
+                                        "Type": "Excédentaire feed",
                                         "Azote importé": excess_value,
                                     }
                                 )
 
                 # Convertir en DataFrame
-                importations_df = pd.DataFrame(importations)
+                self.importations_df = pd.DataFrame(importations)
 
                 # Calcul de la quantité d'azote importé non utilisée
                 azote_importe_alloue = allocations_df[
-                    allocations_df["Type"].isin(["Importation", "Importation excedentaire"])
+                    allocations_df["Type"].isin(
+                        ["Importation feed", "Importation food", "Importation excedentaire feed"]
+                    )
                 ]["Azote_alloue"].sum()
 
                 # Mise à jour de df_cultures
                 for idx, row in df_cultures.iterrows():
                     culture = row.name
                     azote_alloue = allocations_df[
-                        (allocations_df["Culture"] == culture) & (allocations_df["Type"] == "Culture Locale")
+                        (allocations_df["Culture"] == culture)
+                        & (allocations_df["Type"].isin(["Culture Locale food", "Culture Locale feed"]))
                     ]["Azote_alloue"].sum()
-                    df_cultures.loc[idx, "Azote disponible après feed"] = row["Azote disponible"] - azote_alloue
-                    df_cultures.loc[idx, "Azote feed"] = azote_alloue
+                    azote_alloue_feed = allocations_df[
+                        (allocations_df["Culture"] == culture) & (allocations_df["Type"] == "Culture Locale feed")
+                    ]["Azote_alloue"].sum()
+                    azote_alloue_food = allocations_df[
+                        (allocations_df["Culture"] == culture) & (allocations_df["Type"] == "Culture Locale food")
+                    ]["Azote_alloue"].sum()
+                    df_cultures.loc[idx, "Azote disponible après feed et food"] = row["Azote disponible"] - azote_alloue
+                    df_cultures.loc[idx, "Azote feed"] = azote_alloue_feed
+                    df_cultures.loc[idx, "Azote food"] = azote_alloue_food
                 # Correction des valeurs proches de zéro
-                df_cultures["Azote disponible après feed"] = df_cultures["Azote disponible après feed"].apply(
-                    lambda x: 0 if abs(x) < 1e-6 else x
-                )
+                df_cultures["Azote disponible après feed et food"] = df_cultures[
+                    "Azote disponible après feed et food"
+                ].apply(lambda x: 0 if abs(x) < 1e-6 else x)
+                df_cultures["Azote feed"] = df_cultures["Azote feed"].apply(lambda x: 0 if abs(x) < 1e-6 else x)
+                df_cultures["Azote food"] = df_cultures["Azote food"].apply(lambda x: 0 if abs(x) < 1e-6 else x)
 
                 # Mise à jour de df_elevage
                 # Calcul de l'azote total alloué à chaque élevage
                 azote_alloue_elevage = (
-                    allocations_df.groupby(["Elevage", "Type"])["Azote_alloue"].sum().unstack(fill_value=0)
+                    allocations_df.groupby(["Consommateur", "Type"])["Azote_alloue"].sum().unstack(fill_value=0)
                 )
+
+                # Sélectionner uniquement les élevages (présents dans la liste `betail`)
+                azote_alloue_elevage = azote_alloue_elevage.loc[
+                    azote_alloue_elevage.index.get_level_values("Consommateur").isin(betail)
+                ]
 
                 # Ajouter les colonnes d'azote alloué dans df_elevage
                 df_elevage.loc[:, "Azote alloué cultures locales"] = df_elevage.index.map(
-                    azote_alloue_elevage.get("Culture Locale", pd.Series(0, index=df_elevage.index))
+                    azote_alloue_elevage.get("Culture Locale feed", pd.Series(0, index=df_elevage.index))
                 )
                 df_elevage.loc[:, "Azote alloué importé"] = df_elevage.index.map(
-                    lambda elevage: azote_alloue_elevage.get("Importation", pd.Series(0, index=df_elevage.index)).get(
-                        elevage, 0
-                    )
-                    + azote_alloue_elevage.get("Importation excedentaire", pd.Series(0, index=df_elevage.index)).get(
-                        elevage, 0
-                    )
+                    lambda elevage: azote_alloue_elevage.get(
+                        "Importation feed", pd.Series(0, index=df_elevage.index)
+                    ).get(elevage, 0)
+                    + azote_alloue_elevage.get(
+                        "Importation excedentaire feed", pd.Series(0, index=df_elevage.index)
+                    ).get(elevage, 0)
                 )
                 # df_elevage['Azote alloué importations'] = df_elevage.index.map(azote_alloue_elevage['Importation'])
 
                 # Génération des flux pour les cultures locales
-                allocations_locales = allocations_df[allocations_df["Type"] == "Culture Locale"]
+                allocations_locales = allocations_df[
+                    allocations_df["Type"].isin(["Culture Locale food", "Culture Locale feed"])
+                ]
 
-                for elevage in df_elevage.index:
-                    target = {elevage: 1}
+                for cons in df_cons_vege.index:
+                    target = {cons: 1}
                     source = (
-                        allocations_locales[allocations_locales["Elevage"] == elevage]
+                        allocations_locales[allocations_locales["Consommateur"] == cons]
                         .set_index("Culture")["Azote_alloue"]
                         .to_dict()
                     )
@@ -1433,17 +1627,19 @@ class NitrogenFlowModel:
 
                 # Génération des flux pour les importations
                 allocations_imports = allocations_df[
-                    allocations_df["Type"].isin(["Importation", "Importation excedentaire"])
+                    allocations_df["Type"].isin(
+                        ["Importation feed", "Importation food", "Importation excedentaire feed"]
+                    )
                 ]
 
-                for elevage in df_elevage.index:
-                    target = {elevage: 1}
-                    elevage_imports = allocations_imports[allocations_imports["Elevage"] == elevage]
+                for cons in df_cons_vege.index:
+                    target = {cons: 1}
+                    cons_vege_imports = allocations_imports[allocations_imports["Consommateur"] == cons]
 
                     # Initialisation d'un dictionnaire pour collecter les flux par catégorie
                     flux = {}
 
-                    for _, row in elevage_imports.iterrows():
+                    for _, row in cons_vege_imports.iterrows():
                         culture = row["Culture"]
                         azote_alloue = row["Azote_alloue"]
 
@@ -1451,7 +1647,10 @@ class NitrogenFlowModel:
                         categorie = df_cultures.loc[culture, "catégories"]
 
                         # Construction du label source pour l'importation
-                        label_source = f"{categorie} feed trade"
+                        if cons in ["urban", "rural"]:
+                            label_source = f"{categorie} food trade"
+                        else:
+                            label_source = f"{categorie} feed trade"
 
                         # Accumuler les flux par catégorie
                         if label_source in flux:
@@ -1463,7 +1662,7 @@ class NitrogenFlowModel:
                     if sum(flux.values()) > 0:
                         flux_generator.generate_flux(flux, target)
 
-                # Gestion de l'azote importé non utilisé
+                # Gestion de l'azote importé non utilisé #TODO à redefinir !
                 unused_imports = import_feed_net_tot - import_feed_net
 
                 if unused_imports > 10**-6:
@@ -1476,12 +1675,12 @@ class NitrogenFlowModel:
 
                             # Calculer la quantité inutilisée par catégorie proportionnellement aux catégories présentes dans df_cultures
                             total_per_categorie = df_cultures[df_cultures["catégories"] == categorie][
-                                "Azote disponible après feed"
+                                "Azote disponible après feed et food"
                             ].sum()
 
                             if total_per_categorie > 0:
                                 flux_unused[label_source] = unused_imports * (
-                                    total_per_categorie / df_cultures["Azote disponible après feed"].sum()
+                                    total_per_categorie / df_cultures["Azote disponible après feed et food"].sum()
                                 )
 
                     # Générer des flux pour rediriger les importations inutilisées vers leur catégorie d'origine
@@ -1492,7 +1691,7 @@ class NitrogenFlowModel:
                             flux_generator.generate_flux(source, target)
 
         else:
-            df_cultures["Azote disponible après feed"] = df_cultures["Azote disponible"]
+            df_cultures["Azote disponible après feed et food"] = df_cultures["Azote disponible"]
 
         ## Exportation de feed
 
@@ -1501,9 +1700,9 @@ class NitrogenFlowModel:
         # On veut -export_feed + import_feed = import_feed_net_tot
 
         import_excedent_feed = lpSum(
-            E_vars[(elevage, culture)].varValue
-            for elevage in df_elevage.index
-            for culture in all_cultures_regime_elevage[elevage]
+            E_vars_feed[(cons, culture)].varValue
+            for cons in df_cons_vege.index[:-2]
+            for culture in all_cultures_regime[cons]
         )
 
         # On redonne à df_elevage sa forme d'origine et à import_feed_net sa vraie valeur
@@ -1535,7 +1734,7 @@ class NitrogenFlowModel:
             ]
 
             # Calcul de l'azote disponible dans les cultures prioritaires
-            total_N_export_prio = df_cultures.loc[export_prioritaire, "Azote disponible après feed"].sum()
+            total_N_export_prio = df_cultures.loc[export_prioritaire]["Azote disponible après feed et food"].sum()
 
             # Initialisation du dictionnaire source
             source = {}
@@ -1544,22 +1743,23 @@ class NitrogenFlowModel:
             if export_feed.value() <= total_N_export_prio:
                 # Distribution proportionnelle parmi les cultures prioritaires
                 for culture in export_prioritaire:
-                    azote_disponible = df_cultures.at[culture, "Azote disponible après feed"]
+                    azote_disponible = df_cultures.at[culture, "Azote disponible après feed et food"]
                     proportion = azote_disponible / total_N_export_prio
                     source[culture] = proportion * export_feed.value()
             else:
                 # Exporter tout l'azote disponible des cultures prioritaires
                 for culture in export_prioritaire:
-                    source[culture] = df_cultures.at[culture, "Azote disponible après feed"]
+                    source[culture] = df_cultures.at[culture, "Azote disponible après feed et food"]
 
                 # Calcul de l'azote restant à exporter
                 azote_restant = export_feed.value() - total_N_export_prio
 
                 # Récupération des cultures utilisées dans le régime d'élevage, excluant les cultures déjà exportées
                 cultures_regime = set()
-                for elevage in regime_elevage.values():
-                    for cultures_liste in elevage.values():
-                        cultures_regime.update(cultures_liste)
+                for elevage, listes in regimes.items():
+                    if elevage not in ["rural", "urban"]:
+                        for cultures_liste in listes.values():
+                            cultures_regime.update(cultures_liste)
 
                 # Cultures supplémentaires à considérer pour l'exportation
                 cultures_supplementaires = list(
@@ -1567,19 +1767,21 @@ class NitrogenFlowModel:
                 )
 
                 # Calcul de l'azote disponible dans les cultures supplémentaires
-                total_N_cultures_supp = df_cultures.loc[cultures_supplementaires, "Azote disponible après feed"].sum()
+                total_N_cultures_supp = df_cultures.loc[
+                    cultures_supplementaires, "Azote disponible après feed et food"
+                ].sum()
 
                 # Vérification si l'azote restant est inférieur ou égal à l'azote disponible dans les cultures supplémentaires
                 if azote_restant <= total_N_cultures_supp:
                     # Distribution proportionnelle parmi les cultures supplémentaires
                     for culture in cultures_supplementaires:
-                        azote_disponible = df_cultures.at[culture, "Azote disponible après feed"]
+                        azote_disponible = df_cultures.at[culture, "Azote disponible après feed et food"]
                         proportion = azote_disponible / total_N_cultures_supp
                         source[culture] = proportion * azote_restant
                 else:
                     # Exporter tout l'azote disponible des cultures supplémentaires
                     for culture in cultures_supplementaires:
-                        source[culture] = df_cultures.at[culture, "Azote disponible après feed"]
+                        source[culture] = df_cultures.at[culture, "Azote disponible après feed et food"]
 
                     # Mise à jour de l'azote restant à exporter
                     azote_restant -= total_N_cultures_supp
@@ -1590,20 +1792,20 @@ class NitrogenFlowModel:
                             source.keys()
                         )  # TODO retirer les catégories non commestibles par les animaux (rice, roots, fruits and ..)
                         total_N_cultures_restantes = df_cultures.loc[
-                            cultures_restantes, "Azote disponible après feed"
+                            cultures_restantes, "Azote disponible après feed et food"
                         ].sum()
 
                         # Vérification si l'azote restant est inférieur ou égal à l'azote disponible dans les cultures restantes
                         if azote_restant <= total_N_cultures_restantes:
                             # Distribution proportionnelle parmi les cultures restantes
                             for culture in cultures_restantes:
-                                azote_disponible = df_cultures.at[culture, "Azote disponible après feed"]
+                                azote_disponible = df_cultures.at[culture, "Azote disponible après feed et food"]
                                 proportion = azote_disponible / total_N_cultures_restantes
                                 source[culture] = azote_disponible * azote_restant / total_N_cultures_restantes
                         else:
                             # Exporter tout l'azote disponible des cultures restantes
                             for culture in cultures_restantes:
-                                source[culture] = df_cultures.at[culture, "Azote disponible après feed"]
+                                source[culture] = df_cultures.at[culture, "Azote disponible après feed et food"]
 
                             # L'azote total exporté est inférieur à l'azote demandé
                             print("Attention : L'azote disponible total est inférieur à l'azote à exporter.")
@@ -1611,8 +1813,8 @@ class NitrogenFlowModel:
             # Mise à jour du DataFrame avec les quantités exportées
             df_cultures["Azote exporté feed"] = df_cultures.index.map(source).fillna(0)
 
-            df_cultures["Azote disponible après feed et export feed"] = (
-                df_cultures["Azote disponible après feed"] - df_cultures["Azote exporté feed"]
+            df_cultures["Azote disponible après feed export feed et food"] = (
+                df_cultures["Azote disponible après feed et food"] - df_cultures["Azote exporté feed"]
             )
             # Générer des flux par catégorie
             # flux = {}
@@ -1631,305 +1833,11 @@ class NitrogenFlowModel:
 
         if export_feed.value() == 0:
             df_cultures["Azote exporté feed"] = 0
-            df_cultures["Azote disponible après feed et export feed"] = df_cultures["Azote disponible après feed"]
+            df_cultures["Azote disponible après feed export feed et food"] = df_cultures[
+                "Azote disponible après feed et food"
+            ]
 
-        ## Usage de l'azote végétal pour nourrir la population
-        # Importation si nécessaire
-
-        vege_cap = data[data["index_excel"] == 9][region].item()
-        cons_vege = vege_cap * pop
-
-        categories_presentes = df_cultures["catégories"].unique()
-
-        # Initialisation du problème
-        prob = LpProblem("Allocation_Azote_Humains", LpMinimize)
-
-        # Variables d'allocation de l'azote des cultures aux humains
-        y_vars = LpVariable.dicts("y", df_cultures.index, lowBound=0, cat=LpContinuous)
-
-        # Variables de déviation du régime alimentaire humain
-        delta_vars = LpVariable.dicts("delta_humain", regime_humains.keys(), lowBound=0, cat=LpContinuous)
-
-        # Variables d'importation pour chaque catégorie
-        I_vars = LpVariable.dicts("Import", regime_humains.keys(), lowBound=0, cat=LpContinuous)
-
-        # Variables de pénalité pour la répartition des cultures
-        penalite_culture_vars = LpVariable.dicts("penalite_culture", df_cultures.index, lowBound=0, cat=LpContinuous)
-
-        # Poids pour les pénalités
-        poids_deviation = 10
-        if int(year) > 1960:
-            poids_import = 0.05  # Ajustez selon les préférences => Aucune restriction à importer (sinon le riz passe à la trappe...)
-        else:
-            poids_import = 1000000  # Pas d'importation ou subsidiaire avant les années 60
-        poids_penalite_culture = 1.0  # Ajustez selon les préférences
-
-        # Fonction objectif
-        prob += (
-            (
-                poids_deviation * lpSum(delta_vars[k] for k in regime_humains.keys())
-                + poids_import * lpSum(I_vars[k] for k in regime_humains.keys())
-                + poids_penalite_culture * lpSum(penalite_culture_vars[c] for c in df_cultures.index)
-            ),
-            "Minimiser_Deviations_Importations_PenalitesCultures",
-        )
-
-        for idx, row in df_cultures.iterrows():
-            culture = row.name
-            azote_restant = row["Azote disponible après feed et export feed"]
-            prob += y_vars[culture] <= azote_restant, f"Disponibilite_{culture}"
-
-        for k in regime_humains.keys():
-            # Somme des allocations pour la catégorie k
-            cultures_k = df_cultures[df_cultures["catégories"] == k].index
-            allocation_categorie = lpSum(y_vars[c] for c in cultures_k)
-            proportion_effective = (allocation_categorie + I_vars[k]) / cons_vege
-            proportion_initiale = regime_humains[k]
-            # Contraintes de déviation
-            prob += proportion_effective - proportion_initiale <= delta_vars[k], f"Deviation_Plus_{k}"
-            prob += proportion_initiale - proportion_effective <= delta_vars[k], f"Deviation_Moins_{k}"
-
-        for k in regime_humains.keys():
-            # Cultures disponibles dans la catégorie k
-            cultures_k = df_cultures[df_cultures["catégories"] == k].index
-            # Azote total disponible dans la catégorie k
-            azote_total_categorie = df_cultures[df_cultures["catégories"] == k][
-                "Azote disponible après feed et export feed"
-            ].sum()
-            # Allocation totale à la catégorie k (incluant importations)
-            allocation_categorie = lpSum(y_vars[c] for c in cultures_k) + I_vars[k]
-            if azote_total_categorie > 0:
-                for c in cultures_k:
-                    azote_disponible_culture = df_cultures[df_cultures.index == c][
-                        "Azote disponible après feed et export feed"
-                    ].values[0]
-                    # Allocation cible proportionnelle à la disponibilité
-                    allocation_cible_culture = (
-                        (azote_disponible_culture / azote_total_categorie) * allocation_categorie
-                        if azote_total_categorie > 0
-                        else 0
-                    )
-                    # Contraintes de pénalité
-                    prob += (
-                        y_vars[c] - allocation_cible_culture <= penalite_culture_vars[c],
-                        f"Penalite_Culture_Plus_{c}",
-                    )
-                    prob += (
-                        allocation_cible_culture - y_vars[c] <= penalite_culture_vars[c],
-                        f"Penalite_Culture_Moins_{c}",
-                    )
-            else:
-                pass
-
-        # Supposons que nous voulons limiter la consommation de 'Carottes' à 5% du besoin total
-        # max_carottes = 0.05 * cons_vege
-        # prob += y_vars['Carottes'] <= max_carottes, "Limite_Carottes"
-
-        # Résolution du problème
-        prob.solve()
-
-        if LpStatus[prob.status] == "Optimal":
-            # Extraction des allocations
-            allocations = []
-            for c in df_cultures.index:
-                allocation = y_vars[c].varValue
-                if allocation > 0:
-                    allocations.append({"Culture": c, "Consommation humaine": allocation})
-            allocations_df = pd.DataFrame(allocations)
-
-            # Filtrer les lignes en supprimant celles dont 'Azote_alloue' est très proche de zéro
-            allocations_df = allocations_df[allocations_df["Consommation humaine"].abs() >= 1e-7]
-
-            self.allocation_humain = allocations_df
-
-            # Importations nécessaires
-            importations = []
-            for k in regime_humains.keys():
-                importation = I_vars[k].varValue
-                if importation > 0:
-                    importations.append({"Catégorie": k, "Azote_importe": importation})
-            importations_df = pd.DataFrame(importations)
-            # Gestion du cas particulier sans importation
-            if importations == []:
-                importations_df = pd.DataFrame(importations, columns=["Catégorie", "Azote_importe"])
-                df_cultures["Azote importé"] = 0.0
-
-            # Extraction des déviations
-            deviations = []
-            for categorie, proportion_initiale in regime_humains.items():
-                deviation = delta_vars[categorie].varValue
-                if deviation != 0:
-                    # Calcul de la proportion effective
-                    azote_categorie = (
-                        sum(
-                            y_vars[culture].varValue
-                            for culture in df_cultures[df_cultures["catégories"] == categorie].index
-                        )
-                        + I_vars[categorie].varValue
-                    )
-                    besoin_total = (
-                        sum(y_vars[c].varValue for c in df_cultures.index) + importations_df["Azote_importe"].sum()
-                    )
-
-                    proportion_effective = azote_categorie / besoin_total if besoin_total > 0 else 0
-
-                    # Déterminer le signe
-                    signe = 1 if proportion_effective > proportion_initiale else -1
-
-                    # Récupérer les cultures de la catégorie
-                    cultures_str = ", ".join(df_cultures[df_cultures["catégories"] == categorie].index)
-
-                    deviations.append(
-                        {
-                            "Catégorie": categorie,
-                            "Proportion attendue (%)": proportion_initiale * 100,
-                            "Déviation (%)": signe * round(deviation, 4) * 100,  # Convertir en pourcentage
-                            "Cultures": cultures_str,
-                        }
-                    )
-
-            deviations_df = pd.DataFrame(deviations)
-        else:
-            print("Aucune solution optimale n'a été trouvée.")
-
-        allocations_df.set_index("Culture", inplace=True)
-        importations_df.set_index("Catégorie", inplace=True)
-        if "Consommation humaine" in df_cultures.columns:
-            df_cultures.drop("Consommation humaine", axis=1, inplace=True)
-        df_cultures = df_cultures.join(allocations_df, how="left")
-
-        df_cultures["Consommation humaine"] = df_cultures["Consommation humaine"].fillna(0)
-
-        source = df_cultures["Consommation humaine"].to_dict()
-        target = {"urban": prop_urb, "rural": 1 - prop_urb}
-        flux_generator.generate_flux(source, target)
-
-        # Puis on importe le manque
-        if len(importations_df) > 0:
-            if int(year) >= 1965:
-                cons_vege_import = importations_df["Azote_importe"].sum()
-                commerce_path = "C:/Users/faustega/Documents/These/informatique/Donnees/metabolisme/commerce FAO/FAOSTAT_data_fr_vege_import.csv"
-                commerce = pd.read_csv(commerce_path)
-                commerce = commerce.loc[commerce["Année"] == int(year), ["Produit", "Valeur"]]
-                # On utilise le sarrasin pour autres céréales
-                # Huile de palme pour autres huiles
-                # Lentilles pour autres proteins crops (lupins indisponible)
-                # Carottes et navets pour autres racines
-                # Fruit sec: amandes
-                # Poids frais pour green peas
-                # pois chiche sec pour dry vegetable
-                # Laitues et chicorée pour leaves vege
-                # Olive = olives + huile d'olive
-                # blé = blé + farine de blé
-                # banane pour fruits
-                corresp_dict = {
-                    "Amandes, écalées": "Dry fruits",
-                    "Avoine laminée": "Oat",
-                    "Bananes": "Fruits",
-                    "Blé": "Wheat",
-                    "Cantaloup et autres melons": "Squash and melons",
-                    "Carottes et navets": "Other roots",
-                    "Choux": "Cabbage",
-                    "Citrons et limes": "Citrus",
-                    "Farine de blé et de méteil": "Wheat",  # Regroupé avec "blé"
-                    "Fèves et féveroles, sèches": "Horse beans and faba beans",
-                    "Graines de lin": "Flax",
-                    "Haricots secs": "Dry beans",
-                    "Huile de colza ou de canola, brute": "Rapeseed",
-                    "Huile de graines de tournesol, brute": "Sunflower",
-                    "Huile de palme": "Other oil crops",  # Règle spéciale pour huile de palme
-                    "Huile d'olives": "Olives",  # Regroupé avec "Olives"
-                    "Laitue et chicorée": "Leaves vegetables",
-                    "Lentilles secs": "Other protein crops",
-                    "Maïs": "Grain maize",
-                    "Olives": "Olives",  # Regroupé avec "Huile d'olives"
-                    "Orge": "Barley",
-                    "Pois chiches, secs": "Dry vegetables",  # Pois chiches secs = dry vegetables
-                    "Pois frais": "Green peas",  # Pois frais = green peas
-                    "Pois secs": "Peas",
-                    "Pommes de terre": "Potatoes",
-                    "Riz, paddy (riz blanchi équivalent)": "Rice",
-                    "Sarrasin, blé noir": "Other cereals",  # Utilisé pour "autres céréales"
-                    "Seigle": "Rye",
-                    "Fèves de soja": "Soybean",
-                    "Sucre de betterave ou de canne brut (centrifugé uniquement)": "Sugar beet",
-                }
-
-                commerce["Produit"] = commerce["Produit"].map(corresp_dict).fillna(commerce["Produit"])
-                commerce.index = commerce["Produit"]
-                commerce = commerce.groupby(commerce.index).sum()
-                commerce["catégories"] = commerce.index.map(categories_mapping)
-
-                # On distribue au sein de chaque catégorie les besoins d'importation
-                df_cultures["Azote importé"] = 0.0
-                for categories in importations_df.index:
-                    cat_commerce = commerce.loc[commerce["catégories"] == categories].copy()
-                    cat_commerce["Ratio"] = (cat_commerce["Valeur"] / cat_commerce["Valeur"].sum()).astype(float)
-                    # TODO on en fait quoi de ça ??
-                    # target = {"urbain": prop_urb, "rural": 1-prop_urb}
-                    # source = (cat_commerce["Ratio"]*importations_df.loc[importations_df.index==categories, "Azote_importe"].item()).to_dict()
-                    # generateur_flux(source, target, adjacency_matrix, label_to_index)
-                    azote_importe = importations_df.loc[importations_df.index == categories, "Azote_importe"].item()
-                    df_cultures.loc[cat_commerce.index, "Azote importé"] += cat_commerce["Ratio"] * azote_importe
-                    # df_cultures["Azote importé"] += cat_commerce["Ratio"]*importations_df.loc[importations_df.index==categories, "Azote_importe"].item()
-                df_cultures["Azote importé"] = df_cultures["Azote importé"].fillna(0)
-            else:
-                import_ancien = {
-                    "cereals (excluding rice)": "Wheat",
-                    "rice": "Rice",
-                    "oleaginous": "tournesol",
-                    "leguminous": "Other oil crops",
-                    "roots": "Potatoes",
-                    "fruits and vegetables": "Leaves vegetables",
-                }
-                for categories in importations_df.index:
-                    azote_importe = importations_df.loc[importations_df.index == categories, "Azote_importe"].item()
-                    df_cultures["Azote importé"][import_ancien[categories]] = azote_importe
-                df_cultures["Azote importé"] = df_cultures["Azote importé"].fillna(0)
-
-        # Calculer l'azote exporté net
-        df_cultures["Azote exporté net"] = (
-            df_cultures["Azote disponible après feed et export feed"]
-            - df_cultures["Consommation humaine"]
-            - df_cultures["Azote importé"]
-        )
-        # On corrige les poussières proches de 0
-        df_cultures["Azote exporté net"] = df_cultures["Azote exporté net"].apply(lambda x: 0 if abs(x) < 10**-6 else x)
-
-        # Gestion des exports
-        flux_exports = {}
-        for culture, azote_exporte in df_cultures[df_cultures["Azote exporté net"] > 0]["Azote exporté net"].items():
-            categorie = df_cultures.loc[culture, "catégories"]
-            if categorie not in ["forages", "grasslands"]:
-                label_target = f"{categorie} food trade"
-                flux_exports[label_target] = flux_exports.get(label_target, 0) + azote_exporte
-
-        # Envoi des flux d'exportation par catégorie
-        for label_target, flux_value in flux_exports.items():
-            if flux_value > 0:
-                source = {
-                    culture: df_cultures.loc[culture, "Azote exporté net"]
-                    for culture in df_cultures.index
-                    if df_cultures.loc[culture, "catégories"].split()[0] == label_target.split()[0]
-                    and df_cultures.loc[culture, "Azote exporté net"] > 0
-                }
-                target = {label_target: 1}
-                flux_generator.generate_flux(source, target)
-
-        # Gestion des imports
-        flux_imports = {}
-        for culture, azote_importe in df_cultures[df_cultures["Azote importé"] > 0]["Azote importé"].items():
-            categorie = df_cultures.loc[culture, "catégories"]
-            if categorie not in ["forages", "grasslands"]:
-                label_source = f"{categorie} food trade"
-                flux_imports[label_source] = flux_imports.get(label_source, 0) + azote_importe
-
-        # Envoi des flux d'importation par catégorie
-        for label_source, flux_value in flux_imports.items():
-            if flux_value > 0:
-                source = {label_source: flux_value}
-                target = {"urban": prop_urb, "rural": 1 - prop_urb}
-                flux_generator.generate_flux(source, target)
+        # TODO import/export food à faire ici
 
         ## Usage de l'azote animal pour nourir la population, on pourrait améliorer en distinguant viande, oeufs et lait
 
@@ -2006,20 +1914,29 @@ class NitrogenFlowModel:
             elif imbalance < 0:
                 # Plus d'entrées que de sorties, on augmente les sorties
                 # adjacency_matrix[node_index, n] = -imbalance  # Flux de la culture vers le nœud de balance
-                if label != "Nartural meadow ":  # 70% de l'excès fini dans les ecosystèmes aquatiques
+                if label != "Natural meadow ":  # 70% de l'excès fini dans les ecosystèmes aquatiques
                     source = {label: -imbalance}
                     target = {"other losses": 0.2925, "hydro-system": 0.7, "N2O emission": 0.0075}
-                elif (
-                    imbalance * 10**6 / df_cultures[label]["Surface"] > 100
-                ):  # Si c'est une prairie, l'azote est lessivé seulement au dela de 100 kgN/ha
-                    source = {label: -imbalance - 100 * df_cultures[label]["Surface"] / 10**6}
-                    target = {"other losses": 0.2925, "hydro-system": 0.7, "N20 emission": 0.0075}
-                    flux_generator.generate_flux(source, target)
-                    source = {label: 100 * df_cultures[label]["Surface"] / 10**6}
-                    target = {label: 1}
-                else:  # Autrement, l'azote reste dans le sol (cas particulier, est ce que cela a du sens, quid des autres cultures ?)
-                    source = {label: -imbalance}
-                    target = {"soil stock": 1}
+                else:
+                    if (
+                        imbalance * 10**6 / df_cultures.loc[df_cultures.index == "Natural meadow ", "Surface"].item()
+                        > 100
+                    ):  # Si c'est une prairie, l'azote est lessivé seulement au dela de 100 kgN/ha
+                        source = {
+                            label: -imbalance
+                            - 100 * df_cultures.loc[df_cultures.index == "Natural meadow ", "Surface"].item() / 10**6
+                        }
+                        target = {"other losses": 0.2925, "hydro-system": 0.7, "N20 emission": 0.0075}
+                        flux_generator.generate_flux(source, target)
+                        source = {
+                            label: 100
+                            * df_cultures.loc[df_cultures.index == "Natural meadow ", "Surface"].item()
+                            / 10**6
+                        }
+                        target = {label: 1}
+                    else:  # Autrement, l'azote reste dans le sol (cas particulier, est ce que cela a du sens, quid des autres cultures ?)
+                        source = {label: -imbalance}
+                        target = {"soil stock": 1}
                 flux_generator.generate_flux(source, target)
             # Si imbalance == 0, aucun ajustement nécessaire
 
@@ -2049,11 +1966,11 @@ class NitrogenFlowModel:
     def get_df_elevage(self):
         return self.df_elevage
 
-    def get_allocation_elevage(self):
-        return self.allocation_elevage
+    # def get_allocation_elevage(self):
+    #     return self.allocation_elevage
 
-    def get_allocation_humain(self):
-        return self.allocation_humain
+    # def get_allocation_humain(self):
+    #     return self.allocation_humain
 
     def get_transition_matrix(self):
         return self.adjacency_matrix
@@ -2103,13 +2020,13 @@ class NitrogenFlowModel:
         return B, C
 
 
-# # Créer une instance du modèle
+# Créer une instance du modèle
 # year = "2010"
-# region = "Picardie"
+# region = "Bretagne"
 # data = DataLoader()
 
 # nitrogen_model = NitrogenFlowModel(
-#     data = data,
+#     data=data,
 #     year=year,
 #     region=region,
 #     categories_mapping=categories_mapping,
@@ -2119,7 +2036,7 @@ class NitrogenFlowModel:
 #     prairies=prairies,
 #     betail=betail,
 #     Pop=Pop,
-#     ext=ext
+#     ext=ext,
 # )
 
 # # Calculer les flux
