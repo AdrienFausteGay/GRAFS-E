@@ -514,7 +514,7 @@ class NitrogenFlowModel:
         flux_generator.generate_flux(source_boue, target_ependage)
 
         # Le reste est perdu dans l'environnement
-        # Ajouter les fuites de NO2
+        # Ajouter les fuites de N2O
         source = {"urban": N_boue * prop_urb * FE_N_N02_em, "rural": N_boue * (1 - prop_urb) * FE_N_N02_em}
         target = {"N2O emission": 1}
         flux_generator.generate_flux(source, target)
@@ -1844,6 +1844,7 @@ class NitrogenFlowModel:
         viande_cap = data[data["index_excel"] == 10][region].item()
         cons_viande = viande_cap * pop
 
+        # Reflechir a considerer un regime alimentaire carne (national) apres 1960
         if cons_viande < df_elevage["Azote comestible"].sum():  # Il y a assez de viande locale
             target = {"urban": prop_urb * cons_viande, "rural": (1 - prop_urb) * cons_viande}
             source = (df_elevage["Azote comestible"] / df_elevage["Azote comestible"].sum()).to_dict()
@@ -1916,6 +1917,7 @@ class NitrogenFlowModel:
                 # adjacency_matrix[node_index, n] = -imbalance  # Flux de la culture vers le nœud de balance
                 if label != "Natural meadow ":  # 70% de l'excès fini dans les ecosystèmes aquatiques
                     source = {label: -imbalance}
+                    # Ajouter soil stock parmis les surplus de fertilisation.
                     target = {"other losses": 0.2925, "hydro-system": 0.7, "N2O emission": 0.0075}
                 else:
                     if (
@@ -1945,7 +1947,7 @@ class NitrogenFlowModel:
             df_cultures["Azote à épendre (ktN) corrigé"]
             + df_cultures["Azote épendu"]
             + df_cultures["heritage legumineuse"]
-            - df_cultures["Surplus Azote leg"]
+            - df_cultures["Surplus Azote leg"]  # Attention !
             - df_cultures["Azote disponible"]
             - df_cultures["Azote Volatilisé N-NH3 (ktN)"]
             - df_cultures["Azote émit N-N2O (ktN)"]
