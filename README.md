@@ -44,9 +44,15 @@ To replicate the results or analyze other regions using the GRAFS-extended model
 
 This model requires regional data on crops, livestock, population, and nitrogen-related variables, which are typically available from national databases.
 
+## Quick-start
+
+In order to generate the GUI and use the model, you need to [install the `uv` Python project manager](https://docs.astral.sh/uv/getting-started/installation/), run `uv sync` within the project folder, and then run the script `visualisation.py` in the created virtual python environment (the executable `./.venv/bin/python`, if your IDE does not select it automatically).
+
 ## License
 
 This project is licensed under the GNU General Public License v3.0 (GPL-3.0). See the LICENSE file for details.
 Contact
 
 For any questions or contributions, feel free to reach out to Adrien Fauste-Gay at [adrien.fauste-gay@univ-grenoble-alpes.fr].
+
+
