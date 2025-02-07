@@ -96,7 +96,11 @@ with tab1:
 
         # Ajouter l'image avec les bonnes proportions
         image_overlay = folium.raster_layers.ImageOverlay(
-            image=image_path, bounds=bounds, opacity=1, interactive=True, cross_origin=False
+            image=image_path,
+            bounds=bounds,
+            opacity=1,
+            interactive=True,
+            cross_origin=False,
         )
         image_overlay.add_to(m)
 
@@ -192,7 +196,7 @@ with tab2:
     # 🔹 Charger les données GeoJSON avec cache
     @st.cache_data
     def load_geojson():
-        with open(geojson_path, "r") as f:
+        with open(geojson_path, "r", encoding="utf-8") as f:
             return json.load(f)
 
     # 🔹 Création de la carte avec ou sans fond de carte
@@ -207,8 +211,12 @@ with tab2:
         if online:
             m = folium.Map(location=map_center, zoom_start=6)
         else:
-            st.warning("⚠️ No Internet connection detected. The map will be displayed without background tiles.")
-            m = folium.Map(location=map_center, zoom_start=6, tiles=None)  # Pas de fond de carte
+            st.warning(
+                "⚠️ No Internet connection detected. The map will be displayed without background tiles."
+            )
+            m = folium.Map(
+                location=map_center, zoom_start=6, tiles=None
+            )  # Pas de fond de carte
 
         # Style des régions survolées
         def on_click(feature):
@@ -265,14 +273,16 @@ with tab2:
     else:
         st.warning("⚠️ Veuillez sélectionner une année")
 
+    # 🟢 Fonction pour générer la heatmap et éviter les recalculs inutiles
+    @st.cache_data
+    def generate_heatmap(_model):
+        return _model.plot_heatmap_interactive()
+
     # 🔹 Bouton "Run" avec les valeurs mises à jour
     if st.button("Run"):
         if st.session_state.selected_region and st.session_state.year:
-            # Charger les données avec les valeurs mises à jour
-            # data = DataLoader(st.session_state.year, st.session_state.selected_region)
-
             # Initialiser le modèle avec les paramètres
-            model = NitrogenFlowModel(
+            st.session_state.model = NitrogenFlowModel(
                 data=data,
                 year=st.session_state.year,
                 region=st.session_state.selected_region,
@@ -286,18 +296,21 @@ with tab2:
                 ext=ext,
             )
 
-            st.session_state["model"] = model
+            # st.session_state["model"] = model
 
-            # Afficher la heatmap interactive
-            st.subheader(
-                f"Heatmap of the nitrogen flows for {st.session_state.selected_region} in {st.session_state.year}   \n"
-            )
-            heatmap_fig = model.plot_heatmap_interactive()
-            st.plotly_chart(heatmap_fig, use_container_width=True)
+            # ✅ Générer la heatmap et la stocker
+            st.session_state.heatmap_fig = generate_heatmap(st.session_state.model)
         else:
             st.warning(
-                "❌ Veuillez sélectionner une année et une région avant de lancer l'analyse."
+                "❌ Please select a year and a region before running the analysis."
             )
+
+    # 🔹 Indépendance de l'affichage de la heatmap 🔹
+    if "heatmap_fig" in st.session_state:
+        st.subheader(
+            f"Heatmap of the nitrogen flows for {st.session_state.selected_region} in {st.session_state.year}"
+        )
+        st.plotly_chart(st.session_state.heatmap_fig, use_container_width=True)
 
 with tab3:
     st.title("Sankey")
