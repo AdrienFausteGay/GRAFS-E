@@ -1,6 +1,7 @@
 # %%
 import json
 import os
+from importlib.metadata import version
 
 import folium
 import requests
@@ -23,8 +24,9 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 
 geojson_path = os.path.join(DATA_DIR, "contour-GRAFS.geojson")
 image_path = os.path.join(DATA_DIR, "metabolism.png")
+icon_path = os.path.join(DATA_DIR, "logo.jpg")
 
-st.set_page_config(page_title="GRAFS-E App")  # , layout="wide")
+st.set_page_config(page_title="GRAFS-E App", page_icon=icon_path)  # , layout="wide")
 
 
 # Charger les données
@@ -42,6 +44,8 @@ data = st.session_state["data"]
 # %%
 # Initialisation de l'interface Streamlit
 st.title("GRAFS-E")
+__version__ = version("grafs_e")
+st.write(f"📦 GRAFS-E version: {__version__}")
 st.title("Nitrogen Flow Simulation Model: A Territorial Ecology Approach")
 
 # 🔹 Initialiser les valeurs dans session_state si elles ne sont pas encore définies

@@ -3,6 +3,18 @@ import sys
 
 import streamlit.web.cli
 
+# Déterminer le chemin du fichier de config Streamlit
+config_dir = os.path.expanduser("~/.streamlit")
+config_path = os.path.join(config_dir, "config.toml")
+
+# Vérifier si le dossier ~/.streamlit existe, sinon le créer
+if not os.path.exists(config_dir):
+    os.makedirs(config_dir)
+
+# Écrire ou modifier le fichier config.toml pour imposer le dark mode
+with open(config_path, "w") as config_file:
+    config_file.write("[theme]\nbase='dark'\n")
+
 
 def run():
     """Lance Streamlit en utilisant le package installé"""
