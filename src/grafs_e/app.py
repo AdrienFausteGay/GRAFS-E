@@ -3,6 +3,7 @@ import json
 import os
 
 import folium
+import requests
 import streamlit as st
 from PIL import Image
 from streamlit_folium import st_folium
@@ -75,27 +76,38 @@ with tab1:
         "The GRAFS-extended model serves as an advanced tool designed to analyze and map the evolution of nitrogen utilization within agricultural systems, with a particular focus on 33 regions of France from 1852 to 2014. This model builds upon the GRAFS framework developped at IEES and integrates graph theory to provide a detailed analysis of nitrogen flows in agriculture, identifying key patterns, transformations, and structural invariants. The model enables researchers to construct robust prospective scenarios and examine the global structure of nitrogen flows in agricultural ecosystems."
     )
 
-    # Charger l’image et récupérer ses dimensions
-    img = Image.open(image_path)
-    width, height = img.size
+    # 🔹 Mise en cache du chargement de l'image
+    @st.cache_data
+    def load_image():
+        img = Image.open(image_path)
+        width, height = img.size
+        aspect_ratio = width / height  # Calcul du ratio
+        return img, width, height, aspect_ratio
 
-    # Ajuster les bounds en maintenant le rapport hauteur/largeur
-    aspect_ratio = width / height  # Calcul du ratio
+    # 🔹 Création d'une carte avec l'image en cache
+    def create_image_map():
+        img, width, height, aspect_ratio = load_image()
 
-    # Définir les bounds pour garder les proportions
-    bounds = [[-0.5, -0.5 * aspect_ratio], [0.5, 0.5 * aspect_ratio]]
+        # Définir les bounds pour garder les proportions
+        bounds = [[-0.5, -0.5 * aspect_ratio], [0.5, 0.5 * aspect_ratio]]
 
-    # Créer une carte sans fond de carte
-    m = folium.Map(location=[0, 0.3], zoom_start=9.5, zoom_control=True, tiles=None)
+        # Créer une carte sans fond de carte
+        m = folium.Map(location=[0, 0.3], zoom_start=9.5, zoom_control=True, tiles=None)
 
-    # Ajouter l'image avec les bonnes proportions
-    image_overlay = folium.raster_layers.ImageOverlay(
-        image=image_path, bounds=bounds, opacity=1, interactive=True, cross_origin=False
-    )
+        # Ajouter l'image avec les bonnes proportions
+        image_overlay = folium.raster_layers.ImageOverlay(
+            image=image_path, bounds=bounds, opacity=1, interactive=True, cross_origin=False
+        )
+        image_overlay.add_to(m)
 
-    image_overlay.add_to(m)
+        return m
 
-    # Afficher la carte avec l’image zoomable dans Streamlit
+    # 🔹 Affichage de l'image dans Streamlit
+    st.subheader("Metabolism Overview")
+
+    m = create_image_map()  # Création de la carte avec l'image mise en cache
+
+    # 🟢 Affichage de la carte avec Streamlit-Folium
     st_folium(m, width=900, height=600)
 
     st.subheader("Features")
@@ -168,38 +180,66 @@ with tab2:
     st.subheader("Select a year")
     st.session_state.year = st.selectbox("", annees_disponibles, index=0)
 
-    # Charger les données GeoJSON
-    with open(geojson_path, "r") as f:
-        geojson_data = json.load(f)
+    # 🔹 Vérifier la connexion Internet
+    @st.cache_data
+    def is_online():
+        try:
+            requests.get("https://www.google.com", timeout=3)
+            return True
+        except requests.ConnectionError:
+            return False
 
+    # 🔹 Charger les données GeoJSON avec cache
+    @st.cache_data
+    def load_geojson():
+        with open(geojson_path, "r") as f:
+            return json.load(f)
+
+    # 🔹 Création de la carte avec ou sans fond de carte
+    def create_map():
+        geojson_data = load_geojson()  # Charger les données JSON
+        map_center = [48.8566, 2.3522]  # Centre de la carte (ex: Paris)
+
+        # Vérifier la connexion Internet
+        online = is_online()
+
+        # Si Internet est disponible, utiliser un fond de carte normal
+        if online:
+            m = folium.Map(location=map_center, zoom_start=6)
+        else:
+            st.warning("⚠️ No Internet connection detected. The map will be displayed without background tiles.")
+            m = folium.Map(location=map_center, zoom_start=6, tiles=None)  # Pas de fond de carte
+
+        # Style des régions survolées
+        def on_click(feature):
+            return {
+                "fillColor": "#ffaf00",
+                "color": "black",
+                "weight": 2,
+                "fillOpacity": 0.6,
+                "highlight": True,
+            }
+
+        # Ajouter les polygones GeoJSON
+        geo_layer = folium.GeoJson(
+            geojson_data,
+            style_function=lambda feature: {
+                "fillColor": "#0078ff",
+                "color": "black",
+                "weight": 1,
+                "fillOpacity": 0.5,
+            },
+            tooltip=folium.GeoJsonTooltip(fields=["nom"], aliases=["Région :"]),
+            highlight_function=on_click,
+        )
+
+        geo_layer.add_to(m)
+        return m
+
+    # 🔹 Affichage de la carte dans Streamlit
     st.subheader("Select a territory")
-    map_center = [48.8566, 2.3522]  # Centre de la carte (Paris)
-    m = folium.Map(location=map_center, zoom_start=6)
 
-    # Fonction pour modifier le style lorsqu'un territoire est survolé
-    def on_click(feature):
-        return {
-            "fillColor": "#ffaf00",
-            "color": "black",
-            "weight": 2,
-            "fillOpacity": 0.6,
-            "highlight": True,
-        }
-
-    # 🔹 Ajouter les polygones GeoJSON à la carte
-    geo_layer = folium.GeoJson(
-        geojson_data,
-        style_function=lambda feature: {
-            "fillColor": "#0078ff",
-            "color": "black",
-            "weight": 1,
-            "fillOpacity": 0.5,
-        },
-        tooltip=folium.GeoJsonTooltip(fields=["nom"], aliases=["Région :"]),
-        highlight_function=on_click,
-    )
-
-    geo_layer.add_to(m)
+    m = create_map()  # Crée la carte en fonction de l'état de la connexion Internet
 
     # 🟢 Affichage de la carte avec Streamlit-Folium
     map_data = st_folium(m, width=700, height=500)

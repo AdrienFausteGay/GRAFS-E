@@ -302,6 +302,8 @@ node_color = {
         if label in ["Atmospheric deposition"]
         else "purple"
         if label in ["Haber-Bosch", "other sectors"]
+        else "seagreen"
+        if label in ["atmospheric N2"]
         else "gray"  # Default color if the label is not in any of the above categories
     )
     for label in labels
