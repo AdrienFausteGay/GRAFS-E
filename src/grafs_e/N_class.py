@@ -555,7 +555,10 @@ class NitrogenFlowModel:
         production_par_tete_caprins = 1000  # kg/tete vu sur internet
         production_par_tete_ovins = 300  # kg/tete vu sur internet
         df_elevage.loc["ovines", "Azote comestible"] += (
-            data[data["index_excel"] == 1025][region].item()
+            0
+            if (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
+            == 0
+            else data[data["index_excel"] == 1025][region].item()
             * data[data["index_excel"] == 1069][region].item()
             / 100
             * production_par_tete_ovins
@@ -563,7 +566,10 @@ class NitrogenFlowModel:
             / (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
         )  # ajout du lait de brebis
         df_elevage.loc["caprines", "Azote comestible"] += (
-            data[data["index_excel"] == 1025][region].item()
+            0
+            if (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
+            == 0
+            else data[data["index_excel"] == 1025][region].item()
             * data[data["index_excel"] == 1069][region].item()
             / 100
             * production_par_tete_caprins
@@ -1934,6 +1940,14 @@ class NitrogenFlowModel:
             B = B[self.non_zero_rows, :][:]
 
         return B, C
+
+    def imported_nitrogen(self):
+        return self.allocation_vege.loc[
+            self.allocation_vege["Type"].isin(
+                ["Importation food", "Importation feed", "Importation excedentaire feed"]
+            ),
+            "Azote_alloue",
+        ].sum()
 
 
 # Créer une instance du modèle

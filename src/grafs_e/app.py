@@ -3,7 +3,11 @@ import json
 import os
 from importlib.metadata import version
 
+import branca
 import folium
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
+import numpy as np
 import requests
 import streamlit as st
 from PIL import Image
@@ -65,7 +69,7 @@ else:
     st.warning("⚠️ Please select a year")
 
 # -- Sélection des onglets --
-tab1, tab2, tab3, tab4 = st.tabs(["Documentation", "Run", "Sankey", "Detailed data"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Documentation", "Run", "Sankey", "Detailed data", "Map"])
 
 with tab1:
     st.title("Documentation")
@@ -129,6 +133,8 @@ with tab1:
     st.text(
         "Then use 'Sankey' tab to analyse direct input and output flows for each object."
     )
+
+    st.text("Use map tab to display agricultural maps.")
 
     st.subheader("Methods")
 
@@ -418,6 +424,143 @@ with tab4:
         st.subheader("Diet deviations from defined diet")
 
         st.dataframe(model.deviations_df)
+
+
+# 📌 Stocker et récupérer les modèles pour chaque région en cache
+@st.cache_resource
+def run_models_for_all_regions(year, regions, _data_loader):
+    models = {}
+    for region in regions:
+        models[region] = NitrogenFlowModel(
+            data=_data_loader,
+            year=year,
+            region=region,
+            categories_mapping=categories_mapping,
+            labels=labels,
+            cultures=cultures,
+            legumineuses=legumineuses,
+            prairies=prairies,
+            betail=betail,
+            Pop=Pop,
+            ext=ext,
+        )
+    return models
+
+
+# 📌 Calculer et stocker les métriques pour chaque région en cache
+@st.cache_data
+def get_metrics_for_all_regions(_models, metric_name):
+    metric_dict = {"Imported nitrogen": "imported_nitrogen"}
+    metric_function_name = metric_dict[metric_name]
+    metrics = {}
+    for region, model in _models.items():
+        metric_function = getattr(model, metric_function_name, None)
+        if callable(metric_function):
+            metrics[region] = metric_function()
+        else:
+            metrics[region] = None  # Si la méthode n'existe pas, on met None
+    return metrics
+
+
+@st.cache_data
+def get_metric_range(metrics):
+    """Récupère les valeurs min et max de l'indicateur sélectionné."""
+    values = np.array(list(metrics.values()), dtype=np.float64)
+    return np.nanmin(values), np.nanmax(values)  # Ignore les NaN
+
+
+def add_color_legend(m, vmin, vmax, cmap, metric_name):
+    """Ajoute une légende de la colormap à la carte."""
+    colormap = branca.colormap.LinearColormap(
+        vmin=vmin, vmax=vmax, colors=[mcolors.to_hex(cmap(i)) for i in np.linspace(0, 1, 256)]
+    ).to_step(index=np.linspace(vmin, vmax, 25))  # 5 niveaux de couleur
+
+    colormap.caption = str(metric_name)
+    colormap.add_to(m)
+
+
+# 📌 Fonction pour créer la carte et stocker dans `st.session_state`
+@st.cache_resource
+def create_map_with_metrics(geojson_data, metrics, metric_name):
+    map_center = [48.8566, 2.3522]  # Centre (Paris)
+    m = folium.Map(location=map_center, zoom_start=6, tiles="OpenStreetMap")
+
+    for feature in geojson_data["features"]:
+        region_name = feature["properties"]["nom"]
+        metric_value = metrics.get(region_name, None)
+
+        if metric_value is not None:
+            # 📌 Obtenir min et max du metric sélectionné
+            min_val, max_val = get_metric_range(metrics)
+
+            # 📌 Normaliser et mapper les couleurs
+            norm = mcolors.Normalize(vmin=min_val, vmax=max_val)
+            cmap = cm.get_cmap("plasma")  # Utilisation de la colormap "plasma"
+
+            for feature in geojson_data["features"]:
+                region_name = feature["properties"]["nom"]
+                metric_value = metrics.get(region_name, np.nan)  # Valeur de l'indicateur
+
+                if np.isnan(metric_value):  # Si pas de donnée, couleur grise
+                    color = "#CCCCCC"
+                else:
+                    rgba = cmap(norm(metric_value))  # Convertir en RGBA
+                    color = mcolors.to_hex(rgba)  # Convertir en HEX
+
+                # Ajouter le polygone à la carte
+                folium.GeoJson(
+                    feature,
+                    style_function={
+                        "fillColor": color,
+                        "color": "black",
+                        "weight": 1,
+                        "fillOpacity": 0.6,
+                    },
+                    tooltip=folium.Tooltip(f"{region_name}: {metric_value:.2f} ktN/yr"),
+                ).add_to(m)
+    add_color_legend(m, min_val, max_val, cmap, metric_name)
+    return m
+
+
+# 🔹 Assurer la persistance de la carte dans `st.session_state`
+if "map_html" not in st.session_state:
+    st.session_state.map_html = None
+
+with tab5:
+    st.title("Map Configuration")
+
+    # 🟢 Sélection de l'année
+    st.session_state.map_year = st.selectbox("Select a year", annees_disponibles, index=0, key="year_map_selection")
+
+    # 🟢 Sélection de la métrique
+    metric = ["Imported nitrogen"]
+    st.session_state.metric = st.selectbox("Select a metric", metric, index=0, key="metric_selection")
+
+    # 🔹 Bouton "Run"
+    if st.button("Run", key="map_button"):
+        # 📌 Exécuter les modèles et récupérer les métriques
+        models = run_models_for_all_regions(st.session_state.map_year, regions, data)
+        metrics = get_metrics_for_all_regions(models, st.session_state.metric)
+
+        # 📌 Charger le GeoJSON et créer la carte
+        geojson_data = load_geojson()
+
+        @st.cache_resource
+        def get_cached_map(geojson_data, metrics, metric_name):
+            return create_map_with_metrics(geojson_data, metrics, metric_name)
+
+        map_obj = get_cached_map(geojson_data, metrics, st.session_state.metric)
+
+        # 📌 Convertir la carte en HTML pour éviter la disparition
+        st.session_state.map_html = map_obj._repr_html_()
+
+# 🔹 Vérifier si la carte est déjà générée et l'afficher
+st.title("Nitrogen Flow Map")
+
+if st.session_state.map_html:
+    st.components.v1.html(st.session_state.map_html, height=600, scrolling=True)
+else:
+    st.warning("Please run the model to generate the map.")
 
 
 # %%
