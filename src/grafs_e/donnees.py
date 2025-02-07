@@ -154,6 +154,7 @@ ext = [
     "other losses",
     "soil stock",
     "atmospheric N2",
+    "Atmospheric deposition",
     "Haber-Bosch",
     "other sectors",
     "animal trade",
@@ -298,7 +299,7 @@ node_color = {
         else "red"
         if label in ["atmospheric volatilization", "hydro-system", "other losses"]
         else "cyan"
-        if label in ["atmospheric deposition", "N2 fixation"]
+        if label in ["Atmospheric deposition"]
         else "purple"
         if label in ["Haber-Bosch", "other sectors"]
         else "gray"  # Default color if the label is not in any of the above categories

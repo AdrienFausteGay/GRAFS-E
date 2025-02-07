@@ -440,7 +440,7 @@ class NitrogenFlowModel:
         target_prairies = df_cultures.loc[
             df_cultures.index.isin(["Natural meadow ", "Non-legume temporary meadow", "Alfalfa and clover"]), "Surface"
         ].to_dict()
-        source_atmosphere = {"atmospheric N2": coef_surf / 1e6}
+        source_atmosphere = {"Atmospheric deposition": coef_surf / 1e6}
         flux_generator.generate_flux(source_atmosphere, target_prairies)
 
         # Dépôt sur les terres arables
@@ -799,7 +799,7 @@ class NitrogenFlowModel:
 
         # Calcul de l'azote épendu par hectare
         def calculer_azote_ependu(culture):
-            sources = self.betail + self.Pop + ["atmospheric N2", "other sectors"]
+            sources = self.betail + self.Pop + ["atmospheric N2", "Atmospheric deposition", "other sectors"]
             adj_matrix_df = pd.DataFrame(adjacency_matrix, index=self.labels, columns=self.labels)
             return adj_matrix_df.loc[sources, culture].sum()
 
