@@ -459,14 +459,14 @@ regimes = {
     "bovines": {
         0.61: herbes,
         0.08: ["Forage maize"],
-        0.1: ["Barley", "Wheat", "Rye"],
+        0.1: ["Barley", "Wheat", "Rye", "Other cereals"],
         0.2: ["Soybean", "Rapeseed", "Peas", "Horse beans and faba beans"],
         0.01: ["Forage cabbages"],
     },
     "ovines": {
         0.67: herbes,
         0.05: ["Forage maize"],
-        0.08: ["Wheat", "Barley", "Oat", "Rye"],
+        0.08: ["Wheat", "Barley", "Oat", "Rye", "Other cereals"],
         0.06: ["Other oil crops", "Peas", "Other protein crops", "Sunflower"],
         0.09: ["Soybean", "Horse beans and faba beans"],
         0.04: ["Rapeseed"],
@@ -480,7 +480,7 @@ regimes = {
     },
     "equine": {0.87: herbes, 0.13: ["Oat"]},
     "poultry": {
-        0.28: ["Wheat"],
+        0.28: ["Wheat", "Other cereals"],
         0.10: ["Grain maize"],
         0.57: ["Soybean", "Horse beans and faba beans"],
         0.05: [
@@ -494,7 +494,7 @@ regimes = {
     "porcines": {
         0.18: ["Wheat"],
         0.12: ["Grain maize"],
-        0.13: ["Barley"],
+        0.13: ["Barley", "Other cereals"],
         0.23: ["Soybean", "Horse beans and faba beans"],
         0.07: ["Rapeseed"],
         0.27: ["Peas", "Green beans", "Dry beans", "Green peas"],
