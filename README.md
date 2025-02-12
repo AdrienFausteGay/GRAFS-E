@@ -4,6 +4,22 @@
 
 The GRAFS-extended model serves as an advanced tool designed to analyze and map the evolution of nitrogen utilization within agricultural systems, with a particular focus on 33 regions of France from 1852 to 2014. This model builds upon the GRAFS/PVAR framework and integrates graph theory to provide a detailed analysis of nitrogen flows in agriculture, identifying key patterns, transformations, and structural invariants. The model enables researchers to construct robust prospective scenarios and examine the global structure of nitrogen flows in agricultural ecosystems.
 
+## 🚀 How to Run the Model
+
+To run the model, follow these steps:
+
+1. **Install the package** using `pip`:
+
+   ```bash
+   pip install grafs_e
+   ```
+
+2. **Launch the interface** with the following command:
+
+   ```bash
+   grafs-e
+   ```
+
 ## Features
 
 - Historical Data: Covers nitrogen flow analysis for the period from 1852 to 2014 across 33 French regions.

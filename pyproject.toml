@@ -1,6 +1,6 @@
 [project]
 name = "grafs_e"
-version = "0.3.4"
+version = "0.56"
 description = "Metabolic analysis of Agricultural systems"
 readme = "README.md"
 licence = {file="LICENCE"}
@@ -30,14 +30,17 @@ dependencies = [
     "pulp>=2.9.0",
     "seaborn>=0.13.2",
     "streamlit>=1.41.1",
+<<<<<<< HEAD
     "streamlit-folium>=0.24.0",
+=======
+>>>>>>> 625c684 (Add files for streamlit visualization)
 ]
 
 [project.urls]
 repository = "https://gricad-gitlab.univ-grenoble-alpes.fr/isterre-dynamic-modeling/grafs-e-project/grafs-e"
 
 [project.scripts]
-grafs-e = "grafs_e:main"
+grafs-e = "grafs_e.launch:run"
 
 [tool.ruff]
 line-length = 120
