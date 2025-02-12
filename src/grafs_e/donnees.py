@@ -154,6 +154,7 @@ ext = [
     "other losses",
     "soil stock",
     "atmospheric N2",
+    "Atmospheric deposition",
     "Haber-Bosch",
     "other sectors",
     "animal trade",
@@ -168,6 +169,7 @@ ext = [
     "leguminous feed trade",
     "oleaginous feed trade",
     "grasslands feed trade",
+    "fishery products",
 ]
 
 labels_init = cultures + legumineuses + prairies + betail + Pop + ext
@@ -279,7 +281,13 @@ node_color = {
         "yellow"
         if label in categories_mapping
         and categories_mapping[label]
-        in ["cereals (excluding rice)", "fruits and vegetables", "roots", "forages", "oleaginous"]
+        in [
+            "cereals (excluding rice)",
+            "fruits and vegetables",
+            "roots",
+            "forages",
+            "oleaginous",
+        ]
         else "lightgreen"
         if label in categories_mapping and categories_mapping[label] == "leguminous"
         else "darkgreen"
@@ -291,9 +299,11 @@ node_color = {
         else "red"
         if label in ["atmospheric volatilization", "hydro-system", "other losses"]
         else "cyan"
-        if label in ["atmospheric deposition", "N2 fixation"]
+        if label in ["Atmospheric deposition"]
         else "purple"
         if label in ["Haber-Bosch", "other sectors"]
+        else "seagreen"
+        if label in ["atmospheric N2"]
         else "gray"  # Default color if the label is not in any of the above categories
     )
     for label in labels
@@ -440,23 +450,29 @@ animal_type_mapping = {
 
 ## Régimes
 
-herbes = ["Natural meadow ", "Non-legume temporary meadow", "Alfalfa and clover", "Straw"]
+herbes = [
+    "Natural meadow ",
+    "Non-legume temporary meadow",
+    "Alfalfa and clover",
+    "Straw",
+]
 
-regime_elevage = {
+# ATTENTION, cette mise en forme des données interdit d'avoir des proportions égales dans une catégorie
+regimes = {
     "bovines": {
         0.61: herbes,
         0.08: ["Forage maize"],
-        0.1: ["Barley", "Wheat", "Rye"],
+        0.1: ["Barley", "Wheat", "Rye", "Other cereals"],
         0.2: ["Soybean", "Rapeseed", "Peas", "Horse beans and faba beans"],
         0.01: ["Forage cabbages"],
     },
     "ovines": {
         0.67: herbes,
-        0.06: ["Forage maize"],
-        0.07: ["Wheat", "Barley", "Oat", "Rye"],
-        0.05: ["Other oil crops", "Peas", "Other protein crops", "Sunflower"],
+        0.05: ["Forage maize"],
+        0.08: ["Wheat", "Barley", "Oat", "Rye", "Other cereals"],
+        0.06: ["Other oil crops", "Peas", "Other protein crops", "Sunflower"],
         0.09: ["Soybean", "Horse beans and faba beans"],
-        0.05: ["Rapeseed"],
+        0.04: ["Rapeseed"],
         0.01: ["Forage cabbages"],
     },
     "caprines": {
@@ -467,30 +483,52 @@ regime_elevage = {
     },
     "equine": {0.87: herbes, 0.13: ["Oat"]},
     "poultry": {
-        0.28: ["Wheat"],
+        0.28: ["Wheat", "Other cereals"],
         0.10: ["Grain maize"],
         0.57: ["Soybean", "Horse beans and faba beans"],
-        0.05: ["Rapeseed", "Sunflower", "Other oil crops", "Peas", "Other protein crops"],
+        0.05: [
+            "Rapeseed",
+            "Sunflower",
+            "Other oil crops",
+            "Peas",
+            "Other protein crops",
+        ],
     },
     "porcines": {
         0.18: ["Wheat"],
         0.12: ["Grain maize"],
-        0.13: ["Barley"],
+        0.13: ["Barley", "Other cereals"],
         0.23: ["Soybean", "Horse beans and faba beans"],
         0.07: ["Rapeseed"],
         0.27: ["Peas", "Green beans", "Dry beans", "Green peas"],
     },
+    "urban": {
+        0.45: [key for key, value in categories_mapping.items() if value == "cereals (excluding rice)"],
+        0.09: [key for key, value in categories_mapping.items() if value == "rice"],
+        0.11: [key for key, value in categories_mapping.items() if value == "leguminous"],
+        0.05: [key for key, value in categories_mapping.items() if value == "fruits and vegetables"],
+        0.16: [key for key, value in categories_mapping.items() if value == "oleaginous"],
+        0.14: [key for key, value in categories_mapping.items() if value == "roots"],
+    },
+    "rural": {
+        0.45: [key for key, value in categories_mapping.items() if value == "cereals (excluding rice)"],
+        0.09: [key for key, value in categories_mapping.items() if value == "rice"],
+        0.11: [key for key, value in categories_mapping.items() if value == "leguminous"],
+        0.05: [key for key, value in categories_mapping.items() if value == "fruits and vegetables"],
+        0.16: [key for key, value in categories_mapping.items() if value == "oleaginous"],
+        0.14: [key for key, value in categories_mapping.items() if value == "roots"],
+    },
 }
 
-# TODO Trouver des données pour étayer/spatialiser/temporaliser ces données
-regime_humains = {
-    "cereals (excluding rice)": 0.35,
-    "rice": 0.20,
-    "leguminous": 0.10,
-    "fruits and vegetables": 0.05,
-    "oleaginous": 0.15,
-    "roots": 0.15,
-}
+# # TODO Trouver des données pour étayer/spatialiser/temporaliser ces données
+# regime_humains = {
+#     "cereals (excluding rice)": 0.35,
+#     "rice": 0.20,
+#     "leguminous": 0.10,
+#     "fruits and vegetables": 0.05,
+#     "oleaginous": 0.15,
+#     "roots": 0.15,
+# }
 
 
 # regime_humains = {'céréales (hors riz)': 0.50, 'légumineuses': 0.25, 'fruits et légumes': 0.25}
