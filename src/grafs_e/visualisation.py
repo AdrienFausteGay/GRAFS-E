@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # %%
 import json
 
@@ -307,3 +308,28 @@ with tab4:
 
 
 # %%
+=======
+from N_class import NitrogenFlowModel
+import streamlit as st
+
+# Initialisation de l'interface Streamlit
+st.title("Interface pour le modèle NitrogenFlowModel")
+st.write("Cette interface permet de visualiser les sorties du modèle de flux d'azote.")
+
+year = "2010"
+region = "Picardie"
+
+model = NitrogenFlowModel(
+    sheets_dict=sheets_dict,
+    year=year,
+    region=region,
+    categories_mapping=categories_mapping,
+    labels=labels,
+    cultures=cultures,
+    legumineuses=legumineuses,
+    prairies=prairies,
+    betail=betail,
+    Pop=Pop,
+    ext=ext
+)
+>>>>>>> 625c684 (Add files for streamlit visualization)

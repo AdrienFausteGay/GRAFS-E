@@ -311,7 +311,10 @@ dependencies = [
     { name = "pulp" },
     { name = "seaborn" },
     { name = "streamlit" },
+<<<<<<< HEAD
     { name = "streamlit-folium" },
+=======
+>>>>>>> 625c684 (Add files for streamlit visualization)
 ]
 
 [package.dev-dependencies]
@@ -330,7 +333,10 @@ requires-dist = [
     { name = "pulp", specifier = ">=2.9.0" },
     { name = "seaborn", specifier = ">=0.13.2" },
     { name = "streamlit", specifier = ">=1.41.1" },
+<<<<<<< HEAD
     { name = "streamlit-folium", specifier = ">=0.24.0" },
+=======
+>>>>>>> 625c684 (Add files for streamlit visualization)
 ]
 
 [package.metadata.requires-dev]
@@ -1106,6 +1112,7 @@ wheels = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "streamlit-folium"
 version = "0.24.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1121,6 +1128,8 @@ wheels = [
 ]
 
 [[package]]
+=======
+>>>>>>> 625c684 (Add files for streamlit visualization)
 name = "tenacity"
 version = "9.0.0"
 source = { registry = "https://pypi.org/simple" }
