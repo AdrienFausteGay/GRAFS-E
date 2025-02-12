@@ -16,8 +16,7 @@ from streamlit_folium import st_folium
 from grafs_e.donnees import *
 from grafs_e.N_class import DataLoader, NitrogenFlowModel
 from grafs_e.sankey import (
-    merge_nodes,
-    streamlit_sankey,
+    streamlit_sankey_app,
     streamlit_sankey_fertilization,
     streamlit_sankey_food_flows,
     streamlit_sankey_systemic_flows,
@@ -69,7 +68,9 @@ else:
     st.warning("⚠️ Please select a year")
 
 # -- Sélection des onglets --
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Documentation", "Run", "Sankey", "Detailed data", "Map"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["Documentation", "Run", "Sankey", "Detailed data", "Map"]
+)
 
 with tab1:
     st.title("Documentation")
@@ -285,7 +286,7 @@ with tab2:
 
     # 🟢 Fonction pour générer la heatmap et éviter les recalculs inutiles
     @st.cache_data
-    def generate_heatmap(_model):
+    def generate_heatmap(_model, year, region):
         return _model.plot_heatmap_interactive()
 
     # 🔹 Bouton "Run" avec les valeurs mises à jour
@@ -309,7 +310,11 @@ with tab2:
             # st.session_state["model"] = model
 
             # ✅ Générer la heatmap et la stocker
-            st.session_state.heatmap_fig = generate_heatmap(st.session_state.model)
+            st.session_state.heatmap_fig = generate_heatmap(
+                st.session_state.model,
+                st.session_state.year,
+                st.session_state.selected_region,
+            )
         else:
             st.warning(
                 "❌ Please select a year and a region before running the analysis."
@@ -332,27 +337,17 @@ with tab3:
         # Récupérer l'objet model
         model = st.session_state["model"]
 
-        # Sélectionner un objet parmi les labels du modèle
-        main_node_label = st.selectbox("Select an object", model.labels)
+        # 🔹 Ajouter un bouton de mode
+        mode_complet = st.toggle("Detailed view", value=False, key="first")
 
-        # Récupérer l'index de l'objet sélectionné
-        main_node_index = model.labels.index(main_node_label)
-
-        # Afficher le Sankey pour l'objet sélectionné
-        streamlit_sankey(
-            transition_matrix=model.adjacency_matrix,
-            main_node=main_node_index,
-            scope=1,  # Ajustable selon l'utilisateur
-            index_to_label=index_to_label,
-            index_to_color=node_color,  # Couleurs génériques
-        )
+        streamlit_sankey_app(model, mode_complet)
 
         st.subheader("Fertilization in the territory")
 
-        new_matrix, new_labels, old_to_new = merge_nodes(
-            model.adjacency_matrix,
-            labels,
-            {
+        mode_complet_ferti = st.toggle("Detailed view", value=False, key="ferti")
+
+        if mode_complet_ferti:
+            merge = {
                 "population": ["urban", "rural"],
                 "livestock": [
                     "bovines",
@@ -362,17 +357,156 @@ with tab3:
                     "porcines",
                     "caprines",
                 ],
-                "industry": ["haber-bosch", "other sectors"],
-            },
+                "industry": ["Haber-Bosch", "other sectors"],
+            }
+            tre = 1e-1
+        else:
+            merge = {
+                "Livestock and human": [
+                    "bovines",
+                    "ovines",
+                    "equine",
+                    "poultry",
+                    "porcines",
+                    "caprines",
+                    "urban",
+                    "rural",
+                ],
+                "Industry": ["Haber-Bosch", "other sectors"],
+                "Cereals": [
+                    "Wheat",
+                    "Oat",
+                    "Barley",
+                    "Grain maize",
+                    "Rye",
+                    "Other cereals",
+                    "Rice",
+                ],
+                "Grassland and forages": [
+                    "Natural meadow ",
+                    "Straw",
+                    "Forage maize",
+                    "Non-legume temporary meadow",
+                    "Forage cabbages",
+                ],
+                "Oleaginous": ["Rapeseed", "Sunflower", "Hemp", "Flax"],
+                "Leguminous": [
+                    "Soybean",
+                    "Other oil crops",
+                    "Horse beans and faba beans",
+                    "Peas",
+                    "Other protein crops",
+                    "Green peas",
+                    "Dry beans",
+                    "Green beans",
+                    "Alfalfa and clover",
+                ],
+                "Fruits and vegetables": [
+                    "Dry vegetables",
+                    "Dry fruits",
+                    "Squash and melons",
+                    "Cabbage",
+                    "Leaves vegetables",
+                    "Fruits",
+                    "Olives",
+                    "Citrus",
+                ],
+                "Roots": ["Sugar beet", "Potatoes", "Other roots"],
+            }
+            tre = 1
+
+        st.write(
+            f"Nodes for which throughflow is below {tre} ktN/yr are not shown here."
         )
 
-        st.write("Nodes for which throughflow is below 1e-1 ktN/yr are not shown here.")
-
-        streamlit_sankey_fertilization(model, cultures, legumineuses, prairies)
+        streamlit_sankey_fertilization(
+            model, cultures, legumineuses, prairies, merges=merge, THRESHOLD=tre
+        )
 
         st.subheader("Feed for livestock and Food for local population")
 
-        st.write("Nodes for which throughflow is below 1e-1 ktN/yr are not shown here.")
+        mode_complet_food = st.toggle("Detailed view", value=False, key="food")
+
+        if mode_complet_food:
+            merge = {
+                "Cereals (excluding rice) trade": [
+                    "cereals (excluding rice) food trade",
+                    "cereals (excluding rice) feed trade",
+                ],
+                "Fruits and vegetables trade": [
+                    "fruits and vegetables food trade",
+                    "fruits and vegetables feed trade",
+                ],
+                "Leguminous trade": ["leguminous food trade", "leguminous feed trade"],
+                "Oleaginous trade": ["oleaginous food trade", "oleaginous feed trade"],
+            }
+            tre = 1e-1
+        else:
+            merge = {
+                "Cereals (excluding rice) trade": [
+                    "cereals (excluding rice) food trade",
+                    "cereals (excluding rice) feed trade",
+                ],
+                "Fruits and vegetables trade": [
+                    "fruits and vegetables food trade",
+                    "fruits and vegetables feed trade",
+                ],
+                "Leguminous trade": ["leguminous food trade", "leguminous feed trade"],
+                "Oleaginous trade": ["oleaginous food trade", "oleaginous feed trade"],
+                "Population": ["urban", "rural"],
+                "Livestock": [
+                    "bovines",
+                    "ovines",
+                    "equine",
+                    "poultry",
+                    "porcines",
+                    "caprines",
+                ],
+                "Cereals": [
+                    "Wheat",
+                    "Oat",
+                    "Barley",
+                    "Grain maize",
+                    "Rye",
+                    "Other cereals",
+                    "Rice",
+                ],
+                "Grassland and forages": [
+                    "Natural meadow ",
+                    "Straw",
+                    "Forage maize",
+                    "Non-legume temporary meadow",
+                    "Forage cabbages",
+                ],
+                "Oleaginous": ["Rapeseed", "Sunflower", "Hemp", "Flax"],
+                "Leguminous": [
+                    "Soybean",
+                    "Other oil crops",
+                    "Horse beans and faba beans",
+                    "Peas",
+                    "Other protein crops",
+                    "Green peas",
+                    "Dry beans",
+                    "Green beans",
+                    "Alfalfa and clover",
+                ],
+                "Fruits and vegetables": [
+                    "Dry vegetables",
+                    "Dry fruits",
+                    "Squash and melons",
+                    "Cabbage",
+                    "Leaves vegetables",
+                    "Fruits",
+                    "Olives",
+                    "Citrus",
+                ],
+                "Roots": ["Sugar beet", "Potatoes", "Other roots"],
+            }
+            tre = 1
+
+        st.write(
+            f"Nodes for which throughflow is below {tre} ktN/yr are not shown here."
+        )
 
         trades = [
             "animal trade",
@@ -389,7 +523,9 @@ with tab3:
             "grasslands feed trade",
         ]
 
-        streamlit_sankey_food_flows(model, cultures, legumineuses, prairies, trades)
+        streamlit_sankey_food_flows(
+            model, cultures, legumineuses, prairies, trades, merges=merge
+        )
 
         st.subheader("Territorial Systemic Overview")
         st.write(
@@ -472,7 +608,9 @@ def get_metric_range(metrics):
 def add_color_legend(m, vmin, vmax, cmap, metric_name):
     """Ajoute une légende de la colormap à la carte."""
     colormap = branca.colormap.LinearColormap(
-        vmin=vmin, vmax=vmax, colors=[mcolors.to_hex(cmap(i)) for i in np.linspace(0, 1, 256)]
+        vmin=vmin,
+        vmax=vmax,
+        colors=[mcolors.to_hex(cmap(i)) for i in np.linspace(0, 1, 256)],
     ).to_step(index=np.linspace(vmin, vmax, 25))  # 5 niveaux de couleur
 
     colormap.caption = str(metric_name)
@@ -499,7 +637,9 @@ def create_map_with_metrics(geojson_data, metrics, metric_name):
 
             for feature in geojson_data["features"]:
                 region_name = feature["properties"]["nom"]
-                metric_value = metrics.get(region_name, np.nan)  # Valeur de l'indicateur
+                metric_value = metrics.get(
+                    region_name, np.nan
+                )  # Valeur de l'indicateur
 
                 if np.isnan(metric_value):  # Si pas de donnée, couleur grise
                     color = "#CCCCCC"
@@ -530,11 +670,15 @@ with tab5:
     st.title("Map Configuration")
 
     # 🟢 Sélection de l'année
-    st.session_state.map_year = st.selectbox("Select a year", annees_disponibles, index=0, key="year_map_selection")
+    st.session_state.map_year = st.selectbox(
+        "Select a year", annees_disponibles, index=0, key="year_map_selection"
+    )
 
     # 🟢 Sélection de la métrique
     metric = ["Imported nitrogen"]
-    st.session_state.metric = st.selectbox("Select a metric", metric, index=0, key="metric_selection")
+    st.session_state.metric = st.selectbox(
+        "Select a metric", metric, index=0, key="metric_selection"
+    )
 
     # 🔹 Bouton "Run"
     if st.button("Run", key="map_button"):
@@ -554,13 +698,13 @@ with tab5:
         # 📌 Convertir la carte en HTML pour éviter la disparition
         st.session_state.map_html = map_obj._repr_html_()
 
-# 🔹 Vérifier si la carte est déjà générée et l'afficher
-st.title("Nitrogen Flow Map")
+        # 🔹 Vérifier si la carte est déjà générée et l'afficher
+        st.title("Nitrogen Flow Map")
 
-if st.session_state.map_html:
-    st.components.v1.html(st.session_state.map_html, height=600, scrolling=True)
-else:
-    st.warning("Please run the model to generate the map.")
+        if st.session_state.map_html:
+            st.components.v1.html(st.session_state.map_html, height=600, scrolling=True)
+        else:
+            st.warning("Please run the model to generate the map.")
 
 
 # %%

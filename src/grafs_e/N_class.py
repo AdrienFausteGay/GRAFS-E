@@ -1888,12 +1888,6 @@ class NitrogenFlowModel:
     def get_df_elevage(self):
         return self.df_elevage
 
-    # def get_allocation_elevage(self):
-    #     return self.allocation_elevage
-
-    # def get_allocation_humain(self):
-    #     return self.allocation_humain
-
     def get_transition_matrix(self):
         return self.adjacency_matrix
 
@@ -1951,23 +1945,27 @@ class NitrogenFlowModel:
 
 
 # Créer une instance du modèle
-# year = "2010"
-# region = "Garonne"
-# data = DataLoader()
+year = "2010"
+region = "Bretagne"
+data = DataLoader()
 
-# nitrogen_model = NitrogenFlowModel(
-#     data=data,
-#     year=year,
-#     region=region,
-#     categories_mapping=categories_mapping,
-#     labels=labels,
-#     cultures=cultures,
-#     legumineuses=legumineuses,
-#     prairies=prairies,
-#     betail=betail,
-#     Pop=Pop,
-#     ext=ext,
-# )
+nitrogen_model = NitrogenFlowModel(
+    data=data,
+    year=year,
+    region=region,
+    categories_mapping=categories_mapping,
+    labels=labels,
+    cultures=cultures,
+    legumineuses=legumineuses,
+    prairies=prairies,
+    betail=betail,
+    Pop=Pop,
+    ext=ext,
+)
+
+# from IPython import embed
+
+# embed()
 
 # # Calculer les flux
 # nitrogen_model.compute_fluxes()
