@@ -8,7 +8,7 @@ deploy_to_github:
     - git config --global user.name "GitLab Bot"
     
     # Clone GitLab Repository (Main Source)
-    - git clone --mirror https://oauth2:$GITLAB_TOKEN@gitlab.com/faustega/grafs-e.git
+    - git clone --mirror https://oauth2:${GITLAB_TOKEN}@gitlab.com/faustega/grafs-e.git
     - cd grafs-e.git
     
     # Add GitHub as a remote
