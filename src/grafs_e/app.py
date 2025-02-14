@@ -348,8 +348,8 @@ with tab3:
 
         if mode_complet_ferti:
             merge = {
-                "population": ["urban", "rural"],
-                "livestock": [
+                "Population": ["urban", "rural"],
+                "Livestock": [
                     "bovines",
                     "ovines",
                     "equine",
@@ -357,7 +357,7 @@ with tab3:
                     "porcines",
                     "caprines",
                 ],
-                "industry": ["Haber-Bosch", "other sectors"],
+                "Industry": ["Haber-Bosch", "other sectors"],
             }
             tre = 1e-1
         else:
