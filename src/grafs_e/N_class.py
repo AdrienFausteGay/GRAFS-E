@@ -1476,6 +1476,18 @@ class NitrogenFlowModel:
                                 f"Import_Non_Autorise_{cons}_{culture}",
                             )
 
+            # même chose pour food
+            for cons in df_cons_vege.index[-2:]:
+                cultures_autorisees = set()
+                for cultures_liste in regimes[cons].values():
+                    cultures_autorisees.update(cultures_liste)
+                for culture in df_cultures.index:
+                    if culture not in cultures_autorisees:
+                        prob += x_vars[(culture, cons)] == 0, f"Culture_Non_Autorisee_{culture}_{cons}"
+                        # Vérifier si la variable I_vars existe avant d'ajouter la contrainte
+                        if (cons, culture) in I_vars_food:
+                            prob += I_vars_food[(cons, culture)] == 0, f"Import_Non_Autorise_{cons}_{culture}"
+
             # Ces contraintes calculent les déviations entre les proportions effectives des catégories consommées par chaque élevage et les proportions initiales du régime alimentaire.
             for cons in df_cons_vege.index[:-2]:
                 besoin = df_cons_vege.loc[cons]
