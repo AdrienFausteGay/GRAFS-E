@@ -14,11 +14,16 @@ classifiers = [
     "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering"
 ]
+
 keywords = ["agriculture", "nitrogen", "ecological", "scientific", "research"]
-requires-python = ">=3.13"
+requires-python = ">=3.8"
 
 dependencies = [
     "folium>=0.19.4",
