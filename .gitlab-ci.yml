@@ -4,18 +4,24 @@ stages:
 deploy_to_github:
   stage: deploy
   script:
-    - git config --global user.email "adrien.fauste-gay@univ-grenoble-alpes.fr"
-    - git config --global user.name "GitLab Bot"
-    
-    # Clone GitLab Repository (Main Source)
-    - git clone --mirror https://oauth2:${GITLAB_TOKEN}@gitlab.com/faustega/grafs-e.git
-    - cd grafs-e.git
-    
-    # Add GitHub as a remote
-    - git remote add github https://oauth2:$GITHUB_TOKEN@github.com/AdrienFausteGay/GRAFS-E.git
-    
-    # Push everything to GitHub
-    - git fetch --all
-    - git push --mirror github
+    # 1️⃣ Ajouter la clé SSH privée pour se connecter à GitHub
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+
+    # 2️⃣ Ajouter les hôtes connus pour éviter l'erreur SSH
+    - ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+    # 3️⃣ Cloner le dépôt GitHub en SSH
+    - git clone --mirror git@github.com:AdrienFausteGay/GRAFS-E.git github_repo
+
+    # 4️⃣ Ajouter GitLab comme remote
+    - cd github_repo
+    - git remote add gitlab git@gitlab.com:faustega/grafs-e.git
+    - git fetch gitlab --tags
+
+    # 5️⃣ Pousser les modifications vers GitHub
+    - git push --mirror origin
   only:
-    - main  # or your default branch
+    - main  # Déploiement uniquement depuis la branche principale
+
