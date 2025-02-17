@@ -1,26 +1,30 @@
-stages:
-  - deploy
-
 deploy_to_github:
   stage: deploy
   script:
-    # 1️⃣ Ajouter la clé SSH privée pour se connecter à GitHub
     - mkdir -p ~/.ssh
-    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-    - chmod 600 ~/.ssh/id_rsa
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+    - chmod 600 ~/.ssh/id_ed25519
 
-    # 2️⃣ Ajouter les hôtes connus pour éviter l'erreur SSH
+    # ✅ Add GitHub & GitLab to known hosts
     - ssh-keyscan github.com >> ~/.ssh/known_hosts
+    - ssh-keyscan gitlab.com >> ~/.ssh/known_hosts
 
-    # 3️⃣ Cloner le dépôt GitHub en SSH
+    # ✅ Use the correct SSH key
+    - eval $(ssh-agent -s)
+    - ssh-add ~/.ssh/id_ed25519
+
+    # ✅ Test connection
+    - ssh -T git@gitlab.com
+
+    # ✅ Clone the GitHub repository via SSH
     - git clone --mirror git@github.com:AdrienFausteGay/GRAFS-E.git github_repo
-
-    # 4️⃣ Ajouter GitLab comme remote
     - cd github_repo
+
+    # ✅ Add GitLab as a remote
     - git remote add gitlab git@gitlab.com:faustega/grafs-e.git
     - git fetch gitlab --tags
 
-    # 5️⃣ Pousser les modifications vers GitHub
+    # ✅ Push everything to GitHub
     - git push --mirror origin
   only:
-    - main  # Déploiement uniquement depuis la branche principale
+    - main
