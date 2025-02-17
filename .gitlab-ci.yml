@@ -24,4 +24,3 @@ deploy_to_github:
     - git push --mirror origin
   only:
     - main  # Déploiement uniquement depuis la branche principale
-
