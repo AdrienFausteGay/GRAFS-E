@@ -1,6 +1,6 @@
 [project]
 name = "grafs_e"
-version = "0.56"
+version = "0.58"
 description = "Metabolic analysis of Agricultural systems"
 readme = "README.md"
 licence = {file="LICENCE"}
@@ -30,10 +30,7 @@ dependencies = [
     "pulp>=2.9.0",
     "seaborn>=0.13.2",
     "streamlit>=1.41.1",
-<<<<<<< HEAD
     "streamlit-folium>=0.24.0",
-=======
->>>>>>> 625c684 (Add files for streamlit visualization)
 ]
 
 [project.urls]
