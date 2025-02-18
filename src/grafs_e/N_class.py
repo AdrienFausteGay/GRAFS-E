@@ -1894,8 +1894,8 @@ class NitrogenFlowModel:
             flux_generator.generate_flux(source, target)
 
             cons_viande_import = cons_viande - df_elevage["Edible Nitrogen (ktN)"].sum()
-            commerce_path = "C:/Users/faustega/Documents/These/informatique/Donnees/metabolisme/commerce FAO/FAOSTAT_data_fr_viande_import.csv"
-            commerce = pd.read_csv(commerce_path)
+            commerce_path = "FAOSTAT_data_fr_viande_import.csv"
+            commerce = pd.read_csv(os.path.join(self.data_loader.data_path, commerce_path))
             if (
                 int(year) < 1965
             ):  # Si on est avant 65, on se base sur les rations de 65. De toute façon ça concerne des import minoritaires...
