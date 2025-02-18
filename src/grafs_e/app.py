@@ -29,6 +29,18 @@ geojson_path = os.path.join(DATA_DIR, "contour-GRAFS.geojson")
 image_path = os.path.join(DATA_DIR, "metabolism.png")
 icon_path = os.path.join(DATA_DIR, "logo.jpg")
 
+# Déterminer le chemin du fichier de config Streamlit
+config_dir = os.path.expanduser("~/.streamlit")
+config_path = os.path.join(config_dir, "config.toml")
+
+# Vérifier si le dossier ~/.streamlit existe, sinon le créer
+if not os.path.exists(config_dir):
+    os.makedirs(config_dir)
+
+# Écrire ou modifier le fichier config.toml pour imposer le dark mode
+with open(config_path, "w") as config_file:
+    config_file.write("[theme]\nbase='dark'\n")
+
 st.set_page_config(page_title="GRAFS-E App", page_icon=icon_path)  # , layout="wide")
 
 
