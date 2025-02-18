@@ -68,16 +68,12 @@ else:
     st.warning("⚠️ Please select a year")
 
 # -- Sélection des onglets --
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["Documentation", "Run", "Sankey", "Detailed data", "Map"]
-)
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Documentation", "Run", "Sankey", "Detailed data", "Map"])
 
 with tab1:
     st.title("Documentation")
 
-    st.header(
-        "GRAFS-Extended: Comprehensive Analysis of Nitrogen Flux in Agricultural Systems"
-    )
+    st.header("GRAFS-Extended: Comprehensive Analysis of Nitrogen Flux in Agricultural Systems")
 
     st.subheader("Overview")
 
@@ -131,9 +127,7 @@ with tab1:
     st.text(
         "Go to 'Run' tab to select a year and region to run GRAFS-E. This will display the nitrogen transition matrix for this territory"
     )
-    st.text(
-        "Then use 'Sankey' tab to analyse direct input and output flows for each object."
-    )
+    st.text("Then use 'Sankey' tab to analyse direct input and output flows for each object.")
 
     st.text("Use map tab to display agricultural maps.")
 
@@ -142,9 +136,7 @@ with tab1:
     st.text(
         "The GRAFS-E model is designed to encapsulate the nitrogen utilization process in agricultural systems by considering historical transformations in French agricultural practices. It captures the transition from traditional crop-livestock agriculture to more intensive, specialized systems."
     )
-    st.text(
-        "GRAFS-E uses optimization model to allocate plant productions to livestock, population and trade."
-    )
+    st.text("GRAFS-E uses optimization model to allocate plant productions to livestock, population and trade.")
 
     st.text(
         "By integrating optimization techniques and new mechanisms, GRAFS-E allows for the detailed study of nitrogen flows at a finer resolution than the original GRAFS model, covering 64 distinct objects, including various types of crops, livestock, population groups, industrial sectors, import/export category, and 6 environment category. The extension of GRAFS makes it possible to examine the topology and properties of the graph build with this flow model. This approach, provides a deeper understanding of the structure of the system, notably identifying invariants and hubs."
@@ -222,12 +214,8 @@ with tab2:
         if online:
             m = folium.Map(location=map_center, zoom_start=6)
         else:
-            st.warning(
-                "⚠️ No Internet connection detected. The map will be displayed without background tiles."
-            )
-            m = folium.Map(
-                location=map_center, zoom_start=6, tiles=None
-            )  # Pas de fond de carte
+            st.warning("⚠️ No Internet connection detected. The map will be displayed without background tiles.")
+            m = folium.Map(location=map_center, zoom_start=6, tiles=None)  # Pas de fond de carte
 
         # Style des régions survolées
         def on_click(feature):
@@ -266,11 +254,7 @@ with tab2:
     # 🔹 Mettre à jour `st.session_state.selected_region` avec la sélection utilisateur
     if map_data and "last_active_drawing" in map_data:
         last_drawing = map_data["last_active_drawing"]
-        if (
-            last_drawing
-            and "properties" in last_drawing
-            and "nom" in last_drawing["properties"]
-        ):
+        if last_drawing and "properties" in last_drawing and "nom" in last_drawing["properties"]:
             st.session_state.selected_region = last_drawing["properties"]["nom"]
 
     # ✅ Affichage des sélections (se met à jour dynamiquement)
@@ -316,15 +300,11 @@ with tab2:
                 st.session_state.selected_region,
             )
         else:
-            st.warning(
-                "❌ Please select a year and a region before running the analysis."
-            )
+            st.warning("❌ Please select a year and a region before running the analysis.")
 
     # 🔹 Indépendance de l'affichage de la heatmap 🔹
     if "heatmap_fig" in st.session_state:
-        st.subheader(
-            f"Heatmap of the nitrogen flows for {st.session_state.selected_region} in {st.session_state.year}"
-        )
+        st.subheader(f"Heatmap of the nitrogen flows for {st.session_state.selected_region} in {st.session_state.year}")
         st.plotly_chart(st.session_state.heatmap_fig, use_container_width=True)
 
 with tab3:
@@ -415,13 +395,9 @@ with tab3:
             }
             tre = 1
 
-        st.write(
-            f"Nodes for which throughflow is below {tre} ktN/yr are not shown here."
-        )
+        st.write(f"Nodes for which throughflow is below {tre} ktN/yr are not shown here.")
 
-        streamlit_sankey_fertilization(
-            model, cultures, legumineuses, prairies, merges=merge, THRESHOLD=tre
-        )
+        streamlit_sankey_fertilization(model, cultures, legumineuses, prairies, merges=merge, THRESHOLD=tre)
 
         st.subheader("Feed for livestock and Food for local population")
 
@@ -504,9 +480,7 @@ with tab3:
             }
             tre = 1
 
-        st.write(
-            f"Nodes for which throughflow is below {tre} ktN/yr are not shown here."
-        )
+        st.write(f"Nodes for which throughflow is below {tre} ktN/yr are not shown here.")
 
         trades = [
             "animal trade",
@@ -523,9 +497,7 @@ with tab3:
             "grasslands feed trade",
         ]
 
-        streamlit_sankey_food_flows(
-            model, cultures, legumineuses, prairies, trades, merges=merge
-        )
+        streamlit_sankey_food_flows(model, cultures, legumineuses, prairies, trades, merges=merge)
 
         st.subheader("Territorial Systemic Overview")
         st.write(
@@ -541,9 +513,7 @@ with tab4:
     if "model" not in st.session_state:
         st.warning("⚠️ Please run the model first in the 'Run' tab.")
     else:
-        st.text(
-            "This tab is to access to detailed data used in input but also processed by the model"
-        )
+        st.text("This tab is to access to detailed data used in input but also processed by the model")
 
         st.subheader("Cultures data")
 
@@ -637,9 +607,7 @@ def create_map_with_metrics(geojson_data, metrics, metric_name):
 
             for feature in geojson_data["features"]:
                 region_name = feature["properties"]["nom"]
-                metric_value = metrics.get(
-                    region_name, np.nan
-                )  # Valeur de l'indicateur
+                metric_value = metrics.get(region_name, np.nan)  # Valeur de l'indicateur
 
                 if np.isnan(metric_value):  # Si pas de donnée, couleur grise
                     color = "#CCCCCC"
@@ -650,7 +618,7 @@ def create_map_with_metrics(geojson_data, metrics, metric_name):
                 # Ajouter le polygone à la carte
                 folium.GeoJson(
                     feature,
-                    style_function={
+                    style_function=lambda x: {
                         "fillColor": color,
                         "color": "black",
                         "weight": 1,
@@ -670,15 +638,11 @@ with tab5:
     st.title("Map Configuration")
 
     # 🟢 Sélection de l'année
-    st.session_state.map_year = st.selectbox(
-        "Select a year", annees_disponibles, index=0, key="year_map_selection"
-    )
+    st.session_state.map_year = st.selectbox("Select a year", annees_disponibles, index=0, key="year_map_selection")
 
     # 🟢 Sélection de la métrique
     metric = ["Imported nitrogen"]
-    st.session_state.metric = st.selectbox(
-        "Select a metric", metric, index=0, key="metric_selection"
-    )
+    st.session_state.metric = st.selectbox("Select a metric", metric, index=0, key="metric_selection")
 
     # 🔹 Bouton "Run"
     if st.button("Run", key="map_button"):
