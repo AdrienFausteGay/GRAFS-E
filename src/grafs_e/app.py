@@ -608,14 +608,11 @@ def create_map_with_metrics(geojson_data, metrics, metric_name):
             for feature in geojson_data["features"]:
                 region_name = feature["properties"]["nom"]
                 metric_value = metrics.get(region_name, np.nan)  # Valeur de l'indicateur
-                print(metric_value)
                 if np.isnan(metric_value):  # Si pas de donnée, couleur grise
                     color = "#CCCCCC"
                 else:
                     rgba = cmap(norm(metric_value))  # Convertir en RGBA
                     color = mcolors.to_hex(rgba)  # Convertir en HEX
-                print(color)
-                print("==")
 
                 def style_function(x, fill_color=color):
                     return {
