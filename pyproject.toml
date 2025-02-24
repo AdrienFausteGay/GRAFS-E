@@ -23,7 +23,7 @@ classifiers = [
 ]
 
 keywords = ["agriculture", "nitrogen", "ecological", "scientific", "research"]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 
 dependencies = [
     "folium>=0.19.4",
@@ -58,4 +58,5 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "ipykernel>=6.29.5",
+    "scipy>=1.15.2",
 ]

@@ -31,7 +31,7 @@ class DataLoader:
         df.loc[df.index[0], "Primary data, parameters, pre-treatments "] = "nom"
         df.columns = df.iloc[0]
         df["index_excel"] = df.index + 2
-        df[["nom", region, "index_excel"]]
+        df = df[["nom", region, "index_excel"]]
         return df
 
     def get_import_feed(self, year, region):
