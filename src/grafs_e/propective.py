@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import pandas as pd
 
 from grafs_e.donnees import *
@@ -19,6 +20,43 @@ class scenario:
             df = self.dataloader.pre_process_df(i, region)
             L.append(df.loc[df["index_excel"] == excel_line, region].item())
         return L
+
+    def cap_excretion(self, region, type):
+        L = []
+        livestock = {
+            "bovines": [(1150, 1164), (1196, 1210)],
+            "caprines": [(1166, 1168), (1212, 1214)],
+            "ovines": [(1170, 1172), (1216, 1218)],
+            "porcines": [(1174, 1178), (1220, 1224)],
+            "poultry": [(1180, 1190), (1226, 1236)],
+            "equines": [(1192, 1193), (1238, 1239)],
+        }
+        for i in annees_disponibles:
+            df = self.dataloader.pre_process_df(i, region)
+            heads = df.loc[df["index_excel"].between(livestock[type][0][0], livestock[type][0][1]), region]
+            excr_cap = df.loc[df["index_excel"].between(livestock[type][1][0], livestock[type][1][1]), region]
+            L.append(np.dot(heads, excr_cap) / heads.sum())
+        return L
+
+    def livestock_prop(self, region):
+        LU = {}
+        livestock = {
+            "bovines": [(1150, 1164), (0, 15)],
+            "caprines": [(1166, 1168), (15, 18)],
+            "ovines": [(1170, 1172), (18, 21)],
+            "porcines": [(1174, 1178), (21, 26)],
+            "poultry": [(1180, 1190), (26, 37)],
+            "equines": [(1192, 1193), (37, 39)],
+        }
+        lu_list = list(lu_coefficients.values())
+        for i in annees_disponibles:
+            df = self.dataloader.pre_process_df(i, region)
+            LU[i] = {}
+            for type in livestock.keys():
+                heads = df.loc[df["index_excel"].between(livestock[type][0][0], livestock[type][0][1]), region]
+                lu_coef = lu_list[livestock[type][1][0] : livestock[type][1][1]]
+                LU[i][type] = np.dot(heads, lu_coef)
+        return LU
 
     def generate_scenario_excel(self, year, region, name):
         self.region = region
@@ -146,14 +184,42 @@ class scenario:
                 sheets["main"]["Variable"] == "Edible animal per capita protein ingestion (excl fish)",
                 "Business as usual",
             ] = self.historic_trend(region, 10)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Synth N fertilizer application to cropland",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 27)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Synth N fertilizer application to grassland",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 29)[-1]
             sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Synth N fertilizer application to cropland",
+                sheets["technical"]["Variable"] == "N recycling rate of human excretion in urban area",
                 "Business as usual",
-            ] = self.historic_trend(region, 27)[-1]
+            ] = self.historic_trend(region, 49)[-1]
             sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Synth N fertilizer application to grassland",
+                sheets["technical"]["Variable"] == "N recycling rate of human excretion in rural area",
                 "Business as usual",
-            ] = self.historic_trend(region, 29)[-1]
+            ] = self.historic_trend(region, 50)[-1]
+            sheets["technical"].loc[
+                sheets["technical"]["Variable"] == "Bovines % excretion on grassland",
+                "Business as usual",
+            ] = self.historic_trend(region, 1250)[-1]
+            sheets["technical"].loc[
+                sheets["technical"]["Variable"] == "Bovines % excretion in the barn",
+                "Business as usual",
+            ] = self.historic_trend(region, 1251)[-1]
+            sheets["technical"].loc[
+                sheets["technical"]["Variable"] == "Bovines % excretion in the barn as litter manure",
+                "Business as usual",
+            ] = self.historic_trend(region, 1252)[-1]
+            sheets["technical"].loc[
+                sheets["technical"]["Variable"] == "Bovines % excretion in the barn as other manure",
+                "Business as usual",
+            ] = self.historic_trend(region, 1253)[-1]
+            sheets["technical"].loc[
+                sheets["technical"]["Variable"] == "Bovines % excretion in the barn as slurry",
+                "Business as usual",
+            ] = self.historic_trend(region, 1254)[-1]
 
         with pd.ExcelWriter(os.path.join(self.scenario_path, name + ".xlsx"), engine="openpyxl") as writer:
             for sheet_name, df in sheets.items():
