@@ -236,8 +236,8 @@ class NitrogenFlowModel:
         norm = LogNorm(vmin=10**-4, vmax=self.adjacency_matrix.max())
         sns.heatmap(
             self.adjacency_matrix,
-            xticklabels=range(1, len(self.labels)),
-            yticklabels=range(1, len(self.labels)),
+            xticklabels=range(1, len(self.labels) + 1),
+            yticklabels=range(1, len(self.labels) + 1),
             cmap="plasma_r",
             annot=False,
             norm=norm,
@@ -894,7 +894,7 @@ class NitrogenFlowModel:
             return adj_matrix_df.loc[sources, culture].sum()
 
         df_cultures["Total Non Synthetic Fertilizer Use (ktN)"] = df_cultures.index.map(calculer_azote_ependu)
-        df_cultures["Surface Non Synthetic Fertilizer Use (ktN)"] = df_cultures.apply(
+        df_cultures["Surface Non Synthetic Fertilizer Use (kgN/ha)"] = df_cultures.apply(
             lambda row: row["Total Non Synthetic Fertilizer Use (ktN)"] / row["Area (ha)"] * 10**6
             if row["Area (ha)"] > 0 and row["Total Non Synthetic Fertilizer Use (ktN)"] > 0
             else 0,
@@ -947,10 +947,10 @@ class NitrogenFlowModel:
         # Calcul de l'azote à épendre
         df_cultures["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] = df_cultures.apply(
             lambda row: row["Surface Fertilization Need (ktN/ha)"]
-            - row["Surface Non Synthetic Fertilizer Use (ktN)"]
+            - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"]
             - (row["Leguminous heritage (ktN)"] / row["Area (ha)"] * 1e6)
             if row["Area (ha)"] > 0
-            else row["Surface Fertilization Need (ktN/ha)"] - row["Surface Non Synthetic Fertilizer Use (ktN)"],
+            else row["Surface Fertilization Need (ktN/ha)"] - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"],
             axis=1,
         )
         df_cultures["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] = df_cultures[
@@ -2041,6 +2041,7 @@ class NitrogenFlowModel:
         return core_matrix_filtered
 
     def get_adjacency_matrix(self):
+        _ = self.get_core_matrix()
         return (self.core_matrix != 0).astype(int)
 
     def extract_input_output_matrixs(self, clean=True):

@@ -33,6 +33,8 @@ cultures = [
     "Rice",
     "Other cereals",
     "Straw",
+    "Forage maize",
+    "Forage cabbages",
     "Rapeseed",
     "Sunflower",
     "Other oil crops",
@@ -49,8 +51,6 @@ cultures = [
     "Citrus",
     "Hemp",
     "Flax",
-    "Forage maize",
-    "Forage cabbages",
     "Non-legume temporary meadow",
 ]
 
@@ -158,6 +158,7 @@ ext = [
     "Haber-Bosch",
     "other sectors",
     "animal trade",
+    "fishery products",
     "cereals (excluding rice) food trade",
     "fruits and vegetables food trade",
     "leguminous food trade",
@@ -169,7 +170,6 @@ ext = [
     "leguminous feed trade",
     "oleaginous feed trade",
     "grasslands feed trade",
-    "fishery products",
 ]
 
 labels_init = cultures + legumineuses + prairies + betail + Pop + ext
@@ -297,7 +297,7 @@ node_color = {
         else "darkblue"
         if label in ["urban", "rural"]
         else "red"
-        if label in ["atmospheric volatilization", "hydro-system", "other losses"]
+        if label in ["atmospheric volatilization", "hydro-system", "other losses", "NH3 volatilization", "N2O emission"]
         else "cyan"
         if label in ["Atmospheric deposition"]
         else "purple"
