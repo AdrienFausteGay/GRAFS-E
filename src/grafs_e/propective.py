@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 import pandas as pd
+from scipy.stats import linregress
 
 from grafs_e.donnees import *
 from grafs_e.N_class import DataLoader
@@ -135,6 +136,37 @@ class scenario:
             current_val = new_val
 
         return extended_years, extended_values
+
+    def get_import_net(self, region):
+        L = []
+        for yr in annees_disponibles:
+            df = self.dataloader.sheets_dict["GRAFS" + yr].copy()
+            df.columns = df.iloc[0]
+            correct_region = {
+                "Pyrénées occid": "Pyrénées occidentales",
+                "Pyrénées Orient": "Pyrénées Orientales",
+            }
+            if region in correct_region.keys():
+                region = correct_region[region]
+            L.append(df[region].iloc[78])
+        return L
+
+    def logistic_urb_pop(self, region, year):
+        int_year = [int(i) for i in annees_disponibles]
+        prop_urb = np.array(self.historic_trend(region, 6))
+        logit = np.log(prop_urb / (100 - prop_urb))
+        slope, intercept, r_value, p_value, std_err = linregress(int_year, logit)
+        return 100.0 / (1.0 + np.exp(-(intercept + slope * int(year))))
+
+    def generate_crop_tab(self, region):
+        df = self.dataloader.pre_process_df(annees_disponibles[-1], region)
+
+        cultures = df.loc[df["index_excel"].isin(range(259, 294)), ("nom", region)]
+        cultures[region] = cultures[region] * 100 / cultures[region].sum()
+
+        df_insert = pd.DataFrame(cultures.values, columns=["Cultures", "Area proportion (%)"])
+        df_insert["Enforce"] = ""
+        return df_insert
 
     def generate_scenario_excel(self, year, region, name):
         self.region = region
@@ -485,6 +517,31 @@ class scenario:
                 sheets["main"]["Variable"] == "Total LU",
                 "Business as usual",
             ] = self.extrapolate_recent_trend(tot_LU, self.year, seuil_bas=0)[1][-1]
+
+            sheets["main"].loc[
+                sheets["main"]["Variable"] == "Arable area",
+                "Business as usual",
+            ] = self.extrapolate_recent_trend(self.historic_trend(self.region, 23), self.year, seuil_bas=0)[1][-1]
+
+            sheets["main"].loc[
+                sheets["main"]["Variable"] == "Permanent grassland area",
+                "Business as usual",
+            ] = self.extrapolate_recent_trend(self.historic_trend(self.region, 22), self.year, seuil_bas=0)[1][-1]
+
+            # Import (need GRAFS)
+            sheets["main"].loc[
+                sheets["main"]["Variable"] == "Net import of vegetal pdcts",
+                "Business as usual",
+            ] = self.extrapolate_recent_trend(self.get_import_net(self.region), self.year, seuil_bas=None)[1][-1]
+
+            # Proportion urbaine
+            sheets["main"].loc[
+                sheets["main"]["Variable"] == "Urban population",
+                "Business as usual",
+            ] = self.logistic_urb_pop(self.region, self.year)
+
+            # surface prop tab
+            sheets["area"] = self.generate_crop_tab(self.region)
 
         with pd.ExcelWriter(os.path.join(self.scenario_path, name + ".xlsx"), engine="openpyxl") as writer:
             for sheet_name, df in sheets.items():

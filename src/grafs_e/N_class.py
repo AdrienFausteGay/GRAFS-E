@@ -41,7 +41,6 @@ class DataLoader:
             "Pyrénées occid": "Pyrénées occidentales",
             "Pyrénées Orient": "Pyrénées Orientales",
         }
-        region = region
         if region in correct_region.keys():
             region = correct_region[region]
         return df[region].iloc[32]
