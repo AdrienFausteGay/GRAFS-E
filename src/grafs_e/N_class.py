@@ -194,14 +194,14 @@ class NitrogenFlowModel:
         data,
         year,
         region,
-        categories_mapping,
-        labels,
-        cultures,
-        legumineuses,
-        prairies,
-        betail,
-        Pop,
-        ext,
+        categories_mapping=categories_mapping,
+        labels=labels,
+        cultures=cultures,
+        legumineuses=legumineuses,
+        prairies=prairies,
+        betail=betail,
+        Pop=Pop,
+        ext=ext,
     ):
         self.year = year
         self.region = region
@@ -525,13 +525,15 @@ class NitrogenFlowModel:
                 factor = 0.2
             data_IDF = self.data_loader.pre_process_df(year, "Ile de France")
             pop_IDF = data_IDF[data_IDF["index_excel"] == 5]["Ile de France"].item()
-            prop_urb_IDF = data[data["nom"] == "Urban population"]["Ile de France"].item() / 100
-            N_cons_cap_IDF = data[data["index_excel"] == 8]["Ile de France"].item()
+            prop_urb_IDF = data_IDF[data_IDF["nom"] == "Urban population"]["Ile de France"].item() / 100
+            N_cons_cap_IDF = data_IDF[data_IDF["index_excel"] == 8]["Ile de France"].item()
             N_prop_recy_urb_IDF = (
-                data[data["nom"] == "N recycling rate of human excretion in urban area"]["Ile de France"].item() / 100
+                data_IDF[data_IDF["nom"] == "N recycling rate of human excretion in urban area"]["Ile de France"].item()
+                / 100
             )
             N_prop_recy_rur_IDF = (
-                data[data["nom"] == "N recycling rate of human excretion in rural area"]["Ile de France"].item() / 100
+                data_IDF[data_IDF["nom"] == "N recycling rate of human excretion in rural area"]["Ile de France"].item()
+                / 100
             )
             return (
                 factor * pop_IDF * N_cons_cap_IDF * prop_urb_IDF * N_prop_recy_urb_IDF,
@@ -2064,6 +2066,97 @@ class NitrogenFlowModel:
             self.allocation_vege["Type"].isin(["Imported Food", "Imported Feed", "Excess feed imports"]),
             "Allocated Nitrogen",
         ].sum()
+
+    def net_imported_plant(self):
+        return (
+            self.importations_df["Imported Nitrogen (ktN)"].sum()
+            - self.df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
+        )
+
+    def net_imported_animal(self):
+        return self.df_elevage["Net animal nitrogen exports (ktN)"].sum()
+
+    def total_plant_production(self):
+        return self.df_cultures["Nitrogen Production (ktN)"].sum()
+
+    def cereals_production(self):
+        return self.df_cultures.loc[
+            self.df_cultures["Category"].isin(["cereals (excluding rice)", "rice"]), "Nitrogen Production (ktN)"
+        ].sum()
+
+    def leguminous_production(self):
+        return self.df_cultures.loc[
+            self.df_cultures["Category"].isin(["leguminous"]), "Nitrogen Production (ktN)"
+        ].sum()
+
+    def oleaginous_production(self):
+        return self.df_cultures.loc[
+            self.df_cultures["Category"].isin(["oleaginous"]), "Nitrogen Production (ktN)"
+        ].sum()
+
+    def grassland_and_forages_production(self):
+        return self.df_cultures.loc[
+            self.df_cultures["Category"].isin(["grasslands", "forages"]), "Nitrogen Production (ktN)"
+        ].sum()
+
+    def roots_production(self):
+        return self.df_cultures.loc[self.df_cultures["Category"].isin(["roots"]), "Nitrogen Production (ktN)"].sum()
+
+    def fruits_and_vegetable_production(self):
+        return self.df_cultures.loc[
+            self.df_cultures["Category"].isin(["fruits and vegetables"]), "Nitrogen Production (ktN)"
+        ].sum()
+
+    def cereals_production_r(self):
+        return (
+            self.df_cultures.loc[
+                self.df_cultures["Category"].isin(["cereals (excluding rice)", "rice"]), "Nitrogen Production (ktN)"
+            ].sum()
+            * 100
+            / self.total_plant_production()
+        )
+
+    def leguminous_production_r(self):
+        return (
+            self.df_cultures.loc[self.df_cultures["Category"].isin(["leguminous"]), "Nitrogen Production (ktN)"].sum()
+            * 100
+            / self.total_plant_production()
+        )
+
+    def oleaginous_production_r(self):
+        return (
+            self.df_cultures.loc[self.df_cultures["Category"].isin(["oleaginous"]), "Nitrogen Production (ktN)"].sum()
+            * 100
+            / self.total_plant_production()
+        )
+
+    def grassland_and_forages_production_r(self):
+        return (
+            self.df_cultures.loc[
+                self.df_cultures["Category"].isin(["grasslands", "forages"]), "Nitrogen Production (ktN)"
+            ].sum()
+            * 100
+            / self.total_plant_production()
+        )
+
+    def roots_production_r(self):
+        return (
+            self.df_cultures.loc[self.df_cultures["Category"].isin(["roots"]), "Nitrogen Production (ktN)"].sum()
+            * 100
+            / self.total_plant_production()
+        )
+
+    def fruits_and_vegetable_production_r(self):
+        return (
+            self.df_cultures.loc[
+                self.df_cultures["Category"].isin(["fruits and vegetables"]), "Nitrogen Production (ktN)"
+            ].sum()
+            * 100
+            / self.total_plant_production()
+        )
+
+    def animal_production(self):
+        return self.df_elevage["Edible Nitrogen (ktN)"].sum()
 
 
 # Créer une instance du modèle
