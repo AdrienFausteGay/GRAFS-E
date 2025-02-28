@@ -660,24 +660,26 @@ with tab5:
 
     # 🔹 Bouton "Run"
     if st.button("Run", key="map_button"):
-        # 📌 Exécuter les modèles et récupérer les métriques
-        models = run_models_for_all_regions(st.session_state.map_year, regions, data)
-        metrics = get_metrics_for_all_regions(models, st.session_state.metric)
-
-        # 📌 Charger le GeoJSON et créer la carte
-        geojson_data = load_geojson()
 
         @st.cache_resource
         def get_cached_map(geojson_data, metrics, metric_name):
             return create_map_with_metrics(geojson_data, metrics, metric_name)
 
-        map_obj = get_cached_map(geojson_data, metrics, st.session_state.metric)
+        with st.spinner("🚀 Running models and calculating metrics..."):
+            # 📌 Exécuter les modèles et récupérer les métriques
+            models = run_models_for_all_regions(st.session_state.map_year, regions, data)
+            metrics = get_metrics_for_all_regions(models, st.session_state.metric)
 
-        # 📌 Convertir la carte en HTML pour éviter la disparition
-        st.session_state.map_html = map_obj._repr_html_()
+            # 📌 Charger le GeoJSON et créer la carte
+            geojson_data = load_geojson()
 
-        # 🔹 Vérifier si la carte est déjà générée et l'afficher
-        st.title("Nitrogen Flow Map")
+            map_obj = get_cached_map(geojson_data, metrics, st.session_state.metric)
+
+            # 📌 Convertir la carte en HTML pour éviter la disparition
+            st.session_state.map_html = map_obj._repr_html_()
+
+            # 🔹 Vérifier si la carte est déjà générée et l'afficher
+            st.title("Nitrogen Flow Map")
 
         if st.session_state.map_html:
             st.components.v1.html(st.session_state.map_html, height=600, scrolling=True)
