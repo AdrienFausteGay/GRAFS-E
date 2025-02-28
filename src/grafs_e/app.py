@@ -567,8 +567,26 @@ def run_models_for_all_regions(year, regions, _data_loader):
 
 # 📌 Calculer et stocker les métriques pour chaque région en cache
 @st.cache_data
-def get_metrics_for_all_regions(_models, metric_name):
-    metric_dict = {"Imported nitrogen": "imported_nitrogen"}
+def get_metrics_for_all_regions(_models, metric_name, year):
+    metric_dict = {
+        "Total imported nitrogen": "imported_nitrogen",
+        "Total net plant import": "net_imported_plant",
+        "Total net animal import": "net_imported_animal",
+        "Total plant production": "total_plant_production",
+        "Cereals production": "cereals_production",
+        "Leguminous production": "leguminous_production",
+        "Oleaginous production": "oleaginous_production",
+        "Grassland and forage production": "grassland_and_forages_production",
+        "Roots production": "roots_production",
+        "Fruits and vegetables production": "fruits_and_vegetable_production",
+        "Relative Cereals production": "cereals_production_r",
+        "Relative Leguminous production": "leguminous_production_r",
+        "Relative Oleaginous production": "oleaginous_production_r",
+        "Relative Grassland and forage production": "grassland_and_forages_production_r",
+        "Relative Roots production": "roots_production_r",
+        "Relative Fruits and vegetables production": "fruits_and_vegetable_production_r",
+        "Total animal production": "animal_production",
+    }
     metric_function_name = metric_dict[metric_name]
     metrics = {}
     for region, model in _models.items():
@@ -601,7 +619,7 @@ def add_color_legend(m, vmin, vmax, cmap, metric_name):
 
 # 📌 Fonction pour créer la carte et stocker dans `st.session_state`
 @st.cache_resource
-def create_map_with_metrics(geojson_data, metrics, metric_name):
+def create_map_with_metrics(geojson_data, metrics, metric_name, year):
     map_center = [48.8566, 2.3522]  # Centre (Paris)
     m = folium.Map(location=map_center, zoom_start=6, tiles="OpenStreetMap")
 
@@ -613,9 +631,15 @@ def create_map_with_metrics(geojson_data, metrics, metric_name):
             # 📌 Obtenir min et max du metric sélectionné
             min_val, max_val = get_metric_range(metrics)
 
+            if "net" in metric_name:
+                cmap = cm.get_cmap("RdYlGn")
+                min_val = min(min_val, -abs(max_val))
+                max_val = max(abs(min_val), max_val)
+            else:
+                cmap = cm.get_cmap("plasma")  # Utilisation de la colormap "plasma"
+
             # 📌 Normaliser et mapper les couleurs
             norm = mcolors.Normalize(vmin=min_val, vmax=max_val)
-            cmap = cm.get_cmap("plasma")  # Utilisation de la colormap "plasma"
 
             for feature in geojson_data["features"]:
                 region_name = feature["properties"]["nom"]
@@ -635,11 +659,18 @@ def create_map_with_metrics(geojson_data, metrics, metric_name):
                     }
 
                 # Ajouter le polygone à la carte
-                folium.GeoJson(
-                    feature,
-                    style_function=style_function,
-                    tooltip=folium.Tooltip(f"{region_name}: {metric_value:.2f} ktN/yr"),
-                ).add_to(m)
+                if "Relative" in metric_name:
+                    folium.GeoJson(
+                        feature,
+                        style_function=style_function,
+                        tooltip=folium.Tooltip(f"{region_name}: {metric_value:.0f} %"),
+                    ).add_to(m)
+                else:
+                    folium.GeoJson(
+                        feature,
+                        style_function=style_function,
+                        tooltip=folium.Tooltip(f"{region_name}: {metric_value:.2f} ktN/yr"),
+                    ).add_to(m)
     add_color_legend(m, min_val, max_val, cmap, metric_name)
     return m
 
@@ -655,31 +686,49 @@ with tab5:
     st.session_state.map_year = st.selectbox("Select a year", annees_disponibles, index=0, key="year_map_selection")
 
     # 🟢 Sélection de la métrique
-    metric = ["Imported nitrogen"]
+    metric = [
+        "Total imported nitrogen",
+        "Total net plant import",
+        "Total net animal import",
+        "Total plant production",
+        "Total animal production",
+        "Cereals production",
+        "Leguminous production",
+        "Grassland and forage production",
+        "Roots production",
+        "Oleaginous production",
+        "Fruits and vegetables production",
+        "Relative Cereals production",
+        "Relative Leguminous production",
+        "Relative Grassland and forage production",
+        "Relative Roots production",
+        "Relative Oleaginous production",
+        "Relative Fruits and vegetables production",
+    ]
     st.session_state.metric = st.selectbox("Select a metric", metric, index=0, key="metric_selection")
 
     # 🔹 Bouton "Run"
     if st.button("Run", key="map_button"):
 
         @st.cache_resource
-        def get_cached_map(geojson_data, metrics, metric_name):
-            return create_map_with_metrics(geojson_data, metrics, metric_name)
+        def get_cached_map(geojson_data, metrics, metric_name, year):
+            return create_map_with_metrics(geojson_data, metrics, metric_name, st.session_state.map_year)
 
         with st.spinner("🚀 Running models and calculating metrics..."):
             # 📌 Exécuter les modèles et récupérer les métriques
             models = run_models_for_all_regions(st.session_state.map_year, regions, data)
-            metrics = get_metrics_for_all_regions(models, st.session_state.metric)
+            metrics = get_metrics_for_all_regions(models, st.session_state.metric, st.session_state.map_year)
 
             # 📌 Charger le GeoJSON et créer la carte
             geojson_data = load_geojson()
 
-            map_obj = get_cached_map(geojson_data, metrics, st.session_state.metric)
+            map_obj = get_cached_map(geojson_data, metrics, st.session_state.metric, st.session_state.map_year)
 
             # 📌 Convertir la carte en HTML pour éviter la disparition
             st.session_state.map_html = map_obj._repr_html_()
 
             # 🔹 Vérifier si la carte est déjà générée et l'afficher
-            st.title("Nitrogen Flow Map")
+            st.title("Nitrogen Map")
 
         if st.session_state.map_html:
             st.components.v1.html(st.session_state.map_html, height=600, scrolling=True)
