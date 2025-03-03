@@ -1025,12 +1025,13 @@ class NitrogenFlowModel:
         flux_generator.generate_flux(source, target)
 
         # A cela on ajoute les emissions indirectes de N2O lors de la fabrication des engrais
-        epend_tot_synt = (
-            df_cultures["Volatilized Nitrogen N-NH3 (ktN)"]
-            + df_cultures["Volatilized Nitrogen N-N20 (ktN)"]
-            + df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"]
-        ).sum()
-        coef_emis_N_N2O = data[data["index_excel"] == 32][region].item()
+        # epend_tot_synt = (
+        #     df_cultures["Volatilized Nitrogen N-NH3 (ktN)"]
+        #     + df_cultures["Volatilized Nitrogen N-N20 (ktN)"]
+        #     + df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"]
+        # ).sum()
+        epend_tot_synt = df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"].sum()
+        coef_emis_N_N2O = data[data["index_excel"] == 32][region].item() / 100
         target = {"N2O emission": 1}
         source = {"Haber-Bosch": epend_tot_synt * coef_emis_N_N2O}
 
@@ -1999,7 +2000,7 @@ class NitrogenFlowModel:
         )
 
         # On équilibre Haber-Bosch avec atmospheric N2 pour le faire entrer dans le système
-        target = {"Haber-Bosch": adjacency_matrix[:, 50].sum()}
+        target = {"Haber-Bosch": adjacency_matrix[:, label_to_index["Haber-Bosch"]].sum()}
         source = {"atmospheric N2": 1}
         flux_generator.generate_flux(source, target)
 
@@ -2157,6 +2158,21 @@ class NitrogenFlowModel:
 
     def animal_production(self):
         return self.df_elevage["Edible Nitrogen (ktN)"].sum()
+
+    def emissions(self):
+        return pd.Series(
+            {
+                "N2O emission": self.adjacency_matrix[:, label_to_index["N2O emission"]].sum()
+                * (14 * 2 + 16)
+                / (14 * 2),
+                "atmospheric N2": self.adjacency_matrix[:, label_to_index["atmospheric N2"]].sum(),
+                "NH3 volatilization": self.adjacency_matrix[:, label_to_index["NH3 volatilization"]].sum() * 17 / 14,
+            },
+            name="Emission",
+        ).to_frame()["Emission"]
+
+    def surfaces(self):
+        return self.df_cultures["Area (ha)"]
 
 
 # Créer une instance du modèle
