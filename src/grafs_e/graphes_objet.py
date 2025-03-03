@@ -8,11 +8,12 @@ import seaborn as sns
 from matplotlib.patches import Circle, FancyArrowPatch
 
 from grafs_e.donnees import *
-from grafs_e.N_class import DataLoader, NitrogenFlowModel
 
 
 class Graphs_maker:
     def __init__(self):
+        from grafs_e.N_class import DataLoader
+
         self.data = DataLoader()
 
     def get_graph(self, region, year, cut_isolated=True):
