@@ -590,6 +590,10 @@ def get_metrics_for_all_regions(_models, metric_name, year):
         "Relative Roots production": "roots_production_r",
         "Relative Fruits and vegetables production": "fruits_and_vegetable_production_r",
         "Total animal production": "animal_production",
+        "Effective number of nodes": "N_eff",
+        "Effective connectivity": "C_eff",
+        "Effective number of links": "F_eff",
+        "Effective number of role": "R_eff",
     }
     metric_function_name = metric_dict[metric_name]
     metrics = {}
@@ -669,6 +673,13 @@ def create_map_with_metrics(geojson_data, metrics, metric_name, year):
                         style_function=style_function,
                         tooltip=folium.Tooltip(f"{region_name}: {metric_value:.0f} %"),
                     ).add_to(m)
+
+                if "Eff" in metric_name:
+                    folium.GeoJson(
+                        feature,
+                        style_function=style_function,
+                        tooltip=folium.Tooltip(f"{region_name}: {metric_value:.2f}"),
+                    ).add_to(m)
                 else:
                     folium.GeoJson(
                         feature,
@@ -708,6 +719,10 @@ with tab5:
         "Relative Roots production",
         "Relative Oleaginous production",
         "Relative Fruits and vegetables production",
+        "Effective number of nodes",
+        "Effective connectivity",
+        "Effective number of links",
+        "Effective number of role",
     ]
     st.session_state.metric = st.selectbox("Select a metric", metric_map, index=0, key="metric_selection")
 
@@ -783,6 +798,10 @@ def get_metrics_for_all_years(_models, metric_name, region):
         "Relative Roots production": "roots_production_r",
         "Relative Fruits and vegetables production": "fruits_and_vegetable_production_r",
         "Total animal production": "animal_production",
+        "Effective number of nodes": "N_eff",
+        "Effective connectivity": "C_eff",
+        "Effective number of links": "F_eff",
+        "Effective number of role": "R_eff",
     }
     metric_function_name = metric_dict[metric_name]
     metrics = {}
@@ -836,11 +855,16 @@ def plot_standard_graph(_models, metric, region):
         )
     )
 
+    if "Eff" in metric:
+        y_label = "#"
+    else:
+        y_label = "ktN/yr"
+
     # 🎨 Personnalisation du style du graphique
     fig.update_layout(
         title=f"Historical Evolution of {st.session_state.metric_hist} in {st.session_state.selected_region_hist}",
         xaxis_title="Year",
-        yaxis_title="ktN/yr",
+        yaxis_title=y_label,
         template="plotly_white",
         hovermode="x unified",
         showlegend=True,
@@ -877,10 +901,6 @@ def stacked_area_chart(_models, metric, region):
     # Suppose qu'on prend la première année comme référence pour l'index (les cultures)
     df = pd.DataFrame(index=metrics[all_years[0]].index, columns=all_years, dtype=float)
 
-    # from IPython import embed
-
-    # embed()
-
     # Remplir le DataFrame (Cultures x Années)
     for year, df_year in metrics.items():
         df.loc[df_year.index, year] = df_year
@@ -904,9 +924,6 @@ def stacked_area_chart(_models, metric, region):
 
     # On veut hover = seulement la courbe survolée => hovermode='closest'
     # => On n'utilise plus 'x unified'
-    from IPython import embed
-
-    embed()
     if metric == "Area":
         fig.update_layout(
             title=f"Agricultural Area - {region}",
@@ -1016,11 +1033,17 @@ with tab6:
         "Relative Roots production",
         "Relative Oleaginous production",
         "Relative Fruits and vegetables production",
+        "Effective number of nodes",
+        "Effective connectivity",
+        "Effective number of links",
+        "Effective number of role",
     ]
 
     st.session_state.metric_hist = st.selectbox("Select a metric", metric_hist, index=0, key="hist_metric_selection")
 
     # ✅ Affichage des sélections (se met à jour dynamiquement)
+    if "selected_region_hist" not in st.session_state:
+        st.session_state.selected_region_hist = None
     if st.session_state.selected_region_hist:
         st.write(f"✅ Région sélectionnée : {st.session_state.selected_region_hist}")
     else:

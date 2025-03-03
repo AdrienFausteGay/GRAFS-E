@@ -17,6 +17,7 @@ pd.set_option("display.max_rows", None)
 
 pd.set_option("future.no_silent_downcasting", True)
 
+import grafs_e.graphes_objet as gr
 from grafs_e.donnees import *
 
 
@@ -2173,6 +2174,18 @@ class NitrogenFlowModel:
 
     def surfaces(self):
         return self.df_cultures["Area (ha)"]
+
+    def N_eff(self):
+        return gr.GraphAnalyzer.calculate_Neff(self.adjacency_matrix)
+
+    def C_eff(self):
+        return gr.GraphAnalyzer.calculate_Ceff(self.adjacency_matrix)
+
+    def F_eff(self):
+        return gr.GraphAnalyzer.calculate_Feff(self.adjacency_matrix)
+
+    def R_eff(self):
+        return gr.GraphAnalyzer.calculate_Reff(self.adjacency_matrix)
 
 
 # Créer une instance du modèle
