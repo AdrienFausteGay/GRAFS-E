@@ -8,6 +8,8 @@ import folium
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
 import requests
 import streamlit as st
 from PIL import Image
@@ -80,7 +82,9 @@ else:
     st.warning("⚠️ Please select a year")
 
 # -- Sélection des onglets --
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Documentation", "Run", "Sankey", "Detailed data", "Map"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+    ["Documentation", "Run", "Sankey", "Detailed data", "Map", "Historic Evolution"]
+)
 
 with tab1:
     st.title("Documentation")
@@ -567,8 +571,26 @@ def run_models_for_all_regions(year, regions, _data_loader):
 
 # 📌 Calculer et stocker les métriques pour chaque région en cache
 @st.cache_data
-def get_metrics_for_all_regions(_models, metric_name):
-    metric_dict = {"Imported nitrogen": "imported_nitrogen"}
+def get_metrics_for_all_regions(_models, metric_name, year):
+    metric_dict = {
+        "Total imported nitrogen": "imported_nitrogen",
+        "Total net plant import": "net_imported_plant",
+        "Total net animal import": "net_imported_animal",
+        "Total plant production": "total_plant_production",
+        "Cereals production": "cereals_production",
+        "Leguminous production": "leguminous_production",
+        "Oleaginous production": "oleaginous_production",
+        "Grassland and forage production": "grassland_and_forages_production",
+        "Roots production": "roots_production",
+        "Fruits and vegetables production": "fruits_and_vegetable_production",
+        "Relative Cereals production": "cereals_production_r",
+        "Relative Leguminous production": "leguminous_production_r",
+        "Relative Oleaginous production": "oleaginous_production_r",
+        "Relative Grassland and forage production": "grassland_and_forages_production_r",
+        "Relative Roots production": "roots_production_r",
+        "Relative Fruits and vegetables production": "fruits_and_vegetable_production_r",
+        "Total animal production": "animal_production",
+    }
     metric_function_name = metric_dict[metric_name]
     metrics = {}
     for region, model in _models.items():
@@ -601,7 +623,7 @@ def add_color_legend(m, vmin, vmax, cmap, metric_name):
 
 # 📌 Fonction pour créer la carte et stocker dans `st.session_state`
 @st.cache_resource
-def create_map_with_metrics(geojson_data, metrics, metric_name):
+def create_map_with_metrics(geojson_data, metrics, metric_name, year):
     map_center = [48.8566, 2.3522]  # Centre (Paris)
     m = folium.Map(location=map_center, zoom_start=6, tiles="OpenStreetMap")
 
@@ -613,9 +635,15 @@ def create_map_with_metrics(geojson_data, metrics, metric_name):
             # 📌 Obtenir min et max du metric sélectionné
             min_val, max_val = get_metric_range(metrics)
 
+            if "net" in metric_name:
+                cmap = cm.get_cmap("RdYlGn")
+                min_val = min(min_val, -abs(max_val))
+                max_val = max(abs(min_val), max_val)
+            else:
+                cmap = cm.get_cmap("plasma")  # Utilisation de la colormap "plasma"
+
             # 📌 Normaliser et mapper les couleurs
             norm = mcolors.Normalize(vmin=min_val, vmax=max_val)
-            cmap = cm.get_cmap("plasma")  # Utilisation de la colormap "plasma"
 
             for feature in geojson_data["features"]:
                 region_name = feature["properties"]["nom"]
@@ -635,11 +663,18 @@ def create_map_with_metrics(geojson_data, metrics, metric_name):
                     }
 
                 # Ajouter le polygone à la carte
-                folium.GeoJson(
-                    feature,
-                    style_function=style_function,
-                    tooltip=folium.Tooltip(f"{region_name}: {metric_value:.2f} ktN/yr"),
-                ).add_to(m)
+                if "Relative" in metric_name:
+                    folium.GeoJson(
+                        feature,
+                        style_function=style_function,
+                        tooltip=folium.Tooltip(f"{region_name}: {metric_value:.0f} %"),
+                    ).add_to(m)
+                else:
+                    folium.GeoJson(
+                        feature,
+                        style_function=style_function,
+                        tooltip=folium.Tooltip(f"{region_name}: {metric_value:.2f} ktN/yr"),
+                    ).add_to(m)
     add_color_legend(m, min_val, max_val, cmap, metric_name)
     return m
 
@@ -655,34 +690,358 @@ with tab5:
     st.session_state.map_year = st.selectbox("Select a year", annees_disponibles, index=0, key="year_map_selection")
 
     # 🟢 Sélection de la métrique
-    metric = ["Imported nitrogen"]
-    st.session_state.metric = st.selectbox("Select a metric", metric, index=0, key="metric_selection")
+    metric_map = [
+        "Total imported nitrogen",
+        "Total net plant import",
+        "Total net animal import",
+        "Total plant production",
+        "Total animal production",
+        "Cereals production",
+        "Leguminous production",
+        "Grassland and forage production",
+        "Roots production",
+        "Oleaginous production",
+        "Fruits and vegetables production",
+        "Relative Cereals production",
+        "Relative Leguminous production",
+        "Relative Grassland and forage production",
+        "Relative Roots production",
+        "Relative Oleaginous production",
+        "Relative Fruits and vegetables production",
+    ]
+    st.session_state.metric = st.selectbox("Select a metric", metric_map, index=0, key="metric_selection")
 
     # 🔹 Bouton "Run"
     if st.button("Run", key="map_button"):
-        # 📌 Exécuter les modèles et récupérer les métriques
-        models = run_models_for_all_regions(st.session_state.map_year, regions, data)
-        metrics = get_metrics_for_all_regions(models, st.session_state.metric)
-
-        # 📌 Charger le GeoJSON et créer la carte
-        geojson_data = load_geojson()
 
         @st.cache_resource
-        def get_cached_map(geojson_data, metrics, metric_name):
-            return create_map_with_metrics(geojson_data, metrics, metric_name)
+        def get_cached_map(geojson_data, metrics, metric_name, year):
+            return create_map_with_metrics(geojson_data, metrics, metric_name, st.session_state.map_year)
 
-        map_obj = get_cached_map(geojson_data, metrics, st.session_state.metric)
+        with st.spinner("🚀 Running models and calculating metrics..."):
+            # 📌 Exécuter les modèles et récupérer les métriques
+            models = run_models_for_all_regions(st.session_state.map_year, regions, data)
+            metrics = get_metrics_for_all_regions(models, st.session_state.metric, st.session_state.map_year)
 
-        # 📌 Convertir la carte en HTML pour éviter la disparition
-        st.session_state.map_html = map_obj._repr_html_()
+            # 📌 Charger le GeoJSON et créer la carte
+            geojson_data = load_geojson()
 
-        # 🔹 Vérifier si la carte est déjà générée et l'afficher
-        st.title("Nitrogen Flow Map")
+            map_obj = get_cached_map(geojson_data, metrics, st.session_state.metric, st.session_state.map_year)
+
+            # 📌 Convertir la carte en HTML pour éviter la disparition
+            st.session_state.map_html = map_obj._repr_html_()
+
+            # 🔹 Vérifier si la carte est déjà générée et l'afficher
+            st.title("Nitrogen Map")
 
         if st.session_state.map_html:
             st.components.v1.html(st.session_state.map_html, height=600, scrolling=True)
         else:
             st.warning("Please run the model to generate the map.")
 
+
+@st.cache_resource
+def run_models_for_all_years(region, _data_loader):
+    models = {}
+    for year in annees_disponibles:
+        models[year] = NitrogenFlowModel(
+            data=_data_loader,
+            year=year,
+            region=region,
+            categories_mapping=categories_mapping,
+            labels=labels,
+            cultures=cultures,
+            legumineuses=legumineuses,
+            prairies=prairies,
+            betail=betail,
+            Pop=Pop,
+            ext=ext,
+        )
+    return models
+
+
+# 📌 Calculer et stocker les métriques pour chaque région en cache
+@st.cache_data
+def get_metrics_for_all_years(_models, metric_name, region):
+    metric_dict = {
+        "Total imported nitrogen": "imported_nitrogen",
+        "Total net plant import": "net_imported_plant",
+        "Total net animal import": "net_imported_animal",
+        "Total plant production": "total_plant_production",
+        "Area": "surfaces",
+        "Emissions": "emissions",
+        "Cereals production": "cereals_production",
+        "Leguminous production": "leguminous_production",
+        "Oleaginous production": "oleaginous_production",
+        "Grassland and forage production": "grassland_and_forages_production",
+        "Roots production": "roots_production",
+        "Fruits and vegetables production": "fruits_and_vegetable_production",
+        "Relative Cereals production": "cereals_production_r",
+        "Relative Leguminous production": "leguminous_production_r",
+        "Relative Oleaginous production": "oleaginous_production_r",
+        "Relative Grassland and forage production": "grassland_and_forages_production_r",
+        "Relative Roots production": "roots_production_r",
+        "Relative Fruits and vegetables production": "fruits_and_vegetable_production_r",
+        "Total animal production": "animal_production",
+    }
+    metric_function_name = metric_dict[metric_name]
+    metrics = {}
+    for year, model in _models.items():
+        metric_function = getattr(model, metric_function_name, None)
+        if callable(metric_function):
+            metrics[year] = metric_function()
+        else:
+            metrics[year] = None  # Si la méthode n'existe pas, on met None
+    return metrics
+
+
+def plot_standard_graph(_models, metric, region):
+    metrics = get_metrics_for_all_years(_models, metric, region)
+
+    # 📊 Préparation des données pour le graphique
+    years = sorted([int(year) for year in metrics.keys()])
+    values = list(metrics.values())
+
+    # 🔄 Affichage conditionnel des labels
+    min_gap = 4  # ⚙️ Seuil minimum entre deux labels
+    visible_years = []
+    last_visible_year = None
+
+    for year in years:
+        if last_visible_year is None or (year - last_visible_year) >= min_gap:
+            visible_years.append(str(year))
+            last_visible_year = year
+        else:
+            visible_years.append("")  # Pas de label si trop proche
+
+    # 🔵 Détection du thème actuel
+    current_theme = st.get_option("theme.base")
+
+    if current_theme == "light":
+        line_color = "royalblue"
+    else:
+        line_color = "white"
+
+    # 📊 Création du graphique avec Plotly
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=years,
+            y=values,
+            mode="lines+markers",
+            name=st.session_state.metric_hist,
+            line=dict(color=line_color, width=2),
+            marker=dict(size=8, color="royalblue", symbol="circle"),
+        )
+    )
+
+    # 🎨 Personnalisation du style du graphique
+    fig.update_layout(
+        title=f"Historical Evolution of {st.session_state.metric_hist} in {st.session_state.selected_region_hist}",
+        xaxis_title="Year",
+        yaxis_title="ktN/yr",
+        template="plotly_white",
+        hovermode="x unified",
+        showlegend=True,
+        legend=dict(x=0.05, y=0.95, bgcolor="rgba(255, 255, 255, 0.5)"),
+    )
+
+    # 🔍 Amélioration des axes
+    fig.update_xaxes(
+        showgrid=True,
+        tickmode="array",
+        tickvals=years,
+        ticktext=visible_years,
+        tickangle=45,
+        # tickfont=dict(size=10),
+    )
+
+    fig.update_yaxes(showgrid=True, zeroline=True)
+
+    # 🚀 Affichage dans Streamlit
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def stacked_area_chart(_models, metric, region):
+    """Affiche un graphique en courbes empilées pour l'évolution des surfaces cultivées
+    avec une légende par catégorie et un hover individuel par culture."""
+
+    # -----------------------------------------------------------------
+    # 1) Récupération & Transformation des données
+    # -----------------------------------------------------------------
+    metrics = get_metrics_for_all_years(_models, metric, region)  # Dict { année(str) : df_cultures }
+
+    all_years = sorted(metrics.keys(), key=int)
+
+    # Suppose qu'on prend la première année comme référence pour l'index (les cultures)
+    df = pd.DataFrame(index=metrics[all_years[0]].index, columns=all_years, dtype=float)
+
+    # from IPython import embed
+
+    # embed()
+
+    # Remplir le DataFrame (Cultures x Années)
+    for year, df_year in metrics.items():
+        df.loc[df_year.index, year] = df_year
+
+    df.fillna(0, inplace=True)
+
+    # Calcul cumulatif pour l'affichage empilé par colonnes
+    df_cumsum = df.cumsum(axis=0)
+    # Ajouter une ligne "Base" (0) pour le fill='tonexty'
+    df_cumsum.loc["Base"] = 0
+    # df_cumsum = df_cumsum.sort_index()
+
+    # -----------------------------------------------------------------
+    # 2) Création du Sankey Plotly
+    # -----------------------------------------------------------------
+    fig = go.Figure()
+
+    # On veut regrouper les cultures par catégorie pour la légende
+    # => On utilise 'legendgroup' + 'showlegend' seulement au 1er trace de chaque catégorie
+    categories_seen = set()
+
+    # On veut hover = seulement la courbe survolée => hovermode='closest'
+    # => On n'utilise plus 'x unified'
+    from IPython import embed
+
+    embed()
+    if metric == "Area":
+        fig.update_layout(
+            title=f"Agricultural Area - {region}",
+            xaxis_title="Year",
+            yaxis_title="Cumulated Area (ha)",
+            hovermode="closest",  # ❗️ Montre seulement la courbe survolée
+            showlegend=True,
+        )
+
+        # Parcourir chaque culture dans l'ordre de l'index (df.index)
+        # 'Base' doit être ignoré => On ne fait pas de trace pour 'Base'
+        cultures_list = [c for c in df_cumsum.index if c != "Base"]
+
+        for culture in cultures_list:
+            # Courbe du haut = df_cumsum.loc[culture]
+            # fill='tonexty' => se remplit entre cette courbe et la précédente
+            # => l'ordre du df_cumsum doit être correct (Base, ..., culture)
+            # Couleur en fonction de la catégorie
+            cat = categories_mapping.get(culture, "Unknown")
+            culture_color = node_color[label_to_index[culture]]
+
+            # Groupe de légende = cat
+            # On affiche la légende qu'une seule fois par catégorie
+            show_in_legend = cat not in categories_seen
+            if show_in_legend:
+                categories_seen.add(cat)
+
+            fig.add_trace(
+                go.Scatter(
+                    x=all_years,
+                    y=df_cumsum.loc[culture],
+                    fill="tonexty",
+                    mode="lines",
+                    line=dict(color=culture_color, width=0.5),
+                    name=cat,  # ❗️ Nom affiché = Catégorie
+                    legendgroup=cat,  # ❗️ On groupe par Catégorie
+                    customdata=df.loc[culture].tolist(),
+                    showlegend=show_in_legend,  # ❗️ Un seul trace par groupe dans la légende
+                    hovertemplate=("Culture: %{text}<br>Year: %{x}<br>Value: %{customdata:.2f} ha<extra></extra>"),
+                    text=[culture] * len(all_years),  # Pour afficher le nom de la culture au survol
+                )
+            )
+    if metric == "Emissions":
+        fig.update_layout(
+            title=f"Nitrogen emissions - {region}",
+            xaxis_title="Year",
+            yaxis_title="kTon/yr",
+            hovermode="closest",  # ❗️ Montre seulement la courbe survolée
+            showlegend=True,
+        )
+
+        # Parcourir chaque culture dans l'ordre de l'index (df.index)
+        # 'Base' doit être ignoré => On ne fait pas de trace pour 'Base'
+        emissions_list = [c for c in df_cumsum.index if c != "Base"]
+
+        color = {"N2O emission": "red", "atmospheric N2": "white", "NH3 volatilization": "blue"}
+
+        for emission in emissions_list:
+            # Courbe du haut = df_cumsum.loc[culture]
+            # fill='tonexty' => se remplit entre cette courbe et la précédente
+            # => l'ordre du df_cumsum doit être correct (Base, ..., culture)
+
+            fig.add_trace(
+                go.Scatter(
+                    x=all_years,
+                    y=df_cumsum.loc[emission],
+                    fill="tonexty",
+                    mode="lines",
+                    line=dict(color=color[emission], width=0.5),
+                    customdata=df.loc[emission].tolist(),
+                    name=emission,  # ❗️ Nom affiché = Catégorie
+                    hovertemplate=(
+                        "Emission: %{text}<br>Year: %{x}<br>Value: %{customdata:.2f} kton/yr<extra></extra>"
+                    ),
+                    text=[emission] * len(all_years),  # Pour afficher le nom de la culture au survol
+                )
+            )
+
+    # -----------------------------------------------------------------
+    # 3) Affichage
+    # -----------------------------------------------------------------
+    st.plotly_chart(fig, use_container_width=True)
+
+
+with tab6:
+    st.title("Historic evolution of agrarian landscape")
+
+    st.text("Discover how agriculture changes during time. Choose a metric and a territory :")
+
+    metric_hist = [
+        "Total imported nitrogen",
+        "Total net plant import",
+        "Total net animal import",
+        "Total plant production",
+        "Total animal production",
+        "Area",
+        "Emissions",
+        "Cereals production",
+        "Leguminous production",
+        "Grassland and forage production",
+        "Roots production",
+        "Oleaginous production",
+        "Fruits and vegetables production",
+        "Relative Cereals production",
+        "Relative Leguminous production",
+        "Relative Grassland and forage production",
+        "Relative Roots production",
+        "Relative Oleaginous production",
+        "Relative Fruits and vegetables production",
+    ]
+
+    st.session_state.metric_hist = st.selectbox("Select a metric", metric_hist, index=0, key="hist_metric_selection")
+
+    # ✅ Affichage des sélections (se met à jour dynamiquement)
+    if st.session_state.selected_region_hist:
+        st.write(f"✅ Région sélectionnée : {st.session_state.selected_region_hist}")
+    else:
+        st.warning("⚠️ Veuillez sélectionner une région")
+
+    m_hist = create_map()
+    map_data_hist = st_folium(m_hist, width=700, height=500, key="hist_map")
+
+    # 🔹 Mettre à jour `st.session_state.selected_region` avec la sélection utilisateur
+    if map_data_hist and "last_active_drawing" in map_data_hist:
+        last_drawing = map_data_hist["last_active_drawing"]
+        if last_drawing and "properties" in last_drawing and "nom" in last_drawing["properties"]:
+            st.session_state.selected_region_hist = last_drawing["properties"]["nom"]
+
+    if st.button("Run", key="map_button_hist"):
+        with st.spinner("🚀 Running models and calculating metrics..."):
+            # 📌 Exécuter les modèles et récupérer les métriques
+            models = run_models_for_all_years(st.session_state.selected_region_hist, data)
+            if st.session_state.metric_hist not in ["Area", "Emissions"]:
+                plot_standard_graph(models, st.session_state.metric_hist, st.session_state.selected_region_hist)
+            else:
+                stacked_area_chart(models, st.session_state.metric_hist, st.session_state.selected_region_hist)
 
 # %%

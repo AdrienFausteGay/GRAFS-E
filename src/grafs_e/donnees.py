@@ -283,15 +283,17 @@ node_color = {
         and categories_mapping[label]
         in [
             "cereals (excluding rice)",
-            "fruits and vegetables",
-            "roots",
-            "forages",
-            "oleaginous",
         ]
         else "lightgreen"
-        if label in categories_mapping and categories_mapping[label] == "leguminous"
+        if label in categories_mapping and categories_mapping[label] == "fruits and vegetables"
+        else "orange"
+        if label in categories_mapping and categories_mapping[label] == "roots"
+        else "white"
+        if label in categories_mapping and categories_mapping[label] == "oleaginous"
         else "darkgreen"
-        if label in categories_mapping and categories_mapping[label] == "grasslands"
+        if label in categories_mapping and categories_mapping[label] == "leguminous"
+        else "green"
+        if label in categories_mapping and categories_mapping[label] in ["grasslands", "forages"]
         else "lightblue"
         if label in betail
         else "darkblue"
