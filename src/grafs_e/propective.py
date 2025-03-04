@@ -1,11 +1,13 @@
 import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.optimize import curve_fit
 from scipy.stats import linregress
 
 from grafs_e.donnees import *
-from grafs_e.N_class import DataLoader
+from grafs_e.N_class import DataLoader, NitrogenFlowModel
 
 
 class scenario:
@@ -13,6 +15,8 @@ class scenario:
         self.data_path = os.path.join(os.path.dirname(__file__), "data")
         if dataloader is None:
             self.dataloader = DataLoader()
+        else:
+            self.dataloader = dataloader
         self.scenario_path = scenario_path
 
     def historic_trend(self, region, excel_line):
@@ -161,11 +165,20 @@ class scenario:
     def generate_crop_tab(self, region):
         df = self.dataloader.pre_process_df(annees_disponibles[-1], region)
 
-        cultures = df.loc[df["index_excel"].isin(range(259, 294)), ("nom", region)]
-        cultures[region] = cultures[region] * 100 / cultures[region].sum()
+        cultures_df = df.loc[df["index_excel"].isin(range(259, 295)), ("nom", region)]
+        cultures_df[region] = cultures_df[region] * 100 / cultures_df[region].sum()
+        cultures_df.loc[cultures_df["nom"] == "Natural meadow ", region] = None
 
-        df_insert = pd.DataFrame(cultures.values, columns=["Cultures", "Area proportion (%)"])
+        df_insert = pd.DataFrame(cultures_df.values, columns=["Cultures", "Area proportion (%)"])
         df_insert["Enforce"] = ""
+
+        Y_pros = Y(self.dataloader)
+        Y_max = []
+        for culture in cultures + legumineuses + prairies:
+            ym, _ = Y_pros.fit_Y(culture, self.region)
+            Y_max.append(int(ym))
+        df_insert["Y_max"] = Y_max
+
         return df_insert
 
     def generate_scenario_excel(self, year, region, name):
@@ -546,3 +559,74 @@ class scenario:
         with pd.ExcelWriter(os.path.join(self.scenario_path, name + ".xlsx"), engine="openpyxl") as writer:
             for sheet_name, df in sheets.items():
                 df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+
+class Y:
+    def __init__(self, dataloader=None):
+        if dataloader == None:
+            self.dataloader = DataLoader()
+        else:
+            self.dataloader = dataloader
+        self.int_yr = [int(i) for i in annees_disponibles]
+
+    def get_Y(self, culture, region, plot=False):
+        F = []
+        Y = []
+        for yr in annees_disponibles:
+            model = NitrogenFlowModel(data=self.dataloader, year=yr, region=region)
+            f = model.Ftot(culture)
+            y = model.Y(culture)
+            if f * y != 0:
+                F.append(f)
+                Y.append(y)
+        if plot:
+            plt.figure(figsize=(8, 6))
+            plt.plot(F, Y, "o-", color="tab:blue", markersize=6, label="Historic Data")  # Points et ligne
+            plt.xlabel("Fertilization (kgN/ha/yr)", fontsize=12)
+            plt.ylabel("Yield (kgN/ha/yr)", fontsize=12)
+            # plt.title("Relation entre Fertilisation et Rendement", fontsize=14, fontweight='bold')
+            plt.grid(True, linestyle="--", alpha=0.4)  # Grille discrète
+            plt.legend()
+            plt.show()
+        return np.array(F), np.array(Y)
+
+    @staticmethod
+    def Y_th(f, y_max):
+        return f * y_max / (f + y_max)
+
+    def fit_Y(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            return 0, None
+        Y_max_init = max(Y)
+        try:
+            popt, _ = curve_fit(self.Y_th, F, Y, p0=[Y_max_init], bounds=(0, np.inf))
+            Y_max_opt = popt[0]  # 📌 Paramètre ajusté Y_max
+        except RuntimeError:
+            print("⚠️ Ajustement impossible pour", culture, region)
+            Y_max_opt = None  # Retourne None en cas d'échec
+
+        Y_th_fitted = self.Y_th(F, Y_max_opt) if Y_max_opt is not None else None
+        return Y_max_opt, Y_th_fitted
+
+    def plot_Y(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            print(f"no {culture} found in {region}")
+            return None
+        Y_max, _ = self.fit_Y(culture, region)
+        F_th = np.linspace(0, 1.05 * max(F), 100)
+        Y_th = self.Y_th(F_th, Y_max)
+        plt.figure(figsize=(8, 6))
+        plt.plot(F, Y, "o-", color="tab:blue", markersize=6, label="Historic Data")  # Points et ligne
+        plt.plot(F_th, Y_th, label=f"Theoric curve, Y_max = {int(Y_max)}", color="orange")
+        plt.xlim(0, max(F_th))  # Départ de l'axe X à 0
+        plt.ylim(0, max(Y_th))  # Départ de l'axe Y à 0
+        plt.gca().set_aspect("equal")  # Échelle identique en ajustant les limites
+
+        plt.xlabel("Fertilization (kgN/ha/yr)", fontsize=12)
+        plt.ylabel("Yield (kgN/ha/yr)", fontsize=12)
+        # plt.title("Relation entre Fertilisation et Rendement", fontsize=14, fontweight='bold')
+        plt.grid(True, linestyle="--", alpha=0.4)  # Grille discrète
+        plt.legend()
+        plt.show()
