@@ -2187,6 +2187,18 @@ class NitrogenFlowModel:
     def R_eff(self):
         return gr.GraphAnalyzer.calculate_Reff(self.adjacency_matrix)
 
+    def Ftot(self, culture):
+        area = self.df_cultures.loc[self.df_cultures.index == culture, "Area (ha)"].item()
+        if area == 0:  # Vérification pour éviter la division par zéro
+            return 0
+        return self.adjacency_matrix[:, label_to_index[culture]].sum() * 1e6 / area
+
+    def Y(self, culture):
+        area = self.df_cultures.loc[self.df_cultures.index == culture, "Area (ha)"].item()
+        if area == 0:  # Vérification pour éviter la division par zéro
+            return 0
+        return self.df_cultures.loc[self.df_cultures.index == culture, "Nitrogen Production (ktN)"].item() * 1e6 / area
+
 
 # Créer une instance du modèle
 # year = "2010"
