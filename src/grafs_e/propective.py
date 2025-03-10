@@ -200,8 +200,9 @@ class scenario:
         cultures_df = df.loc[df["index_excel"].isin(range(259, 294)), ("nom", region)]
         cultures_df[region] = cultures_df[region] * 100 / cultures_df[region].sum()
 
-        df_insert = pd.DataFrame(cultures_df.values, columns=["Cultures", "Area proportion (%)"])
-        df_insert.loc[len(df_insert)] = ["Natural meadow", None]
+        df_insert = pd.DataFrame(cultures_df.values, columns=["Crops", "Area proportion (%)"])
+        df_insert.loc[len(df_insert)] = ["Natural meadow ", None]
+        df_insert.loc[df_insert["Crops"] == "Forage cabbages & roots", "Crops"] = "Forage cabbages"
 
         df_insert["Enforce Area"] = False
 
@@ -836,16 +837,18 @@ class CultureData_prospect:
         grassland_area = self.main.loc[self.main["Variable"] == "Permanent grassland area", "Business as usual"].item()
         area = self.area["Area proportion (%)"][:-3] * arable_area / 100
         area[35] = grassland_area
+        area.index = crops_index
 
         # Extraire les taux de surface avec épendage et la teneur en azote des cultures
         epend = pd.read_excel(
             os.path.join(self.data_path, "GRAFS_data.xlsx"),
-            usecols=[0, 1],
+            usecols=[0, 1, 3],
             sheet_name="Surf N org",
         )
         epend_org = epend.set_index("Culture").to_dict()["Surface recevant N organique maîtrisable"]
         epend_N_content = epend.set_index("Culture").to_dict()["Nitrogen Content (%)"]
         # Créer un DataFrame combiné
+
         combined_data = {
             "Area (ha)": area,
             "Nitrogen Content (%)": epend_N_content,
@@ -853,7 +856,7 @@ class CultureData_prospect:
         }
 
         combined_df = pd.DataFrame(combined_data, index=crops_index)
-
+        combined_df.rename(index={"rice": "Rice"}, inplace=True)
         # Ajouter la colonne 'catégories' en mappant les cultures sur leurs catégories
         combined_df["Category"] = combined_df.index.map(self.categories_mapping)
 
@@ -861,46 +864,33 @@ class CultureData_prospect:
 
 
 class ElevageData_prospect:
-    def __init__(self, main, technical):
+    def __init__(self, main, technical, data_path):
         self.main = main
         self.technical = technical
-        self.df_elevage = self.create_elevage_dataframe(main, technical)
+        self.df_elevage = self.create_elevage_dataframe(main, technical, data_path)
 
-    def create_elevage_dataframe(self):
-        # def add_data(nom, ligne, delta, keys):
-        #     # Extraire les données supplémentaires
-        #     additional_data = df.loc[[ligne + i * delta - 2 for i in range(6)], ["nom", region]]
-        #     additional_dict = dict(zip(keys, additional_data[region].values))
-        #     # Ajouter les nouvelles données au DataFrame existant dans l'ordre
-        #     for key, value in additional_dict.items():
-        #         if value <= 10**-5:
-        #             value = 0
-        #         combined_df.loc[key, nom] = value
-
-        # Production animale, attention, contrairement au reste, ici on est en kton carcasse
-        # production_data = df[(df["index_excel"] >= 1017) & (df["index_excel"] <= 1022)][["nom", region]]
-        # production_dict = production_data.set_index("nom")[region].to_dict()
+    def create_elevage_dataframe(self, main, technical, data_path):
+        types = ["Bovines", "Ovines", "Caprines", "Equines", "Poultry", "Porcines"]
+        LU_tot = main.loc[main["Variable"] == "Total LU", "Business as usual"].item()
+        production_dict = {}
+        for t in types:
+            production_dict[t] = (
+                LU_tot
+                / 1e6
+                * technical.loc[technical["Variable"] == f"{t} LU", "Business as usual"].item()
+                * technical.loc[technical["Variable"] == f"{t} productivity", "Business as usual"].item()
+            )
 
         gas_em = pd.read_excel(os.path.join(data_path, "GRAFS_data.xlsx"), sheet_name="Volatilisation").set_index(
             "Elevage"
         )
 
         combined_data = {"Production": production_dict}
+
         combined_df = pd.DataFrame(combined_data)
+        combined_df.index = combined_df.index.str.lower()
 
         combined_df = combined_df.join(gas_em, how="left")
-
-        add_data("% edible", 1092, 12, ["bovines", "ovines", "porcines", "poultry", "equine"])
-        combined_df.loc["caprines", "% edible"] = combined_df["% edible"]["ovines"]
-        combined_df["% edible"] = combined_df["% edible"] / 100
-        add_data(
-            "% non edible",
-            1093,
-            12,
-            ["bovines", "ovines", "porcines", "poultry", "equine"],
-        )
-        combined_df.loc["caprines", "% non edible"] = combined_df["% non edible"]["ovines"]
-        combined_df["% non edible"] = combined_df["% non edible"] / 100
 
         combined_df = combined_df.fillna(0)
         return combined_df
@@ -927,7 +917,7 @@ class NitrogenFlowModel_prospect:
         self.technical = pd.DataFrame(self.scenar_sheets["technical"])
 
         self.culture_data = CultureData_prospect(self.main, self.area, self.data_path, categories_mapping)
-        self.elevage_data = ElevageData_prospect(self.main, self.technical)
+        self.elevage_data = ElevageData_prospect(self.main, self.technical, self.data_path)
         self.flux_generator = FluxGenerator(labels)
 
         self.df_cultures = self.culture_data.df_cultures
