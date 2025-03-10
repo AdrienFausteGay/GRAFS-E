@@ -642,7 +642,7 @@ class Y:
 
     @staticmethod
     def Y_th_exp(f, y_max, k):
-        return y_max * (1 - np.exp(-k * f))
+        return y_max * (1 - np.exp(-f / k))
 
     def fit_Y(self, culture, region):
         F, Y = self.get_Y(culture, region)
@@ -666,7 +666,9 @@ class Y:
         Y_max_init = max(Y)
 
         try:
-            popt, _ = curve_fit(self.Y_th_exp, F, Y, p0=[Y_max_init, 0.001], bounds=([min(Y), 1e-8], [max(Y) * 2, 1]))
+            popt, _ = curve_fit(
+                self.Y_th_exp, F, Y, p0=[Y_max_init, min(F)], bounds=([min(Y), max(F)], [max(Y) * 2, 1])
+            )
             Y_max_opt = popt[0]  # 📌 Paramètre ajusté Y_max
             k = popt[1]
         except RuntimeError:
