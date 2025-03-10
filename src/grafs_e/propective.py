@@ -72,6 +72,33 @@ class scenario:
                 LU[i][type] = np.dot(heads, lu_coef)
         return LU
 
+    @staticmethod
+    def LU_prod(dataloader, region):
+        LU_prod = {}
+        index = {
+            "bovines": [1017, 1024],
+            "ovines": [1018, 1025],
+            "caprines": [1019],
+            "equines": [1022],
+            "porcines": [1020],
+            "poultry": [1021, 1023],
+        }
+        LU = scenario.livestock_LU(dataloader, region)
+        df = dataloader.pre_process_df(annees_disponibles[-1], region)
+        for type in index.keys():
+            LU_prod[f"{type} productivity"] = (
+                df.loc[df["index_excel"] == index[type][0], region].item() / LU[annees_disponibles[-1]][type] * 1e6
+            )
+            if type in ["bovines", "ovines", "poultry"]:
+                if type == "ovines":
+                    label = "Ovines and Caprines"
+                else:
+                    label = type
+                LU_prod[f"{label} dairy productivity"] = (
+                    df.loc[df["index_excel"] == index[type][1], region].item() / LU[annees_disponibles[-1]][type] * 1e6
+                )
+        return LU_prod
+
     def extrapolate_recent_trend(self, data, future_year, alpha=7.0, seuil_bas=0, seuil_haut=None):
         """
         Extrapole une courbe historique en donnant plus de poids aux années récentes,
@@ -172,23 +199,17 @@ class scenario:
 
         cultures_df = df.loc[df["index_excel"].isin(range(259, 294)), ("nom", region)]
         cultures_df[region] = cultures_df[region] * 100 / cultures_df[region].sum()
-        cultures_df.loc[cultures_df["nom"] == "Natural meadow ", region] = None
 
         df_insert = pd.DataFrame(cultures_df.values, columns=["Cultures", "Area proportion (%)"])
+        df_insert.loc[len(df_insert)] = ["Natural meadow", None]
+
         df_insert["Enforce Area"] = False
 
         Y_pros = Y(self.dataloader)
 
-        # Y_max = []
-        # kl = []
-        # for culture in cultures + legumineuses + prairies:
-        #     ym, k, _ = Y_pros.fit_Y_exp(culture, self.region)
-        #     Y_max.append(int(ym))
-        #     kl.append(k)
-
         def fit_and_store(culture):
             ym, k, _ = Y_pros.fit_Y_exp(culture, region)
-            return int(ym), k
+            return int(ym), int(k)
 
         all_cultures = cultures + legumineuses + prairies
 
@@ -199,9 +220,8 @@ class scenario:
             )
 
         Y_max, kl = zip(*results)
-        df_insert["Y_max"] = Y_max
-        df_insert["k"] = kl
-        df_insert["k"] = df_insert["k"].map("{:.2e}".format)
+        df_insert["Ymax (kgN/ha)"] = Y_max
+        df_insert["k (kgN/ha)"] = kl
         return df_insert
 
     def generate_scenario_excel(self, year, region, name):
@@ -544,6 +564,22 @@ class scenario:
                 "Business as usual",
             ] = self.extrapolate_recent_trend(self.cap_excretion(self.region, "equines"), self.year)[1][-1]
 
+            LU_prod = self.LU_prod(self.dataloader, self.region)
+            for type in ["bovines", "ovines", "caprines", "equines", "poultry", "porcines"]:
+                sheets["technical"].loc[
+                    sheets["technical"]["Variable"] == f"{type.capitalize()} productivity",
+                    "Business as usual",
+                ] = LU_prod[f"{type} productivity"]
+                if type in ["bovines", "ovines", "poultry"]:
+                    if type == "ovines":
+                        label = "Ovines and Caprines"
+                    else:
+                        label = type
+                    sheets["technical"].loc[
+                        sheets["technical"]["Variable"] == f"{label.capitalize()} dairy productivity",
+                        "Business as usual",
+                    ] = LU_prod[f"{label} dairy productivity"]
+
             tot_LU = []
             LU_prop_hist = self.livestock_LU(self.dataloader, self.region)
             for yr in annees_disponibles:
@@ -667,7 +703,7 @@ class Y:
 
         try:
             popt, _ = curve_fit(
-                self.Y_th_exp, F, Y, p0=[Y_max_init, min(F)], bounds=([min(Y), max(F)], [max(Y) * 2, 1])
+                self.Y_th_exp, F, Y, p0=[Y_max_init, min(F)], bounds=([min(Y), min(F) * 0.5], [max(Y) * 2, max(F) * 2])
             )
             Y_max_opt = popt[0]  # 📌 Paramètre ajusté Y_max
             k = popt[1]
@@ -842,8 +878,8 @@ class ElevageData_prospect:
         #         combined_df.loc[key, nom] = value
 
         # Production animale, attention, contrairement au reste, ici on est en kton carcasse
-        production_data = df[(df["index_excel"] >= 1017) & (df["index_excel"] <= 1022)][["nom", region]]
-        production_dict = production_data.set_index("nom")[region].to_dict()
+        # production_data = df[(df["index_excel"] >= 1017) & (df["index_excel"] <= 1022)][["nom", region]]
+        # production_dict = production_data.set_index("nom")[region].to_dict()
 
         gas_em = pd.read_excel(os.path.join(data_path, "GRAFS_data.xlsx"), sheet_name="Volatilisation").set_index(
             "Elevage"
