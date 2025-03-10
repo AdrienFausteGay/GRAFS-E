@@ -158,13 +158,11 @@ class ElevageData:
 
 
 class FluxGenerator:
-    def __init__(self, labels, region, year):
+    def __init__(self, labels):
         self.labels = labels
         self.label_to_index = {label: index for index, label in enumerate(self.labels)}
         self.n = len(self.labels)
         self.adjacency_matrix = np.zeros((self.n, self.n))
-        self.region = region
-        self.year = year
 
     def generate_flux(self, source, target):
         for source_label, source_value in source.items():
@@ -218,7 +216,7 @@ class NitrogenFlowModel:
         self.data_loader = data  # DataLoader(year, region)
         self.culture_data = CultureData(self.data_loader, self.year, self.region, categories_mapping)
         self.elevage_data = ElevageData(self.data_loader, self.year, self.region)
-        self.flux_generator = FluxGenerator(labels, region, year)
+        self.flux_generator = FluxGenerator(labels)
 
         self.df_cultures = self.culture_data.df_cultures
         self.df_elevage = self.elevage_data.df_elevage
