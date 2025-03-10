@@ -1,12 +1,18 @@
 import os
+from concurrent.futures import ThreadPoolExecutor
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
+from scipy.optimize import curve_fit
 from scipy.stats import linregress
+from sklearn.metrics import r2_score
+from tqdm import tqdm
 
 import grafs_e.graphes_objet as gr
 from grafs_e.donnees import *
-from grafs_e.N_class import DataLoader, FluxGenerator
+from grafs_e.N_class import DataLoader, FluxGenerator, NitrogenFlowModel
 
 
 class scenario:
@@ -14,6 +20,8 @@ class scenario:
         self.data_path = os.path.join(os.path.dirname(__file__), "data")
         if dataloader is None:
             self.dataloader = DataLoader()
+        else:
+            self.dataloader = dataloader
         self.scenario_path = scenario_path
 
     def historic_trend(self, region, excel_line):
@@ -162,11 +170,38 @@ class scenario:
     def generate_crop_tab(self, region):
         df = self.dataloader.pre_process_df(annees_disponibles[-1], region)
 
-        cultures = df.loc[df["index_excel"].isin(range(259, 294)), ("nom", region)]
-        cultures[region] = cultures[region] * 100 / cultures[region].sum()
+        cultures_df = df.loc[df["index_excel"].isin(range(259, 294)), ("nom", region)]
+        cultures_df[region] = cultures_df[region] * 100 / cultures_df[region].sum()
+        cultures_df.loc[cultures_df["nom"] == "Natural meadow ", region] = None
 
-        df_insert = pd.DataFrame(cultures.values, columns=["Crops", "Area proportion (%)"])
-        df_insert["Enforce"] = ""
+        df_insert = pd.DataFrame(cultures_df.values, columns=["Cultures", "Area proportion (%)"])
+        df_insert["Enforce Area"] = False
+
+        Y_pros = Y(self.dataloader)
+
+        # Y_max = []
+        # kl = []
+        # for culture in cultures + legumineuses + prairies:
+        #     ym, k, _ = Y_pros.fit_Y_exp(culture, self.region)
+        #     Y_max.append(int(ym))
+        #     kl.append(k)
+
+        def fit_and_store(culture):
+            ym, k, _ = Y_pros.fit_Y_exp(culture, region)
+            return int(ym), k
+
+        all_cultures = cultures + legumineuses + prairies
+
+        # Lancer le traitement en parallèle
+        with ThreadPoolExecutor() as executor:
+            results = list(
+                tqdm(executor.map(fit_and_store, all_cultures), total=len(all_cultures), desc="Fitting models")
+            )
+
+        Y_max, kl = zip(*results)
+        df_insert["Y_max"] = Y_max
+        df_insert["k"] = kl
+        df_insert["k"] = df_insert["k"].map("{:.2e}".format)
         return df_insert
 
     def generate_scenario_excel(self, year, region, name):
@@ -547,6 +582,201 @@ class scenario:
         with pd.ExcelWriter(os.path.join(self.scenario_path, name + ".xlsx"), engine="openpyxl") as writer:
             for sheet_name, df in sheets.items():
                 df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+            # 👉 Récupérer le workbook ouvert via le writer pour ajouter une case pour vérifier la somme des proportions.
+            wb = writer.book
+
+            # ✅ Insérer une formule après l'écriture dans la feuille "area"
+            sheet = wb["area"]
+
+            # ✅ Trouver la dernière ligne (max_row donne la dernière ligne non vide)
+            last_row = sheet.max_row + 2
+
+            # ✅ Insérer le texte et la formule Excel directement
+            sheet[f"A{last_row}"] = "Proportion area sum correct ?"
+            sheet[f"B{last_row}"] = f'=IF(SUM(B2:B{last_row - 3})=100, "✅ OK", "❌ Erreur")'
+
+
+class Y:
+    def __init__(self, dataloader=None):
+        if dataloader == None:
+            self.dataloader = DataLoader()
+        else:
+            self.dataloader = dataloader
+        self.int_yr = [int(i) for i in annees_disponibles]
+
+    def get_Y(self, culture, region, plot=False):
+        F = []
+        Y = []
+        for yr in annees_disponibles:
+            model = NitrogenFlowModel(data=self.dataloader, year=yr, region=region)
+            f = model.Ftot(culture)
+            y = model.Y(culture)
+            if (
+                isinstance(f, (float, np.float64))
+                and isinstance(y, (float, np.float64))
+                and not np.isnan(f)
+                and not np.isnan(y)
+                and f != 0
+                and y != 0
+                and f < 350  # On supprime les valeur délirantes (pb données) de ferti et Y
+                and y < 350
+                # and y < f*0.9 # Condition NUE<90%
+            ):
+                F.append(f)
+                Y.append(y)
+        if plot:
+            plt.figure(figsize=(8, 6))
+            plt.plot(F, Y, "o-", color="tab:blue", markersize=6, label="Historic Data")  # Points et ligne
+            plt.xlabel("Fertilization (kgN/ha/yr)", fontsize=12)
+            plt.ylabel("Yield (kgN/ha/yr)", fontsize=12)
+            # plt.title("Relation entre Fertilisation et Rendement", fontsize=14, fontweight='bold')
+            plt.grid(True, linestyle="--", alpha=0.4)  # Grille discrète
+            plt.legend()
+            plt.show()
+        return np.array(F), np.array(Y)
+
+    @staticmethod
+    def Y_th(f, y_max):
+        return f * y_max / (f + y_max)
+
+    @staticmethod
+    def Y_th_exp(f, y_max, k):
+        return y_max * (1 - np.exp(-k * f))
+
+    def fit_Y(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            return 0, None
+        Y_max_init = max(Y)
+        try:
+            popt, _ = curve_fit(self.Y_th, F, Y, p0=[Y_max_init], bounds=(0, np.inf))
+            Y_max_opt = popt[0]  # 📌 Paramètre ajusté Y_max
+        except RuntimeError:
+            print("⚠️ Ajustement impossible pour", culture, region)
+            Y_max_opt = None  # Retourne None en cas d'échec
+
+        Y_th_fitted = self.Y_th(F, Y_max_opt) if Y_max_opt is not None else None
+        return Y_max_opt, Y_th_fitted
+
+    def fit_Y_exp(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            return 0, 0, None
+        Y_max_init = max(Y)
+
+        try:
+            popt, _ = curve_fit(self.Y_th_exp, F, Y, p0=[Y_max_init, 0.001], bounds=([min(Y), 1e-8], [max(Y) * 2, 1]))
+            Y_max_opt = popt[0]  # 📌 Paramètre ajusté Y_max
+            k = popt[1]
+        except RuntimeError:
+            print("⚠️ Ajustement impossible pour", culture, region)
+            Y_max_opt = None  # Retourne None en cas d'échec
+            k = None
+
+        Y_th_fitted = self.Y_th_exp(F, Y_max_opt, k) if Y_max_opt is not None else None
+        return Y_max_opt, k, Y_th_fitted
+
+    def plot_Y(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            print(f"no {culture} found in {region}")
+            return None
+        Y_max, _ = self.fit_Y(culture, region)
+        F_th = np.linspace(0, 1.05 * max(F), 100)
+        Y_th = self.Y_th(F_th, Y_max)
+        r2 = np.round(r2_score(Y, self.Y_th(F, Y_max)), 2)
+        plt.figure(figsize=(8, 6))
+        plt.plot(F, Y, "o", color="tab:blue", markersize=8, label=f"Historic Data, r2 = {r2}")  # Points et ligne
+        plt.plot(Y, Y, "--")
+        plt.plot(F_th, Y_th, label=f"Theoric curve, Y_max = {int(Y_max)}", color="orange", linewidth=4)
+        plt.xlim(0, max(F_th) * 1.1)  # Départ de l'axe X à 0
+        plt.ylim(0, max(Y) * 1.1)  # Départ de l'axe Y à 0
+        plt.gca().set_aspect("equal")  # Échelle identique en ajustant les limites
+
+        plt.xlabel("Fertilization (kgN/ha/yr)", fontsize=12)
+        plt.ylabel("Yield (kgN/ha/yr)", fontsize=12)
+        # plt.title("Relation entre Fertilisation et Rendement", fontsize=14, fontweight='bold')
+        plt.grid(True, linestyle="--", alpha=0.4)  # Grille discrète
+        plt.legend()
+        plt.show()
+
+    def plot_Y_exp(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            print(f"no {culture} found in {region}")
+            return None
+        Y_max, k, _ = self.fit_Y_exp(culture, region)
+        F_th = np.linspace(0, 1.05 * max(F), 100)
+        Y_th = self.Y_th_exp(F_th, Y_max, k)
+        r2 = np.round(r2_score(Y, self.Y_th_exp(F, Y_max, k)), 2)
+        plt.figure(figsize=(8, 6))
+        plt.plot(F, Y, "o", color="tab:blue", markersize=8, label=f"Historic Data, r2 = {r2}")  # Points et ligne
+        plt.plot(F_th, Y_th, label=f"Theoric curve, Y_max = {int(Y_max)}", color="orange", linewidth=4)
+        plt.xlim(0, max(F_th))  # Départ de l'axe X à 0
+        plt.ylim(0, max(Y))  # Départ de l'axe Y à 0
+        plt.gca().set_aspect("equal")  # Échelle identique en ajustant les limites
+
+        plt.xlabel("Fertilization (kgN/ha/yr)", fontsize=12)
+        plt.ylabel("Yield (kgN/ha/yr)", fontsize=12)
+        # plt.title("Relation entre Fertilisation et Rendement", fontsize=14, fontweight='bold')
+        plt.grid(True, linestyle="--", alpha=0.4)  # Grille discrète
+        plt.legend()
+        plt.show()
+
+    def compare_r2(self, region):
+        """
+        Compare les coefficients de détermination (R²) pour chaque culture dans une région donnée
+        entre les deux fonctions d'ajustement : self.Y_th et self.Y_th_exp.
+
+        Affiche une heatmap des scores R² et ajoute une barre de progression en console.
+        """
+        r2_values = {"Y_th": {}, "Y_th_exp": {}}
+
+        # Barre de progression avec tqdm
+        for culture in tqdm(cultures + prairies, desc="Calcul des R²", unit="culture"):
+            F, Y = self.get_Y(culture, region)
+            if len(Y) == 0 or len(F) == 0:
+                r2_values["Y_th"][culture] = np.nan
+                r2_values["Y_th_exp"][culture] = np.nan
+            else:
+                # Ajustement avec la première fonction (Y_th)
+                Y_max_th, _ = self.fit_Y(culture, region)
+                if Y_max_th is not None:
+                    r2_values["Y_th"][culture] = Y_max_th  # np.round(r2_score(Y, self.Y_th(F, Y_max_th)), 2)
+                else:
+                    r2_values["Y_th"][culture] = 0
+                # Ajustement avec la seconde fonction (Y_th_exp)
+                Y_max_exp, k, _ = self.fit_Y_exp(culture, region)
+                if Y_max_exp is not None:
+                    r2_values["Y_th_exp"][culture] = np.round(
+                        Y_max_exp
+                    )  # np.round(r2_score(Y, self.Y_th_exp(F, Y_max_exp, k)), 2)
+                else:
+                    r2_values["Y_th_exp"][culture] = 0
+
+        # Création d'un DataFrame pour la heatmap
+        r2_df = np.array([list(r2_values["Y_th"].values()), list(r2_values["Y_th_exp"].values())])
+
+        # Création de la heatmap
+        plt.figure(figsize=(10, len(cultures) // 3))
+        ax = sns.heatmap(
+            r2_df.T,
+            annot=True,
+            cmap="coolwarm",
+            fmt=".2f",
+            linewidths=0.5,
+            cbar_kws={"label": "Ymax"},  # {"label": "R² Score"},
+            xticklabels=["Y_th", "Y_th_exp"],
+            yticklabels=list(r2_values["Y_th"].keys()),
+        )
+
+        plt.title(f"Comparaison des Ymax pour {region}")  # R²
+        plt.xlabel("Modèle")
+        plt.ylabel("Culture")
+
+        # Affichage de la heatmap
+        plt.show()
 
 
 ## % Prospective classes
