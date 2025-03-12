@@ -85,9 +85,9 @@ categories_mapping = {
     "Sunflower": "oleaginous",
     "Flax": "oleaginous",
     "Hemp": "oleaginous",
+    "Other oil crops": "leguminous",
     # Légumineuses
     "Soybean": "leguminous",
-    "Other oil crops": "leguminous",
     "Horse beans and faba beans": "leguminous",
     "Peas": "leguminous",
     "Other protein crops": "leguminous",

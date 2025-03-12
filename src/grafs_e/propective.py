@@ -4,7 +4,10 @@ from concurrent.futures import ThreadPoolExecutor
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 import seaborn as sns
+from matplotlib.colors import LogNorm
+from pulp import LpContinuous, LpMinimize, LpProblem, LpVariable, lpSum
 from scipy.optimize import curve_fit
 from scipy.stats import linregress
 from sklearn.metrics import r2_score
@@ -839,28 +842,23 @@ class CultureData_prospect:
         area[35] = grassland_area
         area.index = crops_index
 
+        Ymax = self.area["Ymax (kgN/ha)"][:-2]
+        Ymax.index = crops_index
+
         # Extraire les taux de surface avec épendage et la teneur en azote des cultures
         epend = pd.read_excel(
             os.path.join(self.data_path, "GRAFS_data.xlsx"),
-            usecols=[0, 1, 3],
-            sheet_name="Surf N org",
+            sheet_name="crops",
         )
-        epend_org = epend.set_index("Culture").to_dict()["Surface recevant N organique maîtrisable"]
-        epend_N_content = epend.set_index("Culture").to_dict()["Nitrogen Content (%)"]
-        # Créer un DataFrame combiné
+        epend = epend.drop("Note", axis=1)
+        epend = epend.set_index("Culture")
+        epend["Area (ha)"] = area
+        epend["Ymax (kgN/ha)"] = Ymax
 
-        combined_data = {
-            "Area (ha)": area,
-            "Nitrogen Content (%)": epend_N_content,
-            "Spreading Rate (%)": epend_org,
-        }
+        epend.rename(index={"rice": "Rice"}, inplace=True)
+        epend.rename(columns={"Surface recevant N organique maîtrisable": "Spreading Rate (%)"}, inplace=True)
 
-        combined_df = pd.DataFrame(combined_data, index=crops_index)
-        combined_df.rename(index={"rice": "Rice"}, inplace=True)
-        # Ajouter la colonne 'catégories' en mappant les cultures sur leurs catégories
-        combined_df["Category"] = combined_df.index.map(self.categories_mapping)
-
-        return combined_df
+        return epend
 
 
 class ElevageData_prospect:
@@ -872,27 +870,78 @@ class ElevageData_prospect:
     def create_elevage_dataframe(self, main, technical, data_path):
         types = ["Bovines", "Ovines", "Caprines", "Equines", "Poultry", "Porcines"]
         LU_tot = main.loc[main["Variable"] == "Total LU", "Business as usual"].item()
-        production_dict = {}
+
+        LU = {}
+        prod = {}
+        dairy = {}
+        excr = {}
+        manure = {}
+        o_liter = {}
+        slurry = {}
+        grass = {}
         for t in types:
-            production_dict[t] = (
-                LU_tot
-                / 1e6
-                * technical.loc[technical["Variable"] == f"{t} LU", "Business as usual"].item()
-                * technical.loc[technical["Variable"] == f"{t} productivity", "Business as usual"].item()
-            )
+            LU[t] = technical.loc[technical["Variable"] == f"{t} LU", "Business as usual"].item() * LU_tot
+            prod[t] = technical.loc[technical["Variable"] == f"{t} productivity", "Business as usual"].item()
+            excr[t] = technical.loc[
+                technical["Variable"] == f"kgN excreted by {t.lower()} LU", "Business as usual"
+            ].item()
+            manure[t] = technical.loc[
+                technical["Variable"] == f"{t} % excretion in the barn as litter manure", "Business as usual"
+            ].item()
+            o_liter[t] = technical.loc[
+                technical["Variable"] == f"{t} % excretion in the barn as other manure", "Business as usual"
+            ].item()
+            slurry[t] = technical.loc[
+                technical["Variable"] == f"{t} % excretion in the barn as slurry", "Business as usual"
+            ].item()
+            grass[t] = technical.loc[
+                technical["Variable"] == f"{t} % excretion on grassland", "Business as usual"
+            ].item()
+            if t in ["Bovines", "Ovines", "Poultry", "Caprines"]:
+                dairy[t] = technical.loc[technical["Variable"] == f"{t} dairy productivity", "Business as usual"].item()
+            else:
+                dairy[t] = 0
 
         gas_em = pd.read_excel(os.path.join(data_path, "GRAFS_data.xlsx"), sheet_name="Volatilisation").set_index(
             "Elevage"
         )
 
-        combined_data = {"Production": production_dict}
+        combined_data = {
+            "LU": LU,
+            "Productivity (kgcarcass/LU)": prod,
+            "Dairy Productivity (kg/LU)": dairy,
+            "Excretion per LU (kgN/LU)": excr,
+            "% excreted on grassland": grass,
+            "% excreted indoors as manure": manure,
+            "% excreted indoors as other manure": o_liter,
+            "% excreted indoors as slurry": slurry,
+        }
 
         combined_df = pd.DataFrame(combined_data)
         combined_df.index = combined_df.index.str.lower()
+        combined_df.rename(index={"equines": "equine"}, inplace=True)
 
         combined_df = combined_df.join(gas_em, how="left")
 
         combined_df = combined_df.fillna(0)
+        combined_df["% excreted indoors"] = 100 - combined_df["% excreted on grassland"]
+        combined_df["Production (ktcarcass)"] = combined_df["LU"] * combined_df["Productivity (kgcarcass/LU)"] * 1e-6
+        combined_df["Dairy Production (kt)"] = combined_df["LU"] * combined_df["Dairy Productivity (kg/LU)"] * 1e-6
+
+        combined_df["Edible Nitrogen (ktN)"] = (
+            combined_df["Production (ktcarcass)"] * combined_df["% edible"]
+            + combined_df["Dairy Production (kt)"] * combined_df["%N dairy"]
+        )
+        combined_df["Non Edible Nitrogen (ktN)"] = combined_df["Production (ktcarcass)"] * combined_df["% non edible"]
+
+        combined_df["Excreted nitrogen (ktN)"] = combined_df["Excretion per LU (kgN/LU)"] * combined_df["LU"] * 1e-6
+
+        combined_df["Ingestion (ktN)"] = (
+            combined_df["Excreted nitrogen (ktN)"]
+            + combined_df["Edible Nitrogen (ktN)"]
+            + combined_df["Non Edible Nitrogen (ktN)"]
+        )
+
         return combined_df
 
 
@@ -1126,129 +1175,64 @@ class NitrogenFlowModel_prospect:
         df_elevage = self.df_elevage
         adjacency_matrix = self.adjacency_matrix
         label_to_index = self.label_to_index
-        year = self.year
-        region = self.region
-        data_loader = self.data_loader
+        main = self.main
+        technical = self.technical
+        area = self.area
+        doc = self.doc
+        year = doc.loc[doc["excel sheet for scenario writing"] == "Year", "Unnamed: 1"].item()
+        region = doc.loc[doc["excel sheet for scenario writing"] == "Region name", "Unnamed: 1"].item()
         flux_generator = self.flux_generator
-        data = data_loader.pre_process_df(year, region)
-
-        # Calcul de l'azote disponible pour les cultures
-        df_cultures["Nitrogen Production (ktN)"] = (
-            df_cultures["Crop Production (ktonDFW)"] * df_cultures["Nitrogen Content (%)"] / 100
-        )
 
         # Gestion du cas particulier pour 'Straw'
         cereales = ["Wheat", "Rye", "Barley", "Oat", "Grain maize", "Other cereals"]
-        somme_azote_produit_cereales = df_cultures["Nitrogen Production (ktN)"][cereales].sum()
         somme_surface_cereales = df_cultures["Area (ha)"][cereales].sum()
         df_cultures.loc["Straw", "Area (ha)"] = (
             somme_surface_cereales
-            * df_cultures.loc["Straw", "Nitrogen Production (ktN)"]
-            / somme_azote_produit_cereales
+            * 0.1  # On attribue 10% des surfaces de céréales à la paille. A changer avec les coproduits TODO
         )
         for cereal in cereales:
             df_cultures.loc[cereal, "Area (ha)"] -= (
                 df_cultures.loc["Straw", "Area (ha)"] * df_cultures.loc[cereal, "Area (ha)"] / somme_surface_cereales
             )
-        df_cultures.loc["Straw", "Yield (qtl/ha)"] = (
-            df_cultures["Crop Production (ktonDFW)"]["Straw"] / df_cultures["Area (ha)"]["Straw"] * 1000
-        )
 
         # Flux depuis 'other sectors' vers les cibles sélectionnées
-        selected_data = data[(data["index_excel"] >= 106) & (data["index_excel"] <= 139)]
-        target = selected_data.set_index("nom")[region].to_dict()
+        target = (
+            df_cultures["Seed input (kt seeds/kt Ymax)"]
+            * df_cultures["Ymax (kgN/ha)"]
+            * df_cultures["Area (ha)"]
+            * 1e-6
+        ).to_dict()
         source = {"other sectors": 1}
         flux_generator.generate_flux(source, target)
 
-        # Dépôt atmosphérique
-        coef_surf = data[data["index_excel"] == 41][region].item()
-        # Dépôt sur les prairies
-        target_prairies = df_cultures.loc[
-            df_cultures.index.isin(["Natural meadow ", "Non-legume temporary meadow", "Alfalfa and clover"]),
-            "Area (ha)",
-        ].to_dict()
-        source_atmosphere = {"Atmospheric deposition": coef_surf / 1e6}
-        flux_generator.generate_flux(source_atmosphere, target_prairies)
-
-        # Dépôt sur les terres arables
-        Surf_reel = data.loc[data["index_excel"] == 23, region].item()
-        Surf = df_cultures.loc[
-            ~df_cultures.index.isin(["Natural meadow ", "Non-legume temporary meadow", "Alfalfa and clover"]),
-            "Area (ha)",
-        ].sum()
-        target_arable = (
-            df_cultures.loc[
-                ~df_cultures.index.isin(
-                    [
-                        "Natural meadow ",
-                        "Non-legume temporary meadow",
-                        "Alfalfa and clover",
-                    ]
-                ),
-                "Area (ha)",
-            ]
-            * Surf_reel
-            / Surf
-        ).to_dict()
-        flux_generator.generate_flux(source_atmosphere, target_arable)
+        # Dépôt atmosphérique : proportionel aux emmission de gaz azoté. A voir après l'élevage ! TODO
+        # coef_surf = TODO
+        # # Dépôt sur les prairies
+        # target = df_cultures.loc[
+        #     df_cultures("Area (ha)",
+        # ].to_dict()
+        # source_atmosphere = {"Atmospheric deposition": coef_surf / 1e6}
+        # flux_generator.generate_flux(source_atmosphere, target)
 
         # Fixation symbiotique
-        selected_data = data[(data["index_excel"] >= 36) & (data["index_excel"] <= 38)]
-        coefficients = selected_data.set_index("nom")[region].to_dict()
-        target_fixation = {}
-        for culture in df_cultures.index:
-            if culture in self.legumineuses + ["Alfalfa and clover", "Natural meadow "]:
-                if culture == "Natural meadow ":
-                    coefficient = coefficients["N fixation coef for perm grassland"]
-                elif culture == "Alfalfa and clover":
-                    coefficient = coefficients["N fixation coef fodder for cropland"]
-                else:
-                    coefficient = coefficients["N fixation coef grain for cropland"]
-
-                vege_prods = df_cultures.at[culture, "Crop Production (ktonDFW)"]
-                teneur_en_azote = df_cultures.at[culture, "Nitrogen Content (%)"]
-                target_fixation[culture] = vege_prods * teneur_en_azote * coefficient / 100
-
+        target_fixation = (
+            df_cultures["N fixation coef (kgN/kgN)"] * df_cultures["Ymax (kgN/ha)"] * df_cultures["Area (ha)"] * 1e-6
+        ).to_dict()
         source_fixation = {"atmospheric N2": 1}
         flux_generator.generate_flux(source_fixation, target_fixation)
         df_cultures["Symbiotic fixation (ktN)"] = df_cultures.index.map(target_fixation).fillna(0)
 
         ## Épandage de boue sur les champs
-        # Fonction pour calculer la redistribution de boues autour de Paris
-        def compute_N_supp():
-            if self.region not in ["Eure", "Ile de France", "Eure-et-Loir", "Picardie"]:
-                return 0, 0
-            if self.region == "Ile de France":
-                factor = -0.5
-            elif self.region in ["Eure", "Eure-et-Loir"]:
-                factor = 0.15
-            elif self.region == "Picardie":
-                factor = 0.2
-            data_IDF = self.data_loader.pre_process_df(year, "Ile de France")
-            pop_IDF = data_IDF[data_IDF["index_excel"] == 5]["Ile de France"].item()
-            prop_urb_IDF = data_IDF[data_IDF["nom"] == "Urban population"]["Ile de France"].item() / 100
-            N_cons_cap_IDF = data_IDF[data_IDF["index_excel"] == 8]["Ile de France"].item()
-            N_prop_recy_urb_IDF = (
-                data_IDF[data_IDF["nom"] == "N recycling rate of human excretion in urban area"]["Ile de France"].item()
-                / 100
-            )
-            N_prop_recy_rur_IDF = (
-                data_IDF[data_IDF["nom"] == "N recycling rate of human excretion in rural area"]["Ile de France"].item()
-                / 100
-            )
-            return (
-                factor * pop_IDF * N_cons_cap_IDF * prop_urb_IDF * N_prop_recy_urb_IDF,
-                factor * pop_IDF * N_cons_cap_IDF * (1 - prop_urb_IDF) * N_prop_recy_rur_IDF,
-            )
-
         FE_N_N02_em = 0.002
         FE_N_NH3_em = 0.118
         FE_N_N2_em = 0.425
-        pop = data[data["index_excel"] == 5][region].item()
-        prop_urb = data[data["nom"] == "Urban population"][region].item() / 100
-        N_cons_cap = data[data["index_excel"] == 8][region].item()
-        N_cap_vege = data[data["index_excel"] == 9][region].item()
-        N_cap_viande = data[data["index_excel"] == 10][region].item()
+        pop = main.loc[main["Variable"] == "Population", "Business as usual"].item()
+        prop_urb = main.loc[main["Variable"] == "Urban population", "Business as usual"].item()
+        N_cons_cap = main.loc[main["Variable"] == "Total per capita protein ingestion", "Business as usual"].item()
+        N_cap_vege = main.loc[main["Variable"] == "Vegetal per capita protein ingestion", "Business as usual"].item()
+        N_cap_viande = main.loc[
+            main["Variable"] == "Edible animal per capita protein ingestion (excl fish)", "Business as usual"
+        ].item()
         N_boue = pop * N_cons_cap
         N_vege = pop * N_cap_vege
         N_viande = pop * N_cap_viande
@@ -1259,10 +1243,18 @@ class NitrogenFlowModel_prospect:
         flux_generator.generate_flux(source, target)
 
         # Revenons aux boues
-        # data[data["nom"] == "Total per capita protein ingestion"][region].item() * pop Formule fausse dans PVAR
-        # data[data["nom"] == "N Sludges to cropland"][region].item()
-        prop_recy_urb = data[data["nom"] == "N recycling rate of human excretion in urban area"][region].item() / 100
-        prop_recy_rur = data[data["nom"] == "N recycling rate of human excretion in rural area"][region].item() / 100
+        prop_recy_urb = (
+            technical.loc[
+                technical["Variable"] == "N recycling rate of human excretion in urban area", "Business as usual"
+            ].item()
+            / 100
+        )
+        prop_recy_rur = (
+            technical.loc[
+                technical["Variable"] == "N recycling rate of human excretion in rural area", "Business as usual"
+            ].item()
+            / 100
+        )
 
         Norm = sum(df_cultures["Area (ha)"] * df_cultures["Spreading Rate (%)"])
         # Création du dictionnaire target
@@ -1270,11 +1262,9 @@ class NitrogenFlowModel_prospect:
             culture: row["Area (ha)"] * row["Spreading Rate (%)"] / Norm for culture, row in df_cultures.iterrows()
         }
 
-        N_supp_urb, N_supp_rur = compute_N_supp()
-
         source_boue = {
-            "urban": prop_urb * N_boue * prop_recy_urb + N_supp_urb,
-            "rural": (1 - prop_urb) * prop_recy_rur * N_boue + N_supp_rur,
+            "urban": prop_urb * N_boue * prop_recy_urb,
+            "rural": (1 - prop_urb) * prop_recy_rur * N_boue,
         }
 
         flux_generator.generate_flux(source_boue, target_ependage)
@@ -1313,90 +1303,7 @@ class NitrogenFlowModel_prospect:
         # Remplir la matrice d'adjacence
         flux_generator.generate_flux(source, target)
 
-        # Azote excrété sur prairies
-        # Production d'azote comestible
-
-        df_elevage["Edible Nitrogen (ktN)"] = df_elevage["Production"] * df_elevage["% edible"]
-        df_elevage.loc["poultry", "Edible Nitrogen (ktN)"] += (
-            data[data["index_excel"] == 1023][region].item() * data[data["index_excel"] == 1067][region].item() / 100
-        )  # ajout des oeufs
-        df_elevage.loc["bovines", "Edible Nitrogen (ktN)"] += (
-            data[data["index_excel"] == 1024][region].item() * data[data["index_excel"] == 1068][region].item() / 100
-        )  # ajout du lait de vache
-
-        # Plus délicat pour les ovins/caprins car la production de lait est mélangée
-        tete_ovins_femelle = data[data["index_excel"] == 1171][region].item()
-        tete_caprins_femelle = data[data["index_excel"] == 1167][region].item()
-        production_par_tete_caprins = 1000  # kg/tete vu sur internet
-        production_par_tete_ovins = 300  # kg/tete vu sur internet
-        df_elevage.loc["ovines", "Edible Nitrogen (ktN)"] += (
-            0
-            if (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
-            == 0
-            else data[data["index_excel"] == 1025][region].item()
-            * data[data["index_excel"] == 1069][region].item()
-            / 100
-            * production_par_tete_ovins
-            * tete_ovins_femelle
-            / (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
-        )  # ajout du lait de brebis
-        df_elevage.loc["caprines", "Edible Nitrogen (ktN)"] += (
-            0
-            if (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
-            == 0
-            else data[data["index_excel"] == 1025][region].item()
-            * data[data["index_excel"] == 1069][region].item()
-            / 100
-            * production_par_tete_caprins
-            * tete_caprins_femelle
-            / (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
-        )  # ajout du lait de brebis
-
-        df_elevage["Non Edible Nitrogen (ktN)"] = df_elevage["Production"] * df_elevage["% non edible"]
-
-        index = [1241 + j for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)]
-        selected_data.loc[:, "nom"] = selected_data["nom"].apply(lambda x: x.split()[0])
-        selected_data = selected_data.groupby("nom").agg({region: "sum", "index_excel": "first"}).reset_index()
-
-        df_elevage["Excreted nitrogen (ktN)"] = selected_data.set_index("nom")[region]
-        df_elevage["Ingestion (ktN)"] = (
-            df_elevage["Excreted nitrogen (ktN)"]
-            + df_elevage["Edible Nitrogen (ktN)"]
-            + df_elevage["Non Edible Nitrogen (ktN)"]
-        )
-
-        index = [1250 + j * 14 for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)][region]
-        selected_data.index = df_elevage.index
-
-        df_elevage["% excreted on grassland"] = selected_data
-
-        index = [1251 + j * 14 for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)][region]
-        selected_data.index = df_elevage.index
-
-        df_elevage["% excreted indoors"] = selected_data
-
-        index = [1252 + j * 14 for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)][region]
-        selected_data.index = df_elevage.index
-
-        df_elevage["% excreted indoors as slurry"] = selected_data
-
-        # On ajouter la catégorie other manure dans la catégorie liter manure
-        index = [1253 + j * 14 for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)][region]
-        selected_data.index = df_elevage.index
-
-        df_elevage["% excreted indoors as slurry"] += selected_data
-
-        index = [1254 + j * 14 for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)][region]
-        selected_data.index = df_elevage.index
-
-        df_elevage["% excreted indoors as manure"] = selected_data
-
+        # Azote excrété sur les prairies
         # Calculer les poids pour chaque cible
         # Calcul de la surface totale pour les prairies
         total_surface = (
@@ -1500,8 +1407,9 @@ class NitrogenFlowModel_prospect:
             * df_elevage["% excreted indoors"]
             / 100
             * (
-                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-N2 EM. manure indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-N2 EM. slurry indoor"]
+                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-N2 EM. slurry indoor"]
+                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-N2 EM. manure indoor"]
+                # + other manure emission ?? TODO
             )
         ).to_dict()
 
@@ -1515,8 +1423,8 @@ class NitrogenFlowModel_prospect:
             * df_elevage["% excreted indoors"]
             / 100
             * (
-                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-NH3 EM. manure indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-NH3 EM. slurry indoor"]
+                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-NH3 EM. slurry indoor"]
+                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-NH3 EM. manure indoor"]
             )
         ).to_dict()
 
@@ -1528,8 +1436,8 @@ class NitrogenFlowModel_prospect:
             * df_elevage["% excreted indoors"]
             / 100
             * (
-                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-NH3 EM. manure indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-NH3 EM. slurry indoor"]
+                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-NH3 EM. slurry indoor"]
+                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-NH3 EM. manure indoor"]
             )
         )
         # N2O
@@ -1540,8 +1448,8 @@ class NitrogenFlowModel_prospect:
             * df_elevage["% excreted indoors"]
             / 100
             * (
-                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-N2O EM. manure indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-N2O EM. slurry indoor"]
+                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-N2O EM. slurry indoor"]
+                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-N2O EM. manure indoor"]
             )
         ).to_dict()
 
