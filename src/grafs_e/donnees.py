@@ -154,7 +154,7 @@ ext = [
     "other losses",
     "soil stock",
     "atmospheric N2",
-    "Atmospheric deposition",
+    "Atmospheric deposition",  # A supprimer TODO
     "Haber-Bosch",
     "other sectors",
     "animal trade",
@@ -278,7 +278,7 @@ label_to_index = {label: index for index, label in enumerate(labels)}
 index_to_label = {v: k for k, v in label_to_index.items()}
 node_color = {
     label_to_index[label]: (
-        "yellow"
+        "gold"
         if label in categories_mapping
         and categories_mapping[label]
         in [
@@ -288,7 +288,7 @@ node_color = {
         if label in categories_mapping and categories_mapping[label] == "fruits and vegetables"
         else "orange"
         if label in categories_mapping and categories_mapping[label] == "roots"
-        else "white"
+        else "darkkhaki"
         if label in categories_mapping and categories_mapping[label] == "oleaginous"
         else "darkgreen"
         if label in categories_mapping and categories_mapping[label] == "leguminous"

@@ -855,7 +855,6 @@ class CultureData_prospect:
         epend["Area (ha)"] = area
         epend["Ymax (kgN/ha)"] = Ymax
 
-        epend.rename(index={"rice": "Rice"}, inplace=True)
         epend.rename(columns={"Surface recevant N organique maîtrisable": "Spreading Rate (%)"}, inplace=True)
 
         return epend
@@ -1205,15 +1204,6 @@ class NitrogenFlowModel_prospect:
         source = {"other sectors": 1}
         flux_generator.generate_flux(source, target)
 
-        # Dépôt atmosphérique : proportionel aux emmission de gaz azoté. A voir après l'élevage ! TODO
-        # coef_surf = TODO
-        # # Dépôt sur les prairies
-        # target = df_cultures.loc[
-        #     df_cultures("Area (ha)",
-        # ].to_dict()
-        # source_atmosphere = {"Atmospheric deposition": coef_surf / 1e6}
-        # flux_generator.generate_flux(source_atmosphere, target)
-
         # Fixation symbiotique
         target_fixation = (
             df_cultures["N fixation coef (kgN/kgN)"] * df_cultures["Ymax (kgN/ha)"] * df_cultures["Area (ha)"] * 1e-6
@@ -1455,44 +1445,61 @@ class NitrogenFlowModel_prospect:
 
         flux_generator.generate_flux(source, target)
 
+        # Dépôt atmosphérique : proportionel aux emmission de gaz azoté. A voir après l'élevage !
+        target = (
+            df_cultures.loc["Area (ha)"] / df_cultures["Area (ha)"].sum()
+        ).to_dict()  # Dépôt proportionnel aux surface
+        source = {
+            "N2O emission": 0.01 * adjacency_matrix[label_to_index["N2O emission"], :].sum(),
+            "NH3 volatilization": 0.1 * adjacency_matrix[label_to_index["NH3 volatilization"], :].sum(),
+        }
+        adjacency_matrix[label_to_index["N2O emission"], :] *= 0.99
+        adjacency_matrix[label_to_index["NH3 volatilization"], :] *= 0.9
+        flux_generator.generate_flux(source, target)
+
         # Azote synthétique
         # Calcul des besoins en azote par culture
-        besoin_azote = {
-            "Wheat": 3.5,
-            "Rye": 2.3,
-            "Barley": 2.5,
-            "Oat": 2.2,
-            "Grain maize": 2.2,
-            "Other cereals": 2.6,
-            "Straw": 3,
-            "Rapeseed": 7,
-            "Sunflower": 4.5,
-            "Other oil crops": 5,
-            "Forage maize": 1.3,
-        }
-        df_cultures["Fertilization Need (ktN/qtl)"] = df_cultures.index.map(besoin_azote)
-        df_cultures["Surface Fertilization Need (ktN/ha)"] = (
-            df_cultures["Fertilization Need (ktN/qtl)"] * df_cultures["Yield (qtl/ha)"]
+        # besoin_azote = {
+        #     "Wheat": 3.5,
+        #     "Rye": 2.3,
+        #     "Barley": 2.5,
+        #     "Oat": 2.2,
+        #     "Grain maize": 2.2,
+        #     "Other cereals": 2.6,
+        #     "Straw": 3,
+        #     "Rapeseed": 7,
+        #     "Sunflower": 4.5,
+        #     "Other oil crops": 5,
+        #     "Forage maize": 1.3,
+        # }
+        # df_cultures["Fertilization Need (kgN/qtl)"] = df_cultures.index.map(besoin_azote)
+
+        # Est ce qu'on a besoin de cette ligne ? TODO
+        df_cultures["Surface Fertilization Need (kgN/ha)"] += (
+            df_cultures["Fertilization Need (kgN/qtl)"]
+            * df_cultures["Ymax (kgN/ha)"]
+            / df_cultures["Nitrogen Content (%)"]
+            / 100
         )
 
-        # Fixer manuellement les besoins pour certaines cultures
-        df_cultures.loc["Sugar beet", "Surface Fertilization Need (ktN/ha)"] = 220
-        df_cultures.loc["Potatoes", "Surface Fertilization Need (ktN/ha)"] = 220
-        df_cultures.loc["Other roots", "Surface Fertilization Need (ktN/ha)"] = 220
-        df_cultures.loc["Dry vegetables", "Surface Fertilization Need (ktN/ha)"] = 50
-        df_cultures.loc["Dry fruits", "Surface Fertilization Need (ktN/ha)"] = 100
-        df_cultures.loc["Squash and melons", "Surface Fertilization Need (ktN/ha)"] = 180
-        df_cultures.loc["Cabbage", "Surface Fertilization Need (ktN/ha)"] = 300
-        df_cultures.loc["Leaves vegetables", "Surface Fertilization Need (ktN/ha)"] = 150
-        df_cultures.loc["Fruits", "Surface Fertilization Need (ktN/ha)"] = 100
-        df_cultures.loc["Olives", "Surface Fertilization Need (ktN/ha)"] = 80
-        df_cultures.loc["Citrus", "Surface Fertilization Need (ktN/ha)"] = 130
-        df_cultures.loc["Hemp", "Surface Fertilization Need (ktN/ha)"] = 120
-        df_cultures.loc["Flax", "Surface Fertilization Need (ktN/ha)"] = 60
-        df_cultures.loc["Non-legume temporary meadow", "Surface Fertilization Need (ktN/ha)"] = 150
-        df_cultures.loc["Natural meadow ", "Surface Fertilization Need (ktN/ha)"] = 150
-        df_cultures.loc["Rice", "Surface Fertilization Need (ktN/ha)"] = 125
-        df_cultures.loc["Forage cabbages", "Surface Fertilization Need (ktN/ha)"] = 300
+        # # Fixer manuellement les besoins pour certaines cultures
+        # df_cultures.loc["Sugar beet", "Surface Fertilization Need (kgN/ha)"] = 220
+        # df_cultures.loc["Potatoes", "Surface Fertilization Need (kgN/ha)"] = 220
+        # df_cultures.loc["Other roots", "Surface Fertilization Need (kgN/ha)"] = 220
+        # df_cultures.loc["Dry vegetables", "Surface Fertilization Need (kgN/ha)"] = 50
+        # df_cultures.loc["Dry fruits", "Surface Fertilization Need (kgN/ha)"] = 100
+        # df_cultures.loc["Squash and melons", "Surface Fertilization Need (kgN/ha)"] = 180
+        # df_cultures.loc["Cabbage", "Surface Fertilization Need (kgN/ha)"] = 300
+        # df_cultures.loc["Leaves vegetables", "Surface Fertilization Need (kgN/ha)"] = 150
+        # df_cultures.loc["Fruits", "Surface Fertilization Need (kgN/ha)"] = 100
+        # df_cultures.loc["Olives", "Surface Fertilization Need (kgN/ha)"] = 80
+        # df_cultures.loc["Citrus", "Surface Fertilization Need (kgN/ha)"] = 130
+        # df_cultures.loc["Hemp", "Surface Fertilization Need (kgN/ha)"] = 120
+        # df_cultures.loc["Flax", "Surface Fertilization Need (kgN/ha)"] = 60
+        # df_cultures.loc["Non-legume temporary meadow", "Surface Fertilization Need (kgN/ha)"] = 150
+        # df_cultures.loc["Natural meadow ", "Surface Fertilization Need (kgN/ha)"] = 150
+        # df_cultures.loc["Rice", "Surface Fertilization Need (kgN/ha)"] = 125
+        # df_cultures.loc["Forage cabbages", "Surface Fertilization Need (kgN/ha)"] = 300
 
         df_cultures = df_cultures.fillna(0)
 
@@ -1553,98 +1560,98 @@ class NitrogenFlowModel_prospect:
         target_leg = df_cultures["Leguminous heritage (ktN)"].to_dict()
         flux_generator.generate_flux(source_leg, target_leg)
 
-        # Calcul de l'azote à épendre
-        df_cultures["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] = df_cultures.apply(
-            lambda row: row["Surface Fertilization Need (ktN/ha)"]
-            - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"]
-            - (row["Leguminous heritage (ktN)"] / row["Area (ha)"] * 1e6)
-            if row["Area (ha)"] > 0
-            else row["Surface Fertilization Need (ktN/ha)"] - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"],
-            axis=1,
-        )
-        df_cultures["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] = df_cultures[
-            "Raw Surface Synthetic Fertilizer Use (ktN/ha)"
-        ].apply(lambda x: max(x, 0))
-        df_cultures["Raw Total Synthetic Fertilizer Use (ktN)"] = (
-            df_cultures["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] * df_cultures["Area (ha)"] / 1e6
-        )
+        # # Calcul de l'azote à épendre
+        # df_cultures["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] = df_cultures.apply(
+        #     lambda row: row["Surface Fertilization Need (kgN/ha)"]
+        #     - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"]
+        #     - (row["Leguminous heritage (ktN)"] / row["Area (ha)"] * 1e6)
+        #     if row["Area (ha)"] > 0
+        #     else row["Surface Fertilization Need (kgN/ha)"] - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"],
+        #     axis=1,
+        # )
+        # df_cultures["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] = df_cultures[
+        #     "Raw Surface Synthetic Fertilizer Use (ktN/ha)"
+        # ].apply(lambda x: max(x, 0))
+        # df_cultures["Raw Total Synthetic Fertilizer Use (ktN)"] = (
+        #     df_cultures["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] * df_cultures["Area (ha)"] / 1e6
+        # )
 
-        # Calcul de la quantité moyenne (kgN) d'azote synthétique épendu par hectare
-        # Séparer les données en prairies et champs
-        df_prairies = df_cultures[df_cultures.index.isin(prairies)].copy()
-        df_champs = df_cultures[df_cultures.index.isin(cultures)].copy()
+        # # Calcul de la quantité moyenne (kgN) d'azote synthétique épendu par hectare
+        # # Séparer les données en prairies et champs
+        # df_prairies = df_cultures[df_cultures.index.isin(prairies)].copy()
+        # df_champs = df_cultures[df_cultures.index.isin(cultures)].copy()
 
-        moyenne_ponderee_prairies = (
-            df_prairies["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] * df_prairies["Area (ha)"]
-        ).sum()  # / df_prairies['Surface'].sum()
-        moyenne_ponderee_champs = (
-            df_champs["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] * df_champs["Area (ha)"]
-        ).sum()  # / df_champs['Surface'].sum()
+        # moyenne_ponderee_prairies = (
+        #     df_prairies["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] * df_prairies["Area (ha)"]
+        # ).sum()  # / df_prairies['Surface'].sum()
+        # moyenne_ponderee_champs = (
+        #     df_champs["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] * df_champs["Area (ha)"]
+        # ).sum()  # / df_champs['Surface'].sum()
 
-        moyenne_reel_champs = (
-            data[data["index_excel"] == 27][region].item() * data[data["index_excel"] == 23][region].item()
-        )
-        moyenne_reel_prairies = (
-            data[data["index_excel"] == 29][region].item() * data[data["index_excel"] == 22][region].item() / 10**6
-        )
+        # moyenne_reel_champs = (
+        #     data[data["index_excel"] == 27][region].item() * data[data["index_excel"] == 23][region].item()
+        # )
+        # moyenne_reel_prairies = (
+        #     data[data["index_excel"] == 29][region].item() * data[data["index_excel"] == 22][region].item() / 10**6
+        # )
 
-        df_prairies.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = moyenne_reel_prairies
-        df_champs.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = (
-            df_champs["Raw Total Synthetic Fertilizer Use (ktN)"] * moyenne_reel_champs / moyenne_ponderee_champs
-        )
+        # df_prairies.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = moyenne_reel_prairies
+        # df_champs.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = (
+        #     df_champs["Raw Total Synthetic Fertilizer Use (ktN)"] * moyenne_reel_champs / moyenne_ponderee_champs
+        # )
 
-        # Mise à jour de df_cultures
+        # # Mise à jour de df_cultures
 
-        df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"] = (
-            df_champs["Adjusted Total Synthetic Fertilizer Use (ktN)"]
-            .combine_first(df_prairies["Adjusted Total Synthetic Fertilizer Use (ktN)"])
-            .reindex(df_cultures.index, fill_value=0)  # Remplissage des clés manquantes (les légumineuses) avec 0
-        )
+        # df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"] = (
+        #     df_champs["Adjusted Total Synthetic Fertilizer Use (ktN)"]
+        #     .combine_first(df_prairies["Adjusted Total Synthetic Fertilizer Use (ktN)"])
+        #     .reindex(df_cultures.index, fill_value=0)  # Remplissage des clés manquantes (les légumineuses) avec 0
+        # )
 
-        ## Azote synthétique volatilisé par les terres
-        # Est ce qu'il n'y a que l'azote synthétique qui est volatilisé ?
-        coef_volat_NH3 = data[data["index_excel"] == 31][region].item() / 100
-        coef_volat_N2O = 0.01
+        # ## Azote synthétique volatilisé par les terres
+        # # Est ce qu'il n'y a que l'azote synthétique qui est volatilisé ?
+        # coef_volat_NH3 = data[data["index_excel"] == 31][region].item() / 100
+        # coef_volat_N2O = 0.01
 
-        # 1 % des emissions de NH3 du aux fert. synth sont volatilisées sous forme de N2O
-        df_cultures["Volatilized Nitrogen N-NH3 (ktN)"] = (
-            df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"] * 0.99 * coef_volat_NH3
-        )
-        df_cultures["Volatilized Nitrogen N-N20 (ktN)"] = df_cultures[
-            "Adjusted Total Synthetic Fertilizer Use (ktN)"
-        ] * (coef_volat_N2O + 0.01 * coef_volat_NH3)
-        df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"] = df_cultures[
-            "Adjusted Total Synthetic Fertilizer Use (ktN)"
-        ] * (1 - coef_volat_NH3 - coef_volat_N2O)
-        # La quantité d'azote réellement épendue est donc un peu plus faible car une partie est volatilisée
+        # # 1 % des emissions de NH3 du aux fert. synth sont volatilisées sous forme de N2O
+        # df_cultures["Volatilized Nitrogen N-NH3 (ktN)"] = (
+        #     df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"] * 0.99 * coef_volat_NH3
+        # )
+        # df_cultures["Volatilized Nitrogen N-N20 (ktN)"] = df_cultures[
+        #     "Adjusted Total Synthetic Fertilizer Use (ktN)"
+        # ] * (coef_volat_N2O + 0.01 * coef_volat_NH3)
+        # df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"] = df_cultures[
+        #     "Adjusted Total Synthetic Fertilizer Use (ktN)"
+        # ] * (1 - coef_volat_NH3 - coef_volat_N2O)
+        # # La quantité d'azote réellement épendue est donc un peu plus faible car une partie est volatilisée
 
-        source = {"Haber-Bosch": 1}
-        target = df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"].to_dict()
+        # source = {"Haber-Bosch": 1}
+        # target = df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"].to_dict()
 
-        flux_generator.generate_flux(source, target)
+        # flux_generator.generate_flux(source, target)
 
-        source = df_cultures["Volatilized Nitrogen N-NH3 (ktN)"].to_dict()
-        target = {"NH3 volatilization": 1}
+        # source = df_cultures["Volatilized Nitrogen N-NH3 (ktN)"].to_dict()
+        # target = {"NH3 volatilization": 1}
 
-        flux_generator.generate_flux(source, target)
+        # flux_generator.generate_flux(source, target)
 
-        source = df_cultures["Volatilized Nitrogen N-N20 (ktN)"].to_dict()
-        target = {"N2O emission": 1}
+        # source = df_cultures["Volatilized Nitrogen N-N20 (ktN)"].to_dict()
+        # target = {"N2O emission": 1}
 
-        flux_generator.generate_flux(source, target)
+        # flux_generator.generate_flux(source, target)
 
-        # A cela on ajoute les emissions indirectes de N2O lors de la fabrication des engrais
-        # epend_tot_synt = (
-        #     df_cultures["Volatilized Nitrogen N-NH3 (ktN)"]
-        #     + df_cultures["Volatilized Nitrogen N-N20 (ktN)"]
-        #     + df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"]
-        # ).sum()
-        epend_tot_synt = df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"].sum()
-        coef_emis_N_N2O = data[data["index_excel"] == 32][region].item() / 100
-        target = {"N2O emission": 1}
-        source = {"Haber-Bosch": epend_tot_synt * coef_emis_N_N2O}
+        # # A cela on ajoute les emissions indirectes de N2O lors de la fabrication des engrais
+        # # epend_tot_synt = (
+        # #     df_cultures["Volatilized Nitrogen N-NH3 (ktN)"]
+        # #     + df_cultures["Volatilized Nitrogen N-N20 (ktN)"]
+        # #     + df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"]
+        # # ).sum()
+        # epend_tot_synt = df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"].sum()
+        # coef_emis_N_N2O = data[data["index_excel"] == 32][region].item() / 100
+        # target = {"N2O emission": 1}
+        # source = {"Haber-Bosch": epend_tot_synt * coef_emis_N_N2O}
 
-        flux_generator.generate_flux(source, target)
+        # flux_generator.generate_flux(source, target)
 
         # Azote issu de la partie non comestible des carcasses
         source_non_comestible = df_elevage["Non Edible Nitrogen (ktN)"].to_dict()

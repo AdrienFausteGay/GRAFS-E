@@ -82,7 +82,7 @@ class CultureData:
         epend = pd.read_excel(
             os.path.join(data_path, "GRAFS_data.xlsx"),
             usecols=[0, 1],
-            sheet_name="Surf N org",
+            sheet_name="crops",
         )
         epend = epend.set_index("Culture").to_dict()["Surface recevant N organique maîtrisable"]
 
@@ -982,6 +982,8 @@ class NitrogenFlowModel:
         df_champs.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = (
             df_champs["Raw Total Synthetic Fertilizer Use (ktN)"] * moyenne_reel_champs / moyenne_ponderee_champs
         )
+
+        self.gamma = moyenne_reel_champs / moyenne_ponderee_champs
 
         # Mise à jour de df_cultures
 
