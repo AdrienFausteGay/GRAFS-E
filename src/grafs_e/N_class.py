@@ -74,9 +74,9 @@ class CultureData:
         N_content_data = df[(df["index_excel"] >= 335) & (df["index_excel"] <= 370)][["nom", region]]
         N_content_dict = N_content_data.set_index("nom")[region].to_dict()
 
-        Rendement_data = df[(df["index_excel"] >= 221) & (df["index_excel"] <= 256)][["nom", region]]
-        Rendement_dict = Rendement_data.set_index("nom")[region].to_dict()
-        Rendement_dict["Forage cabbages"] = Rendement_dict.pop("Forage cabbages & roots")
+        # Rendement_data = df[(df["index_excel"] >= 221) & (df["index_excel"] <= 256)][["nom", region]]
+        # Rendement_dict = Rendement_data.set_index("nom")[region].to_dict()
+        # Rendement_dict["Forage cabbages"] = Rendement_dict.pop("Forage cabbages & roots")
 
         # Extraire les taux de surface avec épendage
         epend = pd.read_excel(
@@ -91,7 +91,7 @@ class CultureData:
             "Area (ha)": surface_dict,
             "Crop Production (ktonDFW)": vege_prod_dict,
             "Nitrogen Content (%)": N_content_dict,
-            "Yield (qtl/ha)": Rendement_dict,
+            # "Yield (qtl/ha)": Rendement_dict,
             "Spreading Rate (%)": epend,
         }
 
@@ -100,6 +100,8 @@ class CultureData:
         # Ajouter la colonne 'catégories' en mappant les cultures sur leurs catégories
         combined_df["Category"] = combined_df.index.map(self.categories_mapping)
 
+        combined_df["Yield (qtl/ha)"] = combined_df["Crop Production (ktonDFW)"] * 1000 / combined_df["Area (ha)"]
+        combined_df["Yield (qtl/ha)"].fillna(0)
         combined_df["Yield (qtl/ha)"] = combined_df["Yield (qtl/ha)"] * 10
 
         return combined_df

@@ -218,9 +218,41 @@ with tab2:
         with open(geojson_path, "r", encoding="utf-8") as f:
             return json.load(f)
 
+    # 🔹 Fonction pour ajouter le rectangle englobant toute la France (AU DÉBUT)
+    def add_france_rectangle(geojson_data):
+        all_coords = []
+        for feature in geojson_data["features"]:
+            if feature["geometry"]["type"] == "Polygon":
+                all_coords.extend(feature["geometry"]["coordinates"][0])
+            elif feature["geometry"]["type"] == "MultiPolygon":
+                for polygon in feature["geometry"]["coordinates"]:
+                    all_coords.extend(polygon[0])
+
+        # Extraire les bornes extrêmes
+        coords = np.array(all_coords)
+        min_lon, min_lat = coords.min(axis=0)
+        max_lon, max_lat = coords.max(axis=0)
+
+        # Créer le rectangle pour la France entière
+        france_rectangle = {
+            "type": "Feature",
+            "properties": {"nom": "France"},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [[min_lon, min_lat], [min_lon, max_lat], [max_lon, max_lat], [max_lon, min_lat], [min_lon, min_lat]]
+                ],
+            },
+        }
+
+        # ✅ Insérer le rectangle AVANT les autres régions => En dessous des autres polygones
+        geojson_data["features"].insert(0, france_rectangle)
+        return geojson_data
+
     # 🔹 Création de la carte avec ou sans fond de carte
     def create_map():
         geojson_data = load_geojson()  # Charger les données JSON
+        geojson_data = add_france_rectangle(geojson_data)
         map_center = [48.8566, 2.3522]  # Centre de la carte (ex: Paris)
 
         # Vérifier la connexion Internet
@@ -236,7 +268,7 @@ with tab2:
         # Style des régions survolées
         def on_click(feature):
             return {
-                "fillColor": "#ffaf00",
+                "fillColor": "#ffaf00" if feature["properties"]["nom"] == "France" else "#0078ff",
                 "color": "black",
                 "weight": 2,
                 "fillOpacity": 0.6,
@@ -247,12 +279,12 @@ with tab2:
         geo_layer = folium.GeoJson(
             geojson_data,
             style_function=lambda feature: {
-                "fillColor": "#0078ff",
+                "fillColor": "#ffaf00" if feature["properties"]["nom"] == "France" else "#0078ff",
                 "color": "black",
                 "weight": 1,
                 "fillOpacity": 0.5,
             },
-            tooltip=folium.GeoJsonTooltip(fields=["nom"], aliases=["Région :"]),
+            tooltip=folium.GeoJsonTooltip(fields=["nom"], aliases=["Territory :"]),
             highlight_function=on_click,
         )
 
