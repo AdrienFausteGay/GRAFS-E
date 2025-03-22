@@ -74,9 +74,9 @@ class CultureData:
         N_content_data = df[(df["index_excel"] >= 335) & (df["index_excel"] <= 370)][["nom", region]]
         N_content_dict = N_content_data.set_index("nom")[region].to_dict()
 
-        Rendement_data = df[(df["index_excel"] >= 221) & (df["index_excel"] <= 256)][["nom", region]]
-        Rendement_dict = Rendement_data.set_index("nom")[region].to_dict()
-        Rendement_dict["Forage cabbages"] = Rendement_dict.pop("Forage cabbages & roots")
+        # Rendement_data = df[(df["index_excel"] >= 221) & (df["index_excel"] <= 256)][["nom", region]]
+        # Rendement_dict = Rendement_data.set_index("nom")[region].to_dict()
+        # Rendement_dict["Forage cabbages"] = Rendement_dict.pop("Forage cabbages & roots")
 
         # Extraire les taux de surface avec épendage
         epend = pd.read_excel(
@@ -91,7 +91,7 @@ class CultureData:
             "Area (ha)": surface_dict,
             "Crop Production (ktonDFW)": vege_prod_dict,
             "Nitrogen Content (%)": N_content_dict,
-            "Yield (qtl/ha)": Rendement_dict,
+            # "Yield (qtl/ha)": Rendement_dict,
             "Spreading Rate (%)": epend,
         }
 
@@ -100,6 +100,8 @@ class CultureData:
         # Ajouter la colonne 'catégories' en mappant les cultures sur leurs catégories
         combined_df["Category"] = combined_df.index.map(self.categories_mapping)
 
+        combined_df["Yield (qtl/ha)"] = combined_df["Crop Production (ktonDFW)"] * 1000 / combined_df["Area (ha)"]
+        combined_df["Yield (qtl/ha)"].fillna(0)
         combined_df["Yield (qtl/ha)"] = combined_df["Yield (qtl/ha)"] * 10
 
         return combined_df
@@ -862,29 +864,29 @@ class NitrogenFlowModel:
             "Other oil crops": 5,
             "Forage maize": 1.3,
         }
-        df_cultures["Fertilization Need (ktN/qtl)"] = df_cultures.index.map(besoin_azote)
-        df_cultures["Surface Fertilization Need (ktN/ha)"] = (
-            df_cultures["Fertilization Need (ktN/qtl)"] * df_cultures["Yield (qtl/ha)"]
+        df_cultures["Fertilization Need (kgN/qtl)"] = df_cultures.index.map(besoin_azote)
+        df_cultures["Surface Fertilization Need (kgN/ha)"] = (
+            df_cultures["Fertilization Need (kgN/qtl)"] * df_cultures["Yield (qtl/ha)"]
         )
 
         # Fixer manuellement les besoins pour certaines cultures
-        df_cultures.loc["Sugar beet", "Surface Fertilization Need (ktN/ha)"] = 220
-        df_cultures.loc["Potatoes", "Surface Fertilization Need (ktN/ha)"] = 220
-        df_cultures.loc["Other roots", "Surface Fertilization Need (ktN/ha)"] = 220
-        df_cultures.loc["Dry vegetables", "Surface Fertilization Need (ktN/ha)"] = 50
-        df_cultures.loc["Dry fruits", "Surface Fertilization Need (ktN/ha)"] = 100
-        df_cultures.loc["Squash and melons", "Surface Fertilization Need (ktN/ha)"] = 180
-        df_cultures.loc["Cabbage", "Surface Fertilization Need (ktN/ha)"] = 300
-        df_cultures.loc["Leaves vegetables", "Surface Fertilization Need (ktN/ha)"] = 150
-        df_cultures.loc["Fruits", "Surface Fertilization Need (ktN/ha)"] = 100
-        df_cultures.loc["Olives", "Surface Fertilization Need (ktN/ha)"] = 80
-        df_cultures.loc["Citrus", "Surface Fertilization Need (ktN/ha)"] = 130
-        df_cultures.loc["Hemp", "Surface Fertilization Need (ktN/ha)"] = 120
-        df_cultures.loc["Flax", "Surface Fertilization Need (ktN/ha)"] = 60
-        df_cultures.loc["Non-legume temporary meadow", "Surface Fertilization Need (ktN/ha)"] = 150
-        df_cultures.loc["Natural meadow ", "Surface Fertilization Need (ktN/ha)"] = 150
-        df_cultures.loc["Rice", "Surface Fertilization Need (ktN/ha)"] = 125
-        df_cultures.loc["Forage cabbages", "Surface Fertilization Need (ktN/ha)"] = 300
+        df_cultures.loc["Sugar beet", "Surface Fertilization Need (kgN/ha)"] = 220
+        df_cultures.loc["Potatoes", "Surface Fertilization Need (kgN/ha)"] = 220
+        df_cultures.loc["Other roots", "Surface Fertilization Need (kgN/ha)"] = 220
+        df_cultures.loc["Dry vegetables", "Surface Fertilization Need (kgN/ha)"] = 50
+        df_cultures.loc["Dry fruits", "Surface Fertilization Need (kgN/ha)"] = 100
+        df_cultures.loc["Squash and melons", "Surface Fertilization Need (kgN/ha)"] = 180
+        df_cultures.loc["Cabbage", "Surface Fertilization Need (kgN/ha)"] = 300
+        df_cultures.loc["Leaves vegetables", "Surface Fertilization Need (kgN/ha)"] = 150
+        df_cultures.loc["Fruits", "Surface Fertilization Need (kgN/ha)"] = 100
+        df_cultures.loc["Olives", "Surface Fertilization Need (kgN/ha)"] = 80
+        df_cultures.loc["Citrus", "Surface Fertilization Need (kgN/ha)"] = 130
+        df_cultures.loc["Hemp", "Surface Fertilization Need (kgN/ha)"] = 120
+        df_cultures.loc["Flax", "Surface Fertilization Need (kgN/ha)"] = 60
+        df_cultures.loc["Non-legume temporary meadow", "Surface Fertilization Need (kgN/ha)"] = 150
+        df_cultures.loc["Natural meadow ", "Surface Fertilization Need (kgN/ha)"] = 150
+        df_cultures.loc["Rice", "Surface Fertilization Need (kgN/ha)"] = 125
+        df_cultures.loc["Forage cabbages", "Surface Fertilization Need (kgN/ha)"] = 300
 
         df_cultures = df_cultures.fillna(0)
 
@@ -947,11 +949,11 @@ class NitrogenFlowModel:
 
         # Calcul de l'azote à épendre
         df_cultures["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] = df_cultures.apply(
-            lambda row: row["Surface Fertilization Need (ktN/ha)"]
+            lambda row: row["Surface Fertilization Need (kgN/ha)"]
             - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"]
             - (row["Leguminous heritage (ktN)"] / row["Area (ha)"] * 1e6)
             if row["Area (ha)"] > 0
-            else row["Surface Fertilization Need (ktN/ha)"] - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"],
+            else row["Surface Fertilization Need (kgN/ha)"] - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"],
             axis=1,
         )
         df_cultures["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] = df_cultures[
@@ -1778,6 +1780,7 @@ class NitrogenFlowModel:
             df_elevage = df_elevage.infer_objects(copy=False)
 
             feed_export = import_feed - import_feed_net
+
             flux_exported = {}
             if feed_export > 10**-6:  # On a importé plus que les imports net, la diff est l'export de feed
                 feed_export = min(
@@ -1868,7 +1871,15 @@ class NitrogenFlowModel:
                     ].item()
                 }
                 target = {f"{categorie} food trade": 1}
-                flux_generator.generate_flux(source, target)
+            else:  # TODO Que faire des production de feed qui ne sont ni consommées ni exportées ? Pour l'instant on les exporte....
+                source = {
+                    culture: df_cultures.loc[
+                        df_cultures.index == culture,
+                        "Available Nitrogen After Feed, Export Feed and Food (ktN)",
+                    ].item()
+                }
+                target = {f"{categorie} feed trade": 1}
+            flux_generator.generate_flux(source, target)
 
         # Que faire d'eventuel surplus de prairies ou forage ? Pour l'instant on les ignores... Ou alors vers soil stock ?
 
@@ -2001,7 +2012,7 @@ class NitrogenFlowModel:
         )
 
         # On équilibre Haber-Bosch avec atmospheric N2 pour le faire entrer dans le système
-        target = {"Haber-Bosch": adjacency_matrix[:, label_to_index["Haber-Bosch"]].sum()}
+        target = {"Haber-Bosch": adjacency_matrix[label_to_index["Haber-Bosch"], :].sum()}
         source = {"atmospheric N2": 1}
         flux_generator.generate_flux(source, target)
 
@@ -2186,6 +2197,66 @@ class NitrogenFlowModel:
 
     def R_eff(self):
         return gr.GraphAnalyzer.calculate_Reff(self.adjacency_matrix)
+
+    def Ftot(self, culture):
+        area = self.df_cultures.loc[self.df_cultures.index == culture, "Area (ha)"].item()
+        if area == 0:  # Vérification pour éviter la division par zéro
+            return 0
+        return self.adjacency_matrix[:, label_to_index[culture]].sum() * 1e6 / area
+
+    def Y(self, culture):
+        area = self.df_cultures.loc[self.df_cultures.index == culture, "Area (ha)"].item()
+        if area == 0:  # Vérification pour éviter la division par zéro
+            return 0
+        return self.df_cultures.loc[self.df_cultures.index == culture, "Nitrogen Production (ktN)"].item() * 1e6 / area
+
+    def tot_fert(self):
+        return pd.Series(
+            {
+                "Mining": self.adjacency_matrix[label_to_index["soil stock"], :].sum(),
+                "Seeds": self.adjacency_matrix[label_to_index["other sectors"], :].sum(),
+                "Human excretion": self.adjacency_matrix[
+                    label_to_index["urban"] : label_to_index["rural"] + 1,
+                    label_to_index["Wheat"] : label_to_index["Natural meadow "] + 1,
+                ].sum(),
+                "Leguminous soil enrichment": self.adjacency_matrix[
+                    label_to_index["Horse beans and faba beans"] : label_to_index["Alfalfa and clover"] + 1,
+                    label_to_index["Wheat"] : label_to_index["Natural meadow "] + 1,
+                ].sum(),
+                "Haber-Bosch": self.adjacency_matrix[label_to_index["Haber-Bosch"], :].sum(),
+                "Atmospheric deposition": self.adjacency_matrix[label_to_index["Atmospheric deposition"], :].sum(),
+                "atmospheric N2": self.adjacency_matrix[
+                    label_to_index["atmospheric N2"], label_to_index["Wheat"] : label_to_index["Natural meadow "] + 1
+                ].sum(),
+                "Animal excretion": self.adjacency_matrix[
+                    label_to_index["bovines"] : label_to_index["equine"] + 1,
+                    label_to_index["Wheat"] : label_to_index["Natural meadow "] + 1,
+                ].sum(),
+            }
+        )
+
+    def rel_fert(self):
+        df = self.tot_fert()
+        return df * 100 / df.sum()
+
+    def primXsec(self):
+        df = self.tot_fert()
+        return (
+            (
+                df["Human excretion"].sum()
+                + df["Animal excretion"].sum()
+                + df["atmospheric N2"].sum()
+                + df["Atmospheric deposition"].sum()
+                + df["Seeds"].sum()
+                + df["Leguminous soil enrichment"].sum()
+            )
+            * 100
+            / df.sum()
+        )
+
+    def NUE(self):
+        df = self.tot_fert()
+        return self.df_cultures["Nitrogen Production (ktN)"].sum() * 100 / df.sum()
 
 
 # Créer une instance du modèle

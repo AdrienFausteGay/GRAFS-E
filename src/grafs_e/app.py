@@ -218,9 +218,41 @@ with tab2:
         with open(geojson_path, "r", encoding="utf-8") as f:
             return json.load(f)
 
+    # 🔹 Fonction pour ajouter le rectangle englobant toute la France (AU DÉBUT)
+    def add_france_rectangle(geojson_data):
+        all_coords = []
+        for feature in geojson_data["features"]:
+            if feature["geometry"]["type"] == "Polygon":
+                all_coords.extend(feature["geometry"]["coordinates"][0])
+            elif feature["geometry"]["type"] == "MultiPolygon":
+                for polygon in feature["geometry"]["coordinates"]:
+                    all_coords.extend(polygon[0])
+
+        # Extraire les bornes extrêmes
+        coords = np.array(all_coords)
+        min_lon, min_lat = coords.min(axis=0)
+        max_lon, max_lat = coords.max(axis=0)
+
+        # Créer le rectangle pour la France entière
+        france_rectangle = {
+            "type": "Feature",
+            "properties": {"nom": "France"},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [[min_lon, min_lat], [min_lon, max_lat], [max_lon, max_lat], [max_lon, min_lat], [min_lon, min_lat]]
+                ],
+            },
+        }
+
+        # ✅ Insérer le rectangle AVANT les autres régions => En dessous des autres polygones
+        geojson_data["features"].insert(0, france_rectangle)
+        return geojson_data
+
     # 🔹 Création de la carte avec ou sans fond de carte
     def create_map():
         geojson_data = load_geojson()  # Charger les données JSON
+        geojson_data = add_france_rectangle(geojson_data)
         map_center = [48.8566, 2.3522]  # Centre de la carte (ex: Paris)
 
         # Vérifier la connexion Internet
@@ -236,7 +268,7 @@ with tab2:
         # Style des régions survolées
         def on_click(feature):
             return {
-                "fillColor": "#ffaf00",
+                "fillColor": "#ffaf00" if feature["properties"]["nom"] == "France" else "#0078ff",
                 "color": "black",
                 "weight": 2,
                 "fillOpacity": 0.6,
@@ -247,12 +279,12 @@ with tab2:
         geo_layer = folium.GeoJson(
             geojson_data,
             style_function=lambda feature: {
-                "fillColor": "#0078ff",
+                "fillColor": "#ffaf00" if feature["properties"]["nom"] == "France" else "#0078ff",
                 "color": "black",
                 "weight": 1,
                 "fillOpacity": 0.5,
             },
-            tooltip=folium.GeoJsonTooltip(fields=["nom"], aliases=["Région :"]),
+            tooltip=folium.GeoJsonTooltip(fields=["nom"], aliases=["Territory :"]),
             highlight_function=on_click,
         )
 
@@ -784,7 +816,11 @@ def get_metrics_for_all_years(_models, metric_name, region):
         "Total net animal import": "net_imported_animal",
         "Total plant production": "total_plant_production",
         "Area": "surfaces",
+        "Total Fertilization": "tot_fert",
+        "Relative Fertilization": "rel_fert",
+        "Primary Nitrogen fertilization use": "primXsec",
         "Emissions": "emissions",
+        "NUE": "NUE",
         "Cereals production": "cereals_production",
         "Leguminous production": "leguminous_production",
         "Oleaginous production": "oleaginous_production",
@@ -857,6 +893,8 @@ def plot_standard_graph(_models, metric, region):
 
     if "Eff" in metric:
         y_label = "#"
+    if "NUE" in metric or "Primary" in metric:
+        y_label = "%"
     else:
         y_label = "ktN/yr"
 
@@ -1002,6 +1040,110 @@ def stacked_area_chart(_models, metric, region):
                 )
             )
 
+    if metric == "Total Fertilization":
+        fig.update_layout(
+            title=f"Total Fertilization Use - {region}",
+            xaxis_title="Year",
+            yaxis_title="ktN",
+            hovermode="closest",  # ❗️ Montre seulement la courbe survolée
+            showlegend=True,
+        )
+
+        # Parcourir chaque culture dans l'ordre de l'index (df.index)
+        # 'Base' doit être ignoré => On ne fait pas de trace pour 'Base'
+        emissions_list = [c for c in df_cumsum.index if c != "Base"]
+
+        color = {
+            "Haber-Bosch": "purple",
+            "Atmospheric deposition": "red",
+            "atmospheric N2": "white",
+            "Mining": "gray",
+            "Seeds": "pink",
+            "Animal excretion": "lightblue",
+            "Human excretion": "darkblue",
+            "Leguminous soil enrichment": "darkgreen",
+        }
+
+        for emission in emissions_list:
+            # Courbe du haut = df_cumsum.loc[culture]
+            # fill='tonexty' => se remplit entre cette courbe et la précédente
+            # => l'ordre du df_cumsum doit être correct (Base, ..., culture)
+
+            fig.add_trace(
+                go.Scatter(
+                    x=all_years,
+                    y=df_cumsum.loc[emission],
+                    fill="tonexty",
+                    mode="lines",
+                    line=dict(color=color[emission], width=0.5),
+                    customdata=df.loc[emission].tolist(),
+                    name=emission,  # ❗️ Nom affiché = Catégorie
+                    hovertemplate=(
+                        "Fertilization vector: %{text}<br>Year: %{x}<br>Value: %{customdata:.2f} ktN/yr<extra></extra>"
+                    ),
+                    text=[emission] * len(all_years),  # Pour afficher le nom de la culture au survol
+                )
+            )
+
+        prod_tot = get_metrics_for_all_years(_models, "Total plant production", region)
+
+        # Ajouter la ligne de production végétale totale
+        fig.add_trace(
+            go.Scatter(
+                x=list(prod_tot.keys()),  # Clés du dictionnaire comme années
+                y=list(prod_tot.values()),  # Valeurs du dictionnaire comme données
+                mode="lines+markers",  # Ligne avec des marqueurs
+                line=dict(color="white", width=3, dash="dash"),  # Ligne noire en pointillés pour la distinguer
+                name="Total Plant Production",  # Légende
+                hovertemplate="Year: %{x}<br>Value: %{y:.2f} ktN/yr<extra></extra>",  # Tooltip personnalisé
+            )
+        )
+
+    if metric == "Relative Fertilization":
+        fig.update_layout(
+            title=f"Relative Fertilization Use - {region}",
+            xaxis_title="Year",
+            yaxis_title="%",
+            hovermode="closest",  # ❗️ Montre seulement la courbe survolée
+            showlegend=True,
+        )
+
+        # Parcourir chaque culture dans l'ordre de l'index (df.index)
+        # 'Base' doit être ignoré => On ne fait pas de trace pour 'Base'
+        emissions_list = [c for c in df_cumsum.index if c != "Base"]
+
+        color = {
+            "Haber-Bosch": "purple",
+            "Atmospheric deposition": "red",
+            "atmospheric N2": "white",
+            "Mining": "gray",
+            "Seeds": "pink",
+            "Animal excretion": "lightblue",
+            "Human excretion": "darkblue",
+            "Leguminous soil enrichment": "darkgreen",
+        }
+
+        for emission in emissions_list:
+            # Courbe du haut = df_cumsum.loc[culture]
+            # fill='tonexty' => se remplit entre cette courbe et la précédente
+            # => l'ordre du df_cumsum doit être correct (Base, ..., culture)
+
+            fig.add_trace(
+                go.Scatter(
+                    x=all_years,
+                    y=df_cumsum.loc[emission],
+                    fill="tonexty",
+                    mode="lines",
+                    line=dict(color=color[emission], width=0.5),
+                    customdata=df.loc[emission].tolist(),
+                    name=emission,  # ❗️ Nom affiché = Catégorie
+                    hovertemplate=(
+                        "Fertilization vector: %{text}<br>Year: %{x}<br>Value: %{customdata:.2f} %<extra></extra>"
+                    ),
+                    text=[emission] * len(all_years),  # Pour afficher le nom de la culture au survol
+                )
+            )
+
     # -----------------------------------------------------------------
     # 3) Affichage
     # -----------------------------------------------------------------
@@ -1020,7 +1162,11 @@ with tab6:
         "Total plant production",
         "Total animal production",
         "Area",
+        "Total Fertilization",
+        "Relative Fertilization",
+        "Primary Nitrogen fertilization use",
         "Emissions",
+        "NUE",
         "Cereals production",
         "Leguminous production",
         "Grassland and forage production",
@@ -1062,7 +1208,12 @@ with tab6:
         with st.spinner("🚀 Running models and calculating metrics..."):
             # 📌 Exécuter les modèles et récupérer les métriques
             models = run_models_for_all_years(st.session_state.selected_region_hist, data)
-            if st.session_state.metric_hist not in ["Area", "Emissions"]:
+            if st.session_state.metric_hist not in [
+                "Area",
+                "Emissions",
+                "Relative Fertilization",
+                "Total Fertilization",
+            ]:
                 plot_standard_graph(models, st.session_state.metric_hist, st.session_state.selected_region_hist)
             else:
                 stacked_area_chart(models, st.session_state.metric_hist, st.session_state.selected_region_hist)
