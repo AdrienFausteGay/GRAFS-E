@@ -784,7 +784,11 @@ def get_metrics_for_all_years(_models, metric_name, region):
         "Total net animal import": "net_imported_animal",
         "Total plant production": "total_plant_production",
         "Area": "surfaces",
+        "Total Fertilization": "tot_fert",
+        "Relative Fertilization": "rel_fert",
+        "Primary Nitrogen fertilization use": "primXsec",
         "Emissions": "emissions",
+        "NUE": "NUE",
         "Cereals production": "cereals_production",
         "Leguminous production": "leguminous_production",
         "Oleaginous production": "oleaginous_production",
@@ -857,6 +861,8 @@ def plot_standard_graph(_models, metric, region):
 
     if "Eff" in metric:
         y_label = "#"
+    if "NUE" in metric or "Primary" in metric:
+        y_label = "%"
     else:
         y_label = "ktN/yr"
 
@@ -1002,6 +1008,110 @@ def stacked_area_chart(_models, metric, region):
                 )
             )
 
+    if metric == "Total Fertilization":
+        fig.update_layout(
+            title=f"Total Fertilization Use - {region}",
+            xaxis_title="Year",
+            yaxis_title="ktN",
+            hovermode="closest",  # ❗️ Montre seulement la courbe survolée
+            showlegend=True,
+        )
+
+        # Parcourir chaque culture dans l'ordre de l'index (df.index)
+        # 'Base' doit être ignoré => On ne fait pas de trace pour 'Base'
+        emissions_list = [c for c in df_cumsum.index if c != "Base"]
+
+        color = {
+            "Haber-Bosch": "purple",
+            "Atmospheric deposition": "red",
+            "atmospheric N2": "white",
+            "Mining": "gray",
+            "Seeds": "pink",
+            "Animal excretion": "lightblue",
+            "Human excretion": "darkblue",
+            "Leguminous soil enrichment": "darkgreen",
+        }
+
+        for emission in emissions_list:
+            # Courbe du haut = df_cumsum.loc[culture]
+            # fill='tonexty' => se remplit entre cette courbe et la précédente
+            # => l'ordre du df_cumsum doit être correct (Base, ..., culture)
+
+            fig.add_trace(
+                go.Scatter(
+                    x=all_years,
+                    y=df_cumsum.loc[emission],
+                    fill="tonexty",
+                    mode="lines",
+                    line=dict(color=color[emission], width=0.5),
+                    customdata=df.loc[emission].tolist(),
+                    name=emission,  # ❗️ Nom affiché = Catégorie
+                    hovertemplate=(
+                        "Fertilization vector: %{text}<br>Year: %{x}<br>Value: %{customdata:.2f} ktN/yr<extra></extra>"
+                    ),
+                    text=[emission] * len(all_years),  # Pour afficher le nom de la culture au survol
+                )
+            )
+
+        prod_tot = get_metrics_for_all_years(_models, "Total plant production", region)
+
+        # Ajouter la ligne de production végétale totale
+        fig.add_trace(
+            go.Scatter(
+                x=list(prod_tot.keys()),  # Clés du dictionnaire comme années
+                y=list(prod_tot.values()),  # Valeurs du dictionnaire comme données
+                mode="lines+markers",  # Ligne avec des marqueurs
+                line=dict(color="white", width=3, dash="dash"),  # Ligne noire en pointillés pour la distinguer
+                name="Total Plant Production",  # Légende
+                hovertemplate="Year: %{x}<br>Value: %{y:.2f} ktN/yr<extra></extra>",  # Tooltip personnalisé
+            )
+        )
+
+    if metric == "Relative Fertilization":
+        fig.update_layout(
+            title=f"Relative Fertilization Use - {region}",
+            xaxis_title="Year",
+            yaxis_title="%",
+            hovermode="closest",  # ❗️ Montre seulement la courbe survolée
+            showlegend=True,
+        )
+
+        # Parcourir chaque culture dans l'ordre de l'index (df.index)
+        # 'Base' doit être ignoré => On ne fait pas de trace pour 'Base'
+        emissions_list = [c for c in df_cumsum.index if c != "Base"]
+
+        color = {
+            "Haber-Bosch": "purple",
+            "Atmospheric deposition": "red",
+            "atmospheric N2": "white",
+            "Mining": "gray",
+            "Seeds": "pink",
+            "Animal excretion": "lightblue",
+            "Human excretion": "darkblue",
+            "Leguminous soil enrichment": "darkgreen",
+        }
+
+        for emission in emissions_list:
+            # Courbe du haut = df_cumsum.loc[culture]
+            # fill='tonexty' => se remplit entre cette courbe et la précédente
+            # => l'ordre du df_cumsum doit être correct (Base, ..., culture)
+
+            fig.add_trace(
+                go.Scatter(
+                    x=all_years,
+                    y=df_cumsum.loc[emission],
+                    fill="tonexty",
+                    mode="lines",
+                    line=dict(color=color[emission], width=0.5),
+                    customdata=df.loc[emission].tolist(),
+                    name=emission,  # ❗️ Nom affiché = Catégorie
+                    hovertemplate=(
+                        "Fertilization vector: %{text}<br>Year: %{x}<br>Value: %{customdata:.2f} %<extra></extra>"
+                    ),
+                    text=[emission] * len(all_years),  # Pour afficher le nom de la culture au survol
+                )
+            )
+
     # -----------------------------------------------------------------
     # 3) Affichage
     # -----------------------------------------------------------------
@@ -1020,7 +1130,11 @@ with tab6:
         "Total plant production",
         "Total animal production",
         "Area",
+        "Total Fertilization",
+        "Relative Fertilization",
+        "Primary Nitrogen fertilization use",
         "Emissions",
+        "NUE",
         "Cereals production",
         "Leguminous production",
         "Grassland and forage production",
@@ -1062,7 +1176,12 @@ with tab6:
         with st.spinner("🚀 Running models and calculating metrics..."):
             # 📌 Exécuter les modèles et récupérer les métriques
             models = run_models_for_all_years(st.session_state.selected_region_hist, data)
-            if st.session_state.metric_hist not in ["Area", "Emissions"]:
+            if st.session_state.metric_hist not in [
+                "Area",
+                "Emissions",
+                "Relative Fertilization",
+                "Total Fertilization",
+            ]:
                 plot_standard_graph(models, st.session_state.metric_hist, st.session_state.selected_region_hist)
             else:
                 stacked_area_chart(models, st.session_state.metric_hist, st.session_state.selected_region_hist)
