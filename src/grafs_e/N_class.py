@@ -2010,7 +2010,7 @@ class NitrogenFlowModel:
         )
 
         # On équilibre Haber-Bosch avec atmospheric N2 pour le faire entrer dans le système
-        target = {"Haber-Bosch": adjacency_matrix[:, label_to_index["Haber-Bosch"]].sum()}
+        target = {"Haber-Bosch": adjacency_matrix[label_to_index["Haber-Bosch"], :].sum()}
         source = {"atmospheric N2": 1}
         flux_generator.generate_flux(source, target)
 
@@ -2207,6 +2207,54 @@ class NitrogenFlowModel:
         if area == 0:  # Vérification pour éviter la division par zéro
             return 0
         return self.df_cultures.loc[self.df_cultures.index == culture, "Nitrogen Production (ktN)"].item() * 1e6 / area
+
+    def tot_fert(self):
+        return pd.Series(
+            {
+                "Mining": self.adjacency_matrix[label_to_index["soil stock"], :].sum(),
+                "Seeds": self.adjacency_matrix[label_to_index["other sectors"], :].sum(),
+                "Human excretion": self.adjacency_matrix[
+                    label_to_index["urban"] : label_to_index["rural"] + 1,
+                    label_to_index["Wheat"] : label_to_index["Natural meadow "] + 1,
+                ].sum(),
+                "Leguminous soil enrichment": self.adjacency_matrix[
+                    label_to_index["Horse beans and faba beans"] : label_to_index["Alfalfa and clover"] + 1,
+                    label_to_index["Wheat"] : label_to_index["Natural meadow "] + 1,
+                ].sum(),
+                "Haber-Bosch": self.adjacency_matrix[label_to_index["Haber-Bosch"], :].sum(),
+                "Atmospheric deposition": self.adjacency_matrix[label_to_index["Atmospheric deposition"], :].sum(),
+                "atmospheric N2": self.adjacency_matrix[
+                    label_to_index["atmospheric N2"], label_to_index["Wheat"] : label_to_index["Natural meadow "] + 1
+                ].sum(),
+                "Animal excretion": self.adjacency_matrix[
+                    label_to_index["bovines"] : label_to_index["equine"] + 1,
+                    label_to_index["Wheat"] : label_to_index["Natural meadow "] + 1,
+                ].sum(),
+            }
+        )
+
+    def rel_fert(self):
+        df = self.tot_fert()
+        return df * 100 / df.sum()
+
+    def primXsec(self):
+        df = self.tot_fert()
+        return (
+            (
+                df["Human excretion"].sum()
+                + df["Animal excretion"].sum()
+                + df["atmospheric N2"].sum()
+                + df["Atmospheric deposition"].sum()
+                + df["Seeds"].sum()
+                + df["Leguminous soil enrichment"].sum()
+            )
+            * 100
+            / df.sum()
+        )
+
+    def NUE(self):
+        df = self.tot_fert()
+        return self.df_cultures["Nitrogen Production (ktN)"].sum() * 100 / df.sum()
 
 
 # Créer une instance du modèle
