@@ -13,6 +13,7 @@ import plotly.graph_objects as go
 import requests
 import streamlit as st
 from PIL import Image
+from plotly.subplots import make_subplots
 from streamlit_folium import st_folium
 
 from grafs_e.donnees import *
@@ -43,7 +44,7 @@ if not os.path.exists(config_dir):
 with open(config_path, "w") as config_file:
     config_file.write("[theme]\nbase='dark'\n")
 
-st.set_page_config(page_title="GRAFS-E App", page_icon=icon_path)  # , layout="wide")
+st.set_page_config(page_title="GRAFS-E App", page_icon=icon_path, layout="wide")  # , layout="wide")
 
 
 # Charger les données
@@ -93,8 +94,13 @@ with tab1:
 
     st.subheader("Overview")
 
-    st.text(
-        "The GRAFS-extended model serves as an advanced tool designed to analyze and map the evolution of nitrogen utilization within agricultural systems, with a particular focus on 33 regions of France from 1852 to 2014. This model builds upon the GRAFS framework developped at IEES and integrates graph theory to provide a detailed analysis of nitrogen flows in agriculture, identifying key patterns, transformations, and structural invariants. The model enables researchers to construct robust prospective scenarios and examine the global structure of nitrogen flows in agricultural ecosystems."
+    st.write(
+        """
+    <p style='text-align: justify'>
+        The GRAFS-extended model serves as an advanced tool designed to analyze and map the evolution of nitrogen utilization within agricultural systems, with a particular focus on 33 regions of France from 1852 to 2014. This model builds upon the GRAFS framework developed at IEES and integrates graph theory to provide a detailed analysis of nitrogen flows in agriculture, identifying key patterns, transformations, and structural invariants. The model enables researchers to construct robust prospective scenarios and examine the global structure of nitrogen flows in agricultural ecosystems.
+    </p>
+    """,
+        unsafe_allow_html=True,
     )
 
     # 🔹 Mise en cache du chargement de l'image
@@ -113,7 +119,7 @@ with tab1:
         bounds = [[-0.5, -0.5 * aspect_ratio], [0.5, 0.5 * aspect_ratio]]
 
         # Créer une carte sans fond de carte
-        m = folium.Map(location=[0, 0.3], zoom_start=9.5, zoom_control=True, tiles=None)
+        m = folium.Map(location=[0, 0], zoom_start=9.5, zoom_control=True, tiles=None)
 
         # Ajouter l'image avec les bonnes proportions
         image_overlay = folium.raster_layers.ImageOverlay(
@@ -133,7 +139,7 @@ with tab1:
     m = create_image_map()  # Création de la carte avec l'image mise en cache
 
     # 🟢 Affichage de la carte avec Streamlit-Folium
-    st_folium(m, width=900, height=600)
+    st_folium(m, height=600, use_container_width=True)
 
     st.subheader("Features")
 
@@ -149,13 +155,19 @@ with tab1:
 
     st.subheader("Methods")
 
-    st.text(
-        "The GRAFS-E model is designed to encapsulate the nitrogen utilization process in agricultural systems by considering historical transformations in French agricultural practices. It captures the transition from traditional crop-livestock agriculture to more intensive, specialized systems."
-    )
-    st.text("GRAFS-E uses optimization model to allocate plant productions to livestock, population and trade.")
-
-    st.text(
-        "By integrating optimization techniques and new mechanisms, GRAFS-E allows for the detailed study of nitrogen flows at a finer resolution than the original GRAFS model, covering 64 distinct objects, including various types of crops, livestock, population groups, industrial sectors, import/export category, and 6 environment category. The extension of GRAFS makes it possible to examine the topology and properties of the graph build with this flow model. This approach, provides a deeper understanding of the structure of the system, notably identifying invariants and hubs."
+    st.write(
+        """
+    <p style='text-align: justify'>
+        The GRAFS-E model is designed to encapsulate the nitrogen utilization process in agricultural systems by considering historical transformations in French agricultural practices. It captures the transition from traditional crop-livestock agriculture to more intensive, specialized systems.
+    </p>
+    <p style='text-align: justify'>
+        GRAFS-E uses optimization model to allocate plant productions to livestock, population and trade.
+    </p>
+    <p style='text-align: justify'>
+        By integrating optimization techniques and new mechanisms, GRAFS-E allows for the detailed study of nitrogen flows at a finer resolution than the original GRAFS model, covering 64 distinct objects, including various types of crops, livestock, population groups, industrial sectors, import/export category, and 6 environment category. The extension of GRAFS makes it possible to examine the topology and properties of the graph built with this flow model. This approach provides a deeper understanding of the structure of the system, notably identifying invariants and hubs.
+    </p>
+    """,
+        unsafe_allow_html=True,
     )
 
     st.subheader("Results")
@@ -182,8 +194,14 @@ with tab1:
     )
 
     st.subheader("Data")
-    st.text(
-        "The GRAFS-E model relies on agronomic data and technical coefficients from previous research, which were initially used in the seminal GRAFS framework. It consists in production and area data from all cultures, livestock size and production, mean use of synthetic fertilization and total net feed import."
+
+    st.write(
+        """
+    <p style='text-align: justify'>
+        The GRAFS-E model relies on agronomic data and technical coefficients from previous research, which were initially used in the seminal GRAFS framework. It consists in production and area data from all cultures, livestock size and production, mean use of synthetic fertilization and total net feed import.
+    </p>
+    """,
+        unsafe_allow_html=True,
     )
 
     st.subheader("License")
@@ -297,7 +315,7 @@ with tab2:
     m = create_map()  # Crée la carte en fonction de l'état de la connexion Internet
 
     # 🟢 Affichage de la carte avec Streamlit-Folium
-    map_data = st_folium(m, width=700, height=500)
+    map_data = st_folium(m, height=600, use_container_width=True)
 
     # 🔹 Mettre à jour `st.session_state.selected_region` avec la sélection utilisateur
     if map_data and "last_active_drawing" in map_data:
@@ -609,6 +627,8 @@ def get_metrics_for_all_regions(_models, metric_name, year):
         "Total net plant import": "net_imported_plant",
         "Total net animal import": "net_imported_animal",
         "Total plant production": "total_plant_production",
+        "NUE": "NUE",
+        "System NUE": "NUE_system",
         "Cereals production": "cereals_production",
         "Leguminous production": "leguminous_production",
         "Oleaginous production": "oleaginous_production",
@@ -699,7 +719,7 @@ def create_map_with_metrics(geojson_data, metrics, metric_name, year):
                     }
 
                 # Ajouter le polygone à la carte
-                if "Relative" in metric_name:
+                if "Relative" in metric_name or "NUE" in metric_name:
                     folium.GeoJson(
                         feature,
                         style_function=style_function,
@@ -739,6 +759,8 @@ with tab5:
         "Total net animal import",
         "Total plant production",
         "Total animal production",
+        "NUE",
+        "System NUE",
         "Cereals production",
         "Leguminous production",
         "Grassland and forage production",
@@ -814,13 +836,16 @@ def get_metrics_for_all_years(_models, metric_name, region):
         "Total imported nitrogen": "imported_nitrogen",
         "Total net plant import": "net_imported_plant",
         "Total net animal import": "net_imported_animal",
-        "Total plant production": "total_plant_production",
+        "Total plant production": "stacked_plant_production",
         "Area": "surfaces",
+        "Area tot": "surfaces_tot",
         "Total Fertilization": "tot_fert",
         "Relative Fertilization": "rel_fert",
         "Primary Nitrogen fertilization use": "primXsec",
         "Emissions": "emissions",
         "NUE": "NUE",
+        "System NUE": "NUE_system_2",
+        "Self-Sufficiency": "N_self_sufficient",
         "Cereals production": "cereals_production",
         "Leguminous production": "leguminous_production",
         "Oleaginous production": "oleaginous_production",
@@ -893,7 +918,7 @@ def plot_standard_graph(_models, metric, region):
 
     if "Eff" in metric:
         y_label = "#"
-    if "NUE" in metric or "Primary" in metric:
+    if "NUE" in metric or "Primary" in metric or "Sufficiency" in metric:
         y_label = "%"
     else:
         y_label = "ktN/yr"
@@ -1004,6 +1029,68 @@ def stacked_area_chart(_models, metric, region):
                     text=[culture] * len(all_years),  # Pour afficher le nom de la culture au survol
                 )
             )
+
+    if metric == "Total plant production":
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        fig.update_layout(
+            title=f"Agricultural Production - {region}",
+            xaxis_title="Year",
+            hovermode="closest",  # ❗️ Montre seulement la courbe survolée
+            showlegend=True,
+        )
+
+        # Parcourir chaque culture dans l'ordre de l'index (df.index)
+        # 'Base' doit être ignoré => On ne fait pas de trace pour 'Base'
+        cultures_list = [c for c in df_cumsum.index if c != "Base"]
+
+        for culture in cultures_list:
+            # Courbe du haut = df_cumsum.loc[culture]
+            # fill='tonexty' => se remplit entre cette courbe et la précédente
+            # => l'ordre du df_cumsum doit être correct (Base, ..., culture)
+            # Couleur en fonction de la catégorie
+            cat = categories_mapping.get(culture, "Unknown")
+            culture_color = node_color[label_to_index[culture]]
+
+            # Groupe de légende = cat
+            # On affiche la légende qu'une seule fois par catégorie
+            show_in_legend = cat not in categories_seen
+            if show_in_legend:
+                categories_seen.add(cat)
+
+            fig.add_trace(
+                go.Scatter(
+                    x=all_years,
+                    y=df_cumsum.loc[culture],
+                    fill="tonexty",
+                    mode="lines",
+                    line=dict(color=culture_color, width=0.5),
+                    name=cat,
+                    legendgroup=cat,
+                    customdata=df.loc[culture].tolist(),
+                    showlegend=show_in_legend,
+                    hovertemplate="Culture: %{text}<br>Year: %{x}<br>Value: %{customdata:.2f} ha<extra></extra>",
+                    text=[culture] * len(all_years),
+                ),
+                secondary_y=False,  # Axe Y principal
+            )
+
+        prod_tot = get_metrics_for_all_years(_models, "Area tot", region)
+
+        # Ajouter la ligne de production végétale totale
+        fig.add_trace(
+            go.Scatter(
+                x=list(prod_tot.keys()),
+                y=list(prod_tot.values()),
+                mode="lines+markers",
+                line=dict(color="white", width=3, dash="dash"),
+                name="Total agricultural Area",
+                hovertemplate="Year: %{x}<br>Value: %{y:.2f} ha<extra></extra>",
+            ),
+            secondary_y=True,  # Axe Y secondaire (à droite)
+        )
+
+        fig.update_yaxes(title_text="Cumulated Production (ktN/yr)", secondary_y=False)
+        fig.update_yaxes(title_text="Total Area (ha)", secondary_y=True)
     if metric == "Emissions":
         fig.update_layout(
             title=f"Nitrogen emissions - {region}",
@@ -1167,6 +1254,8 @@ with tab6:
         "Primary Nitrogen fertilization use",
         "Emissions",
         "NUE",
+        "System NUE",
+        "Self-Sufficiency",
         "Cereals production",
         "Leguminous production",
         "Grassland and forage production",
@@ -1213,6 +1302,7 @@ with tab6:
                 "Emissions",
                 "Relative Fertilization",
                 "Total Fertilization",
+                "Total plant production",
             ]:
                 plot_standard_graph(models, st.session_state.metric_hist, st.session_state.selected_region_hist)
             else:

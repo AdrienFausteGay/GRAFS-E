@@ -375,10 +375,11 @@ class NitrogenFlowModel:
 
         # 5) Configuration de la mise en page
         fig.update_layout(
-            width=1980,
-            height=800,
-            margin=dict(t=0, b=0, l=0, r=150),  # espace à droite pour la légende
+            width=1000,
+            height=1000,
+            margin=dict(t=0, b=0, l=0, r=220),  # espace à droite pour la légende
         )
+        fig.update_layout(yaxis_scaleanchor="x")
 
         # Axe X en haut
         fig.update_xaxes(
@@ -405,15 +406,15 @@ class NitrogenFlowModel:
         #    Format : "1: label[0]" ... vertical
         legend_text = "<br>".join(f"{i + 1} : {lbl}" for i, lbl in enumerate(self.labels))
         fig.add_annotation(
-            x=1.3,  # un peu à droite
-            y=0.5,  # centré en hauteur
+            x=1.25,  # un peu à droite
+            y=0.45,  # centré en hauteur
             xref="paper",
             yref="paper",
             showarrow=False,
             text=legend_text,
             align="left",
             valign="middle",
-            font=dict(size=9),
+            font=dict(size=11),
             bordercolor="rgba(0,0,0,0)",
             borderwidth=1,
             borderpad=4,
@@ -2016,6 +2017,10 @@ class NitrogenFlowModel:
         source = {"atmospheric N2": 1}
         flux_generator.generate_flux(source, target)
 
+        df_elevage["Conversion factor (%)"] = (
+            df_elevage["Edible Nitrogen (ktN)"] + df_elevage["Non Edible Nitrogen (ktN)"]
+        ) / df_elevage["Ingestion (ktN)"]
+
         self.df_cultures = df_cultures
         self.df_elevage = df_elevage
         self.adjacency_matrix = adjacency_matrix
@@ -2091,6 +2096,9 @@ class NitrogenFlowModel:
 
     def total_plant_production(self):
         return self.df_cultures["Nitrogen Production (ktN)"].sum()
+
+    def stacked_plant_production(self):
+        return self.df_cultures["Nitrogen Production (ktN)"]
 
     def cereals_production(self):
         return self.df_cultures.loc[
@@ -2186,6 +2194,9 @@ class NitrogenFlowModel:
     def surfaces(self):
         return self.df_cultures["Area (ha)"]
 
+    def surfaces_tot(self):
+        return self.df_cultures["Area (ha)"].sum()
+
     def N_eff(self):
         return gr.GraphAnalyzer.calculate_Neff(self.adjacency_matrix)
 
@@ -2257,6 +2268,53 @@ class NitrogenFlowModel:
     def NUE(self):
         df = self.tot_fert()
         return self.df_cultures["Nitrogen Production (ktN)"].sum() * 100 / df.sum()
+
+    def NUE_system(self):
+        N_NP = (
+            self.df_cultures["Nitrogen Production (ktN)"].sum()
+            - self.df_cultures["Nitrogen For Feed (ktN)"].sum()
+            + self.df_elevage["Edible Nitrogen (ktN)"].sum()
+            + self.df_elevage["Non Edible Nitrogen (ktN)"].sum()
+        )
+        df_fert = self.tot_fert()
+        N_tot = (
+            df_fert["Haber-Bosch"]
+            + df_fert["atmospheric N2"]
+            + df_fert["Atmospheric deposition"]
+            + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
+        )
+        return N_NP / N_tot * 100
+
+    def NUE_system_2(self):
+        N_NP = (
+            self.df_cultures["Nitrogen Production (ktN)"].sum()
+            + (
+                (self.df_elevage["Edible Nitrogen (ktN)"] + self.df_elevage["Non Edible Nitrogen (ktN)"])
+                * (1 - 1 / self.df_elevage["Conversion factor (%)"])
+            ).sum()
+            + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
+        )
+        df_fert = self.tot_fert()
+        N_tot = (
+            df_fert["Haber-Bosch"]
+            + df_fert["atmospheric N2"]
+            + df_fert["Atmospheric deposition"]
+            + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
+        )
+        return N_NP / N_tot * 100
+
+    def N_self_sufficient(self):
+        df_fert = self.tot_fert()
+        return (
+            (df_fert["atmospheric N2"] + df_fert["Atmospheric deposition"])
+            * 100
+            / (
+                df_fert["atmospheric N2"]
+                + df_fert["Atmospheric deposition"]
+                + df_fert["Haber-Bosch"]
+                + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
+            )
+        )
 
 
 # Créer une instance du modèle
