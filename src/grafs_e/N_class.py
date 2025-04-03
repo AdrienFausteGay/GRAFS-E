@@ -82,7 +82,7 @@ class CultureData:
         epend = pd.read_excel(
             os.path.join(data_path, "GRAFS_data.xlsx"),
             usecols=[0, 1],
-            sheet_name="Surf N org",
+            sheet_name="crops",
         )
         epend = epend.set_index("Culture").to_dict()["Surface recevant N organique maîtrisable"]
 
@@ -160,13 +160,11 @@ class ElevageData:
 
 
 class FluxGenerator:
-    def __init__(self, labels, region, year):
+    def __init__(self, labels):
         self.labels = labels
         self.label_to_index = {label: index for index, label in enumerate(self.labels)}
         self.n = len(self.labels)
         self.adjacency_matrix = np.zeros((self.n, self.n))
-        self.region = region
-        self.year = year
 
     def generate_flux(self, source, target):
         for source_label, source_value in source.items():
@@ -220,7 +218,7 @@ class NitrogenFlowModel:
         self.data_loader = data  # DataLoader(year, region)
         self.culture_data = CultureData(self.data_loader, self.year, self.region, categories_mapping)
         self.elevage_data = ElevageData(self.data_loader, self.year, self.region)
-        self.flux_generator = FluxGenerator(labels, region, year)
+        self.flux_generator = FluxGenerator(labels)
 
         self.df_cultures = self.culture_data.df_cultures
         self.df_elevage = self.elevage_data.df_elevage
@@ -803,8 +801,8 @@ class NitrogenFlowModel:
             * df_elevage["% excreted indoors"]
             / 100
             * (
-                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-N2 EM. manure indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-N2 EM. slurry indoor"]
+                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-N2 EM. slurry indoor"]
+                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-N2 EM. manure indoor"]
             )
         ).to_dict()
 
@@ -818,8 +816,8 @@ class NitrogenFlowModel:
             * df_elevage["% excreted indoors"]
             / 100
             * (
-                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-NH3 EM. manure indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-NH3 EM. slurry indoor"]
+                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-NH3 EM. slurry indoor"]
+                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-NH3 EM. manure indoor"]
             )
         ).to_dict()
 
@@ -831,8 +829,8 @@ class NitrogenFlowModel:
             * df_elevage["% excreted indoors"]
             / 100
             * (
-                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-NH3 EM. manure indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-NH3 EM. slurry indoor"]
+                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-NH3 EM. slurry indoor"]
+                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-NH3 EM. manure indoor"]
             )
         )
         # N2O
@@ -843,8 +841,8 @@ class NitrogenFlowModel:
             * df_elevage["% excreted indoors"]
             / 100
             * (
-                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-N2O EM. manure indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-N2O EM. slurry indoor"]
+                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-N2O EM. slurry indoor"]
+                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-N2O EM. manure indoor"]
             )
         ).to_dict()
 
@@ -987,6 +985,8 @@ class NitrogenFlowModel:
         df_champs.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = (
             df_champs["Raw Total Synthetic Fertilizer Use (ktN)"] * moyenne_reel_champs / moyenne_ponderee_champs
         )
+
+        self.gamma = moyenne_reel_champs / moyenne_ponderee_champs
 
         # Mise à jour de df_cultures
 
