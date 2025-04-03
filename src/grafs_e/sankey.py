@@ -433,7 +433,8 @@ def streamlit_sankey(transition_matrix, main_node, scope=1, index_to_label=None,
 
     fig.update_layout(
         template="plotly_dark",  # Thème sombre de Plotly
-        font_color="white",  # Couleur générale du texte (titres, axes, etc.)
+        font_color="black",  # Couleur générale du texte (titres, axes, etc.)
+        font_size=20,
     )
     # Affichage du Sankey dans Streamlit
     st.plotly_chart(fig, use_container_width=True)
@@ -626,7 +627,7 @@ def streamlit_sankey_app(model, mode_complet):
         if lbl == "Roots":
             return "orange"
         if lbl == "Oleaginous":
-            return "white"
+            return "darkkhaki"
         if lbl == "Fruits and vegetables":
             return "limegreen"
         if lbl == "Industry":
@@ -706,7 +707,7 @@ def streamlit_sankey_fertilization(
         "Fruits and vegetables": "limegreen",
         "Grassland and forages": "darkgreen",
         "Cereals": "gold",
-        "Oleaginous": "white",
+        "Oleaginous": "darkkhaki",
         "Livestock and human": "lightblue",
     }
     # On récupère éventuellement certaines couleurs d'origine

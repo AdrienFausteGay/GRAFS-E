@@ -1,6 +1,7 @@
 # %%
 import json
 import os
+import tempfile
 from importlib.metadata import version
 
 import branca
@@ -18,6 +19,7 @@ from streamlit_folium import st_folium
 
 from grafs_e.donnees import *
 from grafs_e.N_class import DataLoader, NitrogenFlowModel
+from grafs_e.prospective import NitrogenFlowModel_prospect
 from grafs_e.sankey import (
     streamlit_sankey_app,
     streamlit_sankey_fertilization,
@@ -83,8 +85,17 @@ else:
     st.warning("⚠️ Please select a year")
 
 # -- Sélection des onglets --
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
-    ["Documentation", "Run", "Sankey", "Detailed data", "Map", "Historic Evolution"]
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(
+    [
+        "Documentation",
+        "Run",
+        "Sankey",
+        "Detailed data",
+        "Map",
+        "Historic Evolution",
+        "Scenario Generator",
+        "Prospective Mode",
+    ]
 )
 
 with tab1:
@@ -1307,5 +1318,137 @@ with tab6:
                 plot_standard_graph(models, st.session_state.metric_hist, st.session_state.selected_region_hist)
             else:
                 stacked_area_chart(models, st.session_state.metric_hist, st.session_state.selected_region_hist)
+
+with tab7:
+    st.title("Scenario generator")
+
+    st.text("Welcome to the prospective mode. Here you can imagine the future of agriculture according to your vision.")
+
+    st.subheader("How to proceed ?")
+
+    st.text(
+        "You have to fill a scenario excel. Several tokens are needed to run the model in prospective mode. They are splitted in 3 tabs :"
+    )
+    st.markdown(
+        "- main: In this tab, you have to fill the main characteristics of the future of your territory : population, access to international trade, access to industrial input..."
+    )
+    st.markdown(
+        "- area: In this tab, you have to distribute the total agricultural area between crops and select the parameter of the production function : the maximum yield, $Y_{max}$ (kgN/ha) and the reactivity of crop to fertilizer, $k$ (kgN/ha)"
+    )
+    st.markdown("The yield is computed as $Y = Y_{\\text{max}} \\cdot (1 - e^{-F/k})$")
+
+    st.markdown(
+        "- technical: This tab encompass all technical coefficient (excretion per LU, weight of the optimization model, time spend by livestock in crops). It reflects potential technical evolution in agriculture and physical constraints."
+    )
+
+    st.subheader("Scenario file")
+
+    st.markdown(
+        "Here you can find a blank scenario sheet. Please fill all items in main and technical tabs. Fill as many lines in area as you need crops. Make sure the sum of proportion column is 1 and for each crop $Y_{max}$<$k$."
+    )
+
+    # Absolute path to the folder where the script is located
+    base_path = os.path.dirname(os.path.abspath(__file__))
+
+    # Join with your relative file
+    file_path = os.path.join(base_path, "data", "scenario.xlsx")
+    # Read the binary content of the file
+    with open(file_path, "rb") as file:
+        file_bytes = file.read()
+
+    # Create the download button
+    st.download_button(
+        label="📥 Download blank Scenario Excel",
+        data=file_bytes,
+        file_name="scenario.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+    st.markdown("Once you have your scenario ready, go to Prospective mode tab.")
+
+    st.subheader("Hard to find these numbers ?")
+    st.text(
+        "It might be hard to create from scratch a physical functioning agro-system. To oversome this difficulty, you can use the scenario generator. To do so, choose a territory, a futur year. The scenario generator will automatically create a 'Business as usual' scenario. This scenario is created based on historical trajectory of the territory."
+    )
+
+    st.title("Scenario Generator")
+
+    # 🟢 Sélection de l'année
+    st.session_state.pros_year = st.selectbox("Select a year", annees_disponibles, index=0, key="year_pros_selection")
+
+    # ✅ Affichage des sélections (se met à jour dynamiquement)
+    if "selected_region_pros" not in st.session_state:
+        st.session_state.selected_region_pros = None
+    if st.session_state.selected_region_pros:
+        st.write(f"✅ Région sélectionnée : {st.session_state.selected_region_pros}")
+    else:
+        st.warning("⚠️ Veuillez sélectionner une région")
+
+    m_hist = create_map()
+    map_data_pros = st_folium(m_hist, width=700, height=500, key="pros_map")
+
+    # 🔹 Mettre à jour `st.session_state.selected_region` avec la sélection utilisateur
+    if map_data_pros and "last_active_drawing" in map_data_pros:
+        last_drawing = map_data_pros["last_active_drawing"]
+        if last_drawing and "properties" in last_drawing and "nom" in last_drawing["properties"]:
+            st.session_state.selected_region_pros = last_drawing["properties"]["nom"]
+
+    if st.button("Create business as usual scenario", key="map_button_scenario"):
+        st.markdown("Once you have your scenario ready, go to Prospective mode tab.")
+
+with tab8:
+    st.title("Prospective mode")
+
+    st.subheader("How to use GRAFS-E Prospective Mode")
+
+    st.text(
+        "To use the GRAFS-E Prospective Mode, you need a scenario sheet. This file can be generated and downloaded from Scenario Generator tab."
+    )
+
+    st.text("Once you have your scenario ready, load it here and hit run!")
+
+    st.subheader("📂 Upload your Excel scenario")
+
+    uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx"])
+
+    if uploaded_file is None:
+        st.warning("⚠️ Please upload an Excel file to proceed.")
+    else:
+        try:
+            # 🔹 Créer un fichier temporaire
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp_file:
+                tmp_file.write(uploaded_file.read())
+                temp_path = tmp_file.name
+
+            # ✅ Lire le fichier temporaire avec pandas
+            df = pd.read_excel(temp_path)
+
+            # Optionally show a preview
+            st.success("✅ File successfully loaded!")
+
+            # Extract specific cells
+
+            scenario_name = df.iloc[14, 1]  # B16 -> row 15, col 1 (0-based)
+            region_name = df.iloc[15, 1]  # B17
+            year = df.iloc[16, 1]  # B18
+
+            st.markdown(f"**📘 Scenario:** {scenario_name}")
+            st.markdown(f"**🗺️ Region:** {region_name}")
+            st.markdown(f"**📆 Year:** {year}")
+
+            st.session_state.selected_region = region_name
+            st.session_state.year = year
+
+            # You can now pass `df` or `uploaded_file` to your class
+            # e.g., model = NitrogenFlowModel(df)
+
+            if st.button("Run scenario", key="map_button_pros"):
+                model = NitrogenFlowModel_prospect(temp_path)
+                st.success("✅ Prospective Mode successfully runned!")
+                st.text("Please, use Sankey and Detailed Data as for the historic mode to see results.")
+
+        except Exception as e:
+            st.error(f"❌ Failed to read Excel file: {e}")
+
 
 # %%
