@@ -1,6 +1,5 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
-from math import exp
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,7 +8,7 @@ import plotly.graph_objects as go
 import pyomo.contrib.appsi.solvers as _appsi_solvers  # active les solveurs APPSI
 import seaborn as sns
 from matplotlib.colors import LogNorm
-from pyomo.environ import exp, minimize
+from pyomo.environ import minimize
 from scipy.optimize import curve_fit, minimize
 from scipy.stats import linregress
 from sklearn.metrics import r2_score
@@ -102,14 +101,20 @@ class scenario:
             LU_prod[f"{type} productivity"] = (
                 df.loc[df["index_excel"] == index[type][0], region].item() / LU[annees_disponibles[-1]][type] * 1e6
             )
-            if type in ["bovines", "ovines", "poultry"]:
-                if type == "ovines":
-                    label = "Ovines and Caprines"
+            if type in ["bovines", "ovines", "caprines", "poultry"]:
+                if type in ["ovines", "caprines"]:
+                    LU_prod[f"{type} dairy productivity"] = (
+                        df.loc[df["index_excel"] == index["ovines"][1], region].item()
+                        * LU[annees_disponibles[-1]][type]
+                        / (LU[annees_disponibles[-1]]["ovines"] + LU[annees_disponibles[-1]]["caprines"]) ** 2
+                        * 1e6
+                    )
                 else:
-                    label = type
-                LU_prod[f"{label} dairy productivity"] = (
-                    df.loc[df["index_excel"] == index[type][1], region].item() / LU[annees_disponibles[-1]][type] * 1e6
-                )
+                    LU_prod[f"{type} dairy productivity"] = (
+                        df.loc[df["index_excel"] == index[type][1], region].item()
+                        / LU[annees_disponibles[-1]][type]
+                        * 1e6
+                    )
         return LU_prod
 
     def extrapolate_recent_trend(self, data, future_year, alpha=7.0, seuil_bas=0, seuil_haut=None):
@@ -216,13 +221,14 @@ class scenario:
         df_insert = pd.DataFrame(cultures_df.values, columns=["Crops", "Area proportion (%)"])
         df_insert.loc[len(df_insert)] = ["Natural meadow ", None]
         df_insert.loc[df_insert["Crops"] == "Forage cabbages & roots", "Crops"] = "Forage cabbages"
+        df_insert.loc[df_insert["Crops"] == "rice", "Crops"] = "Rice"
 
         df_insert["Enforce Area"] = False
 
         Y_pros = Y(self.dataloader)
 
         def fit_and_store(culture):
-            ym, k, _ = Y_pros.fit_Y_exp(culture, region)
+            ym, k, _ = Y_pros.fit_Y_lin(culture, region)
             return int(ym), int(k)
 
         all_cultures = cultures + legumineuses + prairies
@@ -347,7 +353,9 @@ class scenario:
         )
 
         proj = grouped_proj_pop.loc[grouped_proj_pop["Region"] == region, f"POP_{year}"].item()
-        sheets["main"].loc[sheets["main"]["Variable"] == "Population", "Business as usual"] = proj
+        sheets["main"].loc[sheets["main"]["Variable"] == "Population", "Business as usual"] = (
+            proj / 1000
+        )  # to be in thousands, not in millions !
 
         if self.data is not None:
             sheets["main"].loc[
@@ -364,14 +372,15 @@ class scenario:
                 sheets["main"]["Variable"] == "Edible animal per capita protein ingestion (excl fish)",
                 "Business as usual",
             ] = self.historic_trend(region, 10)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Synth N fertilizer application to cropland",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 27)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Synth N fertilizer application to grassland",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 29)[-1]
+            sheets["main"].loc[
+                sheets["main"]["Variable"] == "Synth N fertilizer application to cropland",
+                "Business as usual",
+            ] = self.historic_trend(region, 27)[-1]
+            sheets["main"].loc[
+                sheets["main"]["Variable"] == "Synth N fertilizer application to grassland",
+                "Business as usual",
+            ] = self.historic_trend(region, 29)[-1]
+
             sheets["technical"].loc[
                 sheets["technical"]["Variable"] == "N recycling rate of human excretion in urban area",
                 "Business as usual",
@@ -380,16 +389,20 @@ class scenario:
                 sheets["technical"]["Variable"] == "N recycling rate of human excretion in rural area",
                 "Business as usual",
             ] = self.historic_trend(region, 50)[-1]
+            sheets["technical"].loc[
+                sheets["technical"]["Variable"] == "NH3 volatilization coefficient for synthetic nitrogen",
+                "Business as usual",
+            ] = self.historic_trend(region, 31)[-1]
+            sheets["technical"].loc[
+                sheets["technical"]["Variable"] == "Indirect N2O volatilization coefficient for synthetic nitrogen",
+                "Business as usual",
+            ] = self.historic_trend(region, 32)[-1]
 
             # Bovines
             sheets["technical"].loc[
                 sheets["technical"]["Variable"] == "Bovines % excretion on grassland",
                 "Business as usual",
             ] = self.historic_trend(region, 1250)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Bovines % excretion in the barn",
-                "Business as usual",
-            ] = self.historic_trend(region, 1251)[-1]
             sheets["technical"].loc[
                 sheets["technical"]["Variable"] == "Bovines % excretion in the barn as litter manure",
                 "Business as usual",
@@ -409,10 +422,6 @@ class scenario:
                 "Business as usual",
             ] = self.historic_trend(region, 1264)[-1]
             sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Ovines % excretion in the barn",
-                "Business as usual",
-            ] = self.historic_trend(region, 1265)[-1]
-            sheets["technical"].loc[
                 sheets["technical"]["Variable"] == "Ovines % excretion in the barn as litter manure",
                 "Business as usual",
             ] = self.historic_trend(region, 1266)[-1]
@@ -430,10 +439,6 @@ class scenario:
                 sheets["technical"]["Variable"] == "Caprines % excretion on grassland",
                 "Business as usual",
             ] = self.historic_trend(region, 1278)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Caprines % excretion in the barn",
-                "Business as usual",
-            ] = self.historic_trend(region, 1279)[-1]
             sheets["technical"].loc[
                 sheets["technical"]["Variable"] == "Caprines % excretion in the barn as litter manure",
                 "Business as usual",
@@ -453,10 +458,6 @@ class scenario:
                 "Business as usual",
             ] = self.historic_trend(region, 1292)[-1]
             sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Porcines % excretion in the barn",
-                "Business as usual",
-            ] = self.historic_trend(region, 1293)[-1]
-            sheets["technical"].loc[
                 sheets["technical"]["Variable"] == "Porcines % excretion in the barn as litter manure",
                 "Business as usual",
             ] = self.historic_trend(region, 1294)[-1]
@@ -475,10 +476,6 @@ class scenario:
                 "Business as usual",
             ] = self.historic_trend(region, 1306)[-1]
             sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Poultry % excretion in the barn",
-                "Business as usual",
-            ] = self.historic_trend(region, 1307)[-1]
-            sheets["technical"].loc[
                 sheets["technical"]["Variable"] == "Poultry % excretion in the barn as litter manure",
                 "Business as usual",
             ] = self.historic_trend(region, 1308)[-1]
@@ -496,10 +493,6 @@ class scenario:
                 sheets["technical"]["Variable"] == "Equines % excretion on grassland",
                 "Business as usual",
             ] = self.historic_trend(region, 1320)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Equines % excretion in the barn",
-                "Business as usual",
-            ] = self.historic_trend(region, 1321)[-1]
             sheets["technical"].loc[
                 sheets["technical"]["Variable"] == "Equines % excretion in the barn as litter manure",
                 "Business as usual",
@@ -579,20 +572,17 @@ class scenario:
             ] = self.extrapolate_recent_trend(self.LU_excretion(self.region, "equines"), self.year)[1][-1]
 
             LU_prod = self.LU_prod(self.dataloader, self.region)
+
             for type in ["bovines", "ovines", "caprines", "equines", "poultry", "porcines"]:
                 sheets["technical"].loc[
                     sheets["technical"]["Variable"] == f"{type.capitalize()} productivity",
                     "Business as usual",
                 ] = LU_prod[f"{type} productivity"]
-                if type in ["bovines", "ovines", "poultry"]:
-                    if type == "ovines":
-                        label = "Ovines and Caprines"
-                    else:
-                        label = type
+                if type in ["bovines", "ovines", "caprines", "poultry"]:
                     sheets["technical"].loc[
-                        sheets["technical"]["Variable"] == f"{label.capitalize()} dairy productivity",
+                        sheets["technical"]["Variable"] == f"{type.capitalize()} dairy productivity",
                         "Business as usual",
-                    ] = LU_prod[f"{label} dairy productivity"]
+                    ] = LU_prod[f"{type} dairy productivity"]
 
             tot_LU = []
             LU_prop_hist = self.livestock_LU(self.dataloader, self.region)
@@ -627,7 +617,7 @@ class scenario:
             ] = self.logistic_urb_pop(self.region, self.year)
 
             # surface prop tab
-            # sheets["area"] = self.generate_crop_tab(self.region)
+            sheets["area"] = self.generate_crop_tab(self.region)
 
         with pd.ExcelWriter(os.path.join(self.scenario_path, name + ".xlsx"), engine="openpyxl") as writer:
             for sheet_name, df in sheets.items():
@@ -645,6 +635,34 @@ class scenario:
             # ✅ Insérer le texte et la formule Excel directement
             sheet[f"A{last_row}"] = "Proportion area sum correct ?"
             sheet[f"B{last_row}"] = f'=IF(SUM(B2:B{last_row - 3})=100, "✅ OK", "❌ Erreur")'
+
+    def generate_base_scenar(self):
+        # Create scenar for all regions with only area filled
+        for region in tqdm(regions, desc="Calcul des Ymax et k", unit="region"):
+            try:
+                self.data = self.dataloader.pre_process_df(self.last_data_year, region)
+            except:
+                self.data = self.dataloader.pre_process_df(self.last_data_year, "France")
+                print(f"No region named {region} in the data")
+
+            model_sheets = pd.read_excel(os.path.join(self.data_path, "scenario.xlsx"), sheet_name=None)
+
+            sheets = {}
+            sheet_corres = {
+                "doc": "doc",
+                "main scenario": "main",
+                "Surface changes": "area",
+                "technical scenario": "technical",
+            }
+            for sheet_name, df in model_sheets.items():
+                sheets[sheet_corres[sheet_name]] = df
+            sheets["area"] = self.generate_crop_tab(region)
+
+            with pd.ExcelWriter(
+                os.path.join(self.data_path, "scenario_region", region + ".xlsx"), engine="openpyxl"
+            ) as writer:
+                for sheet_name, df in sheets.items():
+                    df.to_excel(writer, sheet_name=sheet_name, index=False)
 
 
 class Y:
@@ -694,6 +712,40 @@ class Y:
     def Y_th_exp(f, y_max, k):
         return y_max * (1 - np.exp(-f / k))
 
+    @staticmethod
+    def Y_th_exp_cap(f, y_max, k):
+        return np.minimum(y_max * (1 - np.exp(-f / k)), 0.99 * f)
+
+    @staticmethod
+    def Y_th_lin(f, a, b):
+        return np.minimum(a * f, b)
+
+    @staticmethod
+    def Y_th_lin_2(f, a, xb, c):
+        return np.minimum(a * f, c * (f - xb) + xb * a)
+
+    @staticmethod
+    def Y_th_poly(f, a, b):
+        return a * f**2 + b * f
+
+    @staticmethod
+    def Y_th_poly_cap(f, a, b):
+        return np.minimum(0.99 * f, a * f**2 + b * f)
+
+    @staticmethod
+    def Y_th_sigmoid(f, Ymax, k, x0):
+        return Ymax / (1 + np.exp(-k * (f - x0)))
+
+    @staticmethod
+    def Y_th_sigmoid_cap(f, Ymax, k, x0):
+        return np.minimum(0.99 * f, Ymax / (1 + np.exp(-k * (f - x0))))
+
+    @staticmethod
+    def Y_th_lin_2_smooth(f, a, xb, c, s):
+        transition = 1 / (1 + np.exp(-s * (f - xb)))
+
+        return a * f * (1 - transition) + (c * (f - xb) + xb * a) * transition
+
     def fit_Y(self, culture, region):
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
@@ -723,11 +775,226 @@ class Y:
             k = popt[1]
         except RuntimeError:
             print("⚠️ Ajustement impossible pour", culture, region)
-            Y_max_opt = None  # Retourne None en cas d'échec
-            k = None
+            Y_max_opt = 0  # Retourne None en cas d'échec
+            k = 0
 
         Y_th_fitted = self.Y_th_exp(F, Y_max_opt, k) if Y_max_opt is not None else None
         return Y_max_opt, k, Y_th_fitted
+
+    def fit_Y_exp_2(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            return 0, 0, None
+
+        Y_max_init = max(Y)
+        k_init = min(F)
+
+        def objective(params):
+            y_max, k = params
+            return np.sum((self.Y_th_exp(F, y_max, k) - Y) ** 2)
+
+        # Contraintes : k > y_max
+        constraint = {"type": "ineq", "fun": lambda params: params[1] - params[0]}  # k - y_max > 0
+
+        # Bornes : y_max > 0, k > 0
+        bounds = [(0, max(Y) * 2), (0, max(F) * 2)]
+
+        result = minimize(
+            objective,
+            x0=[Y_max_init, k_init],
+            bounds=bounds,
+            constraints=[constraint],
+        )
+
+        if result.success:
+            y_max_opt, k_opt = result.x
+            y_th_fit = self.Y_th_exp(F, y_max_opt, k_opt)
+            return y_max_opt, k_opt, y_th_fit
+        else:
+            print("⚠️ Ajustement impossible pour", culture, region)
+            return 0, 0, None
+
+    def fit_Y_lin(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            return 0, 0, None
+        Y_max_init = max(Y)
+
+        try:
+            popt, _ = curve_fit(self.Y_th_lin, F, Y, p0=[0.75, max(Y)], bounds=([0, 0], [1, max(Y) * 2]))
+            Y_max_opt = popt[0]  # 📌 Paramètre ajusté Y_max
+            k = popt[1]
+        except RuntimeError:
+            print("⚠️ Ajustement impossible pour", culture, region)
+            Y_max_opt = 0  # Retourne None en cas d'échec
+            k = 0
+
+        Y_th_fitted = self.Y_th_lin(F, Y_max_opt, k) if Y_max_opt is not None else None
+        return Y_max_opt, k, Y_th_fitted
+
+    def fit_Y_lin_2(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            return 0, 0, None
+        try:
+            midpoint = (min(F) + max(F)) / 2
+            p01 = [max(Y) / max(F), midpoint, 0.1]
+            popt, _ = curve_fit(self.Y_th_lin_2, F, Y, p0=p01, bounds=([0.1, 0, 0.01], [1, 1000, 1]))
+            a = popt[0]  # 📌 Paramètre ajusté Y_max
+            xb = popt[1]
+            c = popt[2]
+        except RuntimeError:
+            print("⚠️ Ajustement impossible pour", culture, region)
+            a = 0  # Retourne None en cas d'échec
+            xb = 0
+            c = 0
+
+        Y_th_fitted = self.Y_th_lin_2(F, a, xb, c) if a is not None else None
+        return a, xb, c, Y_th_fitted
+
+    def fit_Y_lin_2_scipy(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            return 0, 0, 0, None
+
+        def objective(params):
+            a, xb, c = params
+            Y_pred = self.Y_th_lin_2(F, a, xb, c)
+            return np.sum((Y - Y_pred) ** 2)
+
+        # ➕ Bornes pour a, xb, c
+        bounds = [(0.1, 1.0), (0, max(F)), (0.0, 1.0)]
+
+        # 🔹 Point initial (à ajuster selon le domaine)
+        midpoint = (min(F) + max(F)) / 2
+        p0 = [max(Y) / max(F), midpoint, 0.1]
+
+        result = minimize(objective, p0, bounds=bounds, method="SLSQP")
+
+        if result.success:
+            a_opt, xb_opt, c_opt = result.x
+            Y_fit = self.Y_th_lin_2(F, a_opt, xb_opt, c_opt)
+            return a_opt, xb_opt, c_opt, Y_fit
+        else:
+            print(f"⚠️ Ajustement impossible pour {culture}, {region}")
+            return 0, 0, 0, None
+
+    def fit_Y_poly(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            return 0, 0, None
+
+        try:
+            popt, _ = curve_fit(self.Y_th_poly, F, Y, p0=[0.75, 0.9, 0], bounds=([-20, -20, -20], [20, 20, 20]))
+            a = popt[0]  # 📌 Paramètre ajusté Y_max
+            b = popt[1]
+            c = popt[2]
+        except RuntimeError:
+            print("⚠️ Ajustement impossible pour", culture, region)
+            a = 0  # Retourne None en cas d'échec
+            b = 0
+            c = 0
+
+        Y_th_fitted = self.Y_th_poly(F, a, b, c) if a is not None else None
+        return a, b, c, Y_th_fitted
+
+    def fit_Y_poly_constrained(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            return 0, 0, 0, None
+
+        # Initialisation
+        a_init = -0.002
+        b_init = 0.9
+        # c_init = 0
+
+        max_F = max(F)
+
+        def objective(params):
+            a, b = params
+            return np.sum((self.Y_th_poly(F, a, b) - Y) ** 2)
+
+        # ➕ 1ère contrainte : sommet après max(F) → -b / (2a) > max(F)
+        # ⇔ -b - 2a * max(F) > 0
+        # constraint1 = {"type": "ineq", "fun": lambda p: -p[1] - 2 * p[0] * max_F}
+
+        # ➕ 2ème contrainte : pente à max(F) > 0 → 2a * max(F) + b > 0
+        constraint2 = {"type": "ineq", "fun": lambda p: 2 * p[0] * max_F + p[1]}
+
+        bounds = [(-10, 0), (-1000, 2)]  # a < 0 pour avoir une parabole concave
+
+        result = minimize(
+            objective,
+            x0=[a_init, b_init],
+            bounds=bounds,
+            method="trust-constr",
+            constraints=[constraint2],
+        )
+
+        if result.success:
+            a_opt, b_opt = result.x
+            y_fit = self.Y_th_poly(F, a_opt, b_opt)
+            return a_opt, b_opt, y_fit
+        else:
+            print(f"⚠️ Ajustement impossible pour {culture}, {region}")
+            return 0, 0, None
+
+    def fit_Y_sigmoid(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            return 0, 0, 0, None
+
+        # Fonction à minimiser (erreur quadratique)
+        def objective(params):
+            Ymax, k, x0 = params
+            Y_pred = self.Y_th_sigmoid(F, Ymax, k, x0)
+            return np.sum((Y - Y_pred) ** 2)
+
+        # Bornes réalistes pour les paramètres
+        bounds = [(0.1, 3 * max(Y)), (1e-10, 1), (0, 2 * max(F))]  # Ymax, k, x0
+
+        # Initialisation
+        p0 = [max(Y), 0.01, np.median(F)]
+
+        result = minimize(objective, p0, bounds=bounds)
+
+        if result.success:
+            Ymax, k_opt, x0_opt = result.x
+            Y_fit = self.Y_th_sigmoid(F, Ymax, k_opt, x0_opt)
+            return Ymax, k_opt, x0_opt, Y_fit
+        else:
+            print(f"⚠️ Ajustement impossible pour {culture}, {region}")
+            return 0, 0, 0, None
+
+    def fit_Y_lin_2_smooth(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            return 0, 0, 0, 0, None
+
+        def objective(params):
+            a, xb, c, s = params
+            Y_pred = self.Y_th_lin_2_smooth(F, a, xb, c, s)
+            return np.sum((Y - Y_pred) ** 2)
+
+        # ➕ Bornes pour a, xb, c, s
+        bounds = [(0.1, 1.0), (0, 2 * max(F)), (0.0, 1.0), (0, 1e6)]
+
+        # 🔹 Point initial (à ajuster selon le domaine)
+        # midpoint = (min(F) + max(F)) / 2
+        # p0 = [max(Y) / max(F), midpoint, 0.1, 1]
+        a, xb, c, _ = self.fit_Y_lin_2_scipy(culture, region)
+        p0 = [a, xb, c, 0.01]
+        print(p0)
+
+        result = minimize(objective, p0, bounds=bounds, method="Nelder-Mead")
+
+        if result.success:
+            a_opt, xb_opt, c_opt, s_opt = result.x
+            Y_fit = self.Y_th_lin_2_smooth(F, a_opt, xb_opt, c_opt, s_opt)
+            return a_opt, xb_opt, c_opt, s_opt, Y_fit
+        else:
+            print(f"⚠️ Ajustement impossible pour {culture}, {region}")
+            return 0, 0, 0, 0, None
 
     def plot_Y(self, culture, region):
         F, Y = self.get_Y(culture, region)
@@ -753,17 +1020,110 @@ class Y:
         plt.legend()
         plt.show()
 
+    def plot_Y_lin(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            print(f"no {culture} found in {region}")
+            return None
+        a, b, _ = self.fit_Y_lin(culture, region)
+        # a, b = 0.75, 160
+        F_th = np.linspace(0, 1.05 * max(F), 100)
+        Y_th = self.Y_th_lin(F_th, a, b)
+        r2 = np.round(r2_score(Y, self.Y_th_lin(F, a, b)), 2)
+        plt.figure(figsize=(8, 6))
+        plt.plot(F, Y, "o", color="tab:blue", markersize=8, label=f"Historic Data, r2 = {r2}")  # Points et ligne
+        plt.plot(Y, Y, "--")
+        plt.plot(F_th, Y_th, label=f"Theoric curve, a = {np.round(a, 2)}, b = {int(b)}", color="orange", linewidth=4)
+        plt.xlim(0, max(F_th) * 1.1)  # Départ de l'axe X à 0
+        plt.ylim(0, max(Y) * 1.1)  # Départ de l'axe Y à 0
+        plt.gca().set_aspect("equal")  # Échelle identique en ajustant les limites
+
+        plt.xlabel("Fertilization (kgN/ha/yr)", fontsize=12)
+        plt.ylabel("Yield (kgN/ha/yr)", fontsize=12)
+        # plt.title("Relation entre Fertilisation et Rendement", fontsize=14, fontweight='bold')
+        plt.grid(True, linestyle="--", alpha=0.4)  # Grille discrète
+        plt.legend()
+        plt.show()
+
+    def plot_Y_lin_2(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            print(f"no {culture} found in {region}")
+            return None
+        a, xb, c, _ = self.fit_Y_lin_2_scipy(culture, region)
+        # a, b = 0.75, 160
+        F_th = np.linspace(0, 1.05 * max(F), 100)
+        Y_th = self.Y_th_lin_2(F_th, a, xb, c)
+        r2 = np.round(r2_score(Y, self.Y_th_lin_2(F, a, xb, c)), 2)
+        plt.figure(figsize=(8, 6))
+        plt.plot(F, Y, "o", color="tab:blue", markersize=8, label=f"Historic Data, r2 = {r2}")  # Points et ligne
+        plt.plot(Y, Y, "--")
+        plt.plot(
+            F_th,
+            Y_th,
+            label=f"Theoric curve, a = {np.round(a, 2)}, b = {int(xb)}, c = {np.round(c, 2)}",
+            color="orange",
+            linewidth=4,
+        )
+        plt.xlim(0, max(F_th) * 1.1)  # Départ de l'axe X à 0
+        plt.ylim(0, max(Y) * 1.1)  # Départ de l'axe Y à 0
+        plt.gca().set_aspect("equal")  # Échelle identique en ajustant les limites
+
+        plt.xlabel("Fertilization (kgN/ha/yr)", fontsize=12)
+        plt.ylabel("Yield (kgN/ha/yr)", fontsize=12)
+        # plt.title("Relation entre Fertilisation et Rendement", fontsize=14, fontweight='bold')
+        plt.grid(True, linestyle="--", alpha=0.4)  # Grille discrète
+        plt.legend()
+        plt.show()
+
+    def plot_Y_poly(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            print(f"no {culture} found in {region}")
+            return None
+        a, b, _ = self.fit_Y_poly_constrained(culture, region)
+        # a, b, c = -0.002, 0.90226, 0
+        F_th = np.linspace(0, 1.05 * max(F), 100)
+        Y_th = self.Y_th_poly_cap(F_th, a, b)
+        r2 = np.round(r2_score(Y, self.Y_th_poly_cap(F, a, b)), 2)
+        plt.figure(figsize=(8, 6))
+        plt.plot(F, Y, "o", color="tab:blue", markersize=8, label=f"Historic Data, r2 = {r2}")  # Points et ligne
+        plt.plot(Y, Y, "--")
+        plt.plot(
+            F_th,
+            Y_th,
+            label=f"Theoric curve, a = {np.round(a, 2)}, b = {np.round(b, 2)}",
+            color="orange",
+            linewidth=4,
+        )
+        plt.xlim(0, max(F_th) * 1.1)  # Départ de l'axe X à 0
+        plt.ylim(0, max(Y) * 1.1)  # Départ de l'axe Y à 0
+        plt.gca().set_aspect("equal")  # Échelle identique en ajustant les limites
+
+        plt.xlabel("Fertilization (kgN/ha/yr)", fontsize=12)
+        plt.ylabel("Yield (kgN/ha/yr)", fontsize=12)
+        # plt.title("Relation entre Fertilisation et Rendement", fontsize=14, fontweight='bold')
+        plt.grid(True, linestyle="--", alpha=0.4)  # Grille discrète
+        plt.legend()
+        plt.show()
+
     def plot_Y_exp(self, culture, region):
         F, Y = self.get_Y(culture, region)
+        # F_filtered, Y_filtered = zip(
+        #     *[(f, y) for f, y in zip(F, Y) if y <= 0.9 * f]
+        # )  # Delete points for which NUE = Y/F > 0.9
+        # F = np.array(F_filtered)
+        # Y = np.array(Y_filtered)
         if len(Y) == 0:
             print(f"no {culture} found in {region}")
             return None
         Y_max, k, _ = self.fit_Y_exp(culture, region)
         F_th = np.linspace(0, 1.05 * max(F), 100)
-        Y_th = self.Y_th_exp(F_th, Y_max, k)
-        r2 = np.round(r2_score(Y, self.Y_th_exp(F, Y_max, k)), 2)
+        Y_th = self.Y_th_exp_cap(F_th, Y_max, k)
+        r2 = np.round(r2_score(Y, self.Y_th_exp_cap(F, Y_max, k)), 2)
         plt.figure(figsize=(8, 6))
         plt.plot(F, Y, "o", color="tab:blue", markersize=8, label=f"Historic Data, r2 = {r2}")  # Points et ligne
+        plt.plot(Y, Y, "--")
         plt.plot(F_th, Y_th, label=f"Theoric curve, Y_max = {int(Y_max)}", color="orange", linewidth=4)
         plt.xlim(0, max(F_th))  # Départ de l'axe X à 0
         plt.ylim(0, max(Y))  # Départ de l'axe Y à 0
@@ -776,6 +1136,74 @@ class Y:
         plt.legend()
         plt.show()
 
+    def plot_Y_sigmoid(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            print(f"no {culture} found in {region}")
+            return None
+
+        # Fit sigmoïde
+        Ymax, k_opt, x0_opt, Y_th_fit = self.fit_Y_sigmoid(culture, region)
+        F_th = np.linspace(0, 1.05 * max(F), 200)
+        Y_th = self.Y_th_sigmoid_cap(F_th, Ymax, k_opt, x0_opt)
+
+        r2 = np.round(r2_score(Y, self.Y_th_sigmoid_cap(F, Ymax, k_opt, x0_opt)), 2)
+
+        plt.figure(figsize=(8, 6))
+        plt.plot(F, Y, "o", color="tab:blue", markersize=8, label=f"Historic Data, r² = {r2}")
+        plt.plot(Y, Y, "--", color="gray", label="y = x")
+        plt.plot(
+            F_th,
+            Y_th,
+            label=f"Sigmoid fit (Ymax={int(Ymax)}, x₀={int(x0_opt)}, k={k_opt:.2e})",
+            color="orange",
+            linewidth=3,
+        )
+
+        plt.xlim(0, max(F_th) * 1.1)
+        plt.ylim(0, max(Y) * 1.1)
+        plt.gca().set_aspect("equal")
+
+        plt.xlabel("Fertilization (kgN/ha/yr)", fontsize=12)
+        plt.ylabel("Yield (kgN/ha/yr)", fontsize=12)
+        plt.grid(True, linestyle="--", alpha=0.4)
+        plt.legend()
+        plt.show()
+
+    def plot_Y_lin_2_smooth(self, culture, region):
+        F, Y = self.get_Y(culture, region)
+        if len(Y) == 0:
+            print(f"no {culture} found in {region}")
+            return None
+
+        # Fit sigmoïde
+        a, xb, c, s, Y_th_fit = self.fit_Y_lin_2_smooth(culture, region)
+        F_th = np.linspace(0, 1.05 * max(F), 200)
+        Y_th = self.Y_th_lin_2_smooth(F_th, a, xb, c, s)
+
+        r2 = np.round(r2_score(Y, self.Y_th_lin_2_smooth(F, a, xb, c, s)), 2)
+
+        plt.figure(figsize=(8, 6))
+        plt.plot(F, Y, "o", color="tab:blue", markersize=8, label=f"Historic Data, r² = {r2}")
+        plt.plot(Y, Y, "--", color="gray", label="y = x")
+        plt.plot(
+            F_th,
+            Y_th,
+            label=f"a={np.round(a, 2)}, xb={int(xb)}, s={s:.2e}, c={np.round(c, 2)}",
+            color="orange",
+            linewidth=3,
+        )
+
+        plt.xlim(0, max(F_th) * 1.1)
+        plt.ylim(0, max(Y) * 1.1)
+        plt.gca().set_aspect("equal")
+
+        plt.xlabel("Fertilization (kgN/ha/yr)", fontsize=12)
+        plt.ylabel("Yield (kgN/ha/yr)", fontsize=12)
+        plt.grid(True, linestyle="--", alpha=0.4)
+        plt.legend()
+        plt.show()
+
     def compare_r2(self, region):
         """
         Compare les coefficients de détermination (R²) pour chaque culture dans une région donnée
@@ -783,52 +1211,109 @@ class Y:
 
         Affiche une heatmap des scores R² et ajoute une barre de progression en console.
         """
-        r2_values = {"Y_th": {}, "Y_th_exp": {}}
+        r2_values = {
+            "Ratio": {},
+            "Exponential": {},
+            "Linear 1 slope": {},
+            "Linear 2 slopes": {},
+            "Polynomial": {},
+            "Sigmoid": {},
+        }
 
         # Barre de progression avec tqdm
         for culture in tqdm(cultures + prairies, desc="Calcul des R²", unit="culture"):
             F, Y = self.get_Y(culture, region)
             if len(Y) == 0 or len(F) == 0:
-                r2_values["Y_th"][culture] = np.nan
-                r2_values["Y_th_exp"][culture] = np.nan
+                pass
+                # r2_values["Ratio"][culture] = np.nan
+                # r2_values["Exponential"][culture] = np.nan
+                # r2_values["Linear 1 slope"][culture] = np.nan
+                # r2_values["Linear 2 slopes"][culture] = np.nan
+                # r2_values["Polynomial"][culture] = np.nan
             else:
                 # Ajustement avec la première fonction (Y_th)
                 Y_max_th, _ = self.fit_Y(culture, region)
                 if Y_max_th is not None:
-                    r2_values["Y_th"][culture] = Y_max_th  # np.round(r2_score(Y, self.Y_th(F, Y_max_th)), 2)
+                    r2_values["Ratio"][culture] = Y_max_th
+                    # r2_values["Ratio"][culture] = np.round(r2_score(Y, self.Y_th(F, Y_max_th)), 2)
                 else:
-                    r2_values["Y_th"][culture] = 0
+                    r2_values["Ratio"][culture] = 0
                 # Ajustement avec la seconde fonction (Y_th_exp)
                 Y_max_exp, k, _ = self.fit_Y_exp(culture, region)
                 if Y_max_exp is not None:
-                    r2_values["Y_th_exp"][culture] = np.round(
-                        Y_max_exp
-                    )  # np.round(r2_score(Y, self.Y_th_exp(F, Y_max_exp, k)), 2)
+                    r2_values["Exponential"][culture] = np.round(Y_max_exp)
+                    # r2_values["Exponential"][culture] = np.round(r2_score(Y, self.Y_th_exp(F, Y_max_exp, k)), 2)
                 else:
-                    r2_values["Y_th_exp"][culture] = 0
+                    r2_values["Exponential"][culture] = 0
+
+                # Ajustement avec la troisieme fonction (Y_th_lin)
+                a, b, _ = self.fit_Y_lin(culture, region)
+                if Y_max_exp is not None:
+                    r2_values["Linear 1 slope"][culture] = np.round(b)
+                    # r2_values["Linear 1 slope"][culture] = np.round(r2_score(Y, self.Y_th_lin(F, a, b)), 2)
+                else:
+                    r2_values["Linear 1 slope"][culture] = 0
+
+                # Ajustement avec la quatrième fonction (Y_th_lin_2)
+                # a, xb, c, _ = self.fit_Y_lin_2(culture, region)
+                # if a is not None:
+                #     r2_values["Linear 2 slopes"][culture] = np.round(r2_score(Y, self.Y_th_lin_2(F, a, xb, c)), 2)
+                # else:
+                #     r2_values["Linear 2 slopes"][culture] = 0
+                r2_values["Linear 2 slopes"][culture] = np.nan
+
+                # Ajustement avec la cinquième fonction (Y_th_poly)
+                a, b, _ = self.fit_Y_poly_constrained(culture, region)
+                if a is not None:
+                    r2_values["Polynomial"][culture] = np.round(-b / (2 * a))
+                    # r2_values["Polynomial"][culture] = np.round(r2_score(Y, self.Y_th_poly(F, a, b)), 2)
+                else:
+                    r2_values["Polynomial"][culture] = 0
+
+                # Ajustement avec la cinquième fonction (Y_th_poly)
+                Ymax, k, x0, _ = self.fit_Y_sigmoid(culture, region)
+                if Ymax is not None:
+                    r2_values["Sigmoid"][culture] = np.round(Ymax)
+                    # r2_values["Sigmoid"][culture] = np.round(r2_score(Y, self.Y_th_sigmoid_cap(F, Ymax, k, x0)), 2)
+                else:
+                    r2_values["Sigmoid"][culture] = 0
 
         # Création d'un DataFrame pour la heatmap
-        r2_df = np.array([list(r2_values["Y_th"].values()), list(r2_values["Y_th_exp"].values())])
+        r2_df = np.array(
+            [
+                list(r2_values["Ratio"].values()),
+                list(r2_values["Exponential"].values()),
+                list(r2_values["Linear 1 slope"].values()),
+                list(r2_values["Linear 2 slopes"].values()),
+                list(r2_values["Polynomial"].values()),
+                list(r2_values["Sigmoid"].values()),
+            ]
+        )
 
         # Création de la heatmap
         plt.figure(figsize=(10, len(cultures) // 3))
         ax = sns.heatmap(
             r2_df.T,
             annot=True,
-            cmap="coolwarm",
+            cmap="plasma",  # "coolwarm",
             fmt=".2f",
             linewidths=0.5,
-            cbar_kws={"label": "Ymax"},  # {"label": "R² Score"},
-            xticklabels=["Y_th", "Y_th_exp"],
-            yticklabels=list(r2_values["Y_th"].keys()),
+            cbar_kws={"label": "Ymax"},
+            # cbar_kws={"label": "R² Score"},
+            xticklabels=["Ratio", "Exponential", "Linear 1 slope", "Linear 2 slopes", "Polynomial", "Sigmoid"],
+            yticklabels=list(r2_values["Ratio"].keys()),
+            vmax=600,
+            vmin=0,
         )
 
-        plt.title(f"Comparaison des Ymax pour {region}")  # R²
+        plt.title(f"Comparaison des Ymax (kgN/ha) pour {region}")  # R² Ymax
         plt.xlabel("Modèle")
         plt.ylabel("Culture")
 
         # Affichage de la heatmap
         plt.show()
+
+        return r2_df, r2_values
 
 
 ## % Prospective classes
@@ -1505,7 +1990,7 @@ class NitrogenFlowModel_prospect:
 
         # Les légumineuses ne reçoivent pas d'azote synthétique. On peut déjà calculer leur rendement
         for leg in df_cultures.loc[df_cultures["Category"] == "leguminous"].index.tolist() + ["Alfalfa and clover"]:
-            Yield = Y.Y_th_exp(
+            Yield = Y.Y_th_lin(
                 df_cultures.loc[df_cultures.index == leg, "Surface Non Synthetic Fertilizer Use (kgN/ha)"].item(),
                 df_cultures.loc[df_cultures.index == leg, "Ymax (kgN/ha)"].item(),
                 df_cultures.loc[df_cultures.index == leg, "k (kgN/ha)"].item(),
@@ -1567,59 +2052,6 @@ class NitrogenFlowModel_prospect:
         ).to_dict()
         target_leg = df_cultures["Leguminous heritage (ktN)"].to_dict()
         flux_generator.generate_flux(source_leg, target_leg)
-
-        # # Calcul de l'azote à épendre
-        # df_cultures["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] = df_cultures.apply(
-        #     lambda row: row["Surface Fertilization Need (kgN/ha)"]
-        #     - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"]
-        #     - (row["Leguminous heritage (ktN)"] / row["Area (ha)"] * 1e6)
-        #     if row["Area (ha)"] > 0
-        #     else row["Surface Fertilization Need (kgN/ha)"] - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"],
-        #     axis=1,
-        # )
-        # df_cultures["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] = df_cultures[
-        #     "Raw Surface Synthetic Fertilizer Use (ktN/ha)"
-        # ].apply(lambda x: max(x, 0))
-        # df_cultures["Raw Total Synthetic Fertilizer Use (ktN)"] = (
-        #     df_cultures["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] * df_cultures["Area (ha)"] / 1e6
-        # )
-
-        # # Calcul de la quantité moyenne (kgN) d'azote synthétique épendu par hectare
-        # # Séparer les données en prairies et champs
-        # df_prairies = df_cultures[df_cultures.index.isin(prairies)].copy()
-        # df_champs = df_cultures[df_cultures.index.isin(cultures)].copy()
-
-        # moyenne_ponderee_prairies = (
-        #     df_prairies["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] * df_prairies["Area (ha)"]
-        # ).sum()  # / df_prairies['Surface'].sum()
-        # moyenne_ponderee_champs = (
-        #     df_champs["Raw Surface Synthetic Fertilizer Use (ktN/ha)"] * df_champs["Area (ha)"]
-        # ).sum()  # / df_champs['Surface'].sum()
-
-        # moyenne_reel_champs = (
-        #     data[data["index_excel"] == 27][region].item() * data[data["index_excel"] == 23][region].item()
-        # )
-        # moyenne_reel_prairies = (
-        #     data[data["index_excel"] == 29][region].item() * data[data["index_excel"] == 22][region].item() / 10**6
-        # )
-
-        # df_prairies.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = moyenne_reel_prairies
-        # df_champs.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = (
-        #     df_champs["Raw Total Synthetic Fertilizer Use (ktN)"] * moyenne_reel_champs / moyenne_ponderee_champs
-        # )
-
-        # # Mise à jour de df_cultures
-
-        # df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"] = (
-        #     df_champs["Adjusted Total Synthetic Fertilizer Use (ktN)"]
-        #     .combine_first(df_prairies["Adjusted Total Synthetic Fertilizer Use (ktN)"])
-        #     .reindex(df_cultures.index, fill_value=0)  # Remplissage des clés manquantes (les légumineuses) avec 0
-        # )
-
-        # # On va chercher les éventuelles corrections apportées par JLN (=0 si export, donc pas vraiment net...)
-        # import_feed = self.data_loader.get_import_feed(year, region)
-        # # Et la valeur net
-        # import_feed_net = data[data["index_excel"] == 1009][region].item()
 
         net_import = main.loc[main["Variable"] == "Net import of vegetal pdcts", "Business as usual"].item()
         Import = max(0, net_import)
@@ -1721,11 +2153,8 @@ class NitrogenFlowModel_prospect:
             # --------------------------------------------------------------------------
             # 3) Define the objective function
             # --------------------------------------------------------------------------
-            def Y_th_exp(fert, y_max, k):
-                """Yield response function: Y = Ymax * (1 - exp(-fert/k))"""
-                if k < 1e-6:
-                    return 0
-                return y_max * (1.0 - exp(-fert / k))
+            def Y_th_lin(f, a, b):
+                return np.minimum(a * f, b)
 
             def objective(x):
                 """
@@ -1794,7 +2223,7 @@ class NitrogenFlowModel_prospect:
                 for c in CROPS:
                     # Production locale (ktN) ; on suppose qu'elle est déjà correcte/à jour :
                     production_c = (
-                        Y_th_exp(x[idx_synth[c]] + nonSynthFert[c], Ymax[c], kparam[c])
+                        Y_th_lin(x[idx_synth[c]] + nonSynthFert[c], Ymax[c], kparam[c])
                         * df_cultures.at[c, "Area (ha)"]
                         / 1e6
                     )
@@ -2048,7 +2477,7 @@ class NitrogenFlowModel_prospect:
                 for c in CROPS:
                     # Production locale (ktN) ; on suppose qu'elle est déjà correcte/à jour :
                     production_c = (
-                        Y_th_exp(x[idx_synth[c]] + nonSynthFert[c], Ymax[c], kparam[c])
+                        Y_th_lin(x[idx_synth[c]] + nonSynthFert[c], Ymax[c], kparam[c])
                         * df_cultures.at[c, "Area (ha)"]
                         / 1e6
                     )
@@ -2129,7 +2558,7 @@ class NitrogenFlowModel_prospect:
                 def calculate_production(x_synth_val, c):
                     # Make sure idx_synth[c] exists if you use it here, or adjust logic
                     fert_tot = x_synth_val + nonSynthFert[c]  # Assuming x_ maps directly for synth
-                    y_ha = Y_th_exp(
+                    y_ha = Y_th_lin(
                         fert_tot,
                         df_cultures.loc[c, "Ymax (kgN/ha)"],
                         df_cultures.loc[c, "k (kgN/ha)"],
@@ -2247,7 +2676,7 @@ class NitrogenFlowModel_prospect:
 
                 # production c
                 fert_tot = x_[idx_synth[c]] + nonSynthFert[c]
-                y = Y_th_exp(fert_tot, Ymax[c], kparam[c])
+                y = Y_th_lin(fert_tot, Ymax[c], kparam[c])
                 prod_c = (y * area[c]) / 1e6
 
                 return prod_c - sum_local  # doit être >= 0
@@ -2326,7 +2755,7 @@ class NitrogenFlowModel_prospect:
                 bounds=bounds,
                 constraints=cons,
                 callback=my_callback,
-                options={"maxiter": 1000, "ftol": 1e-6, "disp": True, "eps": 1e-5},
+                options={"maxiter": 1000, "ftol": 1e-5, "disp": True, "eps": 1e-6},
             )
 
             self.log = iteration_log
@@ -2348,11 +2777,14 @@ class NitrogenFlowModel_prospect:
                         fert_synth = 0.0
 
                     # On met à jour la colonne "Surface Synthetic Fertilizer Use (kgN/ha)"
-                    df_cultures.at[c, "Surface Synthetic Fertilizer Use (kgN/ha)"] = fert_synth
+                    fert_synth_with_volat = (
+                        fert_synth * 1 / (0.99 - 0.01 * 0.01)
+                    )  # Pour prendre en compte l'azote synthétique volatilizé et non consommé par la plante
+                    df_cultures.at[c, "Surface Synthetic Fertilizer Use (kgN/ha)"] = fert_synth_with_volat
 
                     # 2) Calculer la fertilisation synthétique totale en ktN
                     area_ha = df_cultures.at[c, "Area (ha)"]
-                    total_synth_ktN = (fert_synth * area_ha) / 1e6  # (kgN/ha * ha) / 1e6 = ktN
+                    total_synth_ktN = (fert_synth_with_volat * area_ha) / 1e6  # (kgN/ha * ha) / 1e6 = ktN
                     df_cultures.at[c, "Synthetic Fertilizer Use (ktN)"] = total_synth_ktN
 
                     # 3) Mettre à jour rendement et production
@@ -2363,7 +2795,7 @@ class NitrogenFlowModel_prospect:
                     y_max = df_cultures.at[c, "Ymax (kgN/ha)"]
                     k_value = df_cultures.at[c, "k (kgN/ha)"]
 
-                    new_yield = Y_th_exp(fert_tot, y_max, k_value)
+                    new_yield = Y_th_lin(fert_tot, y_max, k_value)
                     df_cultures.at[c, "Yield (kgN/ha)"] = new_yield
 
                     # Production en ktN
@@ -2395,8 +2827,6 @@ class NitrogenFlowModel_prospect:
             df_cultures["Synthetic Fertilizer Use (ktN)"] = df_cultures["Synthetic Fertilizer Use (ktN)"] * (
                 1 - coef_volat_NH3 - coef_volat_N2O
             )
-            # La quantité d'azote réellement épendue est donc un peu plus faible car une partie est volatilisée
-            # TODO intégrer cela dans le modèle d'optimisation !!
 
             source = {"Haber-Bosch": 1}
             target = df_cultures["Synthetic Fertilizer Use (ktN)"].to_dict()
@@ -2556,658 +2986,6 @@ class NitrogenFlowModel_prospect:
 
             df_deviation = pd.DataFrame(deviations_list)
             self.deviations_df = df_deviation
-
-            ## ANCIEN MODEL
-
-            # # Dictionnaire enregistrant toutes les cultures présentes dans le régime d'un élevage
-            # all_cultures_regime = {}
-            # for cons in df_cons_vege.index:
-            #     cultures_name = set()
-            #     for cultures_liste in regimes[cons].values():
-            #         cultures_name.update(cultures_liste)
-            #     all_cultures_regime[cons] = cultures_name
-
-            # # Initialisation du problème
-            # prob = LpProblem("Allocation_Azote_Animaux", LpMinimize)
-
-            # # Variables de décision pour les allocations
-            # x_vars = LpVariable.dicts(
-            #     "x",
-            #     [(culture, cons) for culture in df_cultures.index for cons in df_cons_vege.index],
-            #     lowBound=0,
-            #     cat="Continuous",
-            # )
-
-            # # Variable de depassement des importations feed
-            # E_vars_feed = LpVariable.dicts(
-            #     "E",
-            #     [(cons, culture) for cons in df_cons_vege.index[:-2] for culture in all_cultures_regime[cons]],
-            #     lowBound=0,
-            #     cat="Continuous",
-            # )
-
-            # # Variables de déviation des régimes alimentaires
-            # delta_vars = LpVariable.dicts(
-            #     "delta",
-            #     [(cons, proportion) for cons in df_cons_vege.index for proportion in regimes[cons].keys()],
-            #     lowBound=0,
-            #     cat=LpContinuous,
-            # )
-
-            # # Variables de pénalité pour la concentration des allocations
-            # # penalite_vars = LpVariable.dicts(
-            # #     "penalite",
-            # #     [(culture, cons) for culture in df_cultures.index for cons in df_cons_vege.index],
-            # #     lowBound=0,
-            # #     cat=LpContinuous,
-            # # )
-
-            # # Variables de pénalité pour la distribution au sein des catégories
-            # penalite_culture_vars = LpVariable.dicts(
-            #     "penalite_culture",
-            #     [
-            #         (cons, proportion, culture)
-            #         for cons in df_cons_vege.index
-            #         for proportion in regimes[cons].keys()
-            #         for culture in regimes[cons][proportion]
-            #     ],
-            #     lowBound=0,
-            #     cat=LpContinuous,
-            # )
-
-            # # Variables d'importation pour chaque élevage et catégorie
-            # I_vars_feed = LpVariable.dicts(
-            #     "I",
-            #     [(cons, culture) for cons in df_cons_vege.index[:-2] for culture in all_cultures_regime[cons]],
-            #     lowBound=0,
-            #     cat="Continuous",
-            # )
-
-            # # Variables d'importation pour chaque population et catégorie
-            # I_vars_food = LpVariable.dicts(
-            #     "I",
-            #     [(cons, culture) for cons in df_cons_vege.index[-2:] for culture in all_cultures_regime[cons]],
-            #     lowBound=0,
-            #     cat="Continuous",
-            # )
-
-            # # # Variables pour capturer les importations associées aux déviations négatives
-            # # delta_import_vars = LpVariable.dicts(
-            # #     "delta_import",
-            # #     [(cons, proportion) for cons in df_cons_vege.index for proportion in regimes[cons].keys()],
-            # #     lowBound=0,
-            # #     cat=LpContinuous,
-            # # )
-
-            # # Pondération pour le terme de pénalité
-            # poids_penalite_deviation = 10
-
-            # # poids_penalite = 0  # Ajustez ce poids selon vos préférences
-
-            # # Poids pour équilibrer la distribution des cultures dans les categories
-            # poids_penalite_culture = 0.5  # À ajuster selon vos préférences
-
-            # # Définir un poids élevé pour pénaliser les importations
-            # if int(year) > 1960:
-            #     poids_exces_import = 1.0
-            #     poids_import_food = 1.0
-            # else:
-            #     poids_exces_import = 1000.0  # Ajustez ce poids selon vos préférences
-            #     poids_import_food = 1000.0
-
-            # # poids_delta_import = (
-            # #     0.5  # Poids supplémentaire pour orienter les importations pour minimiser les fortes déviations
-            # # )
-
-            # prob += (
-            #     poids_penalite_deviation
-            #     * lpSum(
-            #         delta_vars[(cons, proportion)] for cons in df_cons_vege.index for proportion in regimes[cons].keys()
-            #     )
-            #     # + poids_delta_import
-            #     # * lpSum(
-            #     #     delta_import_vars[(cons, proportion)]
-            #     #     for cons in df_cons_vege.index
-            #     #     for proportion in regimes[cons].keys()
-            #     # )
-            #     # + poids_penalite
-            #     # * lpSum(penalite_vars[(culture, cons)] for culture in df_cultures.index for cons in df_cons_vege.index)
-            #     + poids_penalite_culture
-            #     * lpSum(
-            #         penalite_culture_vars[(cons, proportion, culture)]
-            #         for cons in df_cons_vege.index
-            #         for proportion in regimes[cons].keys()
-            #         for culture in regimes[cons][proportion]
-            #     )
-            #     + poids_exces_import
-            #     * lpSum(
-            #         E_vars_feed[(cons, culture)]
-            #         for cons in df_cons_vege.index[:-2]
-            #         for culture in all_cultures_regime[cons]
-            #     )
-            #     + poids_import_food
-            #     * lpSum(
-            #         I_vars_food[(cons, culture)]
-            #         for cons in df_cons_vege.index[-2:]
-            #         for culture in all_cultures_regime[cons]
-            #     ),
-            #     "Minimiser_Deviations_Penalties_Et_Excès_Importation",
-            # )
-
-            # # Les besoins en feed sont complétés par la prod locale, l'importation de feed (donnees GRAFS) et un eventuel import excedentaire
-            # for cons in df_cons_vege.index[:-2]:
-            #     besoin = df_cons_vege.loc[cons]
-            #     prob += (
-            #         lpSum(x_vars[(culture, cons)] for culture in df_cultures.index)
-            #         + lpSum(I_vars_feed[(cons, culture)] for culture in all_cultures_regime[cons])
-            #         + lpSum(E_vars_feed[(cons, culture)] for culture in all_cultures_regime[cons])
-            #         == besoin,
-            #         f"Besoin_{cons}",
-            #     )
-
-            # # Les besoins en food sont complétés par la production locale et les imports de food
-            # for cons in df_cons_vege.index[-2:]:
-            #     besoin = df_cons_vege.loc[cons]
-            #     prob += (
-            #         lpSum(x_vars[(culture, cons)] for culture in df_cultures.index)
-            #         + lpSum(I_vars_food[(cons, culture)] for culture in all_cultures_regime[cons])
-            #         == besoin,
-            #         f"Besoin_{cons}",
-            #     )
-
-            # # Cette contrainte assure que la somme de l'azote alloué de chaque culture aux différents types de consommateurs ne dépasse pas l'azote disponible pour cette culture.
-            # for culture in df_cultures.index:
-            #     azote_disponible = df_cultures.loc[culture, "Nitrogen Production (ktN)"]
-            #     prob += (
-            #         lpSum(x_vars[(culture, cons)] for cons in df_cons_vege.index) <= azote_disponible,
-            #         f"Disponibilite_{culture}",
-            #     )
-
-            # # interdiction de consommation locale et d'import pour des cultures qui ne sont pas dans le feed regime
-            # for cons in df_cons_vege.index[:-2]:
-            #     cultures_autorisees = set()
-            #     for cultures_liste in regimes[cons].values():
-            #         cultures_autorisees.update(cultures_liste)
-            #     for culture in df_cultures.index:
-            #         if culture not in cultures_autorisees:
-            #             prob += (
-            #                 x_vars[(culture, cons)] == 0,
-            #                 f"Culture_Non_Autorisee_{culture}_{cons}",
-            #             )
-            #             # Vérifier si la variable I_vars existe avant d'ajouter la contrainte
-            #             if (cons, culture) in I_vars_feed:
-            #                 prob += (
-            #                     I_vars_feed[(cons, culture)] == 0,
-            #                     f"Import_Non_Autorise_{cons}_{culture}",
-            #                 )
-            #             if (cons, culture) in E_vars_feed:
-            #                 prob += (
-            #                     E_vars_feed[(cons, culture)] == 0,
-            #                     f"Import_excedentaire_Non_Autorise_{cons}_{culture}",
-            #                 )
-
-            # # même chose pour food
-            # for cons in df_cons_vege.index[-2:]:
-            #     cultures_autorisees = set()
-            #     for cultures_liste in regimes[cons].values():
-            #         cultures_autorisees.update(cultures_liste)
-            #     for culture in df_cultures.index:
-            #         if culture not in cultures_autorisees:
-            #             prob += (
-            #                 x_vars[(culture, cons)] == 0,
-            #                 f"Culture_Non_Autorisee_{culture}_{cons}",
-            #             )
-            #             # Vérifier si la variable I_vars existe avant d'ajouter la contrainte
-            #             if (cons, culture) in I_vars_food:
-            #                 prob += (
-            #                     I_vars_food[(cons, culture)] == 0,
-            #                     f"Import_Non_Autorise_{cons}_{culture}",
-            #                 )
-
-            # # Ces contraintes calculent les déviations entre les proportions effectives des catégories consommées par chaque élevage et les proportions initiales du régime alimentaire.
-            # for cons in df_cons_vege.index[:-2]:
-            #     besoin = df_cons_vege.loc[cons]
-            #     for proportion_initiale, cultures_liste in regimes[cons].items():
-            #         # Azote total des cultures dans la liste
-            #         azote_cultures = (
-            #             lpSum(x_vars[(culture, cons)] for culture in cultures_liste if culture in df_cultures.index)
-            #             + lpSum(I_vars_feed[(cons, culture)] for culture in cultures_liste)
-            #             + lpSum(E_vars_feed[(cons, culture)] for culture in cultures_liste)
-            #         )
-            #         proportion_effective = azote_cultures / besoin
-            #         # Déviation par rapport à la proportion initiale
-            #         delta_var = delta_vars[(cons, proportion_initiale)]
-            #         prob += (
-            #             proportion_effective - proportion_initiale <= delta_var,
-            #             f"Deviation_Plus_{cons}_{proportion_initiale}",
-            #         )
-            #         prob += (
-            #             proportion_initiale - proportion_effective <= delta_var,
-            #             f"Deviation_Moins_{cons}_{proportion_initiale}",
-            #         )
-
-            # # Pareil pour food
-            # for cons in df_cons_vege.index[-2:]:
-            #     besoin = df_cons_vege.loc[cons]
-            #     for proportion_initiale, cultures_liste in regimes[cons].items():
-            #         # Azote total des cultures dans la liste
-            #         azote_cultures = lpSum(
-            #             x_vars[(culture, cons)] for culture in cultures_liste if culture in df_cultures.index
-            #         ) + lpSum(I_vars_food[(cons, culture)] for culture in cultures_liste)
-            #         proportion_effective = azote_cultures / besoin
-            #         # Déviation par rapport à la proportion initiale
-            #         delta_var = delta_vars[(cons, proportion_initiale)]
-            #         prob += (
-            #             proportion_effective - proportion_initiale <= delta_var,
-            #             f"Deviation_Plus_{cons}_{proportion_initiale}",
-            #         )
-            #         prob += (
-            #             proportion_initiale - proportion_effective <= delta_var,
-            #             f"Deviation_Moins_{cons}_{proportion_initiale}",
-            #         )
-
-            # # Les importations normales de feed sont égales aux données de GRAFS
-            # prob += (
-            #     lpSum(
-            #         I_vars_feed[(cons, culture)]
-            #         for cons in df_cons_vege.index[:-2]
-            #         for culture in all_cultures_regime[cons]
-            #     )
-            #     == import_feed,
-            #     "Limite_Imports_Normaux",
-            # )
-
-            # # # Calcul de l'allocation cible (par exemple, allocation uniforme)
-            # # for culture in df_cultures.index:
-            # #     azote_disponible_culture = df_cultures.loc[culture, "Azote disponible"]
-            # #     allocation_cible = azote_disponible_culture / len(df_cons_vege.index)  # Allocation uniforme
-            # #     for cons in df_cons_vege.index:
-            # #         allocation_reelle = x_vars[(culture, cons)]
-            # #         # Pénalité est la valeur absolue de la différence entre l'allocation réelle et l'allocation cible
-            # #         prob += (
-            # #             allocation_reelle - allocation_cible <= penalite_vars[(culture, cons)],
-            # #             f"Penalite_Plus_{culture}_{cons}",
-            # #         )
-            # #         prob += (
-            # #             allocation_cible - allocation_reelle <= penalite_vars[(culture, cons)],
-            # #             f"Penalite_Moins_{culture}_{cons}",
-            # #         )
-
-            # # Pénaliser si on nourrit les animaux avec une seule culture dans chaque groupe de proportions
-            # for cons in df_cons_vege.index[:-2]:
-            #     besoin = df_cons_vege.loc[cons]
-            #     for proportion, cultures_liste in regimes[cons].items():
-            #         # Allocation totale pour ce groupe de cultures
-            #         allocation_groupe = (
-            #             lpSum(x_vars[(culture, cons)] for culture in cultures_liste if culture in df_cultures.index)
-            #             + lpSum(I_vars_feed[(cons, culture)] for culture in cultures_liste)
-            #             + lpSum(E_vars_feed[(cons, culture)] for culture in cultures_liste)
-            #         )
-            #         # Azote total disponible pour ce groupe de cultures
-            #         azote_total_groupe = df_cultures.loc[
-            #             df_cultures.index.isin(cultures_liste),
-            #             "Nitrogen Production (ktN)",
-            #         ].sum()
-            #         if azote_total_groupe > 0:
-            #             for culture in cultures_liste:
-            #                 if culture in df_cultures.index:
-            #                     azote_disponible_culture = df_cultures.loc[culture, "Nitrogen Production (ktN)"]
-            #                     # Calcul de l'allocation cible proportionnelle à la disponibilité
-            #                     allocation_cible_culture = (
-            #                         azote_disponible_culture / azote_total_groupe
-            #                     ) * allocation_groupe
-            #                     # Allocation réelle
-            #                     allocation_reelle_culture = x_vars[(culture, cons)]
-            #                     # Pénalités pour la déviation
-            #                     prob += (
-            #                         allocation_reelle_culture - allocation_cible_culture
-            #                         <= penalite_culture_vars[(cons, proportion, culture)],
-            #                         f"Penalite_Culture_Plus_{cons}_{proportion}_{culture}",
-            #                     )
-            #                     prob += (
-            #                         allocation_cible_culture - allocation_reelle_culture
-            #                         <= penalite_culture_vars[(cons, proportion, culture)],
-            #                         f"Penalite_Culture_Moins_{cons}_{proportion}_{culture}",
-            #                     )
-            #         else:
-            #             pass
-
-            # # Pareil pour les humains
-            # for cons in df_cons_vege.index[-2:]:
-            #     besoin = df_cons_vege.loc[cons]
-            #     for proportion, cultures_liste in regimes[cons].items():
-            #         # Allocation totale pour ce groupe de cultures
-            #         allocation_groupe = lpSum(
-            #             x_vars[(culture, cons)] for culture in cultures_liste if culture in df_cultures.index
-            #         ) + lpSum(I_vars_food[(cons, culture)] for culture in cultures_liste)
-            #         # Azote total disponible pour ce groupe de cultures
-            #         azote_total_groupe = df_cultures.loc[
-            #             df_cultures.index.isin(cultures_liste),
-            #             "Nitrogen Production (ktN)",
-            #         ].sum()
-            #         if azote_total_groupe > 0:
-            #             for culture in cultures_liste:
-            #                 if culture in df_cultures.index:
-            #                     azote_disponible_culture = df_cultures.loc[culture, "Nitrogen Production (ktN)"]
-            #                     # Calcul de l'allocation cible proportionnelle à la disponibilité
-            #                     allocation_cible_culture = (
-            #                         azote_disponible_culture / azote_total_groupe
-            #                     ) * allocation_groupe
-            #                     # Allocation réelle
-            #                     allocation_reelle_culture = x_vars[(culture, cons)]
-            #                     # Pénalités pour la déviation
-            #                     prob += (
-            #                         allocation_reelle_culture - allocation_cible_culture
-            #                         <= penalite_culture_vars[(cons, proportion, culture)],
-            #                         f"Penalite_Culture_Plus_{cons}_{proportion}_{culture}",
-            #                     )
-            #                     prob += (
-            #                         allocation_cible_culture - allocation_reelle_culture
-            #                         <= penalite_culture_vars[(cons, proportion, culture)],
-            #                         f"Penalite_Culture_Moins_{cons}_{proportion}_{culture}",
-            #                     )
-            #         else:
-            #             pass
-
-            # # Contrainte pour importer le feed là où les déviations sont les plus importantes
-            # for cons in df_cons_vege.index[:-2]:
-            #     for proportion, cultures_liste in regimes[cons].items():
-            #         # Total des importations pour cette proportion
-            #         azote_importe = lpSum(
-            #             I_vars_feed[(cons, culture)] + E_vars_feed[(cons, culture)]
-            #             for culture in cultures_liste
-            #             if culture in df_cultures.index
-            #         )
-            #         # # Lier aux variables de déviation
-            #         # prob += (
-            #         #     delta_import_vars[(cons, proportion)]
-            #         #     >= azote_importe - delta_vars[(cons, proportion)] * df_cons_vege.loc[cons],
-            #         #     f"Delta_Import_Lien_{cons}_{proportion}",
-            #         # )
-
-            # # Pareil pour les humains
-            # for cons in df_cons_vege.index[-2:]:
-            #     for proportion, cultures_liste in regimes[cons].items():
-            #         # Total des importations pour cette proportion
-            #         azote_importe = lpSum(
-            #             I_vars_food[(cons, culture)] for culture in cultures_liste if culture in df_cultures.index
-            #         )
-            #         # # Lier aux variables de déviation
-            #         # prob += (
-            #         #     delta_import_vars[(cons, proportion)]
-            #         #     >= azote_importe - delta_vars[(cons, proportion)] * df_cons_vege.loc[cons],
-            #         #     f"Delta_Import_Lien_{cons}_{proportion}",
-            #         # )
-
-            # # Résolution du problème
-            # prob.solve()
-
-            # allocations = []
-            # for var in prob.variables():
-            #     if var.name.startswith("x") and var.varValue > 0:
-            #         # Nom de la variable : x_(culture, cons)
-            #         chaine = str(var)
-            #         matches = re.findall(r"'([^']*)'", chaine)
-            #         parts = [match.replace("_", " ").strip() for match in matches]
-            #         culture = parts[0]
-            #         # Gestion du tiret dans le nom
-            #         if culture == "Non legume temporary meadow":
-            #             culture = "Non-legume temporary meadow"
-            #         if culture == "Natural meadow":
-            #             culture = "Natural meadow "
-            #         cons = parts[1]
-            #         if any(index in var.name for index in df_elevage.index):
-            #             Type = "Local culture feed"
-            #         else:
-            #             Type = "Local culture food"
-            #         allocations.append(
-            #             {
-            #                 "Culture": culture,
-            #                 "Consumer": cons,
-            #                 "Allocated Nitrogen": var.varValue,
-            #                 "Type": Type,
-            #             }
-            #         )
-            #     elif var.name.startswith("I") and var.varValue > 0:
-            #         # Nom de la variable : I_(cons, culture)
-            #         chaine = str(var)
-            #         matches = re.findall(r"'([^']*)'", chaine)
-            #         parts = [match.replace("_", " ").strip() for match in matches]
-            #         cons = parts[0]
-            #         culture = parts[1]
-            #         if culture == "Non legume temporary meadow":
-            #             culture = "Non-legume temporary meadow"
-            #         if culture == "Natural meadow":
-            #             culture = "Natural meadow "
-            #         if any(index in var.name for index in df_elevage.index):
-            #             Type = "Imported Feed"
-            #         else:
-            #             Type = "Imported Food"
-            #         allocations.append(
-            #             {
-            #                 "Culture": culture,
-            #                 "Consumer": cons,
-            #                 "Allocated Nitrogen": var.varValue,
-            #                 "Type": Type,
-            #             }
-            #         )
-
-            #     elif var.name.startswith("E") and var.varValue > 0:
-            #         # Nom de la variable : E_(cons, culture)
-            #         chaine = str(var)
-            #         matches = re.findall(r"'([^']*)'", chaine)
-            #         parts = [match.replace("_", " ").strip() for match in matches]
-            #         cons = parts[0]
-            #         culture = parts[1]
-            #         if culture == "Non legume temporary meadow":
-            #             culture = "Non-legume temporary meadow"
-            #         if culture == "Natural meadow":
-            #             culture = "Natural meadow "
-            #         allocations.append(
-            #             {
-            #                 "Culture": culture,
-            #                 "Consumer": cons,
-            #                 "Allocated Nitrogen": var.varValue,
-            #                 "Type": "Excess feed imports",
-            #             }
-            #         )
-
-            # allocations_df = pd.DataFrame(allocations)
-
-            # # Filtrer les lignes en supprimant celles dont 'Allocated Nitrogen' est très proche de zéro
-            # allocations_df = allocations_df[allocations_df["Allocated Nitrogen"].abs() >= 1e-6]
-
-            # self.allocation_vege = allocations_df
-
-            # # Extraction des déviations avec le signe
-            # deviations = []
-            # for cons in df_cons_vege.index[:-2]:
-            #     for proportion in regimes[cons].keys():
-            #         proportion_rounded = round(proportion, 5)
-            #         delta_var_key = (cons, proportion_rounded)
-            #         deviation = delta_vars[delta_var_key].varValue
-            #         if deviation != 0:
-            #             # Récupérer la liste des cultures associées à cette proportion
-            #             cultures_liste = regimes[cons][proportion]
-            #             cultures_str = ", ".join(cultures_liste)
-
-            #             # Calcul de l'allocation totale (local et importée)
-            #             azote_cultures_feed = (
-            #                 sum(
-            #                     x_vars[(culture, cons)].varValue
-            #                     for culture in cultures_liste
-            #                     if (culture, cons) in x_vars
-            #                 )
-            #                 + sum(
-            #                     I_vars_feed[(cons, culture)].varValue
-            #                     for culture in cultures_liste
-            #                     if (cons, culture) in I_vars_feed
-            #                 )
-            #                 + sum(
-            #                     E_vars_feed[(cons, culture)].varValue
-            #                     for culture in cultures_liste
-            #                     if (cons, culture) in E_vars_feed
-            #                 )
-            #             )
-            #             besoin_total = df_cons_vege.loc[cons]
-
-            #             # Calcul de la proportion effective
-            #             proportion_effective = azote_cultures_feed / besoin_total if besoin_total > 0 else 0
-
-            #             # Déterminer le signe
-            #             signe = 1 if proportion_effective > proportion else -1
-
-            #             deviations.append(
-            #                 {
-            #                     "Consumer": cons,
-            #                     "Expected Proportion (%)": proportion_rounded * 100,
-            #                     "Deviation (%)": signe * round(deviation, 4) * 100,  # Convertir en pourcentage
-            #                     "Porportion Allocated (%)": proportion_rounded * 100
-            #                     + signe * round(deviation, 4) * 100,
-            #                     "Cultures": cultures_str,
-            #                 }
-            #             )
-            # for cons in df_cons_vege.index[-2:]:
-            #     for proportion in regimes[cons].keys():
-            #         proportion_rounded = round(proportion, 5)
-            #         delta_var_key = (cons, proportion_rounded)
-            #         deviation = delta_vars[delta_var_key].varValue
-            #         if deviation != 0:
-            #             # Récupérer la liste des cultures associées à cette proportion
-            #             cultures_liste = regimes[cons][proportion]
-            #             cultures_str = ", ".join(cultures_liste)
-
-            #             # Calcul de l'allocation totale (local et importée)
-            #             azote_cultures_food = sum(
-            #                 x_vars[(culture, cons)].varValue for culture in cultures_liste if (culture, cons) in x_vars
-            #             ) + sum(
-            #                 I_vars_food[(cons, culture)].varValue
-            #                 for culture in cultures_liste
-            #                 if (cons, culture) in I_vars_food
-            #             )
-            #             besoin_total = df_cons_vege.loc[cons]
-
-            #             # Calcul de la proportion effective
-            #             proportion_effective = azote_cultures_food / besoin_total if besoin_total > 0 else 0
-
-            #             # Déterminer le signe
-            #             signe = 1 if proportion_effective > proportion else -1
-
-            #             deviations.append(
-            #                 {
-            #                     "Consumer": cons,
-            #                     "Expected Proportion (%)": proportion_rounded * 100,
-            #                     "Deviation (%)": signe * round(deviation, 4) * 100,  # Convertir en pourcentage
-            #                     "Porportion Allocated (%)": proportion_rounded * 100
-            #                     + signe * round(deviation, 4) * 100,
-            #                     "Cultures": cultures_str,
-            #                 }
-            #             )
-            # self.deviations_df = pd.DataFrame(deviations)
-
-            # # Extraction des importations normales
-            # importations = []
-            # for cons in df_cons_vege.index[:-2]:
-            #     for culture in all_cultures_regime[cons]:
-            #         if (cons, culture) in I_vars_feed:
-            #             import_value = I_vars_feed[(cons, culture)].varValue
-            #             if import_value > 0:
-            #                 importations.append(
-            #                     {
-            #                         "Consumer": cons,
-            #                         "Culture": culture,
-            #                         "Type": "Normal feed",
-            #                         "Imported Nitrogen (ktN)": import_value,
-            #                     }
-            #                 )
-            # for cons in df_cons_vege.index[-2:]:
-            #     for culture in all_cultures_regime[cons]:
-            #         if (cons, culture) in I_vars_food:
-            #             import_value = I_vars_food[(cons, culture)].varValue
-            #             if import_value > 0:
-            #                 importations.append(
-            #                     {
-            #                         "Consumer": cons,
-            #                         "Culture": culture,
-            #                         "Type": "Normal food",
-            #                         "Imported Nitrogen (ktN)": import_value,
-            #                     }
-            #                 )
-
-            # # Extraction des imports excédentaires
-            # for cons in df_cons_vege.index[:-2]:
-            #     for culture in all_cultures_regime[cons]:
-            #         if (cons, culture) in E_vars_feed:
-            #             excess_value = E_vars_feed[(cons, culture)].varValue
-            #             if excess_value > 0:
-            #                 importations.append(
-            #                     {
-            #                         "Consumer": cons,
-            #                         "Culture": culture,
-            #                         "Type": "Excédentaire feed",
-            #                         "Imported Nitrogen (ktN)": excess_value,
-            #                     }
-            #                 )
-
-            # # Convertir en DataFrame
-            # self.importations_df = pd.DataFrame(importations)
-
-            # Calcul de la quantité d'azote importé non utilisée
-            # azote_importe_alloue = allocations_df[
-            #     allocations_df["Type"].isin(["Imported Feed", "Imported Food", "Excess feed imports"])
-            # ]["Allocated Nitrogen"].sum()
-
-            # # Mise à jour de df_cultures
-            # for idx, row in df_cultures.iterrows():
-            #     culture = row.name
-            #     azote_alloue = allocations_df[
-            #         (allocations_df["Culture"] == culture)
-            #         & (allocations_df["Type"].isin(["Local culture food", "Local culture feed"]))
-            #     ]["Allocated Nitrogen"].sum()
-            #     azote_alloue_feed = allocations_df[
-            #         (allocations_df["Culture"] == culture) & (allocations_df["Type"] == "Local culture feed")
-            #     ]["Allocated Nitrogen"].sum()
-            #     azote_alloue_food = allocations_df[
-            #         (allocations_df["Culture"] == culture) & (allocations_df["Type"] == "Local culture food")
-            #     ]["Allocated Nitrogen"].sum()
-            #     df_cultures.loc[idx, "Available Nitrogen After Feed and Food (ktN)"] = (
-            #         row["Nitrogen Production (ktN)"] - azote_alloue
-            #     )
-            #     df_cultures.loc[idx, "Nitrogen For Feed (ktN)"] = azote_alloue_feed
-            #     df_cultures.loc[idx, "Nitrogen For Food (ktN)"] = azote_alloue_food
-            # # Correction des valeurs proches de zéro
-            # df_cultures["Available Nitrogen After Feed and Food (ktN)"] = df_cultures[
-            #     "Available Nitrogen After Feed and Food (ktN)"
-            # ].apply(lambda x: 0 if abs(x) < 1e-6 else x)
-            # df_cultures["Nitrogen For Feed (ktN)"] = df_cultures["Nitrogen For Feed (ktN)"].apply(
-            #     lambda x: 0 if abs(x) < 1e-6 else x
-            # )
-            # df_cultures["Nitrogen For Food (ktN)"] = df_cultures["Nitrogen For Food (ktN)"].apply(
-            #     lambda x: 0 if abs(x) < 1e-6 else x
-            # )
-
-            # # Mise à jour de df_elevage
-            # # Calcul de l'azote total alloué à chaque élevage
-            # azote_alloue_elevage = (
-            #     allocations_df.groupby(["Consumer", "Type"])["Allocated Nitrogen"].sum().unstack(fill_value=0)
-            # )
-
-            # # Sélectionner uniquement les élevages (présents dans la liste `betail`)
-            # azote_alloue_elevage = azote_alloue_elevage.loc[
-            #     azote_alloue_elevage.index.get_level_values("Consumer").isin(betail)
-            # ]
-
-            # # Ajouter les colonnes d'azote alloué dans df_elevage
-            # df_elevage.loc[:, "Consummed nitrogen from local feed (ktN)"] = df_elevage.index.map(
-            #     azote_alloue_elevage.get("Local culture feed", pd.Series(0, index=df_elevage.index))
-            # )
-            # df_elevage.loc[:, "Consummed Nitrogen from imported feed (ktN)"] = df_elevage.index.map(
-            #     lambda elevage: azote_alloue_elevage.get("Imported Feed", pd.Series(0, index=df_elevage.index)).get(
-            #         elevage, 0
-            #     )
-            #     + azote_alloue_elevage.get("Excess feed imports", pd.Series(0, index=df_elevage.index)).get(elevage, 0)
-            # )
-            # df_elevage['Azote alloué importations'] = df_elevage.index.map(azote_alloue_elevage['Importation'])
 
             # Génération des flux pour les cultures locales
             allocations_locales = allocations_df[
