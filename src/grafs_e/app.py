@@ -638,6 +638,7 @@ def get_metrics_for_all_regions(_models, metric_name, year):
         "Total net plant import": "net_imported_plant",
         "Total net animal import": "net_imported_animal",
         "Total plant production": "total_plant_production",
+        "Environmental Footprint": "net_footprint",
         "NUE": "NUE",
         "System NUE": "NUE_system",
         "Cereals production": "cereals_production",
@@ -702,7 +703,7 @@ def create_map_with_metrics(geojson_data, metrics, metric_name, year):
             # 📌 Obtenir min et max du metric sélectionné
             min_val, max_val = get_metric_range(metrics)
 
-            if "net" in metric_name:
+            if "net" in metric_name or "Footprint" in metric_name:
                 cmap = cm.get_cmap("RdYlGn")
                 min_val = min(min_val, -abs(max_val))
                 max_val = max(abs(min_val), max_val)
@@ -743,6 +744,12 @@ def create_map_with_metrics(geojson_data, metrics, metric_name, year):
                         style_function=style_function,
                         tooltip=folium.Tooltip(f"{region_name}: {metric_value:.2f}"),
                     ).add_to(m)
+                if "Footprint" in metric_name:
+                    folium.GeoJson(
+                        feature,
+                        style_function=style_function,
+                        tooltip=folium.Tooltip(f"{region_name}: {metric_value} M ha"),
+                    ).add_to(m)
                 else:
                     folium.GeoJson(
                         feature,
@@ -770,6 +777,7 @@ with tab5:
         "Total net animal import",
         "Total plant production",
         "Total animal production",
+        "Environmental Footprint",
         "NUE",
         "System NUE",
         "Cereals production",
@@ -849,6 +857,7 @@ def get_metrics_for_all_years(_models, metric_name, region):
         "Total net animal import": "net_imported_animal",
         "Total plant production": "stacked_plant_production",
         "Area": "surfaces",
+        "Environmental Footprint": "env_footprint",
         "Area tot": "surfaces_tot",
         "Total Fertilization": "tot_fert",
         "Relative Fertilization": "rel_fert",
@@ -1242,6 +1251,106 @@ def stacked_area_chart(_models, metric, region):
                 )
             )
 
+    if metric == "Environmental Footprint":
+        # Parcourir chaque culture dans l'ordre de l'index (df.index)
+        emissions_list = [
+            "Local Food",
+            "Local Feed",
+            "Import Food",
+            "Import Feed",
+            "Export Livestock",
+            "Export Feed",
+            "Export Food",
+        ]
+        color = {
+            "Local Food": "gold",
+            "Local Feed": "lightgreen",
+            "Import Food": "lightgray",
+            "Import Feed": "gray",
+            "Import Livestock": "darkgrey",
+            "Export Livestock": "lightblue",
+            "Export Feed": "green",
+            "Export Food": "yellow",
+        }
+
+        # Séparer les catégories
+        import_categories = ["Import Food", "Import Feed", "Import Livestock", "Local Food", "Local Feed"]
+        export_categories = ["Export Food", "Export Feed", "Export Livestock"]
+
+        # Calcul cumulatif pour chaque catégorie
+        df_cumsum_import = df.loc[import_categories].cumsum(axis=0)
+        df_cumsum_export = df.loc[export_categories].cumsum(axis=0)
+
+        # Ajouter une ligne "Base" (0) pour le fill='tonexty'
+        df_cumsum_import.loc["Base"] = 0
+        df_cumsum_export.loc["Base"] = 0
+
+        df_cumsum_import = df_cumsum_import.sort_index()
+        df_cumsum_export = df_cumsum_export.sort_index()
+
+        # from IPython import embed
+
+        # embed()
+
+        for emission in import_categories + export_categories:
+            if emission in import_categories:
+                cumsum_df = df_cumsum_import
+            elif emission in export_categories:
+                cumsum_df = df_cumsum_export
+
+            hover_data = df.loc[import_categories + export_categories].T.apply(lambda x: x / 1e6).values
+
+            # Tracer les valeurs positives
+            fig.add_trace(
+                go.Scatter(
+                    x=all_years,
+                    y=cumsum_df.loc[emission],  # Utiliser les valeurs cumulées pour l'affichage
+                    fill="tonexty",  # Remplir avec la courbe suivante
+                    mode="lines",
+                    line=dict(color=color[emission], width=0.5),
+                    name=emission,  # Nom affiché dans la légende
+                    customdata=hover_data,
+                    hovertemplate=(
+                        "<b>Year: %{x}</b><br>"
+                        + "<br>".join(
+                            [
+                                f"{cat}: %{{customdata[{i}]:.2f}} M ha"
+                                for i, cat in enumerate(import_categories + export_categories)
+                            ]
+                        )
+                        + "<extra></extra>"
+                    ),
+                )
+            )
+
+        # Calculer le total importé - exporté
+        df_total_import = df.loc[["Import Food", "Import Feed", "Import Livestock"]].sum(axis=0)
+        df_total_export = df.loc[export_categories].sum(axis=0)
+        df_net_import_export = df_total_import + df_total_export
+
+        # Ajouter la ligne de production végétale totale
+        fig.add_trace(
+            go.Scatter(
+                x=all_years,
+                y=df_net_import_export,
+                mode="lines+markers",
+                line=dict(color="white", width=3, dash="dash"),
+                name="Net Land Import",
+                hovertemplate="Year: %{x}<br>Value: %{customdata:.2f} M ha<extra></extra>",
+                customdata=df_net_import_export.values.reshape(-1, 1)
+                / 1e6,  # Utiliser les valeurs non cumulées pour le hover, divisées par 1e6
+            )
+        )
+
+        # Mise à jour du layout
+        fig.update_layout(
+            title=f"Environmental Footprint - {region}",
+            xaxis_title="Year",
+            yaxis_title="ha",
+            hovermode="closest",
+            showlegend=True,
+        )
+
     # -----------------------------------------------------------------
     # 3) Affichage
     # -----------------------------------------------------------------
@@ -1260,6 +1369,7 @@ with tab6:
         "Total plant production",
         "Total animal production",
         "Area",
+        "Environmental Footprint",
         "Total Fertilization",
         "Relative Fertilization",
         "Primary Nitrogen fertilization use",
@@ -1314,6 +1424,7 @@ with tab6:
                 "Relative Fertilization",
                 "Total Fertilization",
                 "Total plant production",
+                "Environmental Footprint",
             ]:
                 plot_standard_graph(models, st.session_state.metric_hist, st.session_state.selected_region_hist)
             else:
