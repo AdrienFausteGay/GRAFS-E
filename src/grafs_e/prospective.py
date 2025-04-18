@@ -37,8 +37,9 @@ class scenario:
             L.append(df.loc[df["index_excel"] == excel_line, region].item())
         return L
 
-    def LU_excretion(self, region, type):
-        L = []
+    @staticmethod
+    def LU_excretion(dataloader, region):
+        L = {}
         livestock = {
             "bovines": [(1150, 1164), (1196, 1210)],
             "caprines": [(1166, 1168), (1212, 1214)],
@@ -48,19 +49,21 @@ class scenario:
             "equines": [(1192, 1193), (1238, 1239)],
         }
         for i in annees_disponibles:
-            df = self.dataloader.pre_process_df(i, region)
-            heads = df.loc[df["index_excel"].between(livestock[type][0][0], livestock[type][0][1]), region]
-            heads_type = df.loc[df["index_excel"].between(livestock[type][0][0], livestock[type][0][1]), "nom"]
-            # Récupérer les coefficients LU correspondant à chaque type
-            Lu = heads_type.map(lu_coefficients)
-            # Calcul total LU
-            LU = np.dot(heads, Lu)
-            excr_cap = df.loc[df["index_excel"].between(livestock[type][1][0], livestock[type][1][1]), region]
+            df = dataloader.pre_process_df(i, region)
+            L[i] = {}
+            for type in livestock.keys():
+                heads = df.loc[df["index_excel"].between(livestock[type][0][0], livestock[type][0][1]), region]
+                heads_type = df.loc[df["index_excel"].between(livestock[type][0][0], livestock[type][0][1]), "nom"]
+                # Récupérer les coefficients LU correspondant à chaque type
+                Lu = heads_type.map(lu_coefficients)
+                # Calcul total LU
+                LU = np.dot(heads, Lu)
+                excr_cap = df.loc[df["index_excel"].between(livestock[type][1][0], livestock[type][1][1]), region]
 
-            if heads.sum() == 0:
-                L.append(0)
-            else:
-                L.append(np.dot(heads, excr_cap) / LU)
+                if heads.sum() == 0:
+                    L[i][type] = 0
+                else:
+                    L[i][type] = np.dot(heads, excr_cap) / LU
         return L
 
     @staticmethod
@@ -96,25 +99,28 @@ class scenario:
             "poultry": [1021, 1023],
         }
         LU = scenario.livestock_LU(dataloader, region)
-        df = dataloader.pre_process_df(annees_disponibles[-1], region)
-        for type in index.keys():
-            LU_prod[f"{type} productivity"] = (
-                df.loc[df["index_excel"] == index[type][0], region].item() / LU[annees_disponibles[-1]][type] * 1e6
-            )
-            if type in ["bovines", "ovines", "caprines", "poultry"]:
-                if type in ["ovines", "caprines"]:
-                    LU_prod[f"{type} dairy productivity"] = (
-                        df.loc[df["index_excel"] == index["ovines"][1], region].item()
-                        * LU[annees_disponibles[-1]][type]
-                        / (LU[annees_disponibles[-1]]["ovines"] + LU[annees_disponibles[-1]]["caprines"]) ** 2
-                        * 1e6
-                    )
+        for i in annees_disponibles:
+            LU_prod[i] = {}
+            df = dataloader.pre_process_df(i, region)
+            for type in index.keys():
+                if LU[i][type] == 0:
+                    LU_prod[i][f"{type} productivity"] = 0
                 else:
-                    LU_prod[f"{type} dairy productivity"] = (
-                        df.loc[df["index_excel"] == index[type][1], region].item()
-                        / LU[annees_disponibles[-1]][type]
-                        * 1e6
+                    LU_prod[i][f"{type} productivity"] = (
+                        df.loc[df["index_excel"] == index[type][0], region].item() / LU[i][type] * 1e6
                     )
+                    if type in ["bovines", "ovines", "caprines", "poultry"]:
+                        if type in ["ovines", "caprines"]:
+                            LU_prod[i][f"{type} dairy productivity"] = (
+                                df.loc[df["index_excel"] == index["ovines"][1], region].item()
+                                * LU[i][type]
+                                / (LU[i]["ovines"] + LU[i]["caprines"]) ** 2
+                                * 1e6
+                            )
+                        else:
+                            LU_prod[i][f"{type} dairy productivity"] = (
+                                df.loc[df["index_excel"] == index[type][1], region].item() / LU[i][type] * 1e6
+                            )
         return LU_prod
 
     def extrapolate_recent_trend(self, data, future_year, alpha=7.0, seuil_bas=0, seuil_haut=None):
@@ -541,35 +547,46 @@ class scenario:
                 "Business as usual",
             ] = self.extrapolate_recent_trend(self.historic_trend(self.region, 1009), self.year, seuil_bas=None)[1][-1]
 
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "kgN excreted by bovines LU",
-                "Business as usual",
-            ] = self.extrapolate_recent_trend(self.LU_excretion(self.region, "bovines"), self.year)[1][-1]
+            for type in betail:
+                sheets["technical"].loc[
+                    sheets["technical"]["Variable"] == "kgN excreted by bovines LU",
+                    "Business as usual",
+                ] = self.extrapolate_recent_trend(self.LU_excretion(self.dataloader, self.region)[type], self.year)[1][
+                    -1
+                ]
 
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "kgN excreted by ovines LU",
-                "Business as usual",
-            ] = self.extrapolate_recent_trend(self.LU_excretion(self.region, "ovines"), self.year)[1][-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "kgN excreted by ovines LU",
+            #     "Business as usual",
+            # ] = self.extrapolate_recent_trend(self.LU_excretion(self.dataloader, self.region, "ovines"), self.year)[1][
+            #     -1
+            # ]
 
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "kgN excreted by caprines LU",
-                "Business as usual",
-            ] = self.extrapolate_recent_trend(self.LU_excretion(self.region, "caprines"), self.year)[1][-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "kgN excreted by caprines LU",
+            #     "Business as usual",
+            # ] = self.extrapolate_recent_trend(self.LU_excretion(self.dataloader, self.region, "caprines"), self.year)[
+            #     1
+            # ][-1]
 
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "kgN excreted by porcines LU",
-                "Business as usual",
-            ] = self.extrapolate_recent_trend(self.LU_excretion(self.region, "porcines"), self.year)[1][-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "kgN excreted by porcines LU",
+            #     "Business as usual",
+            # ] = self.extrapolate_recent_trend(self.LU_excretion(self.dataloader, self.region, "porcines"), self.year)[
+            #     1
+            # ][-1]
 
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "kgN excreted by poultry LU",
-                "Business as usual",
-            ] = self.extrapolate_recent_trend(self.LU_excretion(self.region, "poultry"), self.year)[1][-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "kgN excreted by poultry LU",
+            #     "Business as usual",
+            # ] = self.extrapolate_recent_trend(self.LU_excretion(self.dataloader, self.region, "poultry"), self.year)[1][
+            #     -1
+            # ]
 
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "kgN excreted by equines LU",
-                "Business as usual",
-            ] = self.extrapolate_recent_trend(self.LU_excretion(self.region, "equines"), self.year)[1][-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "kgN excreted by equines LU",
+            #     "Business as usual",
+            # ] = self.extrapolate_recent_trend(self.LU_excretion(self.region, "equines"), self.year)[1][-1]
 
             LU_prod = self.LU_prod(self.dataloader, self.region)
 

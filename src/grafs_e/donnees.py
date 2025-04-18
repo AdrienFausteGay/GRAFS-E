@@ -149,7 +149,7 @@ betail = [
 
 ext = [
     "NH3 volatilization",
-    "N2O emission",
+    "N2O exitssion",
     "hydro-system",
     "other losses",
     "soil stock",

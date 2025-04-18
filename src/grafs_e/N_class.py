@@ -113,12 +113,14 @@ class ElevageData:
         self.year = year
         self.df = data_loader.pre_process_df(self.year, self.region)
         self.data_path = data_loader.data_path
+        self.dataloader = data_loader
         self.df_elevage = self.create_elevage_dataframe()
 
     def create_elevage_dataframe(self):
         df = self.df
         region = self.region
         data_path = self.data_path
+        dataloader = self.dataloader
 
         def add_data(nom, ligne, delta, keys):
             # Extraire les données supplémentaires
@@ -138,7 +140,11 @@ class ElevageData:
             "Elevage"
         )
 
-        combined_data = {"Production": production_dict}
+        # Construction du dictionnaire combined_data
+        combined_data = {
+            "Production": production_dict,
+        }
+
         combined_df = pd.DataFrame(combined_data)
 
         combined_df = combined_df.join(gas_em, how="left")
@@ -1927,6 +1933,9 @@ class NitrogenFlowModel:
 
             commerce["Produit"] = commerce["Produit"].map(corresp_dict).fillna(commerce["Produit"])
             commerce["Ratio"] = commerce["Valeur"] / commerce["Valeur"].sum()
+            # from IPython import embed
+
+            # embed()
             commerce.index = commerce["Produit"]
 
             target = {
@@ -2315,6 +2324,233 @@ class NitrogenFlowModel:
                 + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
             )
         )
+
+    def env_footprint(self):
+        local_surface_food = (
+            self.df_cultures["Nitrogen For Food (ktN)"]
+            / self.df_cultures["Nitrogen Production (ktN)"]
+            * self.df_cultures["Area (ha)"]
+        ).sum()
+        local_surface_feed = (
+            self.df_cultures["Nitrogen For Feed (ktN)"]
+            / self.df_cultures["Nitrogen Production (ktN)"]
+            * self.df_cultures["Area (ha)"]
+        ).sum()
+
+        # Food import
+        # 1. Filtrer les allocations "Imported food"
+        alloc = self.allocation_vege.loc[
+            self.allocation_vege["Type"] == "Imported Food", ["Culture", "Allocated Nitrogen"]
+        ]
+
+        # 2. Grouper par culture au cas où il y aurait plusieurs lignes par culture
+        alloc_grouped = alloc.groupby("Culture")["Allocated Nitrogen"].sum()
+
+        # 3. Créer un DataFrame aligné avec les index de df_cultures
+        alloc_df = pd.DataFrame(index=self.df_cultures.index)
+        alloc_df["Allocated Nitrogen"] = alloc_grouped
+        alloc_df["Allocated Nitrogen"] = alloc_df["Allocated Nitrogen"].fillna(0)
+
+        # 4. Calcul final : ratio * surface
+        # Récupère les valeurs de 'Nitrogen Production (ktN)' et de 'Allocated Nitrogen'
+        nitrogen_production = self.df_cultures["Nitrogen Production (ktN)"]
+        allocated_nitrogen = alloc_df["Allocated Nitrogen"]
+
+        # Si 'Nitrogen Production (ktN)' est nul, se rabattre sur les valeurs du blé
+        # En supposant que "Wheat" soit dans l'index de df_cultures, sinon adapte-le
+        wheat_nitrogen_production = self.df_cultures.loc["Wheat", "Nitrogen Production (ktN)"]
+        wheat_area = self.df_cultures.loc["Wheat", "Area (ha)"]
+
+        # Remplacer les valeurs de 'Nitrogen Production (ktN)' par celles du blé si elles sont nulles
+        adjusted_nitrogen_production = nitrogen_production.replace(0, wheat_nitrogen_production)
+
+        # Utiliser la superficie du blé lorsque la production d'azote est nulle, sans modifier df_cultures
+        adjusted_area = self.df_cultures["Area (ha)"].where(nitrogen_production != 0, wheat_area)
+
+        # Calcul du total des importations alimentaires
+        total_food_import = (allocated_nitrogen / adjusted_nitrogen_production * adjusted_area).sum()
+
+        # Feed import
+        # 1. Filtrer les allocations "Imported food"
+        alloc = self.allocation_vege.loc[
+            self.allocation_vege["Type"] == "Imported Feed", ["Culture", "Allocated Nitrogen"]
+        ]
+
+        # 2. Grouper par culture au cas où il y aurait plusieurs lignes par culture
+        alloc_grouped = alloc.groupby("Culture")["Allocated Nitrogen"].sum()
+
+        # 3. Créer un DataFrame aligné avec les index de df_cultures
+        alloc_df = pd.DataFrame(index=self.df_cultures.index)
+        alloc_df["Allocated Nitrogen"] = alloc_grouped
+        alloc_df["Allocated Nitrogen"] = alloc_df["Allocated Nitrogen"].fillna(0)
+
+        # 4. Calcul final : ratio * surface
+        # Récupère les valeurs de 'Nitrogen Production (ktN)' et de 'Allocated Nitrogen'
+        nitrogen_production = self.df_cultures["Nitrogen Production (ktN)"]
+        allocated_nitrogen = alloc_df["Allocated Nitrogen"]
+
+        # Si 'Nitrogen Production (ktN)' est nul, se rabattre sur les valeurs du blé
+        # En supposant que "Wheat" soit dans l'index de df_cultures, sinon adapte-le
+        wheat_nitrogen_production = self.df_cultures.loc["Wheat", "Nitrogen Production (ktN)"]
+        wheat_area = self.df_cultures.loc["Wheat", "Area (ha)"]
+
+        # Remplacer les valeurs de 'Nitrogen Production (ktN)' par celles du blé si elles sont nulles
+        adjusted_nitrogen_production = nitrogen_production.replace(0, wheat_nitrogen_production)
+
+        # Utiliser la superficie du blé lorsque la production d'azote est nulle, sans modifier df_cultures
+        adjusted_area = self.df_cultures["Area (ha)"].where(nitrogen_production != 0, wheat_area)
+
+        # Calcul du total des importations alimentaires
+        total_feed_import = (allocated_nitrogen / adjusted_nitrogen_production * adjusted_area).sum()
+
+        ## Importation de viande
+        # 1. Sélectionner les animaux importés
+        elevage_importe = self.df_elevage[self.df_elevage["Net animal nitrogen exports (ktN)"] < 0]
+
+        # 2. Pourcentage importé = |export net négatif| / production totale
+        elevage_importe["fraction_importée"] = (
+            -elevage_importe["Net animal nitrogen exports (ktN)"] / elevage_importe["Edible Nitrogen (ktN)"]
+        )
+
+        # 3. Créer un DataFrame vide pour accumuler les contributions par culture
+        surface_par_culture = pd.Series(0.0, index=self.df_cultures.index)
+
+        # 4. Parcourir chaque type d'élevage importé
+        for animal in elevage_importe.index:
+            if animal not in self.allocation_vege["Consumer"].values:
+                continue  # Si l'animal n'est pas dans les allocations, on passe
+
+            # a. Calculer la part importée de l'azote pour cet élevage
+            part_importee = elevage_importe.loc[animal, "fraction_importée"]
+
+            if elevage_importe.loc[elevage_importe.index == animal, "fraction_importée"].item() == np.inf:
+                # Calculer l'azote végétal nécessaire (N_feed=Azote importé/0.12)
+                N_animal_imported = -elevage_importe.loc[animal, "Net animal nitrogen exports (ktN)"]
+                N_feed_total_required = N_animal_imported / 0.12
+                # Aller chercher dans régimes[animal] les cultures consommées et en quelles proportion
+                # Dans chaque catégories, prendre la première culture avec un rendement non nul ou nan de la liste (df_cultures["Nitrogen Production (ktN)"]/df_culture["Area (ha)"])
+                # En déduire la surface théoriquement utilisée pour le nourrir (surface_par_culture[culture] = N_feed/rendement)
+                # Si aucune culture de la catégorie n'a de rendement, passer cette catégorie
+
+                # Parcourir les catégories du régime de l'animal
+                for proportion, culture_list in regimes[animal].items():
+                    N_feed_for_category = N_feed_total_required * proportion
+
+                    # Chercher la *première* culture valide dans la liste de la catégorie
+                    for culture_name in culture_list:
+                        # Vérifier si la culture existe dans df_cultures
+                        if culture_name in self.df_cultures.index:
+                            prod = self.df_cultures.loc[culture_name, "Nitrogen Production (ktN)"]
+                            surface = self.df_cultures.loc[culture_name, "Area (ha)"]
+
+                            # Calculer le rendement si possible (surface > 0 et prod > 0)
+                            if surface > 0 and prod > 0:
+                                rendement = prod / surface
+                                # Calculer la surface nécessaire pour cette catégorie via cette culture
+                                surface_needed = N_feed_for_category / rendement
+                                # Ajouter à la surface totale pour cette culture
+                                surface_par_culture[culture_name] = (
+                                    surface_par_culture.get(culture_name, 0) + surface_needed
+                                )
+                                break  # On a trouvé la première culture valide, on passe à la catégorie suivante du régime
+                            # else: rendement invalide (0 ou NaN), on essaie la culture suivante dans la liste
+                        # else: la culture n'est pas dans df_cultures, on essaie la suivante dans la liste
+            else:
+                # b. Extraire les allocations d'azote de chaque culture pour cet élevage
+                aliments = self.allocation_vege[self.allocation_vege["Consumer"] == animal]
+
+                for _, row in aliments.iterrows():
+                    culture = row["Culture"]
+                    azote = row["Allocated Nitrogen"] * part_importee  # Quantité d'azote importée pour cette culture
+
+                    if culture not in self.df_cultures.index:
+                        culture = "Wheat"  # Si la culture n'est pas dans df_cultures, on remplace par du blé
+
+                    # c. Récupérer la production d'azote et la surface de la culture
+                    prod = self.df_cultures.loc[culture, "Nitrogen Production (ktN)"]
+                    surface = self.df_cultures.loc[culture, "Area (ha)"]
+                    # if prod == 0:
+                    #     culture = "Wheat"
+                    #     prod = self.df_cultures.loc[culture, "Nitrogen Production (ktN)"]
+                    #     surface = self.df_cultures.loc[culture, "Area (ha)"]
+                    # d. Calculer la surface nécessaire pour produire l'azote consommé
+                    if prod > 0:
+                        surface_equivalente = azote / prod * surface
+                        surface_par_culture[culture] += surface_equivalente
+        import_animal = surface_par_culture.sum()
+
+        ## Export animaux
+        # 1. Sélectionner les animaux exportés (ceux qui ont un exportation nette positive)
+        elevage_exporte = self.df_elevage[self.df_elevage["Net animal nitrogen exports (ktN)"] > 0]
+
+        # 2. Calculer la fraction exportée pour chaque animal (en proportion de la production totale)
+        elevage_exporte["fraction_exportée"] = (
+            elevage_exporte["Net animal nitrogen exports (ktN)"] / elevage_exporte["Edible Nitrogen (ktN)"]
+        )
+
+        # 3. Créer un dictionnaire pour accumuler les résultats par culture
+        surface_par_culture_exporte = pd.Series({culture: 0.0 for culture in self.df_cultures.index})
+
+        # 4. Parcourir chaque type d'élevage exporté
+        for animal in elevage_exporte.index:
+            if animal not in self.allocation_vege["Consumer"].values:
+                continue  # Si l'animal n'est pas dans les allocations, on passe
+
+            # a. Calculer la part exportée de l'azote pour cet élevage
+            part_exportee = elevage_exporte.loc[animal, "fraction_exportée"]
+
+            # b. Extraire les allocations d'azote de chaque culture pour cet élevage
+            aliments = self.allocation_vege[self.allocation_vege["Consumer"] == animal]
+
+            for _, row in aliments.iterrows():
+                culture = row["Culture"]
+                azote = row["Allocated Nitrogen"] * part_exportee  # Quantité d'azote exportée pour cette culture
+
+                if culture not in self.df_cultures.index:
+                    culture = "Wheat"  # Si la culture n'est pas dans df_cultures, on remplace par du blé
+
+                # c. Récupérer la production d'azote et la surface de la culture
+                prod = self.df_cultures.loc[culture, "Nitrogen Production (ktN)"]
+                surface = self.df_cultures.loc[culture, "Area (ha)"]
+
+                # d. Calculer la surface nécessaire pour produire l'azote consommé
+                if prod > 0:
+                    surface_equivalente = azote / prod * surface
+                    surface_par_culture_exporte[culture] += surface_equivalente
+        export_animal = surface_par_culture_exporte.sum()
+
+        # Export culture
+        # Feed
+        export_surface_feed = (
+            self.df_cultures["Nitrogen Exported For Feed (ktN)"]
+            / self.df_cultures["Nitrogen Production (ktN)"]
+            * self.df_cultures["Area (ha)"]
+        ).sum()
+        # Food
+        export_surface_food = (
+            self.df_cultures["Available Nitrogen After Feed, Export Feed and Food (ktN)"]
+            / self.df_cultures["Nitrogen Production (ktN)"]
+            * self.df_cultures["Area (ha)"]
+        ).sum()
+        return pd.Series(
+            {
+                "Local Food": int(local_surface_food),
+                "Local Feed": int(local_surface_feed),
+                "Import Food": int(total_food_import),
+                "Import Feed": int(total_feed_import),
+                "Import Livestock": int(import_animal),
+                "Export Livestock": -int(export_animal),
+                "Export Feed": -int(export_surface_feed),
+                "Export Food": -int(export_surface_food),
+            }
+        )
+
+    def net_footprint(self):
+        df = self.env_footprint()
+        df_total_import = df.loc[["Import Food", "Import Feed", "Import Livestock"]].sum(axis=0)
+        df_total_export = df.loc[["Export Food", "Export Feed", "Export Livestock"]].sum(axis=0)
+        net_import_export = df_total_import + df_total_export
+        return np.round(net_import_export / 1e6, 2)
 
 
 # Créer une instance du modèle
