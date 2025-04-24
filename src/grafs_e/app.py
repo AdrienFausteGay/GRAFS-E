@@ -1,6 +1,7 @@
 # %%
 import json
 import os
+import tempfile
 from importlib.metadata import version
 
 import branca
@@ -18,6 +19,7 @@ from streamlit_folium import st_folium
 
 from grafs_e.donnees import *
 from grafs_e.N_class import DataLoader, NitrogenFlowModel
+from grafs_e.prospective import NitrogenFlowModel_prospect
 from grafs_e.sankey import (
     streamlit_sankey_app,
     streamlit_sankey_fertilization,
@@ -83,8 +85,17 @@ else:
     st.warning("⚠️ Please select a year")
 
 # -- Sélection des onglets --
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
-    ["Documentation", "Run", "Sankey", "Detailed data", "Map", "Historic Evolution"]
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(
+    [
+        "Documentation",
+        "Run",
+        "Sankey",
+        "Detailed data",
+        "Map",
+        "Historic Evolution",
+        "Scenario Generator",
+        "Prospective Mode",
+    ]
 )
 
 with tab1:
@@ -271,7 +282,7 @@ with tab2:
     def create_map():
         geojson_data = load_geojson()  # Charger les données JSON
         geojson_data = add_france_rectangle(geojson_data)
-        map_center = [48.8566, 2.3522]  # Centre de la carte (ex: Paris)
+        map_center = [46.6034, 1.8883]  # Centre approximatif de la France
 
         # Vérifier la connexion Internet
         online = is_online()
@@ -627,6 +638,7 @@ def get_metrics_for_all_regions(_models, metric_name, year):
         "Total net plant import": "net_imported_plant",
         "Total net animal import": "net_imported_animal",
         "Total plant production": "total_plant_production",
+        "Environmental Footprint": "net_footprint",
         "NUE": "NUE",
         "System NUE": "NUE_system",
         "Cereals production": "cereals_production",
@@ -680,7 +692,7 @@ def add_color_legend(m, vmin, vmax, cmap, metric_name):
 # 📌 Fonction pour créer la carte et stocker dans `st.session_state`
 @st.cache_resource
 def create_map_with_metrics(geojson_data, metrics, metric_name, year):
-    map_center = [48.8566, 2.3522]  # Centre (Paris)
+    map_center = [46.6034, 1.8883]  # Centre approximatif de la France
     m = folium.Map(location=map_center, zoom_start=6, tiles="OpenStreetMap")
 
     for feature in geojson_data["features"]:
@@ -691,8 +703,8 @@ def create_map_with_metrics(geojson_data, metrics, metric_name, year):
             # 📌 Obtenir min et max du metric sélectionné
             min_val, max_val = get_metric_range(metrics)
 
-            if "net" in metric_name:
-                cmap = cm.get_cmap("RdYlGn")
+            if "net" in metric_name or "Footprint" in metric_name:
+                cmap = cm.get_cmap("bwr")
                 min_val = min(min_val, -abs(max_val))
                 max_val = max(abs(min_val), max_val)
             else:
@@ -732,6 +744,12 @@ def create_map_with_metrics(geojson_data, metrics, metric_name, year):
                         style_function=style_function,
                         tooltip=folium.Tooltip(f"{region_name}: {metric_value:.2f}"),
                     ).add_to(m)
+                if "Footprint" in metric_name:
+                    folium.GeoJson(
+                        feature,
+                        style_function=style_function,
+                        tooltip=folium.Tooltip(f"{region_name}: {metric_value} M ha"),
+                    ).add_to(m)
                 else:
                     folium.GeoJson(
                         feature,
@@ -759,6 +777,7 @@ with tab5:
         "Total net animal import",
         "Total plant production",
         "Total animal production",
+        "Environmental Footprint",
         "NUE",
         "System NUE",
         "Cereals production",
@@ -804,7 +823,7 @@ with tab5:
             st.title("Nitrogen Map")
 
         if st.session_state.map_html:
-            st.components.v1.html(st.session_state.map_html, height=600, scrolling=True)
+            st.components.v1.html(st.session_state.map_html, height=800, scrolling=True)
         else:
             st.warning("Please run the model to generate the map.")
 
@@ -838,6 +857,7 @@ def get_metrics_for_all_years(_models, metric_name, region):
         "Total net animal import": "net_imported_animal",
         "Total plant production": "stacked_plant_production",
         "Area": "surfaces",
+        "Environmental Footprint": "env_footprint",
         "Area tot": "surfaces_tot",
         "Total Fertilization": "tot_fert",
         "Relative Fertilization": "rel_fert",
@@ -1231,6 +1251,98 @@ def stacked_area_chart(_models, metric, region):
                 )
             )
 
+    if metric == "Environmental Footprint":
+        color = {
+            "Local Food": "blue",
+            "Local Feed": "lightgreen",
+            "Import Food": "lightgray",
+            "Import Feed": "darkgray",
+            "Import Livestock": "cyan",
+            "Export Livestock": "lightblue",
+            "Export Feed": "green",
+            "Export Food": "red",
+        }
+
+        color = {
+            # Local – bleus
+            "Local Food": "#1f77b4",
+            "Local Feed": "#5fa2ce",
+            # Import – violets
+            "Import Food": "#9467bd",
+            "Import Feed": "#b799d3",
+            "Import Livestock": "#d4c2e5",
+            # Export – rouges / corail
+            "Export Food": "#d62728",
+            "Export Feed": "#ff796c",
+            "Export Livestock": "#ffb1a8",
+        }
+
+        net_curve_color = "#c48b00"  # très lisible sur fond noir
+
+        # Séparer les catégories
+        import_categories = ["Import Food", "Import Feed", "Import Livestock", "Local Food", "Local Feed"]
+        export_categories = ["Export Food", "Export Feed", "Export Livestock"]
+
+        for name in import_categories:
+            fig.add_trace(
+                go.Scatter(
+                    x=all_years,
+                    y=df.loc[name],  # pas de cumul
+                    mode="none",  # juste l'aire
+                    stackgroup="p",  # pile positive
+                    name=name,
+                    fillcolor=color[name],
+                    customdata=(df.loc[name] / 1e6).values.reshape(-1, 1),
+                    hovertemplate=f"<b>{name}</b><br>Year %{{x}}<br>%{{customdata[0]:.2f}} M ha<extra></extra>",
+                )
+            )
+
+        # -------- EXPORTS (négatifs) -------------------------------
+        for name in export_categories:
+            fig.add_trace(
+                go.Scatter(
+                    x=all_years,
+                    y=df.loc[name],  # on passe en négatif
+                    mode="none",
+                    stackgroup="n",  # pile négative
+                    name=name,
+                    fillcolor=color[name],
+                    customdata=(-df.loc[name] / 1e6).values.reshape(-1, 1),
+                    hovertemplate=f"<b>{name}</b><br>Year %{{x}}<br>%{{customdata[0]:.2f}} M ha<extra></extra>",
+                )
+            )
+
+        # Calculer le total importé - exporté
+        df_total_import = df.loc[["Import Food", "Import Feed", "Import Livestock"]].sum(axis=0)
+        df_total_export = df.loc[export_categories].sum(axis=0)
+        df_net_import_export = df_total_import + df_total_export
+
+        # Ajouter la ligne de production végétale totale
+        fig.add_trace(
+            go.Scatter(
+                x=all_years,
+                y=df_net_import_export,
+                mode="lines+markers",
+                line=dict(
+                    color=net_curve_color, width=4, dash="dash"
+                ),  # line=dict(color="Black", width=4, dash="dash"),
+                name="Net Land Import",
+                hovertemplate="Year: %{x}<br>Value: %{customdata:.2f} M ha<extra></extra>",
+                customdata=df_net_import_export.values.reshape(-1, 1)
+                / 1e6,  # Utiliser les valeurs non cumulées pour le hover, divisées par 1e6
+            )
+        )
+
+        # Mise à jour du layout
+        fig.update_layout(
+            title=f"Environmental Footprint - {region}",
+            xaxis_title="Year",
+            yaxis_title="ha",
+            # hovermode="closest",
+            showlegend=True,
+            hovermode="x unified",
+        )
+
     # -----------------------------------------------------------------
     # 3) Affichage
     # -----------------------------------------------------------------
@@ -1249,6 +1361,7 @@ with tab6:
         "Total plant production",
         "Total animal production",
         "Area",
+        "Environmental Footprint",
         "Total Fertilization",
         "Relative Fertilization",
         "Primary Nitrogen fertilization use",
@@ -1276,6 +1389,15 @@ with tab6:
 
     st.session_state.metric_hist = st.selectbox("Select a metric", metric_hist, index=0, key="hist_metric_selection")
 
+    m_hist = create_map()
+    map_data_hist = st_folium(m_hist, height=600, use_container_width=True, key="hist_map")
+
+    # 🔹 Mettre à jour `st.session_state.selected_region` avec la sélection utilisateur
+    if map_data_hist and "last_active_drawing" in map_data_hist:
+        last_drawing = map_data_hist["last_active_drawing"]
+        if last_drawing and "properties" in last_drawing and "nom" in last_drawing["properties"]:
+            st.session_state.selected_region_hist = last_drawing["properties"]["nom"]
+
     # ✅ Affichage des sélections (se met à jour dynamiquement)
     if "selected_region_hist" not in st.session_state:
         st.session_state.selected_region_hist = None
@@ -1283,15 +1405,6 @@ with tab6:
         st.write(f"✅ Région sélectionnée : {st.session_state.selected_region_hist}")
     else:
         st.warning("⚠️ Veuillez sélectionner une région")
-
-    m_hist = create_map()
-    map_data_hist = st_folium(m_hist, width=700, height=500, key="hist_map")
-
-    # 🔹 Mettre à jour `st.session_state.selected_region` avec la sélection utilisateur
-    if map_data_hist and "last_active_drawing" in map_data_hist:
-        last_drawing = map_data_hist["last_active_drawing"]
-        if last_drawing and "properties" in last_drawing and "nom" in last_drawing["properties"]:
-            st.session_state.selected_region_hist = last_drawing["properties"]["nom"]
 
     if st.button("Run", key="map_button_hist"):
         with st.spinner("🚀 Running models and calculating metrics..."):
@@ -1303,9 +1416,142 @@ with tab6:
                 "Relative Fertilization",
                 "Total Fertilization",
                 "Total plant production",
+                "Environmental Footprint",
             ]:
                 plot_standard_graph(models, st.session_state.metric_hist, st.session_state.selected_region_hist)
             else:
                 stacked_area_chart(models, st.session_state.metric_hist, st.session_state.selected_region_hist)
+
+with tab7:
+    st.title("Scenario generator")
+
+    st.text("Welcome to the prospective mode. Here you can imagine the future of agriculture according to your vision.")
+
+    st.subheader("How to proceed ?")
+
+    st.text(
+        "You have to fill a scenario excel. Several tokens are needed to run the model in prospective mode. They are splitted in 3 tabs :"
+    )
+    st.markdown(
+        "- main: In this tab, you have to fill the main characteristics of the future of your territory : population, access to international trade, access to industrial input..."
+    )
+    st.markdown(
+        "- area: In this tab, you have to distribute the total agricultural area between crops and select the parameter of the production function : the maximum yield, $Y_{max}$ (kgN/ha) and the reactivity of crop to fertilizer, $k$ (kgN/ha)"
+    )
+    st.markdown("The yield is computed as $Y = Y_{\\text{max}} \\cdot (1 - e^{-F/k})$")
+
+    st.markdown(
+        "- technical: This tab encompass all technical coefficient (excretion per LU, weight of the optimization model, time spend by livestock in crops). It reflects potential technical evolution in agriculture and physical constraints."
+    )
+
+    st.subheader("Scenario file")
+
+    st.markdown(
+        "Here you can find a blank scenario sheet. Please fill all items in main and technical tabs. Fill as many lines in area as you need crops. Make sure the sum of proportion column is 1 and for each crop $Y_{max}$<$k$."
+    )
+
+    # Absolute path to the folder where the script is located
+    base_path = os.path.dirname(os.path.abspath(__file__))
+
+    # Join with your relative file
+    file_path = os.path.join(base_path, "data", "scenario.xlsx")
+    # Read the binary content of the file
+    with open(file_path, "rb") as file:
+        file_bytes = file.read()
+
+    # Create the download button
+    st.download_button(
+        label="📥 Download blank Scenario Excel",
+        data=file_bytes,
+        file_name="scenario.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+    st.markdown("Once you have your scenario ready, go to Prospective mode tab.")
+
+    st.subheader("Hard to find these numbers ?")
+    st.text(
+        "It might be hard to create from scratch a physical functioning agro-system. To oversome this difficulty, you can use the scenario generator. To do so, choose a territory, a futur year. The scenario generator will automatically create a 'Business as usual' scenario. This scenario is created based on historical trajectory of the territory."
+    )
+
+    st.title("Scenario Generator")
+
+    # 🟢 Sélection de l'année
+    st.session_state.pros_year = st.selectbox("Select a year", annees_disponibles, index=0, key="year_pros_selection")
+
+    # ✅ Affichage des sélections (se met à jour dynamiquement)
+    if "selected_region_pros" not in st.session_state:
+        st.session_state.selected_region_pros = None
+    if st.session_state.selected_region_pros:
+        st.write(f"✅ Région sélectionnée : {st.session_state.selected_region_pros}")
+    else:
+        st.warning("⚠️ Veuillez sélectionner une région")
+
+    m_hist = create_map()
+    map_data_pros = st_folium(m_hist, height=600, use_container_width=True, key="pros_map")
+
+    # 🔹 Mettre à jour `st.session_state.selected_region` avec la sélection utilisateur
+    if map_data_pros and "last_active_drawing" in map_data_pros:
+        last_drawing = map_data_pros["last_active_drawing"]
+        if last_drawing and "properties" in last_drawing and "nom" in last_drawing["properties"]:
+            st.session_state.selected_region_pros = last_drawing["properties"]["nom"]
+
+    if st.button("Create business as usual scenario", key="map_button_scenario"):
+        st.markdown("Once you have your scenario ready, go to Prospective mode tab.")
+
+with tab8:
+    st.title("Prospective mode")
+
+    st.subheader("How to use GRAFS-E Prospective Mode")
+
+    st.text(
+        "To use the GRAFS-E Prospective Mode, you need a scenario sheet. This file can be generated and downloaded from Scenario Generator tab."
+    )
+
+    st.text("Once you have your scenario ready, load it here and hit run!")
+
+    st.subheader("📂 Upload your Excel scenario")
+
+    uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx"])
+
+    if uploaded_file is None:
+        st.warning("⚠️ Please upload an Excel file to proceed.")
+    else:
+        try:
+            # 🔹 Créer un fichier temporaire
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp_file:
+                tmp_file.write(uploaded_file.read())
+                temp_path = tmp_file.name
+
+            # ✅ Lire le fichier temporaire avec pandas
+            df = pd.read_excel(temp_path)
+
+            # Optionally show a preview
+            st.success("✅ File successfully loaded!")
+
+            # Extract specific cells
+
+            scenario_name = df.iloc[14, 1]  # B16 -> row 15, col 1 (0-based)
+            region_name = df.iloc[15, 1]  # B17
+            year = df.iloc[16, 1]  # B18
+
+            st.markdown(f"**📘 Scenario:** {scenario_name}")
+            st.markdown(f"**🗺️ Region:** {region_name}")
+            st.markdown(f"**📆 Year:** {year}")
+
+            st.session_state.selected_region = region_name
+            st.session_state.year = year
+
+            # You can now pass `df` or `uploaded_file` to your class
+            # e.g., model = NitrogenFlowModel(df)
+
+            if st.button("Run scenario", key="map_button_pros"):
+                model = NitrogenFlowModel_prospect(temp_path)
+                st.success("✅ Prospective Mode successfully runned!")
+                st.text("Please, use Sankey and Detailed Data as for the historic mode to see results.")
+
+        except Exception as e:
+            st.error(f"❌ Failed to read Excel file: {e}")
+
 
 # %%

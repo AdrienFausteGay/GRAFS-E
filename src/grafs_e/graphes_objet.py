@@ -17,6 +17,8 @@ class Graphs_maker:
         self.data = DataLoader()
 
     def get_graph(self, region, year, cut_isolated=True):
+        from grafs_e.N_class import NitrogenFlowModel
+
         nitrogen_model = NitrogenFlowModel(
             data=self.data,
             year=year,
@@ -48,6 +50,8 @@ class Graphs_maker:
         return G
 
     def get_matrix(self, year, region):
+        from grafs_e.N_class import NitrogenFlowModel
+
         nitrogen_model = NitrogenFlowModel(
             data=self.data,
             year=year,
