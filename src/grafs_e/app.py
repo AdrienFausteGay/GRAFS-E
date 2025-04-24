@@ -282,7 +282,7 @@ with tab2:
     def create_map():
         geojson_data = load_geojson()  # Charger les données JSON
         geojson_data = add_france_rectangle(geojson_data)
-        map_center = [48.8566, 2.3522]  # Centre de la carte (ex: Paris)
+        map_center = [46.6034, 1.8883]  # Centre approximatif de la France
 
         # Vérifier la connexion Internet
         online = is_online()
@@ -692,7 +692,7 @@ def add_color_legend(m, vmin, vmax, cmap, metric_name):
 # 📌 Fonction pour créer la carte et stocker dans `st.session_state`
 @st.cache_resource
 def create_map_with_metrics(geojson_data, metrics, metric_name, year):
-    map_center = [48.8566, 2.3522]  # Centre (Paris)
+    map_center = [46.6034, 1.8883]  # Centre approximatif de la France
     m = folium.Map(location=map_center, zoom_start=6, tiles="OpenStreetMap")
 
     for feature in geojson_data["features"]:
@@ -704,7 +704,7 @@ def create_map_with_metrics(geojson_data, metrics, metric_name, year):
             min_val, max_val = get_metric_range(metrics)
 
             if "net" in metric_name or "Footprint" in metric_name:
-                cmap = cm.get_cmap("RdYlGn")
+                cmap = cm.get_cmap("bwr")
                 min_val = min(min_val, -abs(max_val))
                 max_val = max(abs(min_val), max_val)
             else:
@@ -823,7 +823,7 @@ with tab5:
             st.title("Nitrogen Map")
 
         if st.session_state.map_html:
-            st.components.v1.html(st.session_state.map_html, height=600, scrolling=True)
+            st.components.v1.html(st.session_state.map_html, height=800, scrolling=True)
         else:
             st.warning("Please run the model to generate the map.")
 
@@ -1252,74 +1252,63 @@ def stacked_area_chart(_models, metric, region):
             )
 
     if metric == "Environmental Footprint":
-        # Parcourir chaque culture dans l'ordre de l'index (df.index)
-        emissions_list = [
-            "Local Food",
-            "Local Feed",
-            "Import Food",
-            "Import Feed",
-            "Export Livestock",
-            "Export Feed",
-            "Export Food",
-        ]
         color = {
-            "Local Food": "gold",
+            "Local Food": "blue",
             "Local Feed": "lightgreen",
             "Import Food": "lightgray",
-            "Import Feed": "gray",
-            "Import Livestock": "darkgrey",
+            "Import Feed": "darkgray",
+            "Import Livestock": "cyan",
             "Export Livestock": "lightblue",
             "Export Feed": "green",
-            "Export Food": "yellow",
+            "Export Food": "red",
         }
+
+        color = {
+            # Local – bleus
+            "Local Food": "#1f77b4",
+            "Local Feed": "#5fa2ce",
+            # Import – violets
+            "Import Food": "#9467bd",
+            "Import Feed": "#b799d3",
+            "Import Livestock": "#d4c2e5",
+            # Export – rouges / corail
+            "Export Food": "#d62728",
+            "Export Feed": "#ff796c",
+            "Export Livestock": "#ffb1a8",
+        }
+
+        net_curve_color = "#c48b00"  # très lisible sur fond noir
 
         # Séparer les catégories
         import_categories = ["Import Food", "Import Feed", "Import Livestock", "Local Food", "Local Feed"]
         export_categories = ["Export Food", "Export Feed", "Export Livestock"]
 
-        # Calcul cumulatif pour chaque catégorie
-        df_cumsum_import = df.loc[import_categories].cumsum(axis=0)
-        df_cumsum_export = df.loc[export_categories].cumsum(axis=0)
-
-        # Ajouter une ligne "Base" (0) pour le fill='tonexty'
-        df_cumsum_import.loc["Base"] = 0
-        df_cumsum_export.loc["Base"] = 0
-
-        df_cumsum_import = df_cumsum_import.sort_index()
-        df_cumsum_export = df_cumsum_export.sort_index()
-
-        # from IPython import embed
-
-        # embed()
-
-        for emission in import_categories + export_categories:
-            if emission in import_categories:
-                cumsum_df = df_cumsum_import
-            elif emission in export_categories:
-                cumsum_df = df_cumsum_export
-
-            hover_data = df.loc[import_categories + export_categories].T.apply(lambda x: x / 1e6).values
-
-            # Tracer les valeurs positives
+        for name in import_categories:
             fig.add_trace(
                 go.Scatter(
                     x=all_years,
-                    y=cumsum_df.loc[emission],  # Utiliser les valeurs cumulées pour l'affichage
-                    fill="tonexty",  # Remplir avec la courbe suivante
-                    mode="lines",
-                    line=dict(color=color[emission], width=0.5),
-                    name=emission,  # Nom affiché dans la légende
-                    customdata=hover_data,
-                    hovertemplate=(
-                        "<b>Year: %{x}</b><br>"
-                        + "<br>".join(
-                            [
-                                f"{cat}: %{{customdata[{i}]:.2f}} M ha"
-                                for i, cat in enumerate(import_categories + export_categories)
-                            ]
-                        )
-                        + "<extra></extra>"
-                    ),
+                    y=df.loc[name],  # pas de cumul
+                    mode="none",  # juste l'aire
+                    stackgroup="p",  # pile positive
+                    name=name,
+                    fillcolor=color[name],
+                    customdata=(df.loc[name] / 1e6).values.reshape(-1, 1),
+                    hovertemplate=f"<b>{name}</b><br>Year %{{x}}<br>%{{customdata[0]:.2f}} M ha<extra></extra>",
+                )
+            )
+
+        # -------- EXPORTS (négatifs) -------------------------------
+        for name in export_categories:
+            fig.add_trace(
+                go.Scatter(
+                    x=all_years,
+                    y=df.loc[name],  # on passe en négatif
+                    mode="none",
+                    stackgroup="n",  # pile négative
+                    name=name,
+                    fillcolor=color[name],
+                    customdata=(-df.loc[name] / 1e6).values.reshape(-1, 1),
+                    hovertemplate=f"<b>{name}</b><br>Year %{{x}}<br>%{{customdata[0]:.2f}} M ha<extra></extra>",
                 )
             )
 
@@ -1334,7 +1323,9 @@ def stacked_area_chart(_models, metric, region):
                 x=all_years,
                 y=df_net_import_export,
                 mode="lines+markers",
-                line=dict(color="white", width=3, dash="dash"),
+                line=dict(
+                    color=net_curve_color, width=4, dash="dash"
+                ),  # line=dict(color="Black", width=4, dash="dash"),
                 name="Net Land Import",
                 hovertemplate="Year: %{x}<br>Value: %{customdata:.2f} M ha<extra></extra>",
                 customdata=df_net_import_export.values.reshape(-1, 1)
@@ -1347,8 +1338,9 @@ def stacked_area_chart(_models, metric, region):
             title=f"Environmental Footprint - {region}",
             xaxis_title="Year",
             yaxis_title="ha",
-            hovermode="closest",
+            # hovermode="closest",
             showlegend=True,
+            hovermode="x unified",
         )
 
     # -----------------------------------------------------------------
@@ -1397,6 +1389,15 @@ with tab6:
 
     st.session_state.metric_hist = st.selectbox("Select a metric", metric_hist, index=0, key="hist_metric_selection")
 
+    m_hist = create_map()
+    map_data_hist = st_folium(m_hist, height=600, use_container_width=True, key="hist_map")
+
+    # 🔹 Mettre à jour `st.session_state.selected_region` avec la sélection utilisateur
+    if map_data_hist and "last_active_drawing" in map_data_hist:
+        last_drawing = map_data_hist["last_active_drawing"]
+        if last_drawing and "properties" in last_drawing and "nom" in last_drawing["properties"]:
+            st.session_state.selected_region_hist = last_drawing["properties"]["nom"]
+
     # ✅ Affichage des sélections (se met à jour dynamiquement)
     if "selected_region_hist" not in st.session_state:
         st.session_state.selected_region_hist = None
@@ -1404,15 +1405,6 @@ with tab6:
         st.write(f"✅ Région sélectionnée : {st.session_state.selected_region_hist}")
     else:
         st.warning("⚠️ Veuillez sélectionner une région")
-
-    m_hist = create_map()
-    map_data_hist = st_folium(m_hist, width=700, height=500, key="hist_map")
-
-    # 🔹 Mettre à jour `st.session_state.selected_region` avec la sélection utilisateur
-    if map_data_hist and "last_active_drawing" in map_data_hist:
-        last_drawing = map_data_hist["last_active_drawing"]
-        if last_drawing and "properties" in last_drawing and "nom" in last_drawing["properties"]:
-            st.session_state.selected_region_hist = last_drawing["properties"]["nom"]
 
     if st.button("Run", key="map_button_hist"):
         with st.spinner("🚀 Running models and calculating metrics..."):
@@ -1496,7 +1488,7 @@ with tab7:
         st.warning("⚠️ Veuillez sélectionner une région")
 
     m_hist = create_map()
-    map_data_pros = st_folium(m_hist, width=700, height=500, key="pros_map")
+    map_data_pros = st_folium(m_hist, height=600, use_container_width=True, key="pros_map")
 
     # 🔹 Mettre à jour `st.session_state.selected_region` avec la sélection utilisateur
     if map_data_pros and "last_active_drawing" in map_data_pros:
