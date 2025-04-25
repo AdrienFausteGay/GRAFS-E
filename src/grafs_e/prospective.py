@@ -1371,8 +1371,6 @@ class CultureData_prospect:
         epend["Ymax (kgN/ha)"] = Ymax
         epend["k (kgN/ha)"] = k
 
-        epend.rename(columns={"Surface recevant N organique maîtrisable": "Spreading Rate (%)"}, inplace=True)
-
         return epend
 
 
@@ -1974,23 +1972,11 @@ class NitrogenFlowModel_prospect:
         adjacency_matrix[:, label_to_index["NH3 volatilization"]] *= 0.9
         flux_generator.generate_flux(source, target)
 
-        # Est ce qu'on a besoin de cette ligne ? TODO
-        df_cultures["Surface Fertilization Need (kgN/ha)"] += (
-            df_cultures["Fertilization Need (kgN/qtl)"]
-            * df_cultures["Ymax (kgN/ha)"]
-            / df_cultures["Nitrogen Content (%)"]
-            / 100
-        )
-
         df_cultures = df_cultures.fillna(0)
 
         # Calcul de l'azote épendu par hectare
         def calculer_azote_ependu(culture):
-            sources = (
-                self.betail
-                + self.Pop
-                + ["atmospheric N2", "Atmospheric deposition", "other sectors", "NH3 volatilization", "N2O emission"]
-            )
+            sources = self.betail + self.Pop + ["atmospheric N2", "other sectors", "NH3 volatilization", "N2O emission"]
             adj_matrix_df = pd.DataFrame(adjacency_matrix, index=self.labels, columns=self.labels)
             return adj_matrix_df.loc[sources, culture].sum()
 
@@ -2838,7 +2824,7 @@ class NitrogenFlowModel_prospect:
             df_cultures["Volatilized Nitrogen N-NH3 (ktN)"] = (
                 df_cultures["Synthetic Fertilizer Use (ktN)"] * 0.99 * coef_volat_NH3
             )
-            df_cultures["Volatilized Nitrogen N-N20 (ktN)"] = df_cultures["Synthetic Fertilizer Use (ktN)"] * (
+            df_cultures["Volatilized Nitrogen N-N2O (ktN)"] = df_cultures["Synthetic Fertilizer Use (ktN)"] * (
                 coef_volat_N2O + 0.01 * coef_volat_NH3
             )
             df_cultures["Synthetic Fertilizer Use (ktN)"] = df_cultures["Synthetic Fertilizer Use (ktN)"] * (
@@ -2855,7 +2841,7 @@ class NitrogenFlowModel_prospect:
 
             flux_generator.generate_flux(source, target)
 
-            source = df_cultures["Volatilized Nitrogen N-N20 (ktN)"].to_dict()
+            source = df_cultures["Volatilized Nitrogen N-N2O (ktN)"].to_dict()
             target = {"N2O emission": 1}
 
             flux_generator.generate_flux(source, target)
@@ -2863,7 +2849,7 @@ class NitrogenFlowModel_prospect:
             # A cela on ajoute les emissions indirectes de N2O lors de la fabrication des engrais
             # epend_tot_synt = (
             #     df_cultures["Volatilized Nitrogen N-NH3 (ktN)"]
-            #     + df_cultures["Volatilized Nitrogen N-N20 (ktN)"]
+            #     + df_cultures["Volatilized Nitrogen N-N2O (ktN)"]
             #     + df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"]
             # ).sum()
             epend_tot_synt = df_cultures["Synthetic Fertilizer Use (ktN)"].sum()
@@ -3272,7 +3258,7 @@ class NitrogenFlowModel_prospect:
                         target = {
                             "other losses": 0.2925,
                             "hydro-system": 0.7,
-                            "N20 emission": 0.0075,
+                            "N2O emission": 0.0075,
                         }
                         flux_generator.generate_flux(source, target)
                         source = {
@@ -3293,7 +3279,7 @@ class NitrogenFlowModel_prospect:
             + df_cultures["Total Non Synthetic Fertilizer Use (ktN)"]
             - df_cultures["Nitrogen Production (ktN)"]
             - df_cultures["Volatilized Nitrogen N-NH3 (ktN)"]
-            - df_cultures["Volatilized Nitrogen N-N20 (ktN)"]  # Pas de volat sous forme de N2 ?
+            - df_cultures["Volatilized Nitrogen N-N2O (ktN)"]  # Pas de volat sous forme de N2 ?
         )
 
         # On équilibre Haber-Bosch avec atmospheric N2 pour le faire entrer dans le système
