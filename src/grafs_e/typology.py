@@ -277,19 +277,19 @@ for reg in regions:
         surf = m.surfaces()
         rows.append(
             {
-                "Region": reg,
+                "Region_year": reg + "_" + year,
                 "Yield_mean": Y_mean,
                 "Tot_fert": m.tot_fert(),
                 "ImpN_ratio": m.imported_nitrogen() / max(m.total_plant_production(), 1e-6),
                 "Net_footp": m.net_footprint(),
-                "Emissions": _safe_sum(m.emissions()),
+                "Emissions": m.emissions(),
                 "NUE": m.NUE_system(),
                 "Grass_share": surf.get("Natural meadow ", 0) / max(m.surfaces_tot(), 1e-6),
                 "Imp_anim%": m.net_imported_animal() / max(m.animal_production(), 1e-6),
             }
         )
 
-df = pd.DataFrame(rows).set_index("Region")
+df = pd.DataFrame(rows).set_index("Region_year")
 
 
 # %%
@@ -356,4 +356,38 @@ summary = (
     .agg(["mean", "std"])  # moyenne & écart-type par variable
     .round(2)
 )
+# %% Visualisation des trajectoires
+
+# ─── on remet Region / Year & Cluster dans le même DF
+df_plot = df_numeric.copy()
+
+df_plot = df_plot.reset_index()
+
+df_plot = df_plot.rename(columns={"index": "Region_year"})
+
+df_plot[["Region", "Year"]] = df_plot.index.str.rsplit("_", n=1, expand=True)
+df_plot["Year"] = df_plot["Year"].astype(int)
+
+# %%
+
+# ────────────────── 3) visualisation des trajectoires ───────────────────
+palette = dict(zip(regions, sns.color_palette("husl", n_colors=len(regions))))
+
+fig, ax = plt.subplots(figsize=(12, 8))
+
+# a) nuage de points (x=cluster, y=année)
+sns.scatterplot(data=df_plot, x="Cluster", y="Year", hue="Region", palette=palette, s=90, edgecolor="k", ax=ax)
+
+# b) segments région → région (années ordonnées)
+for reg, grp in df_plot.sort_values("Year").groupby("Region"):
+    ax.plot(grp["Cluster"], grp["Year"], color=palette[reg], linewidth=1, alpha=0.4)
+
+ax.set(xlabel="Cluster assigné", ylabel="Année", title="Trajectoires régionales dans l’espace des clusters")
+ax.invert_yaxis()  # année la plus ancienne en haut
+ax.grid(alpha=0.3)
+ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left", title="Région")
+
+plt.tight_layout()
+plt.show()
+
 # %%
