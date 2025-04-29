@@ -365,7 +365,7 @@ df_plot = df_plot.reset_index()
 
 df_plot = df_plot.rename(columns={"index": "Region_year"})
 
-df_plot[["Region", "Year"]] = df_plot.index.str.rsplit("_", n=1, expand=True)
+df_plot[["Region", "Year"]] = df_plot["Region_year"].str.rsplit("_", n=1, expand=True)
 df_plot["Year"] = df_plot["Year"].astype(int)
 
 # %%
