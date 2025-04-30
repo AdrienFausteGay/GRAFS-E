@@ -1,7 +1,10 @@
 # %%
+import string
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 import seaborn as sns
 from matplotlib.patches import Patch
 from scipy.cluster.hierarchy import dendrogram, fcluster, linkage
@@ -271,7 +274,7 @@ for reg in regions:
 
         # Y moyen sur 4 cultures repères
         cultures_ref = ["Wheat", "Barley", "Rapeseed", "Forage maize"]
-        y_vals = [m.Y(c) for c in cultures_ref if m.Y(c) > 0]
+        y_vals = [m.Y(c) for c in cultures_ref if m.Y(c) > 0 and m.Y(c) < 200]
         Y_mean = np.mean(y_vals)
 
         surf = m.surfaces()
@@ -301,22 +304,30 @@ def expand_dict_column(df, col, prefix):
 
 df = expand_dict_column(df, "Emissions", "E")
 df = expand_dict_column(df, "Tot_fert", "F")
+
+# %%
 df_numeric = df.apply(pd.to_numeric, errors="coerce").fillna(0)
+
+df_numeric = df_numeric[
+    ["Yield_mean", "Net_footp", "Grass_share", "E_NH3 volatilization", "F_atmospheric N2", "F_Haber-Bosch"]
+]
 
 # %% Affichage
 
 X = StandardScaler().fit_transform(df_numeric)  # toutes colonnes désormais numériques
-D = pdist(X, metric="cosine")
-Zc = linkage(D, method="average")  # ou "ward", "complete", …
+# D = pdist(X, metric="cosine")
+# Zc = linkage(D, method="average")  # ou "ward", "complete", …
 
-plt.figure(figsize=(10, 4))
+Zc = linkage(X, method="ward")
+
+plt.figure(figsize=(100, 4))
 dendrogram(Zc, labels=df_numeric.index, leaf_rotation=90, color_threshold=0.6)
 plt.ylabel("Dissimilarity")
 plt.show()
 
 # %% Visualisation des liens avec indicateurs
 
-labels = fcluster(Zc, t=0.7, criterion="distance")
+labels = fcluster(Zc, t=12, criterion="distance")
 # ou   labels  = fcluster(Z, t=4,  criterion='maxclust')
 
 df_numeric["Cluster"] = labels
@@ -356,6 +367,7 @@ summary = (
     .agg(["mean", "std"])  # moyenne & écart-type par variable
     .round(2)
 )
+summary["name"] = list(string.ascii_uppercase[: len(summary)])
 # %% Visualisation des trajectoires
 
 # ─── on remet Region / Year & Cluster dans le même DF
@@ -390,4 +402,99 @@ ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left", title="Région")
 plt.tight_layout()
 plt.show()
 
+# %%
+
+# ──────────────────────────────────────────────────────────────────────────
+# 0)  Données : df_numeric    (index = Region_Year)      ───────────
+#     + colonne "Cluster"            (int)
+#     + mapping numéro  → nom  :  cluster_names
+# ──────────────────────────────────────────────────────────────────────────
+cluster_names = summary["name"]  # Series : index = n° , value = libellé
+df_plot = df_numeric[["Cluster"]].copy()
+df_plot["ClusterName"] = df_plot["Cluster"].map(cluster_names)
+
+df_plot = df_plot.reset_index()
+# Séparation de l’index  "Region_Year"  → deux colonnes
+df_plot[["Region", "Year"]] = (
+    df_plot["Region_year"].str.rsplit("_", n=1, expand=True)  # ← ici expand est bien nommé
+    # .rename({0: "Region", 1: "Year"})
+)
+df_plot["Year"] = df_plot["Year"].astype(int)
+
+# ──────────────────────────────────────────────────────────────────────────
+# 1)  Génération des nœuds « année-cluster » et des liens régionaux
+# ──────────────────────────────────────────────────────────────────────────
+# (ex. nœud  "1970 – Cluster A")
+df_plot["Node"] = df_plot["Year"].astype(str) + " – " + df_plot["ClusterName"]
+
+# table des nœuds uniques
+nodes_df = df_plot[["Node", "Year", "ClusterName"]].drop_duplicates().reset_index(drop=True)
+node_index = {n: i for i, n in nodes_df["Node"].items()}  # nom → id entier
+
+# table des liens : on relie année‐t  →  année-t+1   pour chaque région
+links = []
+for reg, grp in df_plot.sort_values("Year").groupby("Region"):
+    for (_, row0), (_, row1) in zip(grp.iloc[:-1].iterrows(), grp.iloc[1:].iterrows()):
+        links.append(
+            {
+                "source": node_index[row0["Node"]],
+                "target": node_index[row1["Node"]],
+                "value": 1,  # un passage = 1
+                "region": reg,
+                "src_clu": row0["ClusterName"],
+                "dst_clu": row1["ClusterName"],
+            }
+        )
+links_df = pd.DataFrame(links)
+
+# ──────────────────────────────────────────────────────────────────────────
+# 2)  Couleurs : une couleur par cluster (husl → rgba)
+# ──────────────────────────────────────────────────────────────────────────
+clusters_unique = nodes_df["ClusterName"].unique()
+palette = dict(
+    zip(
+        clusters_unique,
+        sns.color_palette("husl", len(clusters_unique)).as_hex(),  # hex OK pour Plotly
+    )
+)
+# couleur du lien = couleur du cluster d’arrivée
+links_df["color"] = links_df["dst_clu"].map(palette)
+
+# ──────────────────────────────────────────────────────────────────────────
+# 3)  Sankey Plotly
+# ──────────────────────────────────────────────────────────────────────────
+fig = go.Figure(
+    go.Sankey(
+        node=dict(
+            pad=3,
+            thickness=12,
+            line=dict(width=0.5, color="black"),
+            label=nodes_df["ClusterName"],
+            color=nodes_df["ClusterName"].map(palette),
+            customdata=np.stack([nodes_df["Year"]], axis=-1),
+            hovertemplate=("<b>Year :</b> %{customdata[0]}<br>"),
+        ),
+        link=dict(
+            source=links_df["source"],
+            target=links_df["target"],
+            value=links_df["value"],
+            color=links_df["color"],
+            customdata=np.stack([links_df["region"], links_df["src_clu"], links_df["dst_clu"]], axis=-1),
+            hovertemplate=(
+                "<b>Région :</b> %{customdata[0]}<br>"
+                + "<b>%{customdata[1]}</b> ➜ <b>%{customdata[2]}</b><extra></extra>"
+            ),
+        ),
+    )
+)
+
+fig.update_layout(
+    title="Transitions des régions entre clusters (1852-2014)",
+    font_size=12,
+    height=1080,
+    width=1900,
+    template="plotly_white",
+)
+
+fig.show()
 # %%

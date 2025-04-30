@@ -1,5 +1,6 @@
 import os
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -218,7 +219,7 @@ class scenario:
         slope, intercept, r_value, p_value, std_err = linregress(int_year, logit)
         return 100.0 / (1.0 + np.exp(-(intercept + slope * int(year))))
 
-    def generate_crop_tab(self, region):
+    def generate_crop_tab(self, region, function_name="linear"):
         df = self.dataloader.pre_process_df(annees_disponibles[-1], region)
 
         cultures_df = df.loc[df["index_excel"].isin(range(259, 294)), ("nom", region)]
@@ -231,26 +232,123 @@ class scenario:
 
         df_insert["Enforce Area"] = False
 
+        df_insert.index = df_insert["Crops"]
+
         Y_pros = Y(self.dataloader)
 
-        def fit_and_store(culture):
-            ym, k, _ = Y_pros.fit_Y_lin(culture, region)
-            return int(ym), int(k)
+        def fit_and_store(culture: str, region: str) -> dict:
+            """
+            Calibre le modèle désigné par function_name pour <culture>.
+            Ne renvoie que les paramètres utiles à ce modèle,
+            plus le R² et le nom de la culture.
+            """
+            F, Yr = Y_pros.get_Y(culture, region)
+
+            # --- Cas sans données ---
+            empty_data = len(F) == 0 or len(Yr) == 0
+
+            if function_name == "linear":
+                a, b, _ = Y_pros.fit_Y_lin(culture, region)
+                r2 = 0 if empty_data else r2_score(Yr, Y_pros.Y_th_lin(F, a, b))
+                return {
+                    "culture": culture,
+                    "a": round(a, 2),
+                    "b": round(b, 2),
+                    "r2": round(r2, 2),
+                }
+
+            elif function_name == "linear2":
+                a, xb, c, _ = Y_pros.fit_Y_lin_2_scipy(culture, region)
+                r2 = 0 if empty_data else r2_score(Yr, Y_pros.Y_th_lin_2(F, a, xb, c))
+                return {
+                    "culture": culture,
+                    "a": round(a, 2),
+                    "xb": int(xb),
+                    "c": round(c, 2),
+                    "r2": round(r2, 2),
+                }
+
+            elif function_name == "exp":
+                ym, k, _ = Y_pros.fit_Y_exp_2(culture, region)
+                r2 = 0 if empty_data else r2_score(Yr, Y_pros.Y_th_exp_cap(F, ym, k))
+                return {
+                    "culture": culture,
+                    "Ymax (kgN/ha)": int(ym),
+                    "k (kgN/ha)": int(k),
+                    "r2": round(r2, 2),
+                }
+
+            elif function_name == "ratio":
+                ym, _ = Y_pros.fit_Y(culture, region)
+                r2 = 0 if empty_data else r2_score(Yr, Y_pros.Y_th(F, ym))
+                return {
+                    "culture": culture,
+                    "Ymax (kgN/ha)": ym,
+                    "r2": round(r2, 2),
+                }
+
+            else:
+                raise ValueError(
+                    f"Unknown model : {function_name}. Available models are 'linear', 'linear2', 'exp', 'ratio'."
+                )
 
         all_cultures = cultures + legumineuses + prairies
+        results = []
+        run_fit = partial(fit_and_store, region=region)
+        # # Lancer le traitement en parallèle
+        # with ThreadPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
+        #     results = list(
+        #         tqdm(executor.map(run_fit, all_cultures), total=len(all_cultures), desc="Fitting models", position=1,
+        #         leave=False
+        #     )
 
-        # Lancer le traitement en parallèle
-        with ThreadPoolExecutor() as executor:
-            results = list(
-                tqdm(executor.map(fit_and_store, all_cultures), total=len(all_cultures), desc="Fitting models")
-            )
+        with ThreadPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
+            futures = {executor.submit(run_fit, culture): culture for culture in all_cultures}
 
-        Y_max, kl = zip(*results)
-        df_insert["Ymax (kgN/ha)"] = Y_max
-        df_insert["k (kgN/ha)"] = kl
+            with tqdm(
+                total=len(all_cultures), desc=f"Fitting models ({region})", position=1, leave=False, dynamic_ncols=True
+            ) as pbar:
+                for future in as_completed(futures):
+                    result = future.result()
+                    results.append(result)
+                    pbar.update(1)
+                    pbar.refresh()
+
+        # results = []
+        # for culture in tqdm(all_cultures,
+        #                     desc="Fitting models",
+        #                     total=len(all_cultures)):
+        #     results.append(fit_and_store(culture, region))
+
+        df_temp = pd.DataFrame(results).set_index("culture")
+
+        # Ajouter (ou mettre à jour) les colonnes dans df_insert
+        for col in df_temp.columns:
+            df_insert[col] = df_temp[col]
         return df_insert
 
-    def generate_scenario_excel(self, year, region, name):
+    def pre_generate_scenario_excel(self, function_name="linear"):
+        model_sheets = pd.read_excel(os.path.join(self.data_path, "scenario.xlsx"), sheet_name=None)
+        for region in tqdm(regions[:], total=len(regions[:]), desc="Regions", position=0):
+            sheets = {}
+            sheet_corres = {
+                "doc": "doc",
+                "main scenario": "main",
+                "Surface changes": "area",
+                "technical scenario": "technical",
+            }
+            for sheet_name, df in model_sheets.items():
+                sheets[sheet_corres[sheet_name]] = df
+            sheets["area"] = self.generate_crop_tab(region, function_name)
+
+            target_dir = os.path.join(self.scenario_path, "pre_gen", function_name)
+            os.makedirs(target_dir, exist_ok=True)  # Crée les dossiers si besoin
+            file_path = os.path.join(target_dir, f"{region}.xlsx")
+            with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
+                for sheet_name, df in sheets.items():
+                    df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+    def generate_scenario_excel(self, year, region, name, function_name="linear"):
         self.region = region
         self.year = year
         self.last_data_year = annees_disponibles[-1]
@@ -634,7 +732,7 @@ class scenario:
             ] = self.logistic_urb_pop(self.region, self.year)
 
             # surface prop tab
-            sheets["area"] = self.generate_crop_tab(self.region)
+            # sheets["area"] = self.generate_crop_tab(self.region)
 
         with pd.ExcelWriter(os.path.join(self.scenario_path, name + ".xlsx"), engine="openpyxl") as writer:
             for sheet_name, df in sheets.items():
@@ -693,7 +791,11 @@ class Y:
     def get_Y(self, culture, region, plot=False):
         F = []
         Y = []
-        for yr in annees_disponibles:
+        if region == "Savoie":
+            years = annees_disponibles[1:]
+        else:
+            years = annees_disponibles
+        for yr in years:
             model = NitrogenFlowModel(data=self.dataloader, year=yr, region=region)
             f = model.Ftot(culture)
             y = model.Y(culture)
@@ -835,19 +937,17 @@ class Y:
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, None
-        Y_max_init = max(Y)
-
         try:
             popt, _ = curve_fit(self.Y_th_lin, F, Y, p0=[0.75, max(Y)], bounds=([0, 0], [1, max(Y) * 2]))
-            Y_max_opt = popt[0]  # 📌 Paramètre ajusté Y_max
-            k = popt[1]
+            a = popt[0]  # 📌 Paramètre ajusté Y_max
+            b = popt[1]
         except RuntimeError:
             print("⚠️ Ajustement impossible pour", culture, region)
-            Y_max_opt = 0  # Retourne None en cas d'échec
-            k = 0
+            a = 0  # Retourne None en cas d'échec
+            b = 0
 
-        Y_th_fitted = self.Y_th_lin(F, Y_max_opt, k) if Y_max_opt is not None else None
-        return Y_max_opt, k, Y_th_fitted
+        Y_th_fitted = self.Y_th_lin(F, a, b) if a is not None else None
+        return a, b, Y_th_fitted
 
     def fit_Y_lin_2(self, culture, region):
         F, Y = self.get_Y(culture, region)
