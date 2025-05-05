@@ -428,13 +428,13 @@ class NitrogenFlowModel:
         cereales = ["Wheat", "Rye", "Barley", "Oat", "Grain maize", "Other cereals"]
         somme_azote_produit_cereales = df_cultures["Nitrogen Production (ktN)"][cereales].sum()
         somme_surface_cereales = df_cultures["Area (ha)"][cereales].sum()
-        df_cultures.loc["Straw", "Area (ha)"] = (
+        df_cultures.loc["Straw", "Area (ha)"] = int(
             somme_surface_cereales
             * df_cultures.loc["Straw", "Nitrogen Production (ktN)"]
             / somme_azote_produit_cereales
         )
         for cereal in cereales:
-            df_cultures.loc[cereal, "Area (ha)"] -= (
+            df_cultures.loc[cereal, "Area (ha)"] -= int(
                 df_cultures.loc["Straw", "Area (ha)"] * df_cultures.loc[cereal, "Area (ha)"] / somme_surface_cereales
             )
         df_cultures.loc["Straw", "Yield (qtl/ha)"] = (
