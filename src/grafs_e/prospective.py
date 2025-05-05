@@ -1,5 +1,6 @@
 import os
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -38,7 +39,7 @@ class scenario:
         return L
 
     @staticmethod
-    def LU_excretion(dataloader, region):
+    def LU_excretion(dataloader, region, t=None):
         L = {}
         livestock = {
             "bovines": [(1150, 1164), (1196, 1210)],
@@ -64,6 +65,8 @@ class scenario:
                     L[i][type] = 0
                 else:
                     L[i][type] = np.dot(heads, excr_cap) / LU
+        if t != None:
+            return [entry[t] for entry in L.values()]
         return L
 
     @staticmethod
@@ -88,7 +91,7 @@ class scenario:
         return LU
 
     @staticmethod
-    def LU_prod(dataloader, region):
+    def LU_prod(dataloader, region, t=None):
         LU_prod = {}
         index = {
             "bovines": [1017, 1024],
@@ -105,6 +108,8 @@ class scenario:
             for type in index.keys():
                 if LU[i][type] == 0:
                     LU_prod[i][f"{type} productivity"] = 0
+                    if type in ["bovines", "ovines", "caprines", "poultry"]:
+                        LU_prod[i][f"{type} dairy productivity"] = 0
                 else:
                     LU_prod[i][f"{type} productivity"] = (
                         df.loc[df["index_excel"] == index[type][0], region].item() / LU[i][type] * 1e6
@@ -120,7 +125,11 @@ class scenario:
                         else:
                             LU_prod[i][f"{type} dairy productivity"] = (
                                 df.loc[df["index_excel"] == index[type][1], region].item() / LU[i][type] * 1e6
+                                if LU[i][type] > 0
+                                else 0
                             )
+        if t != None:
+            return [entry[t] for entry in LU_prod.values()]
         return LU_prod
 
     def extrapolate_recent_trend(self, data, future_year, alpha=7.0, seuil_bas=0, seuil_haut=None):
@@ -218,7 +227,7 @@ class scenario:
         slope, intercept, r_value, p_value, std_err = linregress(int_year, logit)
         return 100.0 / (1.0 + np.exp(-(intercept + slope * int(year))))
 
-    def generate_crop_tab(self, region):
+    def generate_crop_tab(self, region, function_name="linear"):
         df = self.dataloader.pre_process_df(annees_disponibles[-1], region)
 
         cultures_df = df.loc[df["index_excel"].isin(range(259, 294)), ("nom", region)]
@@ -231,26 +240,123 @@ class scenario:
 
         df_insert["Enforce Area"] = False
 
+        df_insert.index = df_insert["Crops"]
+
         Y_pros = Y(self.dataloader)
 
-        def fit_and_store(culture):
-            ym, k, _ = Y_pros.fit_Y_lin(culture, region)
-            return int(ym), int(k)
+        def fit_and_store(culture: str, region: str) -> dict:
+            """
+            Calibre le modèle désigné par function_name pour <culture>.
+            Ne renvoie que les paramètres utiles à ce modèle,
+            plus le R² et le nom de la culture.
+            """
+            F, Yr = Y_pros.get_Y(culture, region)
+
+            # --- Cas sans données ---
+            empty_data = len(F) == 0 or len(Yr) == 0
+
+            if function_name == "linear":
+                a, b, _ = Y_pros.fit_Y_lin(culture, region)
+                r2 = 0 if empty_data else r2_score(Yr, Y_pros.Y_th_lin(F, a, b))
+                return {
+                    "culture": culture,
+                    "a": round(a, 2),
+                    "b": round(b, 2),
+                    "r2": round(r2, 2),
+                }
+
+            elif function_name == "linear2":
+                a, xb, c, _ = Y_pros.fit_Y_lin_2_scipy(culture, region)
+                r2 = 0 if empty_data else r2_score(Yr, Y_pros.Y_th_lin_2(F, a, xb, c))
+                return {
+                    "culture": culture,
+                    "a": round(a, 2),
+                    "xb": int(xb),
+                    "c": round(c, 2),
+                    "r2": round(r2, 2),
+                }
+
+            elif function_name == "exp":
+                ym, k, _ = Y_pros.fit_Y_exp_2(culture, region)
+                r2 = 0 if empty_data else r2_score(Yr, Y_pros.Y_th_exp_cap(F, ym, k))
+                return {
+                    "culture": culture,
+                    "Ymax (kgN/ha)": int(ym),
+                    "k (kgN/ha)": int(k),
+                    "r2": round(r2, 2),
+                }
+
+            elif function_name == "ratio":
+                ym, _ = Y_pros.fit_Y(culture, region)
+                r2 = 0 if empty_data else r2_score(Yr, Y_pros.Y_th(F, ym))
+                return {
+                    "culture": culture,
+                    "Ymax (kgN/ha)": ym,
+                    "r2": round(r2, 2),
+                }
+
+            else:
+                raise ValueError(
+                    f"Unknown model : {function_name}. Available models are 'linear', 'linear2', 'exp', 'ratio'."
+                )
 
         all_cultures = cultures + legumineuses + prairies
+        results = []
+        run_fit = partial(fit_and_store, region=region)
+        # # Lancer le traitement en parallèle
+        # with ThreadPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
+        #     results = list(
+        #         tqdm(executor.map(run_fit, all_cultures), total=len(all_cultures), desc="Fitting models", position=1,
+        #         leave=False
+        #     )
 
-        # Lancer le traitement en parallèle
-        with ThreadPoolExecutor() as executor:
-            results = list(
-                tqdm(executor.map(fit_and_store, all_cultures), total=len(all_cultures), desc="Fitting models")
-            )
+        with ThreadPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
+            futures = {executor.submit(run_fit, culture): culture for culture in all_cultures}
 
-        Y_max, kl = zip(*results)
-        df_insert["Ymax (kgN/ha)"] = Y_max
-        df_insert["k (kgN/ha)"] = kl
+            with tqdm(
+                total=len(all_cultures), desc=f"Fitting models ({region})", position=1, leave=False, dynamic_ncols=True
+            ) as pbar:
+                for future in as_completed(futures):
+                    result = future.result()
+                    results.append(result)
+                    pbar.update(1)
+                    pbar.refresh()
+
+        # results = []
+        # for culture in tqdm(all_cultures,
+        #                     desc="Fitting models",
+        #                     total=len(all_cultures)):
+        #     results.append(fit_and_store(culture, region))
+
+        df_temp = pd.DataFrame(results).set_index("culture")
+
+        # Ajouter (ou mettre à jour) les colonnes dans df_insert
+        for col in df_temp.columns:
+            df_insert[col] = df_temp[col]
         return df_insert
 
-    def generate_scenario_excel(self, year, region, name):
+    def pre_generate_scenario_excel(self, function_name="linear"):
+        model_sheets = pd.read_excel(os.path.join(self.data_path, "scenario.xlsx"), sheet_name=None)
+        for region in tqdm(regions[23:], total=len(regions[23:]), desc="Regions", position=0):
+            sheets = {}
+            sheet_corres = {
+                "doc": "doc",
+                "main scenario": "main",
+                "Surface changes": "area",
+                "technical scenario": "technical",
+            }
+            for sheet_name, df in model_sheets.items():
+                sheets[sheet_corres[sheet_name]] = df
+            sheets["area"] = self.generate_crop_tab(region, function_name)
+
+            target_dir = os.path.join(self.scenario_path, "pre_gen", function_name)
+            os.makedirs(target_dir, exist_ok=True)  # Crée les dossiers si besoin
+            file_path = os.path.join(target_dir, f"{region}.xlsx")
+            with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
+                for sheet_name, df in sheets.items():
+                    df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+    def generate_scenario_excel(self, year, region, name, function_name="linear"):
         self.region = region
         self.year = year
         self.last_data_year = annees_disponibles[-1]
@@ -260,15 +366,26 @@ class scenario:
             self.data = self.dataloader.pre_process_df(self.last_data_year, "France")
             print(f"No region named {region} in the data")
 
-        model_sheets = pd.read_excel(os.path.join(self.data_path, "scenario.xlsx"), sheet_name=None)
+        # model_sheets = pd.read_excel(os.path.join(self.data_path, "scenario.xlsx"), sheet_name=None)
+        model_sheets = pd.read_excel(
+            os.path.join(self.data_path, "scenario_region", function_name, self.region + ".xlsx"), sheet_name=None
+        )
 
         sheets = {}
+        # sheet_corres = {
+        #     "doc": "doc",
+        #     "main scenario": "main",
+        #     "Surface changes": "area",
+        #     "technical scenario": "technical",
+        # }
+
         sheet_corres = {
             "doc": "doc",
-            "main scenario": "main",
-            "Surface changes": "area",
-            "technical scenario": "technical",
+            "main": "main",
+            "area": "area",
+            "technical": "technical",
         }
+
         for sheet_name, df in model_sheets.items():
             sheets[sheet_corres[sheet_name]] = df
         sheets["doc"][None] = None
@@ -404,142 +521,171 @@ class scenario:
                 "Business as usual",
             ] = self.historic_trend(region, 32)[-1]
 
-            # Bovines
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Bovines % excretion on grassland",
-                "Business as usual",
-            ] = self.historic_trend(region, 1250)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Bovines % excretion in the barn as litter manure",
-                "Business as usual",
-            ] = self.historic_trend(region, 1252)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Bovines % excretion in the barn as other manure",
-                "Business as usual",
-            ] = self.historic_trend(region, 1253)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Bovines % excretion in the barn as slurry",
-                "Business as usual",
-            ] = self.historic_trend(region, 1254)[-1]
+            # Excretion managment
+            for t in betail:
+                if t == "equine":
+                    t = "equines"
+                sheets["technical"].loc[
+                    sheets["technical"]["Variable"] == f"{t.capitalize()} % excretion on grassland",
+                    "Business as usual",
+                ] = self.historic_trend(region, 1250)[-1]
+                sheets["technical"].loc[
+                    sheets["technical"]["Variable"] == f"{t.capitalize()} % excretion in the barn as litter manure",
+                    "Business as usual",
+                ] = self.historic_trend(region, 1252)[-1]
+                sheets["technical"].loc[
+                    sheets["technical"]["Variable"] == f"{t.capitalize()} % excretion in the barn as other manure",
+                    "Business as usual",
+                ] = self.historic_trend(region, 1253)[-1]
+                sheets["technical"].loc[
+                    sheets["technical"]["Variable"] == f"{t.capitalize()} % excretion in the barn as slurry",
+                    "Business as usual",
+                ] = self.historic_trend(region, 1254)[-1]
 
-            # ovines
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Ovines % excretion on grassland",
-                "Business as usual",
-            ] = self.historic_trend(region, 1264)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Ovines % excretion in the barn as litter manure",
-                "Business as usual",
-            ] = self.historic_trend(region, 1266)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Ovines % excretion in the barn as other manure",
-                "Business as usual",
-            ] = self.historic_trend(region, 1267)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Ovines % excretion in the barn as slurry",
-                "Business as usual",
-            ] = self.historic_trend(region, 1268)[-1]
+            # #bovines
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Bovines % excretion on grassland",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1250)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Bovines % excretion in the barn as litter manure",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1252)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Bovines % excretion in the barn as other manure",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1253)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Bovines % excretion in the barn as slurry",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1254)[-1]
 
-            # caprines
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Caprines % excretion on grassland",
-                "Business as usual",
-            ] = self.historic_trend(region, 1278)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Caprines % excretion in the barn as litter manure",
-                "Business as usual",
-            ] = self.historic_trend(region, 1280)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Caprines % excretion in the barn as other manure",
-                "Business as usual",
-            ] = self.historic_trend(region, 1281)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Caprines % excretion in the barn as slurry",
-                "Business as usual",
-            ] = self.historic_trend(region, 1282)[-1]
+            # # ovines
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Ovines % excretion on grassland",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1264)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Ovines % excretion in the barn as litter manure",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1266)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Ovines % excretion in the barn as other manure",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1267)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Ovines % excretion in the barn as slurry",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1268)[-1]
 
-            # porcines
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Porcines % excretion on grassland",
-                "Business as usual",
-            ] = self.historic_trend(region, 1292)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Porcines % excretion in the barn as litter manure",
-                "Business as usual",
-            ] = self.historic_trend(region, 1294)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Porcines % excretion in the barn as other manure",
-                "Business as usual",
-            ] = self.historic_trend(region, 1295)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Porcines % excretion in the barn as slurry",
-                "Business as usual",
-            ] = self.historic_trend(region, 1296)[-1]
+            # # caprines
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Caprines % excretion on grassland",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1278)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Caprines % excretion in the barn as litter manure",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1280)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Caprines % excretion in the barn as other manure",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1281)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Caprines % excretion in the barn as slurry",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1282)[-1]
 
-            # poultry
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Poultry % excretion on grassland",
-                "Business as usual",
-            ] = self.historic_trend(region, 1306)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Poultry % excretion in the barn as litter manure",
-                "Business as usual",
-            ] = self.historic_trend(region, 1308)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Poultry % excretion in the barn as other manure",
-                "Business as usual",
-            ] = self.historic_trend(region, 1309)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Poultry % excretion in the barn as slurry",
-                "Business as usual",
-            ] = self.historic_trend(region, 1310)[-1]
+            # # porcines
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Porcines % excretion on grassland",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1292)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Porcines % excretion in the barn as litter manure",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1294)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Porcines % excretion in the barn as other manure",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1295)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Porcines % excretion in the barn as slurry",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1296)[-1]
 
-            # equines
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Equines % excretion on grassland",
-                "Business as usual",
-            ] = self.historic_trend(region, 1320)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Equines % excretion in the barn as litter manure",
-                "Business as usual",
-            ] = self.historic_trend(region, 1322)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Equines % excretion in the barn as other manure",
-                "Business as usual",
-            ] = self.historic_trend(region, 1323)[-1]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Equines % excretion in the barn as slurry",
-                "Business as usual",
-            ] = self.historic_trend(region, 1244)[-1]
+            # # poultry
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Poultry % excretion on grassland",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1306)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Poultry % excretion in the barn as litter manure",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1308)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Poultry % excretion in the barn as other manure",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1309)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Poultry % excretion in the barn as slurry",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1310)[-1]
+
+            # # equines
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Equines % excretion on grassland",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1320)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Equines % excretion in the barn as litter manure",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1322)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Equines % excretion in the barn as other manure",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1323)[-1]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Equines % excretion in the barn as slurry",
+            #     "Business as usual",
+            # ] = self.historic_trend(region, 1244)[-1]
 
             # LU prop
             LU_prop = self.livestock_LU(self.dataloader, self.region)[annees_disponibles[-1]]
             LU_prop_tot = sum(LU_prop.values())
             LU_prop = {key: value / LU_prop_tot for key, value in LU_prop.items()}
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Bovines LU",
-                "Business as usual",
-            ] = LU_prop["bovines"]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Ovines LU",
-                "Business as usual",
-            ] = LU_prop["ovines"]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Caprines LU",
-                "Business as usual",
-            ] = LU_prop["caprines"]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Porcines LU",
-                "Business as usual",
-            ] = LU_prop["porcines"]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Poultry LU",
-                "Business as usual",
-            ] = LU_prop["poultry"]
-            sheets["technical"].loc[
-                sheets["technical"]["Variable"] == "Equines LU",
-                "Business as usual",
-            ] = LU_prop["equines"]
+            for t in betail:
+                if t == "equine":
+                    t = "equines"
+                sheets["technical"].loc[
+                    sheets["technical"]["Variable"] == f"{t.capitalize()} LU",
+                    "Business as usual",
+                ] = LU_prop[t]
+
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Bovines LU",
+            #     "Business as usual",
+            # ] = LU_prop["bovines"]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Ovines LU",
+            #     "Business as usual",
+            # ] = LU_prop["ovines"]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Caprines LU",
+            #     "Business as usual",
+            # ] = LU_prop["caprines"]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Porcines LU",
+            #     "Business as usual",
+            # ] = LU_prop["porcines"]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Poultry LU",
+            #     "Business as usual",
+            # ] = LU_prop["poultry"]
+            # sheets["technical"].loc[
+            #     sheets["technical"]["Variable"] == "Equines LU",
+            #     "Business as usual",
+            # ] = LU_prop["equines"]
 
             # Historical trend
             sheets["main"].loc[
@@ -548,10 +694,12 @@ class scenario:
             ] = self.extrapolate_recent_trend(self.historic_trend(self.region, 1009), self.year, seuil_bas=None)[1][-1]
 
             for type in betail:
+                if type == "equine":
+                    type = "equines"
                 sheets["technical"].loc[
-                    sheets["technical"]["Variable"] == "kgN excreted by bovines LU",
+                    sheets["technical"]["Variable"] == f"kgN excreted by {type} LU",
                     "Business as usual",
-                ] = self.extrapolate_recent_trend(self.LU_excretion(self.dataloader, self.region)[type], self.year)[1][
+                ] = self.extrapolate_recent_trend(self.LU_excretion(self.dataloader, self.region, type), self.year)[1][
                     -1
                 ]
 
@@ -588,18 +736,20 @@ class scenario:
             #     "Business as usual",
             # ] = self.extrapolate_recent_trend(self.LU_excretion(self.region, "equines"), self.year)[1][-1]
 
-            LU_prod = self.LU_prod(self.dataloader, self.region)
+            # LU_prod = self.LU_prod(self.dataloader, self.region)
 
-            for type in ["bovines", "ovines", "caprines", "equines", "poultry", "porcines"]:
+            for type in betail:
+                if type == "equine":
+                    type = "equines"
                 sheets["technical"].loc[
                     sheets["technical"]["Variable"] == f"{type.capitalize()} productivity",
                     "Business as usual",
-                ] = LU_prod[f"{type} productivity"]
+                ] = self.LU_prod(self.dataloader, self.region, f"{type} productivity")[-1]
                 if type in ["bovines", "ovines", "caprines", "poultry"]:
                     sheets["technical"].loc[
                         sheets["technical"]["Variable"] == f"{type.capitalize()} dairy productivity",
                         "Business as usual",
-                    ] = LU_prod[f"{type} dairy productivity"]
+                    ] = self.LU_prod(self.dataloader, self.region, f"{type} dairy productivity")[-1]
 
             tot_LU = []
             LU_prop_hist = self.livestock_LU(self.dataloader, self.region)
@@ -634,7 +784,7 @@ class scenario:
             ] = self.logistic_urb_pop(self.region, self.year)
 
             # surface prop tab
-            sheets["area"] = self.generate_crop_tab(self.region)
+            # sheets["area"] = self.generate_crop_tab(self.region)
 
         with pd.ExcelWriter(os.path.join(self.scenario_path, name + ".xlsx"), engine="openpyxl") as writer:
             for sheet_name, df in sheets.items():
@@ -693,7 +843,11 @@ class Y:
     def get_Y(self, culture, region, plot=False):
         F = []
         Y = []
-        for yr in annees_disponibles:
+        if region == "Savoie":
+            years = annees_disponibles[1:]
+        else:
+            years = annees_disponibles
+        for yr in years:
             model = NitrogenFlowModel(data=self.dataloader, year=yr, region=region)
             f = model.Ftot(culture)
             y = model.Y(culture)
@@ -835,19 +989,17 @@ class Y:
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, None
-        Y_max_init = max(Y)
-
         try:
             popt, _ = curve_fit(self.Y_th_lin, F, Y, p0=[0.75, max(Y)], bounds=([0, 0], [1, max(Y) * 2]))
-            Y_max_opt = popt[0]  # 📌 Paramètre ajusté Y_max
-            k = popt[1]
+            a = popt[0]  # 📌 Paramètre ajusté Y_max
+            b = popt[1]
         except RuntimeError:
             print("⚠️ Ajustement impossible pour", culture, region)
-            Y_max_opt = 0  # Retourne None en cas d'échec
-            k = 0
+            a = 0  # Retourne None en cas d'échec
+            b = 0
 
-        Y_th_fitted = self.Y_th_lin(F, Y_max_opt, k) if Y_max_opt is not None else None
-        return Y_max_opt, k, Y_th_fitted
+        Y_th_fitted = self.Y_th_lin(F, a, b) if a is not None else None
+        return a, b, Y_th_fitted
 
     def fit_Y_lin_2(self, culture, region):
         F, Y = self.get_Y(culture, region)
@@ -1337,11 +1489,12 @@ class Y:
 
 
 class CultureData_prospect:
-    def __init__(self, main, area, data_path, categories_mapping):
+    def __init__(self, main, area, data_path, categories_mapping, func_prod):
         self.main = main
         self.area = area
         self.data_path = data_path
         self.categories_mapping = categories_mapping
+        self.func_prod = func_prod
         self.df_cultures = self.create_culture_dataframe()
 
     def create_culture_dataframe(self):
@@ -1354,12 +1507,6 @@ class CultureData_prospect:
         area[35] = grassland_area
         area.index = crops_index
 
-        Ymax = self.area["Ymax (kgN/ha)"][:-2]
-        Ymax.index = crops_index
-
-        k = self.area["k (kgN/ha)"][:-2]
-        k.index = crops_index
-
         # Extraire les taux de surface avec épendage et la teneur en azote des cultures
         epend = pd.read_excel(
             os.path.join(self.data_path, "GRAFS_data.xlsx"),
@@ -1368,8 +1515,23 @@ class CultureData_prospect:
         epend = epend.drop("Note", axis=1)
         epend = epend.set_index("Culture")
         epend["Area (ha)"] = area
-        epend["Ymax (kgN/ha)"] = Ymax
-        epend["k (kgN/ha)"] = k
+
+        # Ajouter les paramètres des fonctions de production
+        if self.func_prod == "Linear":
+            a = self.area["a"][:-2]
+            a.index = crops_index
+
+            b = self.area["b"][:-2]
+            b.index = crops_index
+
+            epend["a"] = a
+            epend["b"] = b
+
+        if self.func_prod == "Ratio":
+            Ymax = self.area["Ymax (kgN/ha)"][:-2]
+            Ymax.index = crops_index
+
+            epend["Ymax (kgN/ha)"] = Ymax
 
         return epend
 
@@ -1477,8 +1639,10 @@ class NitrogenFlowModel_prospect:
         self.main = pd.DataFrame(self.scenar_sheets["main"])
         self.area = pd.DataFrame(self.scenar_sheets["area"])
         self.technical = pd.DataFrame(self.scenar_sheets["technical"])
-
-        self.culture_data = CultureData_prospect(self.main, self.area, self.data_path, categories_mapping)
+        self.prod_func = self.doc.loc[self.doc["excel sheet for scenario writing"] == "Production function", " "].item()
+        self.culture_data = CultureData_prospect(
+            self.main, self.area, self.data_path, categories_mapping, self.prod_func
+        )
         self.elevage_data = ElevageData_prospect(self.main, self.technical, self.data_path)
         self.flux_generator = FluxGenerator(labels)
 
@@ -1692,9 +1856,13 @@ class NitrogenFlowModel_prospect:
         technical = self.technical
         area = self.area
         doc = self.doc
-        year = doc.loc[doc["excel sheet for scenario writing"] == "Year", "Unnamed: 1"].item()
-        region = doc.loc[doc["excel sheet for scenario writing"] == "Region name", "Unnamed: 1"].item()
+        year = doc.loc[doc["excel sheet for scenario writing"] == "Year", " "].item()
+        region = doc.loc[doc["excel sheet for scenario writing"] == "Region name", " "].item()
         flux_generator = self.flux_generator
+        if self.prod_func == "Linear":
+            ym = "a"
+        if self.prod_func == "Ratio":
+            ym = "Ymax (kgN/ha)"
 
         # Gestion du cas particulier pour 'Straw'
         cereales = ["Wheat", "Rye", "Barley", "Oat", "Grain maize", "Other cereals"]
@@ -1710,17 +1878,14 @@ class NitrogenFlowModel_prospect:
 
         # Flux depuis 'other sectors' vers les cibles sélectionnées
         target = (
-            df_cultures["Seed input (kt seeds/kt Ymax)"]
-            * df_cultures["Ymax (kgN/ha)"]
-            * df_cultures["Area (ha)"]
-            * 1e-6
+            df_cultures["Seed input (kt seeds/kt Ymax)"] * df_cultures[ym] * df_cultures["Area (ha)"] * 1e-6
         ).to_dict()
         source = {"other sectors": 1}
         flux_generator.generate_flux(source, target)
 
         # Fixation symbiotique
         target_fixation = (
-            df_cultures["N fixation coef (kgN/kgN)"] * df_cultures["Ymax (kgN/ha)"] * df_cultures["Area (ha)"] * 1e-6
+            df_cultures["N fixation coef (kgN/kgN)"] * df_cultures[ym] * df_cultures["Area (ha)"] * 1e-6
         ).to_dict()
         source_fixation = {"atmospheric N2": 1}
         flux_generator.generate_flux(source_fixation, target_fixation)
@@ -1993,11 +2158,17 @@ class NitrogenFlowModel_prospect:
 
         # Les légumineuses ne reçoivent pas d'azote synthétique. On peut déjà calculer leur rendement
         for leg in df_cultures.loc[df_cultures["Category"] == "leguminous"].index.tolist() + ["Alfalfa and clover"]:
-            Yield = Y.Y_th_lin(
-                df_cultures.loc[df_cultures.index == leg, "Surface Non Synthetic Fertilizer Use (kgN/ha)"].item(),
-                df_cultures.loc[df_cultures.index == leg, "Ymax (kgN/ha)"].item(),
-                df_cultures.loc[df_cultures.index == leg, "k (kgN/ha)"].item(),
-            )
+            if self.prod_func == "Linear":
+                Yield = Y.Y_th_lin(
+                    df_cultures.loc[df_cultures.index == leg, "Surface Non Synthetic Fertilizer Use (kgN/ha)"].item(),
+                    df_cultures.loc[df_cultures.index == leg, "a"].item(),
+                    df_cultures.loc[df_cultures.index == leg, "b"].item(),
+                )
+            if self.prod_func == "Ratio":
+                Yield = Y.Y_th(
+                    df_cultures.loc[df_cultures.index == leg, "Surface Non Synthetic Fertilizer Use (kgN/ha)"].item(),
+                    df_cultures.loc[df_cultures.index == leg, "Ymax (kgN/ha)"].item(),
+                )
             df_cultures.loc[df_cultures.index == leg, "Yield (kgN/ha)"] = Yield
 
         df_cultures["Nitrogen Production (ktN)"] = df_cultures["Yield (kgN/ha)"] * df_cultures["Area (ha)"] / 1e6
@@ -2060,7 +2231,7 @@ class NitrogenFlowModel_prospect:
         Import = max(0, net_import)
 
         N_synth_crop = (
-            main.loc[main["Variable"] == "Synth N fertilizer application to croplands", "Business as usual"].item()
+            main.loc[main["Variable"] == "Synth N fertilizer application to cropland", "Business as usual"].item()
             * main.loc[main["Variable"] == "Arable area", "Business as usual"].item()
             / 1e6
         )
@@ -2092,8 +2263,12 @@ class NitrogenFlowModel_prospect:
             # 1) Collect data from your DataFrames (example placeholders)
             # --------------------------------------------------------------------------
             area = {c: df_cultures.at[c, "Area (ha)"] for c in CROPS}
-            Ymax = {c: df_cultures.at[c, "Ymax (kgN/ha)"] for c in CROPS}
-            kparam = {c: df_cultures.at[c, "k (kgN/ha)"] for c in CROPS}
+            if self.prod_func == "Ratio":
+                Ymax = {c: df_cultures.at[c, "Ymax (kgN/ha)"] for c in CROPS}
+            # kparam = {c: df_cultures.at[c, "k (kgN/ha)"] for c in CROPS}
+            if self.prod_func == "Linear":
+                a = {c: df_cultures.at[c, "a"] for c in CROPS}
+                b = {c: df_cultures.at[c, "b"] for c in CROPS}
             nonSynthFert = {c: df_cultures.at[c, "Surface Non Synthetic Fertilizer Use (kgN/ha)"] for c in CROPS}
             ingestion = {k: df_cons_vege.at[k] for k in CONSUMERS}
 
@@ -2158,6 +2333,9 @@ class NitrogenFlowModel_prospect:
             # --------------------------------------------------------------------------
             def Y_th_lin(f, a, b):
                 return np.minimum(a * f, b)
+
+            def Y_th_ratio(f, ymax):
+                return f * ymax / (f + ymax)
 
             def objective(x):
                 """
@@ -2225,11 +2403,18 @@ class NitrogenFlowModel_prospect:
                 export_total = 0.0
                 for c in CROPS:
                     # Production locale (ktN) ; on suppose qu'elle est déjà correcte/à jour :
-                    production_c = (
-                        Y_th_lin(x[idx_synth[c]] + nonSynthFert[c], Ymax[c], kparam[c])
-                        * df_cultures.at[c, "Area (ha)"]
-                        / 1e6
-                    )
+                    if self.prod_func == "Ratio":
+                        production_c = (
+                            Y_th_ratio(x[idx_synth[c]] + nonSynthFert[c], Ymax[c])
+                            * df_cultures.at[c, "Area (ha)"]
+                            / 1e6
+                        )
+                    if self.prod_func == "Linear":
+                        production_c = (
+                            Y_th_lin(x[idx_synth[c]] + nonSynthFert[c], a[c], b[c])
+                            * df_cultures.at[c, "Area (ha)"]
+                            / 1e6
+                        )
 
                     # Somme des allocations locales sur c
                     allocated_c = 0.0
@@ -2479,11 +2664,18 @@ class NitrogenFlowModel_prospect:
                 export_total = 0.0
                 for c in CROPS:
                     # Production locale (ktN) ; on suppose qu'elle est déjà correcte/à jour :
-                    production_c = (
-                        Y_th_lin(x[idx_synth[c]] + nonSynthFert[c], Ymax[c], kparam[c])
-                        * df_cultures.at[c, "Area (ha)"]
-                        / 1e6
-                    )
+                    if self.prod_func == "Ratio":
+                        production_c = (
+                            Y_th_ratio(x[idx_synth[c]] + nonSynthFert[c], Ymax[c])
+                            * df_cultures.at[c, "Area (ha)"]
+                            / 1e6
+                        )
+                    if self.prod_func == "Linear":
+                        production_c = (
+                            Y_th_lin(x[idx_synth[c]] + nonSynthFert[c], a[c], b[c])
+                            * df_cultures.at[c, "Area (ha)"]
+                            / 1e6
+                        )
 
                     # Somme des allocations locales sur c
                     allocated_c = 0.0
@@ -2561,11 +2753,10 @@ class NitrogenFlowModel_prospect:
                 def calculate_production(x_synth_val, c):
                     # Make sure idx_synth[c] exists if you use it here, or adjust logic
                     fert_tot = x_synth_val + nonSynthFert[c]  # Assuming x_ maps directly for synth
-                    y_ha = Y_th_lin(
-                        fert_tot,
-                        df_cultures.loc[c, "Ymax (kgN/ha)"],
-                        df_cultures.loc[c, "k (kgN/ha)"],
-                    )
+                    if self.prod_func == "Ratio":
+                        y_ha = Y_th_ratio(fert_tot, df_cultures.loc[c, "Ymax (kgN/ha)"])
+                    if self.prod_func == "Linear":
+                        y_ha = Y_th_lin(fert_tot, df_cultures.loc[c, "a"], df_cultures.loc[c, "b"])
                     # Production in ktN (consistent units assumed)
                     return (y_ha * df_cultures.loc[c, "Area (ha)"]) / 1e6
 
@@ -2679,7 +2870,10 @@ class NitrogenFlowModel_prospect:
 
                 # production c
                 fert_tot = x_[idx_synth[c]] + nonSynthFert[c]
-                y = Y_th_lin(fert_tot, Ymax[c], kparam[c])
+                if self.prod_func == "Ratio":
+                    y = Y_th_ratio(fert_tot, Ymax[c])
+                if self.prod_func == "Linear":
+                    y = Y_th_lin(fert_tot, a[c], b[c])
                 prod_c = (y * area[c]) / 1e6
 
                 return prod_c - sum_local  # doit être >= 0
@@ -2728,7 +2922,10 @@ class NitrogenFlowModel_prospect:
             # or some heuristic.
             # --------------------------------------------------------------------------
             x0 = np.array([0.01 for i in range(n_vars)])  # np.zeros(n_vars, dtype=float)
-            x0[: len(df_cultures)] = df_cultures["Ymax (kgN/ha)"].values
+            if self.prod_func == "Ratio":
+                x0[: len(df_cultures)] = df_cultures["Ymax (kgN/ha)"].values
+            if self.prod_func == "Linear":
+                x0[: len(df_cultures)] = df_cultures["b"].values
 
             # --------------------------------------------------------------------------
             # 7) Call the optimizer
@@ -2795,12 +2992,16 @@ class NitrogenFlowModel_prospect:
                     non_synth_fert = df_cultures.at[c, "Surface Non Synthetic Fertilizer Use (kgN/ha)"]
                     fert_tot = fert_synth + non_synth_fert
 
-                    y_max = df_cultures.at[c, "Ymax (kgN/ha)"]
-                    k_value = df_cultures.at[c, "k (kgN/ha)"]
+                    if self.prod_func == "Ratio":
+                        y_max = df_cultures.at[c, "Ymax (kgN/ha)"]
 
-                    new_yield = Y_th_lin(fert_tot, y_max, k_value)
+                        new_yield = Y_th_ratio(fert_tot, y_max)
+                    if self.prod_func == "Linear":
+                        a = df_cultures.at[c, "a"]
+                        b = df_cultures.at[c, "b"]
+
+                        new_yield = Y_th_lin(fert_tot, a, b)
                     df_cultures.at[c, "Yield (kgN/ha)"] = new_yield
-
                     # Production en ktN
                     nitro_prod_ktN = (new_yield * area_ha) / 1e6
                     df_cultures.at[c, "Nitrogen Production (ktN)"] = nitro_prod_ktN
