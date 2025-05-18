@@ -149,12 +149,11 @@ betail = [
 
 ext = [
     "NH3 volatilization",
-    "N2O exitssion",
+    "N2O emission",
     "hydro-system",
     "other losses",
     "soil stock",
     "atmospheric N2",
-    "Atmospheric deposition",  # A supprimer TODO
     "Haber-Bosch",
     "other sectors",
     "animal trade",

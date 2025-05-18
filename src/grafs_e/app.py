@@ -1,6 +1,9 @@
 # %%
+import io
 import json
 import os
+import pickle
+import tempfile
 from importlib.metadata import version
 
 import branca
@@ -18,6 +21,7 @@ from streamlit_folium import st_folium
 
 from grafs_e.donnees import *
 from grafs_e.N_class import DataLoader, NitrogenFlowModel
+from grafs_e.prospective import NitrogenFlowModel_prospect, scenario
 from grafs_e.sankey import (
     streamlit_sankey_app,
     streamlit_sankey_fertilization,
@@ -59,6 +63,28 @@ if "data" not in st.session_state:
 
 data = st.session_state["data"]
 
+# Initialisation de l'état des variables
+for k, v in {
+    "model": None,
+    "name": None,
+    "year": None,
+    "year_run": None,
+    "year_pros": None,
+    "selected_region": None,
+    "selected_region_run": None,
+    "selected_region_pros": "",
+    "prod_func": "",
+    "heatmap_fig_pros": None,
+    "pkl_blob": None,  # ← binaire pour download
+    "load_error": "",
+    # état provisoire (Excel upload)
+    "prep_name": None,
+    "prep_region": None,
+    "prep_year": None,
+    "prep_func": None,
+    "prep_xlsx_path": None,
+}.items():
+    st.session_state.setdefault(k, v)
 # %%
 # Initialisation de l'interface Streamlit
 st.title("GRAFS-E")
@@ -66,11 +92,11 @@ __version__ = version("grafs_e")
 st.write(f"📦 GRAFS-E version: {__version__}")
 st.title("Nitrogen Flow Simulation Model: A Territorial Ecology Approach")
 
-# 🔹 Initialiser les valeurs dans session_state si elles ne sont pas encore définies
-if "selected_region" not in st.session_state:
-    st.session_state.selected_region = None
-if "year" not in st.session_state:
-    st.session_state.year = None
+# # 🔹 Initialiser les valeurs dans session_state si elles ne sont pas encore définies
+# if "selected_region" not in st.session_state:
+#     st.session_state.selected_region = None
+# if "year" not in st.session_state:
+#     st.session_state.year = None
 
 if st.session_state.selected_region:
     st.write(f"✅ Selected territory: {st.session_state.selected_region}")
@@ -228,7 +254,7 @@ with tab2:
 
     # 🟢 Sélection de l'année
     st.subheader("Select a year")
-    st.session_state.year = st.selectbox("", annees_disponibles, index=0)
+    st.session_state.year_run = st.selectbox("", annees_disponibles, index=0)
 
     # 🔹 Vérifier la connexion Internet
     @st.cache_data
@@ -330,15 +356,15 @@ with tab2:
     if map_data and "last_active_drawing" in map_data:
         last_drawing = map_data["last_active_drawing"]
         if last_drawing and "properties" in last_drawing and "nom" in last_drawing["properties"]:
-            st.session_state.selected_region = last_drawing["properties"]["nom"]
+            st.session_state.selected_region_run = last_drawing["properties"]["nom"]
 
     # ✅ Affichage des sélections (se met à jour dynamiquement)
-    if st.session_state.selected_region:
+    if st.session_state.selected_region_run:
         st.write(f"✅ Région sélectionnée : {st.session_state.selected_region}")
     else:
         st.warning("⚠️ Veuillez sélectionner une région")
 
-    if st.session_state.year:
+    if st.session_state.year_run:
         st.write(f"✅ Année sélectionnée : {st.session_state.year}")
     else:
         st.warning("⚠️ Veuillez sélectionner une année")
@@ -350,6 +376,8 @@ with tab2:
 
     # 🔹 Bouton "Run" avec les valeurs mises à jour
     if st.button("Run"):
+        st.session_state.selected_region = st.session_state.selected_region_run
+        st.session_state.year = st.session_state.year_run
         if st.session_state.selected_region and st.session_state.year:
             # Initialiser le modèle avec les paramètres
             st.session_state.model = NitrogenFlowModel(
@@ -386,8 +414,8 @@ with tab3:
     st.title("Sankey")
 
     # Vérifier si le modèle a été exécuté
-    if "model" not in st.session_state:
-        st.warning("⚠️ Please run the model first in the 'Run' tab.")
+    if not st.session_state.model:
+        st.warning("⚠️ Please run the model first in the 'Run' tab or 'Prospective mode' tab.")
     else:
         # Récupérer l'objet model
         model = st.session_state["model"]
@@ -585,8 +613,8 @@ with tab3:
 with tab4:
     st.title("Detailed data")
 
-    if "model" not in st.session_state:
-        st.warning("⚠️ Please run the model first in the 'Run' tab.")
+    if not st.session_state.model:
+        st.warning("⚠️ Please run the model first in the 'Run' tab or in the 'Prospective mode' tab.")
     else:
         st.text("This tab is to access to detailed data used in input but also processed by the model")
 
@@ -1420,136 +1448,325 @@ with tab6:
             else:
                 stacked_area_chart(models, st.session_state.metric_hist, st.session_state.selected_region_hist)
 
-# with tab7:
-#     st.title("Scenario generator")
+    # with tab7:
+    #     st.title("Scenario generator")
 
-#     st.text("Welcome to the prospective mode. Here you can imagine the future of agriculture according to your vision.")
+    #     st.text("Welcome to the prospective mode. Here you can imagine the future of agriculture according to your vision.")
 
-#     st.subheader("How to proceed ?")
+    #     st.subheader("How to proceed ?")
 
-#     st.text(
-#         "You have to fill a scenario excel. Several tokens are needed to run the model in prospective mode. They are splitted in 3 tabs :"
-#     )
-#     st.markdown(
-#         "- main: In this tab, you have to fill the main characteristics of the future of your territory : population, access to international trade, access to industrial input..."
-#     )
-#     st.markdown(
-#         "- area: In this tab, you have to distribute the total agricultural area between crops and select the parameter of the production function : the maximum yield, $Y_{max}$ (kgN/ha) and the reactivity of crop to fertilizer, $k$ (kgN/ha)"
-#     )
-#     st.markdown("The yield is computed as $Y = Y_{\\text{max}} \\cdot (1 - e^{-F/k})$")
+    st.text(
+        "You have to fill a scenario excel. Several tokens are needed to run the model in prospective mode. They are splitted in 3 tabs :"
+    )
+    st.markdown(
+        "- Main: In this tab, you have to fill the main characteristics of the future of your territory : population, access to international trade, access to industrial input..."
+    )
+    st.markdown(
+        "- Area: In this tab, you have to distribute the total agricultural area between crops and check the parameters of the production function. The production function gives the yield (Y) in function of the fertilisation amount (F). There is one set of parameters by crop type. The parameters of this function depend of the production function chosen :"
+    )
+    # st.markdown("The yield is computed as $Y = Y_{\\text{max}} \\cdot (1 - e^{-F/k})$")
+    st.markdown(" Ratio: $Y(F) = \\frac{Y_{max}F}{Y_{max}+F}$")
+    st.markdown(" Linear: $Y(F) = min(a*F, b)$")
 
-#     st.markdown(
-#         "- technical: This tab encompass all technical coefficient (excretion per LU, weight of the optimization model, time spend by livestock in crops). It reflects potential technical evolution in agriculture and physical constraints."
-#     )
+    st.markdown(
+        "- Technical: This tab encompass all technical coefficient (excretion per LU, weight of the optimization model, time spend by livestock in crops). It reflects potential technical evolution in agriculture and physical constraints."
+    )
 
-#     st.subheader("Scenario file")
+    #     st.subheader("Scenario file")
 
-#     st.markdown(
-#         "Here you can find a blank scenario sheet. Please fill all items in main and technical tabs. Fill as many lines in area as you need crops. Make sure the sum of proportion column is 1 and for each crop $Y_{max}$<$k$."
-#     )
+    #     st.markdown(
+    #         "Here you can find a blank scenario sheet. Please fill all items in main and technical tabs. Fill as many lines in area as you need crops. Make sure the sum of proportion column is 1 and for each crop $Y_{max}$<$k$."
+    #     )
 
-#     # Absolute path to the folder where the script is located
-#     base_path = os.path.dirname(os.path.abspath(__file__))
+    #     # Absolute path to the folder where the script is located
+    #     base_path = os.path.dirname(os.path.abspath(__file__))
 
-#     # Join with your relative file
-#     file_path = os.path.join(base_path, "data", "scenario.xlsx")
-#     # Read the binary content of the file
-#     with open(file_path, "rb") as file:
-#         file_bytes = file.read()
+    #     # Join with your relative file
+    #     file_path = os.path.join(base_path, "data", "scenario.xlsx")
+    #     # Read the binary content of the file
+    #     with open(file_path, "rb") as file:
+    #         file_bytes = file.read()
 
-#     # Create the download button
-#     st.download_button(
-#         label="📥 Download blank Scenario Excel",
-#         data=file_bytes,
-#         file_name="scenario.xlsx",
-#         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-#     )
+    #     # Create the download button
+    #     st.download_button(
+    #         label="📥 Download blank Scenario Excel",
+    #         data=file_bytes,
+    #         file_name="scenario.xlsx",
+    #         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    #     )
 
-#     st.markdown("Once you have your scenario ready, go to Prospective mode tab.")
+    #     st.markdown("Once you have your scenario ready, go to Prospective mode tab.")
 
-#     st.subheader("Hard to find these numbers ?")
-#     st.text(
-#         "It might be hard to create from scratch a physical functioning agro-system. To oversome this difficulty, you can use the scenario generator. To do so, choose a territory, a futur year. The scenario generator will automatically create a 'Business as usual' scenario. This scenario is created based on historical trajectory of the territory."
-#     )
+    #     st.subheader("Hard to find these numbers ?")
+    #     st.text(
+    #         "It might be hard to create from scratch a physical functioning agro-system. To oversome this difficulty, you can use the scenario generator. To do so, choose a territory, a futur year. The scenario generator will automatically create a 'Business as usual' scenario. This scenario is created based on historical trajectory of the territory."
+    #     )
 
-#     st.title("Scenario Generator")
+    #     st.title("Scenario Generator")
 
-#     # 🟢 Sélection de l'année
-#     st.session_state.pros_year = st.selectbox("Select a year", annees_disponibles, index=0, key="year_pros_selection")
+    # 🟢 Sélection de l'année
+    st.session_state.pros_year = st.selectbox(
+        "Select a year", [str(y) for y in range(2025, 2061)], index=0, key="year_pros_selection"
+    )
+    # 🟢 Sélection de la fonction de production
+    st.session_state.pros_func = st.selectbox(
+        "Select Production function", ["Ratio", "Linear"], index=0, key="func_pros_selection"
+    )
+    st.text_input("Scenario name", key="scenario_name_input")
 
-#     # ✅ Affichage des sélections (se met à jour dynamiquement)
-#     if "selected_region_pros" not in st.session_state:
-#         st.session_state.selected_region_pros = None
-#     if st.session_state.selected_region_pros:
-#         st.write(f"✅ Région sélectionnée : {st.session_state.selected_region_pros}")
-#     else:
-#         st.warning("⚠️ Veuillez sélectionner une région")
+    #     m_hist = create_map()
+    #     map_data_pros = st_folium(m_hist, height=600, use_container_width=True, key="pros_map")
 
-#     m_hist = create_map()
-#     map_data_pros = st_folium(m_hist, height=600, use_container_width=True, key="pros_map")
+    #     # 🔹 Mettre à jour `st.session_state.selected_region` avec la sélection utilisateur
+    #     if map_data_pros and "last_active_drawing" in map_data_pros:
+    #         last_drawing = map_data_pros["last_active_drawing"]
+    #         if last_drawing and "properties" in last_drawing and "nom" in last_drawing["properties"]:
+    #             st.session_state.selected_region_pros = last_drawing["properties"]["nom"]
 
-#     # 🔹 Mettre à jour `st.session_state.selected_region` avec la sélection utilisateur
-#     if map_data_pros and "last_active_drawing" in map_data_pros:
-#         last_drawing = map_data_pros["last_active_drawing"]
-#         if last_drawing and "properties" in last_drawing and "nom" in last_drawing["properties"]:
-#             st.session_state.selected_region_pros = last_drawing["properties"]["nom"]
+    # ✅ Affichage des sélections (se met à jour dynamiquement)
+    if "selected_region_pros" not in st.session_state:
+        st.session_state.selected_region_pros = None
+    if st.session_state.selected_region_pros:
+        st.write(f"✅ Région sélectionnée : {st.session_state.selected_region_pros}")
+    else:
+        st.warning("⚠️ Veuillez sélectionner une région")
 
-#     if st.button("Create business as usual scenario", key="map_button_scenario"):
-#         st.markdown("Once you have your scenario ready, go to Prospective mode tab.")
+    def generate_scenario(year, region, name, func):
+        scenar.generate_scenario_excel(year, region, name, func)
 
-# with tab8:
-#     st.title("Prospective mode")
+    if st.button("Create business as usual scenario", key="map_button_scenario"):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with st.spinner("Generating the business as usual scenario..."):
+                st.session_state.name = st.session_state.scenario_name_input
+                scenar = scenario(temp_dir)
+                # threading.Thread(
+                #     target=generate_scenario,
+                #     args=(
+                #         st.session_state.pros_year,
+                #         st.session_state.selected_region_pros,
+                #         st.session_state.name,
+                #         st.session_state.pros_func,
+                #     ),
+                #     daemon=True,
+                # ).start()
+                generate_scenario(
+                    st.session_state.pros_year,
+                    st.session_state.selected_region_pros,
+                    st.session_state.name,
+                    st.session_state.pros_func,
+                )
 
-#     st.subheader("How to use GRAFS-E Prospective Mode")
+                with open(os.path.join(temp_dir, st.session_state.name + ".xlsx"), "rb") as f:
+                    file_data = f.read()
+                st.download_button(
+                    label="📥 Download scenario sheet",
+                    data=file_data,
+                    file_name=st.session_state.name + ".xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+                st.markdown("Once you have your scenario ready, go to Prospective mode tab.")
 
-#     st.text(
-#         "To use the GRAFS-E Prospective Mode, you need a scenario sheet. This file can be generated and downloaded from Scenario Generator tab."
-#     )
+    # with tab8:
+    #     st.title("Prospective mode")
 
-#     st.text("Once you have your scenario ready, load it here and hit run!")
+    #     st.subheader("How to use GRAFS-E Prospective Mode")
 
-#     st.subheader("📂 Upload your Excel scenario")
+    st.markdown(
+        """To run the prospective mode, two options are available:\\
+    1. **Uploader an Excel sheet scenario** then click *Run scenario*  
+    2. **Upload a model \*.pkl** saved from a previous session"""
+    )
 
-#     uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx"])
+    # ─────────── A • Excel scenario
+    st.subheader("① Excel scenario → Run")
 
-#     if uploaded_file is None:
-#         st.warning("⚠️ Please upload an Excel file to proceed.")
-#     else:
-#         try:
-#             # 🔹 Créer un fichier temporaire
-#             with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp_file:
-#                 tmp_file.write(uploaded_file.read())
-#                 temp_path = tmp_file.name
+    def excel_uploaded():
+        up = st.session_state["xlsx_up"]
+        if not up:
+            return
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+            tmp.write(up.read())
+            st.session_state.prep_xlsx_path = tmp.name
 
-#             # ✅ Lire le fichier temporaire avec pandas
-#             df = pd.read_excel(temp_path)
+        df = pd.read_excel(st.session_state.prep_xlsx_path)
+        st.session_state.prep_name = df.iloc[14, 1]
+        st.session_state.prep_region = df.iloc[15, 1]
+        st.session_state.prep_year = int(df.iloc[16, 1])
+        st.session_state.prep_func = df.iloc[17, 1]
 
-#             # Optionally show a preview
-#             st.success("✅ File successfully loaded!")
+    st.file_uploader("📂 Upload .xlsx", type=["xlsx"], key="xlsx_up", on_change=excel_uploaded)
 
-#             # Extract specific cells
+    if st.session_state.prep_name:
+        st.info(
+            f"Scenario: **{st.session_state.prep_name}**  "
+            f"({st.session_state.prep_region}, {st.session_state.prep_year})"
+        )
+        if st.button("🚀 Run scenario"):
+            with st.spinner("Running prospective model…"):
+                model = NitrogenFlowModel_prospect(st.session_state.prep_xlsx_path)
+                # remplir les variables finales
+                st.session_state.model = model
+                st.session_state.name = st.session_state.prep_name
+                st.session_state.year_pros = st.session_state.prep_year
+                st.session_state.year = st.session_state.year_pros
+                st.session_state.selected_region_pros = st.session_state.prep_region
+                st.session_state.selected_region = st.session_state.selected_region_pros
+                st.session_state.prod_func = st.session_state.prep_func
+                st.session_state.heatmap_fig_pros = generate_heatmap(model, model.year, model.region)
+                buf = io.BytesIO()
+                pickle.dump(model, buf)
+                buf.seek(0)
+                st.session_state.pkl_blob = buf.getvalue()
+            st.success("Model generated!")
+            # on peut laisser Streamlit relancer automatiquement (pas de st.rerun)
 
-#             scenario_name = df.iloc[14, 1]  # B16 -> row 15, col 1 (0-based)
-#             region_name = df.iloc[15, 1]  # B17
-#             year = df.iloc[16, 1]  # B18
+    # ─────────── B • Load .pkl
+    st.subheader("② Load existing model (.pkl)")
 
-#             st.markdown(f"**📘 Scenario:** {scenario_name}")
-#             st.markdown(f"**🗺️ Region:** {region_name}")
-#             st.markdown(f"**📆 Year:** {year}")
+    def load_pkl():
+        up = st.session_state["pkl_up"]
+        if not up:
+            return
+        try:
+            obj = pickle.load(io.BytesIO(up.getvalue()))
+            if not isinstance(obj, NitrogenFlowModel_prospect):
+                st.session_state.load_error = "⛔️ Wrong file."
+                return
+            st.session_state.model = obj
+            st.session_state.name = os.path.splitext(up.name)[0]
+            st.session_state.year_pros = obj.year
+            st.session_state.year = obj.year
+            st.session_state.selected_region_pros = obj.region
+            st.session_state.selected_region = obj.region
+            st.session_state.prod_func = obj.prod_func
+            st.session_state.heatmap_fig_pros = generate_heatmap(obj, obj.year, obj.region)
+            st.session_state.pkl_blob = up.getvalue()
+            st.session_state.load_error = ""
+        except Exception as e:
+            st.session_state.load_error = str(e)
 
-#             st.session_state.selected_region = region_name
-#             st.session_state.year = year
+    st.file_uploader("📥 Upload .pkl", type=["pkl", "pickle", "joblib"], key="pkl_up", on_change=load_pkl)
 
-#             # You can now pass `df` or `uploaded_file` to your class
-#             # e.g., model = NitrogenFlowModel(df)
+    if st.session_state.load_error:
+        st.error(st.session_state.load_error)
 
-#             if st.button("Run scenario", key="map_button_pros"):
-#                 model = NitrogenFlowModel_prospect(temp_path)
-#                 st.success("✅ Prospective Mode successfully runned!")
-#                 st.text("Please, use Sankey and Detailed Data as for the historic mode to see results.")
+    # ─────────── C • Résultats
+    st.subheader("Active model")
+    if st.session_state.model is None:
+        st.warning("No model loaded or generated yet.")
+    else:
+        st.success("Model ready")
+        st.markdown(
+            f"📘 Name : **{st.session_state.name}**  \n"
+            f"🗺️ Region : **{st.session_state.selected_region_pros}**  \n"
+            f"📆 Year : **{st.session_state.year_pros}**  \n"
+            f"⚙️ Prod. function : **{st.session_state.prod_func}**"
+        )
 
-#         except Exception as e:
-#             st.error(f"❌ Failed to read Excel file: {e}")
+        if st.session_state.pkl_blob:
+            st.download_button(
+                "💾 Download this model",
+                data=st.session_state.pkl_blob,
+                file_name=f"{st.session_state.name}.pkl",
+                mime="application/octet-stream",
+            )
 
+        if st.session_state.heatmap_fig_pros:
+            st.subheader(f"Heatmap – {st.session_state.selected_region_pros} / {st.session_state.year_pros}")
+            st.plotly_chart(st.session_state.heatmap_fig_pros, use_container_width=True)
+
+    # # ╭─────────────────────────────  A.  Excel → Run  ─────────────────────────────╮
+    # uploaded_xlsx = st.file_uploader("📂 Excel scenario (.xlsx)", type=["xlsx"])
+    # if uploaded_xlsx:
+    #     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+    #         tmp.write(uploaded_xlsx.read())
+    #         xlsx_path = tmp.name
+
+    #     df = pd.read_excel(xlsx_path)
+    #     # (⚠️ sécuriser les indices dans la vraie appli)
+    #     st.session_state.name = df.iloc[14, 1]
+    #     st.session_state.selected_region_pros = df.iloc[15, 1]
+    #     st.session_state.year_pros = int(df.iloc[16, 1])
+    #     st.session_state.prod_func = df.iloc[17, 1]
+
+    #     st.success("Excel loaded ! Click on *Run scenario* to excecute model.")
+
+    #     if st.button("🚀 Run scenario"):
+    #         with st.spinner("Model running…"):
+    #             model = NitrogenFlowModel_prospect(xlsx_path)
+    #             st.session_state.model = model
+
+    #             # Heat‑map
+    #             st.session_state.heatmap_fig_pros = generate_heatmap(
+    #                 model,
+    #                 st.session_state.year_pros,
+    #                 st.session_state.selected_region_pros,
+    #             )
+
+    #             # Binaire pickle pour download
+    #             buf = io.BytesIO()
+    #             pickle.dump(model, buf)
+    #             buf.seek(0)
+    #             st.session_state.pkl_blob = buf.getvalue()
+
+    #         st.success("Prospective model génerated!")
+    #         st.rerun()  # relance l’onglet pour l’affichage final
+
+    # # ╰──────────────────────────────────────────────────────────────────────────────╯
+
+    # # ╭─────────────────────────────  B.  Charger un .pkl  ─────────────────────────╮
+    # def load_model():
+    #     up = st.session_state["pkl_up"]
+    #     if not up:
+    #         return
+    #     try:
+    #         obj = pickle.load(io.BytesIO(up.getvalue()))
+    #         if not isinstance(obj, NitrogenFlowModel_prospect):
+    #             st.session_state.load_error = "⛔️ Unknown File."
+    #             return
+    #         # on stocke tout
+    #         st.session_state.model = obj
+    #         st.session_state.pkl_blob = up.getvalue()
+    #         st.session_state.name = os.path.splitext(up.name)[0]
+    #         st.session_state.year_pros = obj.year
+    #         st.session_state.selected_region_pros = obj.region
+    #         st.session_state.prod_func = obj.prod_func
+    #         st.session_state.heatmap_fig_pros = generate_heatmap(obj, obj.year, obj.region)
+    #         st.session_state.load_error = ""
+    #         # st.rerun()
+    #     except Exception as e:
+    #         st.session_state.load_error = f"Impossible loading: {e}"
+
+    # st.file_uploader("📥 Upload a model (.pkl)", type=["pkl", "pickle", "joblib"], key="pkl_up", on_change=load_model)
+    # if st.session_state.load_error:
+    #     st.error(st.session_state.load_error)
+    # # ╰──────────────────────────────────────────────────────────────────────────────╯
+
+    # # ────────────────────── 3)  affichage commun quand un modèle existe
+    # if st.session_state.model is None:
+    #     st.warning("No model loaded or generated.")
+    # else:
+    #     st.success("**Active model**")
+    #     st.session_state.selected_region = st.session_state.selected_region_pros
+    #     st.session_state.year = st.session_state.year_pros
+    #     st.markdown(
+    #         f"📘 Name : **{st.session_state.name}**  \n"
+    #         f"🗺️ Region : **{st.session_state.selected_region_pros}**  \n"
+    #         f"📆 Year : **{st.session_state.year_pros}**  \n"
+    #         f"✅ Production function : **{st.session_state.prod_func}**"
+    #     )
+
+    #     st.download_button(
+    #         "💾 Download this model",
+    #         data=st.session_state.pkl_blob,
+    #         file_name=f"{st.session_state.name}.pkl",
+    #         mime="application/octet-stream",
+    #     )
+
+    #     if st.session_state.heatmap_fig_pros:
+    #         st.subheader(
+    #             f"Heatmap of the nitrogen flows for {st.session_state.selected_region_pros} in {st.session_state.year_pros}"
+    #         )
+    #         st.plotly_chart(st.session_state.heatmap_fig_pros, use_container_width=True)
 
 # # %%
