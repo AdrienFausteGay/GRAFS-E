@@ -70,7 +70,7 @@ class scenario:
         return L
 
     @staticmethod
-    def livestock_LU(dataloader, region):
+    def livestock_LU(dataloader, region, t=None):
         LU = {}
         livestock = {
             "bovines": [(1150, 1164), (0, 15)],
@@ -88,6 +88,8 @@ class scenario:
                 heads = df.loc[df["index_excel"].between(livestock[type][0][0], livestock[type][0][1]), region]
                 lu_coef = lu_list[livestock[type][1][0] : livestock[type][1][1]]
                 LU[i][type] = np.dot(heads, lu_coef)
+        if t != None:
+            return [entry[t] for entry in LU.values()]
         return LU
 
     @staticmethod
@@ -1639,7 +1641,9 @@ class NitrogenFlowModel_prospect:
         self.main = pd.DataFrame(self.scenar_sheets["main"])
         self.area = pd.DataFrame(self.scenar_sheets["area"])
         self.technical = pd.DataFrame(self.scenar_sheets["technical"])
-        self.prod_func = self.doc.loc[self.doc["excel sheet for scenario writing"] == "Production function", " "].item()
+        self.prod_func = self.doc.loc[
+            self.doc["excel sheet for scenario writing"] == "Production function", "Unnamed: 1"
+        ].item()
         self.culture_data = CultureData_prospect(
             self.main, self.area, self.data_path, categories_mapping, self.prod_func
         )
@@ -1856,8 +1860,10 @@ class NitrogenFlowModel_prospect:
         technical = self.technical
         area = self.area
         doc = self.doc
-        year = doc.loc[doc["excel sheet for scenario writing"] == "Year", " "].item()
-        region = doc.loc[doc["excel sheet for scenario writing"] == "Region name", " "].item()
+        year = doc.loc[doc["excel sheet for scenario writing"] == "Year", "Unnamed: 1"].item()
+        region = doc.loc[doc["excel sheet for scenario writing"] == "Region name", "Unnamed: 1"].item()
+        self.year = year
+        self.region = region
         flux_generator = self.flux_generator
         if self.prod_func == "Linear":
             ym = "a"
@@ -3112,6 +3118,7 @@ class NitrogenFlowModel_prospect:
 
             allocations_df = pd.DataFrame(allocations)
             self.allocations_df = allocations_df
+            self.allocation_vege = allocations_df
 
             df_cultures["Yield (qtl/ha)"] = (
                 df_cultures["Yield (kgN/ha)"]
