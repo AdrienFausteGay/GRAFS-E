@@ -1,4 +1,5 @@
 # %%
+import copy
 import io
 import json
 import os
@@ -83,6 +84,8 @@ for k, v in {
     "prep_year": None,
     "prep_func": None,
     "prep_xlsx_path": None,
+    "excel_uploaded_done": False,
+    "orig": None,
 }.items():
     st.session_state.setdefault(k, v)
 # %%
@@ -372,6 +375,7 @@ with tab2:
     # 🟢 Fonction pour générer la heatmap et éviter les recalculs inutiles
     @st.cache_data
     def generate_heatmap(_model, year, region):
+        _model = copy.deepcopy(_model)
         return _model.plot_heatmap_interactive()
 
     # 🔹 Bouton "Run" avec les valeurs mises à jour
@@ -1583,6 +1587,8 @@ with tab6:
         st.subheader("① Excel scenario → Run")
 
         def excel_uploaded():
+            if st.session_state.excel_uploaded_done:
+                return
             up = st.session_state["xlsx_up"]
             if not up:
                 return
@@ -1608,6 +1614,7 @@ with tab6:
                     model = NitrogenFlowModel_prospect(st.session_state.prep_xlsx_path)
                     # remplir les variables finales
                     st.session_state.model = model
+                    st.session_state.orig = model.adjacency_matrix.copy()
                     st.session_state.name = st.session_state.prep_name
                     st.session_state.year_pros = st.session_state.prep_year
                     st.session_state.year = st.session_state.year_pros
@@ -1615,11 +1622,13 @@ with tab6:
                     st.session_state.selected_region = st.session_state.selected_region_pros
                     st.session_state.prod_func = st.session_state.prep_func
                     st.session_state.heatmap_fig_pros = generate_heatmap(model, model.year, model.region)
+                    st.session_state.excel_uploaded_done = True
                     buf = io.BytesIO()
                     pickle.dump(model, buf)
                     buf.seek(0)
                     st.session_state.pkl_blob = buf.getvalue()
                 st.success("Model generated!")
+                st.rerun()
                 # on peut laisser Streamlit relancer automatiquement (pas de st.rerun)
 
         # ─────────── B • Load .pkl
@@ -1673,102 +1682,24 @@ with tab6:
                     mime="application/octet-stream",
                 )
 
+            if st.button("🔄 Reset model"):
+                for k in [
+                    "model",
+                    "name",
+                    "year_pros",
+                    "selected_region_pros",
+                    "prod_func",
+                    "heatmap_fig_pros",
+                    "pkl_blob",
+                ]:
+                    st.session_state[k] = None
+                st.session_state.excel_uploaded_done = False
+                st.rerun()
+
             if st.session_state.heatmap_fig_pros:
                 st.subheader(f"Heatmap – {st.session_state.selected_region_pros} / {st.session_state.year_pros}")
                 st.plotly_chart(st.session_state.heatmap_fig_pros, use_container_width=True)
+                # st.text(np.testing.assert_allclose(st.session_state.orig, st.session_state.model.adjacency_matrix))
+                # from IPython import embed
 
-        # # ╭─────────────────────────────  A.  Excel → Run  ─────────────────────────────╮
-        # uploaded_xlsx = st.file_uploader("📂 Excel scenario (.xlsx)", type=["xlsx"])
-        # if uploaded_xlsx:
-        #     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
-        #         tmp.write(uploaded_xlsx.read())
-        #         xlsx_path = tmp.name
-
-        #     df = pd.read_excel(xlsx_path)
-        #     # (⚠️ sécuriser les indices dans la vraie appli)
-        #     st.session_state.name = df.iloc[14, 1]
-        #     st.session_state.selected_region_pros = df.iloc[15, 1]
-        #     st.session_state.year_pros = int(df.iloc[16, 1])
-        #     st.session_state.prod_func = df.iloc[17, 1]
-
-        #     st.success("Excel loaded ! Click on *Run scenario* to excecute model.")
-
-        #     if st.button("🚀 Run scenario"):
-        #         with st.spinner("Model running…"):
-        #             model = NitrogenFlowModel_prospect(xlsx_path)
-        #             st.session_state.model = model
-
-        #             # Heat‑map
-        #             st.session_state.heatmap_fig_pros = generate_heatmap(
-        #                 model,
-        #                 st.session_state.year_pros,
-        #                 st.session_state.selected_region_pros,
-        #             )
-
-        #             # Binaire pickle pour download
-        #             buf = io.BytesIO()
-        #             pickle.dump(model, buf)
-        #             buf.seek(0)
-        #             st.session_state.pkl_blob = buf.getvalue()
-
-        #         st.success("Prospective model génerated!")
-        #         st.rerun()  # relance l’onglet pour l’affichage final
-
-        # # ╰──────────────────────────────────────────────────────────────────────────────╯
-
-        # # ╭─────────────────────────────  B.  Charger un .pkl  ─────────────────────────╮
-        # def load_model():
-        #     up = st.session_state["pkl_up"]
-        #     if not up:
-        #         return
-        #     try:
-        #         obj = pickle.load(io.BytesIO(up.getvalue()))
-        #         if not isinstance(obj, NitrogenFlowModel_prospect):
-        #             st.session_state.load_error = "⛔️ Unknown File."
-        #             return
-        #         # on stocke tout
-        #         st.session_state.model = obj
-        #         st.session_state.pkl_blob = up.getvalue()
-        #         st.session_state.name = os.path.splitext(up.name)[0]
-        #         st.session_state.year_pros = obj.year
-        #         st.session_state.selected_region_pros = obj.region
-        #         st.session_state.prod_func = obj.prod_func
-        #         st.session_state.heatmap_fig_pros = generate_heatmap(obj, obj.year, obj.region)
-        #         st.session_state.load_error = ""
-        #         # st.rerun()
-        #     except Exception as e:
-        #         st.session_state.load_error = f"Impossible loading: {e}"
-
-        # st.file_uploader("📥 Upload a model (.pkl)", type=["pkl", "pickle", "joblib"], key="pkl_up", on_change=load_model)
-        # if st.session_state.load_error:
-        #     st.error(st.session_state.load_error)
-        # # ╰──────────────────────────────────────────────────────────────────────────────╯
-
-        # # ────────────────────── 3)  affichage commun quand un modèle existe
-        # if st.session_state.model is None:
-        #     st.warning("No model loaded or generated.")
-        # else:
-        #     st.success("**Active model**")
-        #     st.session_state.selected_region = st.session_state.selected_region_pros
-        #     st.session_state.year = st.session_state.year_pros
-        #     st.markdown(
-        #         f"📘 Name : **{st.session_state.name}**  \n"
-        #         f"🗺️ Region : **{st.session_state.selected_region_pros}**  \n"
-        #         f"📆 Year : **{st.session_state.year_pros}**  \n"
-        #         f"✅ Production function : **{st.session_state.prod_func}**"
-        #     )
-
-        #     st.download_button(
-        #         "💾 Download this model",
-        #         data=st.session_state.pkl_blob,
-        #         file_name=f"{st.session_state.name}.pkl",
-        #         mime="application/octet-stream",
-        #     )
-
-        #     if st.session_state.heatmap_fig_pros:
-        #         st.subheader(
-        #             f"Heatmap of the nitrogen flows for {st.session_state.selected_region_pros} in {st.session_state.year_pros}"
-        #         )
-        #         st.plotly_chart(st.session_state.heatmap_fig_pros, use_container_width=True)
-
-    # # %%
+                # embed()

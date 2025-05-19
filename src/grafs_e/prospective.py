@@ -305,12 +305,6 @@ class scenario:
         all_cultures = cultures + legumineuses + prairies
         results = []
         run_fit = partial(fit_and_store, region=region)
-        # # Lancer le traitement en parallèle
-        # with ThreadPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
-        #     results = list(
-        #         tqdm(executor.map(run_fit, all_cultures), total=len(all_cultures), desc="Fitting models", position=1,
-        #         leave=False
-        #     )
 
         with ThreadPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
             futures = {executor.submit(run_fit, culture): culture for culture in all_cultures}
@@ -324,12 +318,6 @@ class scenario:
                     pbar.update(1)
                     pbar.refresh()
 
-        # results = []
-        # for culture in tqdm(all_cultures,
-        #                     desc="Fitting models",
-        #                     total=len(all_cultures)):
-        #     results.append(fit_and_store(culture, region))
-
         df_temp = pd.DataFrame(results).set_index("culture")
 
         # Ajouter (ou mettre à jour) les colonnes dans df_insert
@@ -339,7 +327,7 @@ class scenario:
 
     def pre_generate_scenario_excel(self, function_name="linear"):
         model_sheets = pd.read_excel(os.path.join(self.data_path, "scenario.xlsx"), sheet_name=None)
-        for region in tqdm(regions[23:], total=len(regions[23:]), desc="Regions", position=0):
+        for region in ["France"]:  # tqdm(regions[23:], total=len(regions[23:]), desc="Regions", position=0):
             sheets = {}
             sheet_corres = {
                 "doc": "doc",
@@ -477,7 +465,12 @@ class scenario:
             .reset_index()
         )
 
-        proj = grouped_proj_pop.loc[grouped_proj_pop["Region"] == region, f"POP_{year}"].item()
+        if region == "France":
+            proj = 0
+            for r in regions:
+                proj += grouped_proj_pop.loc[grouped_proj_pop["Region"] == r, f"POP_{year}"].item()
+        else:
+            proj = grouped_proj_pop.loc[grouped_proj_pop["Region"] == region, f"POP_{year}"].item()
         sheets["main"].loc[sheets["main"]["Variable"] == "Population", "Business as usual"] = (
             proj / 1000
         )  # to be in thousands, not in millions !
@@ -544,114 +537,6 @@ class scenario:
                     "Business as usual",
                 ] = self.historic_trend(region, 1254)[-1]
 
-            # #bovines
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Bovines % excretion on grassland",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1250)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Bovines % excretion in the barn as litter manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1252)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Bovines % excretion in the barn as other manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1253)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Bovines % excretion in the barn as slurry",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1254)[-1]
-
-            # # ovines
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Ovines % excretion on grassland",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1264)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Ovines % excretion in the barn as litter manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1266)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Ovines % excretion in the barn as other manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1267)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Ovines % excretion in the barn as slurry",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1268)[-1]
-
-            # # caprines
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Caprines % excretion on grassland",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1278)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Caprines % excretion in the barn as litter manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1280)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Caprines % excretion in the barn as other manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1281)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Caprines % excretion in the barn as slurry",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1282)[-1]
-
-            # # porcines
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Porcines % excretion on grassland",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1292)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Porcines % excretion in the barn as litter manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1294)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Porcines % excretion in the barn as other manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1295)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Porcines % excretion in the barn as slurry",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1296)[-1]
-
-            # # poultry
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Poultry % excretion on grassland",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1306)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Poultry % excretion in the barn as litter manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1308)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Poultry % excretion in the barn as other manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1309)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Poultry % excretion in the barn as slurry",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1310)[-1]
-
-            # # equines
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Equines % excretion on grassland",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1320)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Equines % excretion in the barn as litter manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1322)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Equines % excretion in the barn as other manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1323)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Equines % excretion in the barn as slurry",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1244)[-1]
-
             # LU prop
             LU_prop = self.livestock_LU(self.dataloader, self.region)[annees_disponibles[-1]]
             LU_prop_tot = sum(LU_prop.values())
@@ -663,31 +548,6 @@ class scenario:
                     sheets["technical"]["Variable"] == f"{t.capitalize()} LU",
                     "Business as usual",
                 ] = LU_prop[t]
-
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Bovines LU",
-            #     "Business as usual",
-            # ] = LU_prop["bovines"]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Ovines LU",
-            #     "Business as usual",
-            # ] = LU_prop["ovines"]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Caprines LU",
-            #     "Business as usual",
-            # ] = LU_prop["caprines"]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Porcines LU",
-            #     "Business as usual",
-            # ] = LU_prop["porcines"]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Poultry LU",
-            #     "Business as usual",
-            # ] = LU_prop["poultry"]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Equines LU",
-            #     "Business as usual",
-            # ] = LU_prop["equines"]
 
             # Historical trend
             sheets["main"].loc[
@@ -704,41 +564,6 @@ class scenario:
                 ] = self.extrapolate_recent_trend(self.LU_excretion(self.dataloader, self.region, type), self.year)[1][
                     -1
                 ]
-
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "kgN excreted by ovines LU",
-            #     "Business as usual",
-            # ] = self.extrapolate_recent_trend(self.LU_excretion(self.dataloader, self.region, "ovines"), self.year)[1][
-            #     -1
-            # ]
-
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "kgN excreted by caprines LU",
-            #     "Business as usual",
-            # ] = self.extrapolate_recent_trend(self.LU_excretion(self.dataloader, self.region, "caprines"), self.year)[
-            #     1
-            # ][-1]
-
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "kgN excreted by porcines LU",
-            #     "Business as usual",
-            # ] = self.extrapolate_recent_trend(self.LU_excretion(self.dataloader, self.region, "porcines"), self.year)[
-            #     1
-            # ][-1]
-
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "kgN excreted by poultry LU",
-            #     "Business as usual",
-            # ] = self.extrapolate_recent_trend(self.LU_excretion(self.dataloader, self.region, "poultry"), self.year)[1][
-            #     -1
-            # ]
-
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "kgN excreted by equines LU",
-            #     "Business as usual",
-            # ] = self.extrapolate_recent_trend(self.LU_excretion(self.region, "equines"), self.year)[1][-1]
-
-            # LU_prod = self.LU_prod(self.dataloader, self.region)
 
             for type in betail:
                 if type == "equine":
@@ -1642,7 +1467,7 @@ class NitrogenFlowModel_prospect:
         self.area = pd.DataFrame(self.scenar_sheets["area"])
         self.technical = pd.DataFrame(self.scenar_sheets["technical"])
         self.prod_func = self.doc.loc[
-            self.doc["excel sheet for scenario writing"] == "Production function", "Unnamed: 1"
+            self.doc["excel sheet for scenario writing"] == "Production function", self.doc.columns.tolist()[1]
         ].item()
         self.culture_data = CultureData_prospect(
             self.main, self.area, self.data_path, categories_mapping, self.prod_func
@@ -1860,8 +1685,8 @@ class NitrogenFlowModel_prospect:
         technical = self.technical
         area = self.area
         doc = self.doc
-        year = doc.loc[doc["excel sheet for scenario writing"] == "Year", "Unnamed: 1"].item()
-        region = doc.loc[doc["excel sheet for scenario writing"] == "Region name", "Unnamed: 1"].item()
+        year = doc.loc[doc["excel sheet for scenario writing"] == "Year", doc.columns.tolist()[1]].item()
+        region = doc.loc[doc["excel sheet for scenario writing"] == "Region name", doc.columns.tolist()[1]].item()
         self.year = year
         self.region = region
         flux_generator = self.flux_generator

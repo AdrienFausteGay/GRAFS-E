@@ -286,7 +286,10 @@ class NitrogenFlowModel:
         y_labels = list(range(1, len(self.labels) + 1))
 
         # Si vous ignorez la dernière ligne/colonne comme dans votre code :
-        adjacency_subset = self.adjacency_matrix[: len(self.labels), : len(self.labels)]
+        # adjacency_subset = self.adjacency_matrix[: len(self.labels), : len(self.labels)]
+
+        adj = np.array(self.adjacency_matrix)  # ou .copy()
+        adjacency_subset = adj[: len(self.labels), : len(self.labels)].copy()
 
         # 2) Gestion min/max et transformation log10
         cmin = max(1e-4, np.min(adjacency_subset[adjacency_subset > 0]))
