@@ -22,12 +22,30 @@ from grafs_e.donnees import *
 
 
 class DataLoader:
+    """Load the GRAFS Excel file (written by Julia Le Noë).
+
+    This class makes it possible to access all the data stored in the Excel file.
+    Currently, only yearly data (area, production, etc.) are accessed.
+    Stable data is stored in the 'GRAFS_data.xlsx' file.
+
+    This class will become obsolete once a proper database is built.
+
+    No arguments are required; the script automatically finds the Excel sheet.
+    Loading time: approximately 40 seconds.
+    """
+
     def __init__(self):  # , year, region):
         file_path = os.path.dirname(__file__)
         self.sheets_dict = pd.read_excel(os.path.join(file_path, "data/full_grafs.xlsx"), sheet_name=None)
         self.data_path = os.path.join(file_path, "data")
 
     def pre_process_df(self, year, region):
+        """Select the data sheet for a specific year and region.
+
+        Args:
+            year (str): The year for which to select the data.
+            region (str): The region for which to select the data. Not used (deprecated). To access ta data of a specific region, use df[["nom", region]]
+        """
         df = self.sheets_dict["pvar" + year].copy()
         df.loc[df.index[0], "Primary data, parameters, pre-treatments "] = "nom"
         df.columns = df.iloc[0]
@@ -35,6 +53,11 @@ class DataLoader:
         return df
 
     def get_import_feed(self, year, region):
+        """Select in the GRAFS excel the nitrogen import feed.
+        Args:
+            year (str): The year for which to select the data.
+            region (str): The region for which to select the data.
+        """
         df = self.sheets_dict["GRAFS" + year].copy()
         df.columns = df.iloc[0]
         correct_region = {
@@ -47,7 +70,47 @@ class DataLoader:
 
 
 class CultureData:
-    def __init__(self, data_loader, year, region, categories_mapping):
+    """This class processes and creates a dataframe with crop data for a specific year and region.
+
+    The class uses the provided DataLoader instance to load and preprocess the data. It extracts relevant crop-related
+    information such as surface area, crop production, nitrogen production, and fertilization needs, and combines them into
+    a comprehensive dataframe.
+
+    Args:
+        data_loader (DataLoader): An instance of the DataLoader class used to load and preprocess the data.
+        region (str): The region for which to create the crop dataframe.
+        year (str): The year for which to create the crop dataframe.
+        categories_mapping (dict): A dictionary used to classify each crop, mapping crop names to categories.
+
+    Attributes:
+        region (str): The region for which the crop data is processed.
+        year (str): The year for which the crop data is processed.
+        df (pandas.DataFrame): A dataframe containing the preprocessed data for the specified year and region.
+        data_path (str): The path to the directory containing the data files.
+        categories_mapping (dict): A dictionary mapping crop names to their respective categories.
+        df_cultures (pandas.DataFrame): The final dataframe containing the processed crop data, including surface area,
+                                        crop production, nitrogen production, yield, and fertilization needs.
+
+    Methods:
+        create_culture_dataframe():
+            Processes the raw data to create the crop dataframe. This dataframe includes:
+            - Crop surface area (in hectares).
+            - Crop production (in kton DFW).
+            - Nitrogen production (in kton N).
+            - Yield per hectare (in qtl/ha).
+            - Fertilization needs per hectare (in kgN/ha).
+            The method performs various data transformations and calculations, including filling missing values with zero.
+    """
+
+    def __init__(self, data_loader, year, region, categories_mapping=categories_mapping):
+        """Initializes the CultureData class by preprocessing the data for the given year, region, and categories.
+
+        Args:
+            data_loader (DataLoader): An instance of the DataLoader class used to load and preprocess the data.
+            year (str): The year for which to create the crop dataframe.
+            region (str): The region for which to create the crop dataframe.
+            categories_mapping (dict): A dictionary used to classify each crop, mapping crop names to categories.
+        """
         self.region = region
         self.year = year
         self.df = data_loader.pre_process_df(self.year, self.region)
@@ -56,6 +119,25 @@ class CultureData:
         self.df_cultures = self.create_culture_dataframe()
 
     def create_culture_dataframe(self):
+        """Processes the raw data to create the crop dataframe.
+
+        The dataframe includes:
+        - Crop surface area (in hectares).
+        - Crop production (in kton DFW).
+        - Nitrogen production (in kton N).
+        - Yield per hectare (in qtl/ha).
+        - Fertilization needs per hectare (in kgN/ha).
+
+        This method performs the following steps:
+        - Extracts crop surface and production data from the main dataframe.
+        - Reads additional crop-specific data (fertilization and nitrogen content) from an external Excel file.
+        - Calculates the nitrogen production and yield based on crop production and surface area.
+        - Computes fertilization needs per hectare based on crop yield.
+        - Fills missing values with zero.
+
+        Returns:
+            pandas.DataFrame: A dataframe containing the processed crop data.
+        """
         df = self.df
         region = self.region
         data_path = self.data_path
@@ -69,14 +151,6 @@ class CultureData:
         # Extraire les données de production végétale
         vege_prod_data = df[(df["index_excel"] >= 183) & (df["index_excel"] <= 218)][["nom", region]]
         vege_prod_dict = vege_prod_data.set_index("nom")[region].to_dict()
-
-        # Extraire les données de teneur en azote
-        # N_content_data = df[(df["index_excel"] >= 335) & (df["index_excel"] <= 370)][["nom", region]]
-        # N_content_dict = N_content_data.set_index("nom")[region].to_dict()
-
-        # Rendement_data = df[(df["index_excel"] >= 221) & (df["index_excel"] <= 256)][["nom", region]]
-        # Rendement_dict = Rendement_data.set_index("nom")[region].to_dict()
-        # Rendement_dict["Forage cabbages"] = Rendement_dict.pop("Forage cabbages & roots")
 
         # Extraire les taux de surface avec épendage
         epend = pd.read_excel(
@@ -116,7 +190,39 @@ class CultureData:
 
 
 class ElevageData:
+    """This class processes and creates a dataframe containing livestock data for a specific year and region.
+
+    The class uses data from the provided DataLoader instance, filters and processes it to generate
+    a dataframe containing livestock production and emissions data.
+
+    Args:
+        data_loader (DataLoader): An instance of the DataLoader class used to load and preprocess the data.
+        year (str): The year for which to generate the livestock dataframe.
+        region (str): The region for which to generate the livestock dataframe.
+
+    Attributes:
+        region (str): The region for which the livestock data is processed.
+        year (str): The year for which the livestock data is processed.
+        df (pandas.DataFrame): A dataframe containing the preprocessed data for the specified year and region.
+        data_path (str): The path to the directory containing the data files.
+        dataloader (DataLoader): The instance of the DataLoader used to load the data.
+        df_elevage (pandas.DataFrame): The final dataframe containing livestock production and emissions data.
+
+    Methods:
+        create_elevage_dataframe():
+            Processes the pre-loaded data to create the livestock dataframe, which includes both production data
+            and associated emission data. The production data is filtered and matched with gas emission data
+            for the specified region, and missing values are filled with zero.
+    """
+
     def __init__(self, data_loader, year, region):
+        """Initializes the ElevageData class by preprocessing the data for the given year and region.
+
+        Args:
+            data_loader (DataLoader): An instance of the DataLoader class used to load and preprocess the data.
+            year (str): The year for which to generate the livestock dataframe.
+            region (str): The region for which to generate the livestock dataframe.
+        """
         self.region = region
         self.year = year
         self.df = data_loader.pre_process_df(self.year, self.region)
@@ -125,6 +231,15 @@ class ElevageData:
         self.df_elevage = self.create_elevage_dataframe()
 
     def create_elevage_dataframe(self):
+        """Processes the raw data to create the livestock dataframe.
+
+        The dataframe includes the following:
+        - Livestock production data (in kton carcass) for the specified region.
+        - Gas emissions data related to livestock (volatilisation) linked by the 'Elevage' index.
+
+        Returns:
+            pandas.DataFrame: A dataframe containing the processed livestock production data and gas emissions data.
+        """
         df = self.df
         region = self.region
         data_path = self.data_path
@@ -151,13 +266,49 @@ class ElevageData:
 
 
 class FluxGenerator:
+    """This class generates and manages the transition matrix of fluxes between various sectors (e.g., agriculture, livestock, industry, trade).
+
+    The transition matrix is used to model the flow of resources or interactions between sectors, where each entry in the matrix represents the relationship or flow between a source sector and a target sector.
+
+    Args:
+        labels (list): A list of labels representing the sectors (e.g., ['agriculture', 'livestock', 'industry', 'trade']) in the model. These labels are used to index the transition matrix and identify the sectors in the flux calculations.
+
+    Attributes:
+        labels (list): The list of labels (sectors) that are used to define the transition matrix.
+        label_to_index (dict): A dictionary mapping each label (sector) to its corresponding index in the adjacency matrix.
+        n (int): The number of sectors (i.e., the length of the labels list).
+        adjacency_matrix (numpy.ndarray): A square matrix of size n x n representing the fluxes between sectors. Each element in the matrix holds the transition coefficient between a source and a target sector.
+
+    Methods:
+        generate_flux(source, target):
+            Generates and updates the transition matrix by calculating flux coefficients between the source and target sectors. The coefficients are based on the provided `source` and `target` dictionaries.
+
+        get_coef(source_label, target_label):
+            Retrieves the transition coefficient for the flux between two sectors (identified by their labels) from the transition matrix.
+    """
+
     def __init__(self, labels):
+        """Initializes the FluxGenerator with a list of sector labels.
+
+        Args:
+            labels (list): List of labels representing sectors in the model.
+        """
         self.labels = labels
         self.label_to_index = {label: index for index, label in enumerate(self.labels)}
         self.n = len(self.labels)
         self.adjacency_matrix = np.zeros((self.n, self.n))
 
     def generate_flux(self, source, target):
+        """Generates and updates the transition matrix by calculating the flux coefficients between the source and target sectors.
+
+        Args:
+            source (dict): A dictionary representing the source sector, where keys are sector labels and values are the corresponding flux values.
+            target (dict): A dictionary representing the target sector, where keys are sector labels and values are the corresponding flux values.
+
+        This method updates the adjacency matrix by computing the flux between all pairs of source and target sectors.
+        A flux coefficient is calculated as the product of the corresponding values from the `source` and `target` dictionaries.
+        If the coefficient exceeds a small threshold (10^-7), it is added to the matrix at the corresponding position.
+        """
         for source_label, source_value in source.items():
             source_index = self.label_to_index.get(source_label)
             if source_index is None:
@@ -172,6 +323,15 @@ class FluxGenerator:
                     print(f"{target_label} not found in label_to_index")
 
     def get_coef(self, source_label, target_label):
+        """Retrieves the transition coefficient between two sectors from the adjacency matrix.
+
+        Args:
+            source_label (str): The label of the source sector.
+            target_label (str): The label of the target sector.
+
+        Returns:
+            float or None: The transition coefficient between the source and target sectors. Returns None if either sector is not found in the matrix.
+        """
         source_index = self.label_to_index.get(source_label)
         target_index = self.label_to_index.get(target_label)
         if source_index is not None and target_index is not None:
@@ -181,6 +341,90 @@ class FluxGenerator:
 
 
 class NitrogenFlowModel:
+    """This class models the nitrogen flow in an agricultural system, calculating fluxes and nitrogen dynamics
+    for different sectors (e.g., crops, livestock) over a given year and region.
+
+    The model incorporates various processes, including crop production, animal production, nitrogen emissions,
+    and fertilization, and computes the corresponding nitrogen fluxes between sectors using transition matrices.
+
+    This class provides methods to compute fluxes, generate heatmaps, and access matrices such as the transition matrix,
+    core matrix, and adjacency matrix.
+
+    For a detailed explanation of the model's methodology and mathematical foundations, please refer to the associated
+    scientific paper: Tracking Nitrogen Dynamics: A Disaggregated Approach for French Agro-Food Systems, 2025, Adrien Fauste-Gay (pre-print).
+
+    Args:
+        data (DataLoader): An instance of the DataLoader class to load and preprocess the data.
+        year (str): The year for which to compute the nitrogen flow model.
+        region (str): The region for which to compute the nitrogen flow model.
+        categories_mapping (dict, optional): A dictionary used to classify each crop. Defaults to categories_mapping.
+        labels (list, optional): A list of labels representing the sectors in the model. Defaults to labels.
+        cultures (CultureData, optional): An instance of the CultureData class for crop data processing.
+        legumineuses (list, optional): A list representing leguminous crops in the model.
+        prairies (list, optional): A list representing grasslands and prairies in the model.
+        betail (list, optional): A list representing livestock categories in the model.
+        Pop (list, optional): A list representing the population data.
+        ext (list, optional): A list representing external data or processes affecting nitrogen fluxes.
+
+    Attributes:
+        year (str): The year for which the nitrogen flow model is computed.
+        region (str): The region for which the nitrogen flow model is computed.
+        categories_mapping (dict): The dictionary used to classify crops.
+        labels (list): The list of labels representing the sectors in the model.
+        data_loader (DataLoader): The instance of the DataLoader used to load the data.
+        culture_data (CultureData): An instance of the CultureData class for crop data.
+        elevage_data (ElevageData): An instance of the ElevageData class for livestock data.
+        flux_generator (FluxGenerator): An instance of the FluxGenerator class to generate flux coefficients.
+        df_cultures (pandas.DataFrame): The dataframe containing crop data.
+        df_elevage (pandas.DataFrame): The dataframe containing livestock data.
+        adjacency_matrix (numpy.ndarray): The matrix representing nitrogen fluxes between sectors.
+        label_to_index (dict): A dictionary mapping sector labels to matrix indices.
+
+    Methods:
+        compute_fluxes():
+            Computes the nitrogen fluxes between the sectors of the model. This method populates the adjacency matrix
+            with flux coefficients based on the interactions between crops, livestock, emissions, and fertilization.
+
+        plot_heatmap():
+            Generates a heatmap visualization of the transition matrix for nitrogen fluxes.
+
+        plot_heatmap_interactive():
+            Generates an interactive heatmap for the nitrogen fluxes.
+
+        get_df_culture():
+            Returns the dataframe containing crop data.
+
+        get_df_elevage():
+            Returns the dataframe containing livestock data.
+
+        get_transition_matrix():
+            Returns the transition matrix representing nitrogen fluxes between sectors.
+
+        get_core_matrix():
+            Returns the core matrix representing the primary fluxes in the system.
+
+        get_adjacency_matrix():
+            Returns the adjacency matrix, which is used to represent the complete set of nitrogen fluxes between sectors.
+
+        extract_input_output_matrixs():
+            Extracts and returns the input-output matrices of nitrogen fluxes.
+
+        imported_nitrogen():
+            Returns the total amount of imported nitrogen in the system.
+
+        net_imported_plant():
+            Returns the net imported nitrogen for plants.
+
+        net_imported_animal():
+            Returns the net imported nitrogen for livestock.
+
+        total_plant_production():
+            Returns the total plant production in the model.
+
+        stacked_plant_production():
+            Returns a stacked representation of plant production data.
+    """
+
     def __init__(
         self,
         data,
@@ -195,6 +439,21 @@ class NitrogenFlowModel:
         Pop=Pop,
         ext=ext,
     ):
+        """Initializes the NitrogenFlowModel class with the necessary data and model parameters.
+
+        Args:
+            data (DataLoader): An instance of the DataLoader class to load and preprocess the data.
+            year (str): The year for which to compute the nitrogen flow model.
+            region (str): The region for which to compute the nitrogen flow model.
+            categories_mapping (dict, optional): A dictionary used to classify each crop. Defaults to categories_mapping.
+            labels (list, optional): A list of labels representing the sectors in the model. Defaults to labels.
+            cultures (CultureData, optional): An instance of the CultureData class for crop data processing.
+            legumineuses (list, optional): A list representing leguminous crops in the model.
+            prairies (list, optional): A list representing grasslands and prairies in the model.
+            betail (list, optional): A list representing livestock categories in the model.
+            Pop (list, optional): A list representing the population data.
+            ext (list, optional): A list representing external data or processes affecting nitrogen fluxes.
+        """
         self.year = year
         self.region = region
         self.categories_mapping = categories_mapping
@@ -219,6 +478,29 @@ class NitrogenFlowModel:
         self.compute_fluxes()
 
     def plot_heatmap(self):
+        """
+        Generates a static heatmap to visualize the nitrogen flux transition matrix.
+
+        The heatmap displays the nitrogen fluxes between sectors using a logarithmic color scale. It provides a visual representation
+        of the relative magnitudes of nitrogen fluxes, where each cell in the matrix corresponds to a transition from one sector
+        (source) to another (target).
+
+        Features of the heatmap:
+        - **Logarithmic scale** for better visualization of fluxes with wide value ranges (`LogNorm` is used with `vmin=10^-4` and `vmax` set to the maximum value in the adjacency matrix).
+        - **Color palette** is reversed "plasma" (`plasma_r`), with the color bar indicating flux magnitudes in kton/year.
+        - **Grid**: A light gray grid is added for visual separation of cells.
+        - **Labels**: Axis labels are moved to the top of the heatmap, with tick labels rotated for better readability.
+        - **Legend**: Each sector is labeled with its corresponding index (e.g., "1: Agriculture"), positioned next to the heatmap.
+
+        Args:
+            None
+
+        Returns:
+            None: Displays the heatmap plot on screen.
+
+        Note:
+            This method uses `matplotlib` and `seaborn` for visualization. Make sure these libraries are installed.
+        """
         plt.figure(figsize=(10, 12), dpi=500)
         ax = plt.gca()
 
@@ -274,11 +556,19 @@ class NitrogenFlowModel:
 
     def plot_heatmap_interactive(self):
         """
-        Génére une heatmap interactive (Plotly) :
-        - Échelle 'log' simulée via log10(z).
-        - Colorbar horizontale en bas.
-        - Légende index -> label à droite sans chevauchement.
-        - Axe X en haut et titre centré.
+        Generates an interactive heatmap using Plotly to visualize the nitrogen flux transition matrix.
+
+        The heatmap has the following features:
+        - Logarithmic scale (simulated via log10(z)) to handle wide-ranging values.
+        - A horizontal colorbar placed at the bottom of the plot.
+        - A legend that maps matrix indices to sector labels, positioned on the right, ensuring no overlap.
+        - The X-axis is displayed at the top of the plot, and the title is centered above the plot.
+
+        This visualization helps to understand the relative magnitudes of the nitrogen fluxes between sectors
+        in a clear and interactive manner.
+
+        Returns:
+            plotly.graph_objects.Figure: An interactive Plotly figure containing the heatmap.
         """
 
         # 1) Préparation des labels numériques
@@ -413,6 +703,17 @@ class NitrogenFlowModel:
         return fig
 
     def compute_fluxes(self):
+        """Computes the nitrogen fluxes for all sectors in the model.
+
+        This method populates the adjacency matrix with flux coefficients based on sector interactions. These interactions
+        include crop production, livestock production, nitrogen emissions, and fertilization. The coefficients are used to
+        model the flow of nitrogen between sectors over the specified year and region.
+
+        The computation involves complex mathematical processes, which are detailed in the associated scientific methodology
+        paper: Tracking Nitrogen Dynamics: A Disaggregated Approach for French Agro-Food Systems, 2025, Adrien Fauste-Gay (pre-print).
+
+        For an in-depth explanation of the model's functioning, please refer to the accompanying paper.
+        """
         # Extraire les variables nécessaires
         df_cultures = self.df_cultures
         df_elevage = self.df_elevage

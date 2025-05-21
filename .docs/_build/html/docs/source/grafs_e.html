@@ -42,10 +42,124 @@
 <dt class="sig sig-object py" id="grafs_e.N_class.CultureData">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">grafs_e.N_class.</span></span><span class="sig-name descname"><span class="pre">CultureData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_loader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">year</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">region</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">categories_mapping</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.CultureData" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>This class processes and creates a dataframe with crop data for a specific year and region.</p>
+<p>The class uses the provided DataLoader instance to load and preprocess the data. It extracts relevant crop-related
+information such as surface area, crop production, nitrogen production, and fertilization needs, and combines them into
+a comprehensive dataframe.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data_loader</strong> (<a class="reference internal" href="#grafs_e.N_class.DataLoader" title="grafs_e.N_class.DataLoader"><em>DataLoader</em></a>) – An instance of the DataLoader class used to load and preprocess the data.</p></li>
+<li><p><strong>region</strong> (<em>str</em>) – The region for which to create the crop dataframe.</p></li>
+<li><p><strong>year</strong> (<em>str</em>) – The year for which to create the crop dataframe.</p></li>
+<li><p><strong>categories_mapping</strong> (<em>dict</em>) – A dictionary used to classify each crop, mapping crop names to categories.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.CultureData.region">
+<span class="sig-name descname"><span class="pre">region</span></span><a class="headerlink" href="#grafs_e.N_class.CultureData.region" title="Link to this definition">¶</a></dt>
+<dd><p>The region for which the crop data is processed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.CultureData.year">
+<span class="sig-name descname"><span class="pre">year</span></span><a class="headerlink" href="#grafs_e.N_class.CultureData.year" title="Link to this definition">¶</a></dt>
+<dd><p>The year for which the crop data is processed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.CultureData.df">
+<span class="sig-name descname"><span class="pre">df</span></span><a class="headerlink" href="#grafs_e.N_class.CultureData.df" title="Link to this definition">¶</a></dt>
+<dd><p>A dataframe containing the preprocessed data for the specified year and region.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pandas.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.CultureData.data_path">
+<span class="sig-name descname"><span class="pre">data_path</span></span><a class="headerlink" href="#grafs_e.N_class.CultureData.data_path" title="Link to this definition">¶</a></dt>
+<dd><p>The path to the directory containing the data files.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.CultureData.categories_mapping">
+<span class="sig-name descname"><span class="pre">categories_mapping</span></span><a class="headerlink" href="#grafs_e.N_class.CultureData.categories_mapping" title="Link to this definition">¶</a></dt>
+<dd><p>A dictionary mapping crop names to their respective categories.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.CultureData.df_cultures">
+<span class="sig-name descname"><span class="pre">df_cultures</span></span><a class="headerlink" href="#grafs_e.N_class.CultureData.df_cultures" title="Link to this definition">¶</a></dt>
+<dd><p>The final dataframe containing the processed crop data, including surface area,
+crop production, nitrogen production, yield, and fertilization needs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pandas.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="grafs_e.N_class.CultureData.create_culture_dataframe">
 <span class="sig-name descname"><span class="pre">create_culture_dataframe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.CultureData.create_culture_dataframe" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Processes the raw data to create the crop dataframe. This dataframe includes:
+- Crop surface area (in hectares).
+- Crop production (in kton DFW).
+- Nitrogen production (in kton N).
+- Yield per hectare (in qtl/ha).
+- Fertilization needs per hectare (in kgN/ha).
+The method performs various data transformations and calculations, including filling missing values with zero.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="id0">
+<span class="sig-name descname"><span class="pre">create_culture_dataframe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#id0" title="Link to this definition">¶</a></dt>
+<dd><p>Processes the raw data to create the crop dataframe.</p>
+<p>The dataframe includes:
+- Crop surface area (in hectares).
+- Crop production (in kton DFW).
+- Nitrogen production (in kton N).
+- Yield per hectare (in qtl/ha).
+- Fertilization needs per hectare (in kgN/ha).</p>
+<p>This method performs the following steps:
+- Extracts crop surface and production data from the main dataframe.
+- Reads additional crop-specific data (fertilization and nitrogen content) from an external Excel file.
+- Calculates the nitrogen production and yield based on crop production and surface area.
+- Computes fertilization needs per hectare based on crop yield.
+- Fills missing values with zero.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A dataframe containing the processed crop data.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>pandas.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
 
 </dd></dl>
 
@@ -53,15 +167,36 @@
 <dt class="sig sig-object py" id="grafs_e.N_class.DataLoader">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">grafs_e.N_class.</span></span><span class="sig-name descname"><span class="pre">DataLoader</span></span><a class="headerlink" href="#grafs_e.N_class.DataLoader" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Load the GRAFS Excel file (written by Julia Le Noë).</p>
+<p>This class makes it possible to access all the data stored in the Excel file.
+Currently, only yearly data (area, production, etc.) are accessed.
+Stable data is stored in the ‘GRAFS_data.xlsx’ file.</p>
+<p>This class will become obsolete once a proper database is built.</p>
+<p>No arguments are required; the script automatically finds the Excel sheet.
+Loading time: approximately 40 seconds.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="grafs_e.N_class.DataLoader.get_import_feed">
 <span class="sig-name descname"><span class="pre">get_import_feed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">year</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">region</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.DataLoader.get_import_feed" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Select in the GRAFS excel the nitrogen import feed.
+:param year: The year for which to select the data.
+:type year: str
+:param region: The region for which to select the data.
+:type region: str</p>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="grafs_e.N_class.DataLoader.pre_process_df">
 <span class="sig-name descname"><span class="pre">pre_process_df</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">year</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">region</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.DataLoader.pre_process_df" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Select the data sheet for a specific year and region.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>year</strong> (<em>str</em>) – The year for which to select the data.</p></li>
+<li><p><strong>region</strong> (<em>str</em>) – The region for which to select the data. Not used (deprecated). To access ta data of a specific region, use df[[“nom”, region]]</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
 
 </dd></dl>
 
@@ -69,10 +204,108 @@
 <dt class="sig sig-object py" id="grafs_e.N_class.ElevageData">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">grafs_e.N_class.</span></span><span class="sig-name descname"><span class="pre">ElevageData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_loader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">year</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">region</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.ElevageData" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>This class processes and creates a dataframe containing livestock data for a specific year and region.</p>
+<p>The class uses data from the provided DataLoader instance, filters and processes it to generate
+a dataframe containing livestock production and emissions data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data_loader</strong> (<a class="reference internal" href="#grafs_e.N_class.DataLoader" title="grafs_e.N_class.DataLoader"><em>DataLoader</em></a>) – An instance of the DataLoader class used to load and preprocess the data.</p></li>
+<li><p><strong>year</strong> (<em>str</em>) – The year for which to generate the livestock dataframe.</p></li>
+<li><p><strong>region</strong> (<em>str</em>) – The region for which to generate the livestock dataframe.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.ElevageData.region">
+<span class="sig-name descname"><span class="pre">region</span></span><a class="headerlink" href="#grafs_e.N_class.ElevageData.region" title="Link to this definition">¶</a></dt>
+<dd><p>The region for which the livestock data is processed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.ElevageData.year">
+<span class="sig-name descname"><span class="pre">year</span></span><a class="headerlink" href="#grafs_e.N_class.ElevageData.year" title="Link to this definition">¶</a></dt>
+<dd><p>The year for which the livestock data is processed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.ElevageData.df">
+<span class="sig-name descname"><span class="pre">df</span></span><a class="headerlink" href="#grafs_e.N_class.ElevageData.df" title="Link to this definition">¶</a></dt>
+<dd><p>A dataframe containing the preprocessed data for the specified year and region.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pandas.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.ElevageData.data_path">
+<span class="sig-name descname"><span class="pre">data_path</span></span><a class="headerlink" href="#grafs_e.N_class.ElevageData.data_path" title="Link to this definition">¶</a></dt>
+<dd><p>The path to the directory containing the data files.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.ElevageData.dataloader">
+<span class="sig-name descname"><span class="pre">dataloader</span></span><a class="headerlink" href="#grafs_e.N_class.ElevageData.dataloader" title="Link to this definition">¶</a></dt>
+<dd><p>The instance of the DataLoader used to load the data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#grafs_e.N_class.DataLoader" title="grafs_e.N_class.DataLoader">DataLoader</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.ElevageData.df_elevage">
+<span class="sig-name descname"><span class="pre">df_elevage</span></span><a class="headerlink" href="#grafs_e.N_class.ElevageData.df_elevage" title="Link to this definition">¶</a></dt>
+<dd><p>The final dataframe containing livestock production and emissions data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pandas.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="grafs_e.N_class.ElevageData.create_elevage_dataframe">
 <span class="sig-name descname"><span class="pre">create_elevage_dataframe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.ElevageData.create_elevage_dataframe" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Processes the pre-loaded data to create the livestock dataframe, which includes both production data
+and associated emission data. The production data is filtered and matched with gas emission data
+for the specified region, and missing values are filled with zero.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="id1">
+<span class="sig-name descname"><span class="pre">create_elevage_dataframe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#id1" title="Link to this definition">¶</a></dt>
+<dd><p>Processes the raw data to create the livestock dataframe.</p>
+<p>The dataframe includes the following:
+- Livestock production data (in kton carcass) for the specified region.
+- Gas emissions data related to livestock (volatilisation) linked by the ‘Elevage’ index.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A dataframe containing the processed livestock production data and gas emissions data.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>pandas.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
 
 </dd></dl>
 
@@ -80,15 +313,105 @@
 <dt class="sig sig-object py" id="grafs_e.N_class.FluxGenerator">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">grafs_e.N_class.</span></span><span class="sig-name descname"><span class="pre">FluxGenerator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">labels</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.FluxGenerator" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>This class generates and manages the transition matrix of fluxes between various sectors (e.g., agriculture, livestock, industry, trade).</p>
+<p>The transition matrix is used to model the flow of resources or interactions between sectors, where each entry in the matrix represents the relationship or flow between a source sector and a target sector.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>labels</strong> (<em>list</em>) – A list of labels representing the sectors (e.g., [‘agriculture’, ‘livestock’, ‘industry’, ‘trade’]) in the model. These labels are used to index the transition matrix and identify the sectors in the flux calculations.</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.FluxGenerator.labels">
+<span class="sig-name descname"><span class="pre">labels</span></span><a class="headerlink" href="#grafs_e.N_class.FluxGenerator.labels" title="Link to this definition">¶</a></dt>
+<dd><p>The list of labels (sectors) that are used to define the transition matrix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.FluxGenerator.label_to_index">
+<span class="sig-name descname"><span class="pre">label_to_index</span></span><a class="headerlink" href="#grafs_e.N_class.FluxGenerator.label_to_index" title="Link to this definition">¶</a></dt>
+<dd><p>A dictionary mapping each label (sector) to its corresponding index in the adjacency matrix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.FluxGenerator.n">
+<span class="sig-name descname"><span class="pre">n</span></span><a class="headerlink" href="#grafs_e.N_class.FluxGenerator.n" title="Link to this definition">¶</a></dt>
+<dd><p>The number of sectors (i.e., the length of the labels list).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.FluxGenerator.adjacency_matrix">
+<span class="sig-name descname"><span class="pre">adjacency_matrix</span></span><a class="headerlink" href="#grafs_e.N_class.FluxGenerator.adjacency_matrix" title="Link to this definition">¶</a></dt>
+<dd><p>A square matrix of size n x n representing the fluxes between sectors. Each element in the matrix holds the transition coefficient between a source and a target sector.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="grafs_e.N_class.FluxGenerator.generate_flux">
 <span class="sig-name descname"><span class="pre">generate_flux</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.FluxGenerator.generate_flux" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Generates and updates the transition matrix by calculating flux coefficients between the source and target sectors. The coefficients are based on the provided <cite>source</cite> and <cite>target</cite> dictionaries.</p>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="grafs_e.N_class.FluxGenerator.get_coef">
 <span class="sig-name descname"><span class="pre">get_coef</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_label</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_label</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.FluxGenerator.get_coef" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Retrieves the transition coefficient for the flux between two sectors (identified by their labels) from the transition matrix.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="id2">
+<span class="sig-name descname"><span class="pre">generate_flux</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#id2" title="Link to this definition">¶</a></dt>
+<dd><p>Generates and updates the transition matrix by calculating the flux coefficients between the source and target sectors.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>source</strong> (<em>dict</em>) – A dictionary representing the source sector, where keys are sector labels and values are the corresponding flux values.</p></li>
+<li><p><strong>target</strong> (<em>dict</em>) – A dictionary representing the target sector, where keys are sector labels and values are the corresponding flux values.</p></li>
+</ul>
+</dd>
+</dl>
+<p>This method updates the adjacency matrix by computing the flux between all pairs of source and target sectors.
+A flux coefficient is calculated as the product of the corresponding values from the <cite>source</cite> and <cite>target</cite> dictionaries.
+If the coefficient exceeds a small threshold (10^-7), it is added to the matrix at the corresponding position.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="id3">
+<span class="sig-name descname"><span class="pre">get_coef</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_label</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_label</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#id3" title="Link to this definition">¶</a></dt>
+<dd><p>Retrieves the transition coefficient between two sectors from the adjacency matrix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>source_label</strong> (<em>str</em>) – The label of the source sector.</p></li>
+<li><p><strong>target_label</strong> (<em>str</em>) – The label of the target sector.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The transition coefficient between the source and target sectors. Returns None if either sector is not found in the matrix.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float or None</p>
+</dd>
+</dl>
+</dd></dl>
 
 </dd></dl>
 
@@ -96,6 +419,248 @@
 <dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">grafs_e.N_class.</span></span><span class="sig-name descname"><span class="pre">NitrogenFlowModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">year</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">region</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">categories_mapping</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'Alfalfa</span> <span class="pre">and</span> <span class="pre">clover':</span> <span class="pre">'forages',</span> <span class="pre">'Barley':</span> <span class="pre">'cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)',</span> <span class="pre">'Cabbage':</span> <span class="pre">'fruits</span> <span class="pre">and</span> <span class="pre">vegetables',</span> <span class="pre">'Citrus':</span> <span class="pre">'fruits</span> <span class="pre">and</span> <span class="pre">vegetables',</span> <span class="pre">'Dry</span> <span class="pre">beans':</span> <span class="pre">'leguminous',</span> <span class="pre">'Dry</span> <span class="pre">fruits':</span> <span class="pre">'fruits</span> <span class="pre">and</span> <span class="pre">vegetables',</span> <span class="pre">'Dry</span> <span class="pre">vegetables':</span> <span class="pre">'fruits</span> <span class="pre">and</span> <span class="pre">vegetables',</span> <span class="pre">'Flax':</span> <span class="pre">'oleaginous',</span> <span class="pre">'Forage</span> <span class="pre">cabbages':</span> <span class="pre">'forages',</span> <span class="pre">'Forage</span> <span class="pre">maize':</span> <span class="pre">'forages',</span> <span class="pre">'Fruits':</span> <span class="pre">'fruits</span> <span class="pre">and</span> <span class="pre">vegetables',</span> <span class="pre">'Grain</span> <span class="pre">maize':</span> <span class="pre">'cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)',</span> <span class="pre">'Green</span> <span class="pre">beans':</span> <span class="pre">'leguminous',</span> <span class="pre">'Green</span> <span class="pre">peas':</span> <span class="pre">'leguminous',</span> <span class="pre">'Hemp':</span> <span class="pre">'oleaginous',</span> <span class="pre">'Horse</span> <span class="pre">beans</span> <span class="pre">and</span> <span class="pre">faba</span> <span class="pre">beans':</span> <span class="pre">'leguminous',</span> <span class="pre">'Leaves</span> <span class="pre">vegetables':</span> <span class="pre">'fruits</span> <span class="pre">and</span> <span class="pre">vegetables',</span> <span class="pre">'Natural</span> <span class="pre">meadow</span> <span class="pre">':</span> <span class="pre">'grasslands',</span> <span class="pre">'Non-legume</span> <span class="pre">temporary</span> <span class="pre">meadow':</span> <span class="pre">'forages',</span> <span class="pre">'Oat':</span> <span class="pre">'cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)',</span> <span class="pre">'Olives':</span> <span class="pre">'fruits</span> <span class="pre">and</span> <span class="pre">vegetables',</span> <span class="pre">'Other</span> <span class="pre">cereals':</span> <span class="pre">'cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)',</span> <span class="pre">'Other</span> <span class="pre">oil</span> <span class="pre">crops':</span> <span class="pre">'leguminous',</span> <span class="pre">'Other</span> <span class="pre">protein</span> <span class="pre">crops':</span> <span class="pre">'leguminous',</span> <span class="pre">'Other</span> <span class="pre">roots':</span> <span class="pre">'roots',</span> <span class="pre">'Peas':</span> <span class="pre">'leguminous',</span> <span class="pre">'Potatoes':</span> <span class="pre">'roots',</span> <span class="pre">'Rapeseed':</span> <span class="pre">'oleaginous',</span> <span class="pre">'Rice':</span> <span class="pre">'rice',</span> <span class="pre">'Rye':</span> <span class="pre">'cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)',</span> <span class="pre">'Soybean':</span> <span class="pre">'leguminous',</span> <span class="pre">'Squash</span> <span class="pre">and</span> <span class="pre">melons':</span> <span class="pre">'fruits</span> <span class="pre">and</span> <span class="pre">vegetables',</span> <span class="pre">'Straw':</span> <span class="pre">'forages',</span> <span class="pre">'Sugar</span> <span class="pre">beet':</span> <span class="pre">'roots',</span> <span class="pre">'Sunflower':</span> <span class="pre">'oleaginous',</span> <span class="pre">'Wheat':</span> <span class="pre">'cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)'}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['Wheat',</span> <span class="pre">'Rye',</span> <span class="pre">'Barley',</span> <span class="pre">'Oat',</span> <span class="pre">'Grain</span> <span class="pre">maize',</span> <span class="pre">'Rice',</span> <span class="pre">'Other</span> <span class="pre">cereals',</span> <span class="pre">'Straw',</span> <span class="pre">'Forage</span> <span class="pre">maize',</span> <span class="pre">'Forage</span> <span class="pre">cabbages',</span> <span class="pre">'Rapeseed',</span> <span class="pre">'Sunflower',</span> <span class="pre">'Other</span> <span class="pre">oil</span> <span class="pre">crops',</span> <span class="pre">'Sugar</span> <span class="pre">beet',</span> <span class="pre">'Potatoes',</span> <span class="pre">'Other</span> <span class="pre">roots',</span> <span class="pre">'Dry</span> <span class="pre">vegetables',</span> <span class="pre">'Dry</span> <span class="pre">fruits',</span> <span class="pre">'Squash</span> <span class="pre">and</span> <span class="pre">melons',</span> <span class="pre">'Cabbage',</span> <span class="pre">'Leaves</span> <span class="pre">vegetables',</span> <span class="pre">'Fruits',</span> <span class="pre">'Olives',</span> <span class="pre">'Citrus',</span> <span class="pre">'Hemp',</span> <span class="pre">'Flax',</span> <span class="pre">'Non-legume</span> <span class="pre">temporary</span> <span class="pre">meadow',</span> <span class="pre">'Horse</span> <span class="pre">beans</span> <span class="pre">and</span> <span class="pre">faba</span> <span class="pre">beans',</span> <span class="pre">'Peas',</span> <span class="pre">'Other</span> <span class="pre">protein</span> <span class="pre">crops',</span> <span class="pre">'Green</span> <span class="pre">peas',</span> <span class="pre">'Dry</span> <span class="pre">beans',</span> <span class="pre">'Green</span> <span class="pre">beans',</span> <span class="pre">'Soybean',</span> <span class="pre">'Alfalfa</span> <span class="pre">and</span> <span class="pre">clover',</span> <span class="pre">'Natural</span> <span class="pre">meadow</span> <span class="pre">',</span> <span class="pre">'bovines',</span> <span class="pre">'ovines',</span> <span class="pre">'caprines',</span> <span class="pre">'porcines',</span> <span class="pre">'poultry',</span> <span class="pre">'equine',</span> <span class="pre">'urban',</span> <span class="pre">'rural',</span> <span class="pre">'NH3</span> <span class="pre">volatilization',</span> <span class="pre">'N2O</span> <span class="pre">emission',</span> <span class="pre">'hydro-system',</span> <span class="pre">'other</span> <span class="pre">losses',</span> <span class="pre">'soil</span> <span class="pre">stock',</span> <span class="pre">'atmospheric</span> <span class="pre">N2',</span> <span class="pre">'Haber-Bosch',</span> <span class="pre">'other</span> <span class="pre">sectors',</span> <span class="pre">'animal</span> <span class="pre">trade',</span> <span class="pre">'fishery</span> <span class="pre">products',</span> <span class="pre">'cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'fruits</span> <span class="pre">and</span> <span class="pre">vegetables</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'leguminous</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'oleaginous</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'roots</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'rice</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)</span> <span class="pre">feed</span> <span class="pre">trade',</span> <span class="pre">'forages</span> <span class="pre">feed</span> <span class="pre">trade',</span> <span class="pre">'leguminous</span> <span class="pre">feed</span> <span class="pre">trade',</span> <span class="pre">'oleaginous</span> <span class="pre">feed</span> <span class="pre">trade',</span> <span class="pre">'grasslands</span> <span class="pre">feed</span> <span class="pre">trade']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cultures</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['Wheat',</span> <span class="pre">'Rye',</span> <span class="pre">'Barley',</span> <span class="pre">'Oat',</span> <span class="pre">'Grain</span> <span class="pre">maize',</span> <span class="pre">'Rice',</span> <span class="pre">'Other</span> <span class="pre">cereals',</span> <span class="pre">'Straw',</span> <span class="pre">'Forage</span> <span class="pre">maize',</span> <span class="pre">'Forage</span> <span class="pre">cabbages',</span> <span class="pre">'Rapeseed',</span> <span class="pre">'Sunflower',</span> <span class="pre">'Other</span> <span class="pre">oil</span> <span class="pre">crops',</span> <span class="pre">'Sugar</span> <span class="pre">beet',</span> <span class="pre">'Potatoes',</span> <span class="pre">'Other</span> <span class="pre">roots',</span> <span class="pre">'Dry</span> <span class="pre">vegetables',</span> <span class="pre">'Dry</span> <span class="pre">fruits',</span> <span class="pre">'Squash</span> <span class="pre">and</span> <span class="pre">melons',</span> <span class="pre">'Cabbage',</span> <span class="pre">'Leaves</span> <span class="pre">vegetables',</span> <span class="pre">'Fruits',</span> <span class="pre">'Olives',</span> <span class="pre">'Citrus',</span> <span class="pre">'Hemp',</span> <span class="pre">'Flax',</span> <span class="pre">'Non-legume</span> <span class="pre">temporary</span> <span class="pre">meadow']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">legumineuses</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['Horse</span> <span class="pre">beans</span> <span class="pre">and</span> <span class="pre">faba</span> <span class="pre">beans',</span> <span class="pre">'Peas',</span> <span class="pre">'Other</span> <span class="pre">protein</span> <span class="pre">crops',</span> <span class="pre">'Green</span> <span class="pre">peas',</span> <span class="pre">'Dry</span> <span class="pre">beans',</span> <span class="pre">'Green</span> <span class="pre">beans',</span> <span class="pre">'Soybean',</span> <span class="pre">'Alfalfa</span> <span class="pre">and</span> <span class="pre">clover']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prairies</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['Natural</span> <span class="pre">meadow</span> <span class="pre">']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">betail</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['bovines',</span> <span class="pre">'ovines',</span> <span class="pre">'caprines',</span> <span class="pre">'porcines',</span> <span class="pre">'poultry',</span> <span class="pre">'equine']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Pop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['urban',</span> <span class="pre">'rural']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ext</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['NH3</span> <span class="pre">volatilization',</span> <span class="pre">'N2O</span> <span class="pre">emission',</span> <span class="pre">'hydro-system',</span> <span class="pre">'other</span> <span class="pre">losses',</span> <span class="pre">'soil</span> <span class="pre">stock',</span> <span class="pre">'atmospheric</span> <span class="pre">N2',</span> <span class="pre">'Haber-Bosch',</span> <span class="pre">'other</span> <span class="pre">sectors',</span> <span class="pre">'animal</span> <span class="pre">trade',</span> <span class="pre">'fishery</span> <span class="pre">products',</span> <span class="pre">'cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'fruits</span> <span class="pre">and</span> <span class="pre">vegetables</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'leguminous</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'oleaginous</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'roots</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'rice</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)</span> <span class="pre">feed</span> <span class="pre">trade',</span> <span class="pre">'forages</span> <span class="pre">feed</span> <span class="pre">trade',</span> <span class="pre">'leguminous</span> <span class="pre">feed</span> <span class="pre">trade',</span> <span class="pre">'oleaginous</span> <span class="pre">feed</span> <span class="pre">trade',</span> <span class="pre">'grasslands</span> <span class="pre">feed</span> <span class="pre">trade']</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>This class models the nitrogen flow in an agricultural system, calculating fluxes and nitrogen dynamics
+for different sectors (e.g., crops, livestock) over a given year and region.</p>
+<p>The model incorporates various processes, including crop production, animal production, nitrogen emissions,
+and fertilization, and computes the corresponding nitrogen fluxes between sectors using transition matrices.</p>
+<p>This class provides methods to compute fluxes, generate heatmaps, and access matrices such as the transition matrix,
+core matrix, and adjacency matrix.</p>
+<p>For a detailed explanation of the model’s methodology and mathematical foundations, please refer to the associated
+scientific paper: Tracking Nitrogen Dynamics: A Disaggregated Approach for French Agro-Food Systems, 2025, Adrien Fauste-Gay (pre-print).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<a class="reference internal" href="#grafs_e.N_class.DataLoader" title="grafs_e.N_class.DataLoader"><em>DataLoader</em></a>) – An instance of the DataLoader class to load and preprocess the data.</p></li>
+<li><p><strong>year</strong> (<em>str</em>) – The year for which to compute the nitrogen flow model.</p></li>
+<li><p><strong>region</strong> (<em>str</em>) – The region for which to compute the nitrogen flow model.</p></li>
+<li><p><strong>categories_mapping</strong> (<em>dict</em><em>, </em><em>optional</em>) – A dictionary used to classify each crop. Defaults to categories_mapping.</p></li>
+<li><p><strong>labels</strong> (<em>list</em><em>, </em><em>optional</em>) – A list of labels representing the sectors in the model. Defaults to labels.</p></li>
+<li><p><strong>cultures</strong> (<a class="reference internal" href="#grafs_e.N_class.CultureData" title="grafs_e.N_class.CultureData"><em>CultureData</em></a><em>, </em><em>optional</em>) – An instance of the CultureData class for crop data processing.</p></li>
+<li><p><strong>legumineuses</strong> (<em>list</em><em>, </em><em>optional</em>) – A list representing leguminous crops in the model.</p></li>
+<li><p><strong>prairies</strong> (<em>list</em><em>, </em><em>optional</em>) – A list representing grasslands and prairies in the model.</p></li>
+<li><p><strong>betail</strong> (<em>list</em><em>, </em><em>optional</em>) – A list representing livestock categories in the model.</p></li>
+<li><p><strong>Pop</strong> (<em>list</em><em>, </em><em>optional</em>) – A list representing the population data.</p></li>
+<li><p><strong>ext</strong> (<em>list</em><em>, </em><em>optional</em>) – A list representing external data or processes affecting nitrogen fluxes.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.year">
+<span class="sig-name descname"><span class="pre">year</span></span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.year" title="Link to this definition">¶</a></dt>
+<dd><p>The year for which the nitrogen flow model is computed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.region">
+<span class="sig-name descname"><span class="pre">region</span></span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.region" title="Link to this definition">¶</a></dt>
+<dd><p>The region for which the nitrogen flow model is computed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.categories_mapping">
+<span class="sig-name descname"><span class="pre">categories_mapping</span></span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.categories_mapping" title="Link to this definition">¶</a></dt>
+<dd><p>The dictionary used to classify crops.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.labels">
+<span class="sig-name descname"><span class="pre">labels</span></span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.labels" title="Link to this definition">¶</a></dt>
+<dd><p>The list of labels representing the sectors in the model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.data_loader">
+<span class="sig-name descname"><span class="pre">data_loader</span></span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.data_loader" title="Link to this definition">¶</a></dt>
+<dd><p>The instance of the DataLoader used to load the data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#grafs_e.N_class.DataLoader" title="grafs_e.N_class.DataLoader">DataLoader</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.culture_data">
+<span class="sig-name descname"><span class="pre">culture_data</span></span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.culture_data" title="Link to this definition">¶</a></dt>
+<dd><p>An instance of the CultureData class for crop data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#grafs_e.N_class.CultureData" title="grafs_e.N_class.CultureData">CultureData</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.elevage_data">
+<span class="sig-name descname"><span class="pre">elevage_data</span></span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.elevage_data" title="Link to this definition">¶</a></dt>
+<dd><p>An instance of the ElevageData class for livestock data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#grafs_e.N_class.ElevageData" title="grafs_e.N_class.ElevageData">ElevageData</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.flux_generator">
+<span class="sig-name descname"><span class="pre">flux_generator</span></span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.flux_generator" title="Link to this definition">¶</a></dt>
+<dd><p>An instance of the FluxGenerator class to generate flux coefficients.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#grafs_e.N_class.FluxGenerator" title="grafs_e.N_class.FluxGenerator">FluxGenerator</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.df_cultures">
+<span class="sig-name descname"><span class="pre">df_cultures</span></span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.df_cultures" title="Link to this definition">¶</a></dt>
+<dd><p>The dataframe containing crop data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pandas.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.df_elevage">
+<span class="sig-name descname"><span class="pre">df_elevage</span></span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.df_elevage" title="Link to this definition">¶</a></dt>
+<dd><p>The dataframe containing livestock data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pandas.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.adjacency_matrix">
+<span class="sig-name descname"><span class="pre">adjacency_matrix</span></span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.adjacency_matrix" title="Link to this definition">¶</a></dt>
+<dd><p>The matrix representing nitrogen fluxes between sectors.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>numpy.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.label_to_index">
+<span class="sig-name descname"><span class="pre">label_to_index</span></span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.label_to_index" title="Link to this definition">¶</a></dt>
+<dd><p>A dictionary mapping sector labels to matrix indices.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.compute_fluxes">
+<span class="sig-name descname"><span class="pre">compute_fluxes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.compute_fluxes" title="Link to this definition">¶</a></dt>
+<dd><p>Computes the nitrogen fluxes between the sectors of the model. This method populates the adjacency matrix
+with flux coefficients based on the interactions between crops, livestock, emissions, and fertilization.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.plot_heatmap">
+<span class="sig-name descname"><span class="pre">plot_heatmap</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.plot_heatmap" title="Link to this definition">¶</a></dt>
+<dd><p>Generates a heatmap visualization of the transition matrix for nitrogen fluxes.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.plot_heatmap_interactive">
+<span class="sig-name descname"><span class="pre">plot_heatmap_interactive</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.plot_heatmap_interactive" title="Link to this definition">¶</a></dt>
+<dd><p>Generates an interactive heatmap for the nitrogen fluxes.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.get_df_culture">
+<span class="sig-name descname"><span class="pre">get_df_culture</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.get_df_culture" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the dataframe containing crop data.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.get_df_elevage">
+<span class="sig-name descname"><span class="pre">get_df_elevage</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.get_df_elevage" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the dataframe containing livestock data.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.get_transition_matrix">
+<span class="sig-name descname"><span class="pre">get_transition_matrix</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.get_transition_matrix" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the transition matrix representing nitrogen fluxes between sectors.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.get_core_matrix">
+<span class="sig-name descname"><span class="pre">get_core_matrix</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.get_core_matrix" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the core matrix representing the primary fluxes in the system.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.get_adjacency_matrix">
+<span class="sig-name descname"><span class="pre">get_adjacency_matrix</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.get_adjacency_matrix" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the adjacency matrix, which is used to represent the complete set of nitrogen fluxes between sectors.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.extract_input_output_matrixs">
+<span class="sig-name descname"><span class="pre">extract_input_output_matrixs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.extract_input_output_matrixs" title="Link to this definition">¶</a></dt>
+<dd><p>Extracts and returns the input-output matrices of nitrogen fluxes.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.imported_nitrogen">
+<span class="sig-name descname"><span class="pre">imported_nitrogen</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.imported_nitrogen" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the total amount of imported nitrogen in the system.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.net_imported_plant">
+<span class="sig-name descname"><span class="pre">net_imported_plant</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.net_imported_plant" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the net imported nitrogen for plants.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.net_imported_animal">
+<span class="sig-name descname"><span class="pre">net_imported_animal</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.net_imported_animal" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the net imported nitrogen for livestock.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.total_plant_production">
+<span class="sig-name descname"><span class="pre">total_plant_production</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.total_plant_production" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the total plant production in the model.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.stacked_plant_production">
+<span class="sig-name descname"><span class="pre">stacked_plant_production</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.stacked_plant_production" title="Link to this definition">¶</a></dt>
+<dd><p>Returns a stacked representation of plant production data.</p>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.C_eff">
 <span class="sig-name descname"><span class="pre">C_eff</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.C_eff" title="Link to this definition">¶</a></dt>
@@ -162,9 +727,16 @@
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.compute_fluxes">
-<span class="sig-name descname"><span class="pre">compute_fluxes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.compute_fluxes" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dt class="sig sig-object py" id="id4">
+<span class="sig-name descname"><span class="pre">compute_fluxes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#id4" title="Link to this definition">¶</a></dt>
+<dd><p>Computes the nitrogen fluxes for all sectors in the model.</p>
+<p>This method populates the adjacency matrix with flux coefficients based on sector interactions. These interactions
+include crop production, livestock production, nitrogen emissions, and fertilization. The coefficients are used to
+model the flow of nitrogen between sectors over the specified year and region.</p>
+<p>The computation involves complex mathematical processes, which are detailed in the associated scientific methodology
+paper: Tracking Nitrogen Dynamics: A Disaggregated Approach for French Agro-Food Systems, 2025, Adrien Fauste-Gay (pre-print).</p>
+<p>For an in-depth explanation of the model’s functioning, please refer to the accompanying paper.</p>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.emissions">
@@ -177,8 +749,8 @@
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.extract_input_output_matrixs">
-<span class="sig-name descname"><span class="pre">extract_input_output_matrixs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">clean</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.extract_input_output_matrixs" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="id5">
+<span class="sig-name descname"><span class="pre">extract_input_output_matrixs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">clean</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#id5" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -192,28 +764,28 @@
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.get_adjacency_matrix">
-<span class="sig-name descname"><span class="pre">get_adjacency_matrix</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.get_adjacency_matrix" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="id6">
+<span class="sig-name descname"><span class="pre">get_adjacency_matrix</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#id6" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.get_core_matrix">
-<span class="sig-name descname"><span class="pre">get_core_matrix</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.get_core_matrix" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="id7">
+<span class="sig-name descname"><span class="pre">get_core_matrix</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#id7" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.get_df_culture">
-<span class="sig-name descname"><span class="pre">get_df_culture</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.get_df_culture" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="id8">
+<span class="sig-name descname"><span class="pre">get_df_culture</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#id8" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.get_df_elevage">
-<span class="sig-name descname"><span class="pre">get_df_elevage</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.get_df_elevage" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="id9">
+<span class="sig-name descname"><span class="pre">get_df_elevage</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#id9" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.get_transition_matrix">
-<span class="sig-name descname"><span class="pre">get_transition_matrix</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.get_transition_matrix" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="id10">
+<span class="sig-name descname"><span class="pre">get_transition_matrix</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#id10" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -227,8 +799,8 @@
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.imported_nitrogen">
-<span class="sig-name descname"><span class="pre">imported_nitrogen</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.imported_nitrogen" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="id11">
+<span class="sig-name descname"><span class="pre">imported_nitrogen</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#id11" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -247,13 +819,13 @@
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.net_imported_animal">
-<span class="sig-name descname"><span class="pre">net_imported_animal</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.net_imported_animal" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="id12">
+<span class="sig-name descname"><span class="pre">net_imported_animal</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#id12" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.net_imported_plant">
-<span class="sig-name descname"><span class="pre">net_imported_plant</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.net_imported_plant" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="id13">
+<span class="sig-name descname"><span class="pre">net_imported_plant</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#id13" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -267,18 +839,54 @@
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.plot_heatmap">
-<span class="sig-name descname"><span class="pre">plot_heatmap</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.plot_heatmap" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dt class="sig sig-object py" id="id14">
+<span class="sig-name descname"><span class="pre">plot_heatmap</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#id14" title="Link to this definition">¶</a></dt>
+<dd><p>Generates a static heatmap to visualize the nitrogen flux transition matrix.</p>
+<p>The heatmap displays the nitrogen fluxes between sectors using a logarithmic color scale. It provides a visual representation
+of the relative magnitudes of nitrogen fluxes, where each cell in the matrix corresponds to a transition from one sector
+(source) to another (target).</p>
+<p>Features of the heatmap:
+- <strong>Logarithmic scale</strong> for better visualization of fluxes with wide value ranges (<cite>LogNorm</cite> is used with <cite>vmin=10^-4</cite> and <cite>vmax</cite> set to the maximum value in the adjacency matrix).
+- <strong>Color palette</strong> is reversed “plasma” (<cite>plasma_r</cite>), with the color bar indicating flux magnitudes in kton/year.
+- <strong>Grid</strong>: A light gray grid is added for visual separation of cells.
+- <strong>Labels</strong>: Axis labels are moved to the top of the heatmap, with tick labels rotated for better readability.
+- <strong>Legend</strong>: Each sector is labeled with its corresponding index (e.g., “1: Agriculture”), positioned next to the heatmap.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>None</strong></p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Displays the heatmap plot on screen.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This method uses <cite>matplotlib</cite> and <cite>seaborn</cite> for visualization. Make sure these libraries are installed.</p>
+</div>
+</dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.plot_heatmap_interactive">
-<span class="sig-name descname"><span class="pre">plot_heatmap_interactive</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.plot_heatmap_interactive" title="Link to this definition">¶</a></dt>
-<dd><p>Génére une heatmap interactive (Plotly) :
-- Échelle ‘log’ simulée via log10(z).
-- Colorbar horizontale en bas.
-- Légende index -&gt; label à droite sans chevauchement.
-- Axe X en haut et titre centré.</p>
+<dt class="sig sig-object py" id="id15">
+<span class="sig-name descname"><span class="pre">plot_heatmap_interactive</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#id15" title="Link to this definition">¶</a></dt>
+<dd><p>Generates an interactive heatmap using Plotly to visualize the nitrogen flux transition matrix.</p>
+<p>The heatmap has the following features:
+- Logarithmic scale (simulated via log10(z)) to handle wide-ranging values.
+- A horizontal colorbar placed at the bottom of the plot.
+- A legend that maps matrix indices to sector labels, positioned on the right, ensuring no overlap.
+- The X-axis is displayed at the top of the plot, and the title is centered above the plot.</p>
+<p>This visualization helps to understand the relative magnitudes of the nitrogen fluxes between sectors
+in a clear and interactive manner.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>An interactive Plotly figure containing the heatmap.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>plotly.graph_objects.Figure</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
@@ -302,8 +910,8 @@
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.stacked_plant_production">
-<span class="sig-name descname"><span class="pre">stacked_plant_production</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.stacked_plant_production" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="id16">
+<span class="sig-name descname"><span class="pre">stacked_plant_production</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#id16" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -322,8 +930,8 @@
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="grafs_e.N_class.NitrogenFlowModel.total_plant_production">
-<span class="sig-name descname"><span class="pre">total_plant_production</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.N_class.NitrogenFlowModel.total_plant_production" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="id17">
+<span class="sig-name descname"><span class="pre">total_plant_production</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#id17" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -700,7 +1308,7 @@ L’épaisseur des liens est proportionnelle au flux (avec échelle logarithmiqu
 <li><p><strong>width</strong> – Largeur des arêtes (peut être une liste correspondant à chaque arête)</p></li>
 <li><p><strong>edge_color</strong> – Couleur des arêtes</p></li>
 <li><p><strong>arrows</strong> – Afficher des flèches ou non</p></li>
-<li><p><strong>arrowstyle</strong> – Style des flèches (‘-&gt;’, ‘-<a href="#id1"><span class="problematic" id="id2">|</span></a>&gt;’, etc.)</p></li>
+<li><p><strong>arrowstyle</strong> – Style des flèches (‘-&gt;’, ‘-<a href="#id18"><span class="problematic" id="id19">|</span></a>&gt;’, etc.)</p></li>
 <li><p><strong>arrowsize</strong> – Taille des flèches</p></li>
 <li><p><strong>node_size</strong> – Taille des nœuds pour ajuster les points de début et de fin des arêtes</p></li>
 </ul>

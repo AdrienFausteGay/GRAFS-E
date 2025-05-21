@@ -1,9 +1,9 @@
 [project]
 name = "grafs_e"
-version = "0.6"
+version = "0.65"
 description = "Metabolic analysis of Agricultural systems"
 readme = "README.md"
-licence = {file="LICENCE"}
+license = {file="LICENCE"}
 authors = [
     { name = "Adrien Fauste-Gay", email = "adrien.fauste-gay@univ-grenoble-alpes.fr" }
 ]
