@@ -363,12 +363,12 @@ with tab2:
 
     # ✅ Affichage des sélections (se met à jour dynamiquement)
     if st.session_state.selected_region_run:
-        st.write(f"✅ Région sélectionnée : {st.session_state.selected_region}")
+        st.write(f"✅ Région sélectionnée : {st.session_state.selected_region_run}")
     else:
         st.warning("⚠️ Veuillez sélectionner une région")
 
     if st.session_state.year_run:
-        st.write(f"✅ Année sélectionnée : {st.session_state.year}")
+        st.write(f"✅ Année sélectionnée : {st.session_state.year_run}")
     else:
         st.warning("⚠️ Veuillez sélectionner une année")
 
