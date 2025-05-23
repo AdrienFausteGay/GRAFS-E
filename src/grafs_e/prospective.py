@@ -24,7 +24,6 @@ _ = _appsi_solvers
 
 class scenario:
     def __init__(self, scenario_path, dataloader=None):
-        # self.data_path = os.path.join(os.path.dirname(__file__), "data")
         self.data_path = os.path.join(os.getcwd(), "src", "grafs_e", "data")
         if dataloader is None:
             self.dataloader = DataLoader()
@@ -357,58 +356,6 @@ class scenario:
             self.data = self.dataloader.pre_process_df(self.last_data_year, "France")
             print(f"No region named {region} in the data")
 
-        # # Le chemin qui pose problème
-        base_path = os.path.join(
-            self.data_path, "scenario_region", function_name
-        )  # "/mount/src/grafs-e/data/scenario_region/"
-        target_file = self.region + ".xlsx"  # Le nom du fichier tel que votre code le cherche
-        import streamlit as st
-
-        st.text(self.data_path)
-        st.header("Debug Path Information")
-
-        # 1. Vérifier si le dossier parent existe
-        if os.path.exists(base_path):
-            st.write(f"Directory '{base_path}' exists.")
-            # 2. Lister le contenu du dossier parent
-            st.write(f"Contents of '{base_path}':")
-            try:
-                for item in os.listdir(base_path):
-                    st.write(f"- {item}")
-            except Exception as e:
-                st.write(f"Error listing directory: {e}")
-        else:
-            st.write(f"Directory '{base_path}' DOES NOT EXIST.")
-            # Tenter de lister le contenu du répertoire parent de base_path
-            parent_of_base_path = os.path.dirname(os.path.normpath(base_path))
-            st.write(f"Checking parent of base_path: '{parent_of_base_path}'")
-            if os.path.exists(parent_of_base_path):
-                st.write(f"Contents of '{parent_of_base_path}':")
-                try:
-                    for item in os.listdir(parent_of_base_path):
-                        st.write(f"- {item}")
-                except Exception as e:
-                    st.write(f"Error listing parent directory: {e}")
-            else:
-                st.write(f"Parent of base_path '{parent_of_base_path}' DOES NOT EXIST either.")
-
-        # 3. Construire le chemin complet et vérifier l'existence du fichier
-        full_file_path = os.path.join(base_path, target_file)
-        st.write(f"Attempting to read file: '{full_file_path}'")
-
-        if os.path.exists(full_file_path):
-            st.write(f"File '{full_file_path}' EXISTS on server.")
-            try:
-                df = pd.read_excel(full_file_path)
-                st.success("File successfully read!")
-                st.dataframe(df.head())  # Afficher les premières lignes pour confirmation
-            except Exception as e:
-                st.error(f"Error reading Excel file: {e}")
-        else:
-            st.error(f"File '{full_file_path}' DOES NOT EXIST on server.")
-            st.info("Check capitalization of all path components and file name.")
-
-        # model_sheets = pd.read_excel(os.path.join(self.data_path, "scenario.xlsx"), sheet_name=None)
         model_sheets = pd.read_excel(
             os.path.join(self.data_path, "scenario_region", function_name, self.region + ".xlsx"), sheet_name=None
         )
