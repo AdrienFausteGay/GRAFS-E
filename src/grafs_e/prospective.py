@@ -24,7 +24,8 @@ _ = _appsi_solvers
 
 class scenario:
     def __init__(self, scenario_path, dataloader=None):
-        self.data_path = os.path.join(os.path.dirname(__file__), "data")
+        # self.data_path = os.path.join(os.path.dirname(__file__), "data")
+        self.data_path = os.path.join(os.getcwd(), "data")
         if dataloader is None:
             self.dataloader = DataLoader()
         else:
