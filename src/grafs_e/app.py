@@ -1579,7 +1579,7 @@ with tab6:
 
         st.markdown(
             """To run the prospective mode, two options are available:\\
-        1. **Uploader an Excel sheet scenario** then click *Run scenario*  
+        1. **Upload an Excel sheet scenario** then click *Run scenario*  
         2. **Upload a model \*.pkl** saved from a previous session"""
         )
 
@@ -1587,8 +1587,8 @@ with tab6:
         st.subheader("① Excel scenario → Run")
 
         def excel_uploaded():
-            if st.session_state.excel_uploaded_done:
-                return
+            # if st.session_state.excel_uploaded_done:
+            #     return
             up = st.session_state["xlsx_up"]
             if not up:
                 return
@@ -1607,7 +1607,7 @@ with tab6:
         if st.session_state.prep_name:
             st.info(
                 f"Scenario: **{st.session_state.prep_name}**  "
-                f"({st.session_state.prep_region}, {st.session_state.prep_year})"
+                f"({st.session_state.prep_region}, {st.session_state.prep_year}, {st.session_state.prep_func})"
             )
             if st.button("🚀 Run scenario"):
                 with st.spinner("Running prospective model…"):
@@ -1699,7 +1699,3 @@ with tab6:
             if st.session_state.heatmap_fig_pros:
                 st.subheader(f"Heatmap – {st.session_state.selected_region_pros} / {st.session_state.year_pros}")
                 st.plotly_chart(st.session_state.heatmap_fig_pros, use_container_width=True)
-                # st.text(np.testing.assert_allclose(st.session_state.orig, st.session_state.model.adjacency_matrix))
-                # from IPython import embed
-
-                # embed()
