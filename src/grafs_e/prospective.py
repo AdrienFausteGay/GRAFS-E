@@ -230,7 +230,7 @@ class scenario:
         slope, intercept, r_value, p_value, std_err = linregress(int_year, logit)
         return 100.0 / (1.0 + np.exp(-(intercept + slope * int(year))))
 
-    def generate_crop_tab(self, region, function_name="linear"):
+    def generate_crop_tab(self, region, function_name="Linear"):
         df = self.dataloader.pre_process_df(annees_disponibles[-1], region)
 
         cultures_df = df.loc[df["index_excel"].isin(range(259, 294)), ("nom", region)]
@@ -326,7 +326,7 @@ class scenario:
             df_insert[col] = df_temp[col]
         return df_insert
 
-    def pre_generate_scenario_excel(self, function_name="linear"):
+    def pre_generate_scenario_excel(self, function_name="Linear"):
         model_sheets = pd.read_excel(os.path.join(self.data_path, "scenario.xlsx"), sheet_name=None)
         for region in ["France"]:  # tqdm(regions[23:], total=len(regions[23:]), desc="Regions", position=0):
             sheets = {}
@@ -347,7 +347,7 @@ class scenario:
                 for sheet_name, df in sheets.items():
                     df.to_excel(writer, sheet_name=sheet_name, index=False)
 
-    def generate_scenario_excel(self, year, region, name, function_name="linear"):
+    def generate_scenario_excel(self, year, region, name, function_name="Linear"):
         self.region = region
         self.year = year
         self.last_data_year = annees_disponibles[-1]
@@ -705,6 +705,8 @@ class Y:
 
     @staticmethod
     def Y_th(f, y_max):
+        if f + y_max == 0:
+            return 0
         return f * y_max / (f + y_max)
 
     @staticmethod
@@ -2167,6 +2169,8 @@ class NitrogenFlowModel_prospect:
                 return np.minimum(a * f, b)
 
             def Y_th_ratio(f, ymax):
+                if f + ymax == 0:
+                    return 0
                 return f * ymax / (f + ymax)
 
             def objective(x):
