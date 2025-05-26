@@ -2077,6 +2077,7 @@ class NitrogenFlowModel_prospect:
         w_diet = technical.loc[technical["Variable"] == "Weight diet", "Business as usual"].item()
         w_Nsyn = technical.loc[technical["Variable"] == "Weight synthetic fertilizer use", "Business as usual"].item()
         w_imp = technical.loc[technical["Variable"] == "Weight import/export balance", "Business as usual"].item()
+        w_spread_fixed = 1
 
         df_elevage_comp = df_elevage.copy()
         df_cons_vege = df_elevage.loc[df_elevage["Ingestion (ktN)"] > 10**-8, "Ingestion (ktN)"]
@@ -2088,713 +2089,1098 @@ class NitrogenFlowModel_prospect:
         df_cons_vege.loc["rural"] = N_vege * (1 - prop_urb)
 
         if len(df_cons_vege) > 0:
-            CROPS = list(df_cultures.index)  # par exemple
+            CROPS = list(df_cultures.index)
             CONSUMERS = list(df_cons_vege.index)
 
-            # --------------------------------------------------------------------------
-            # 1) Collect data from your DataFrames (example placeholders)
-            # --------------------------------------------------------------------------
-            area = {c: df_cultures.at[c, "Area (ha)"] for c in CROPS}
-            if self.prod_func == "Ratio":
-                Ymax = {c: df_cultures.at[c, "Ymax (kgN/ha)"] for c in CROPS}
-            # kparam = {c: df_cultures.at[c, "k (kgN/ha)"] for c in CROPS}
-            if self.prod_func == "Linear":
-                a = {c: df_cultures.at[c, "a"] for c in CROPS}
-                b = {c: df_cultures.at[c, "b"] for c in CROPS}
-            nonSynthFert = {c: df_cultures.at[c, "Surface Non Synthetic Fertilizer Use (kgN/ha)"] for c in CROPS}
-            ingestion = {k: df_cons_vege.at[k] for k in CONSUMERS}
+            # Mappings numériques pour un accès rapide aux tableaux NumPy
+            crop_to_idx = {c: i for i, c in enumerate(CROPS)}
+            consumer_to_idx = {k: i for i, k in enumerate(CONSUMERS)}
+            num_crops = len(CROPS)
+            num_consumers = len(CONSUMERS)
 
-            # Filter out any (c,k) pairs not in the diet. We'll build an "allowed" pair list:
+            # Convertir les dictionnaires en tableaux NumPy/Pandas Series pour la performance
+            area_np = pd.Series(df_cultures["Area (ha)"]).loc[CROPS].values
+            nonSynthFert_np = pd.Series(df_cultures["Surface Non Synthetic Fertilizer Use (kgN/ha)"]).loc[CROPS].values
+
+            if self.prod_func == "Ratio":
+                Ymax_np = pd.Series(df_cultures["Ymax (kgN/ha)"]).loc[CROPS].values
+            elif self.prod_func == "Linear":
+                a_np = pd.Series(df_cultures["a"]).loc[CROPS].values
+                b_np = pd.Series(df_cultures["b"]).loc[CROPS].values
+
+            ingestion_np = pd.Series(df_cons_vege).loc[CONSUMERS].values
+
+            # Filter out any (c,k) pairs not in the diet to build allowed_ck
             allowed_ck = []
+            # Store index pairs for allowed_ck for vectorization
+            allowed_ck_indices = []  # list of (c_idx, k_idx) tuples
+
             for k in CONSUMERS:
-                # Gather all crops that appear in any sub-list of regimes[k]
                 authorized_crops = set()
                 for p_ideal, c_list in regimes[k].items():
-                    authorized_crops.update(c_list)
-                # We'll keep only these (c, k) pairs
-                for c in CROPS:
+                    # Ensure all crops in c_list actually exist in CROPS
+                    for c in c_list:
+                        if c in CROPS:  # Only add if the crop exists in our master list
+                            authorized_crops.add(c)
+                        else:
+                            print(f"Warning: Crop '{c}' in regime for '{k}' not found in df_cultures.index. Skipping.")
+
+                for c in CROPS:  # Iterate over all master crops
                     if c in authorized_crops:
                         allowed_ck.append((c, k))
+                        allowed_ck_indices.append((crop_to_idx[c], consumer_to_idx[k]))
 
-            # --------------------------------------------------------------------------
-            # 2) Create indexing for decision variables
-            # --------------------------------------------------------------------------
+            # --- Indexing for decision variables in x ---
+            idx_synth_slice = slice(0, num_crops)  # x[0] to x[num_crops-1]
 
-            idx_synth = {}
-            offset = 0
-            for c in CROPS:
-                idx_synth[c] = offset
-                offset += 1
+            offset = num_crops
+            idx_alloc_slice = slice(offset, offset + len(allowed_ck))
 
-            idx_alloc = {}
-            for c, k in allowed_ck:
-                idx_alloc[(c, k)] = offset
-                offset += 1
+            offset += len(allowed_ck)
+            idx_import_slice = slice(offset, offset + len(allowed_ck))
 
-            idx_import = {}
-            for c, k in allowed_ck:
-                idx_import[(c, k)] = offset
-                offset += 1
+            n_vars = offset + len(allowed_ck)  # Total number of decision variables
 
-            n_vars = offset  # total number of decision variables
+            # --- Pre-processing for fixed_availability_proportion and regimes ---
+            # This is where we create matrices/tensors for faster lookups
+            epsilon = 1e-9  # Define epsilon here
 
-            w_spread_fixed = 1
-            fixed_availability_proportion = {}  # Dict: {(k, tuple(group_crops), c): proportion}
-            epsilon = 1e-9
+            # 1. Map all unique crop groups to numerical indices
+            unique_crop_groups = []  # list of tuple(sorted(crops))
+            group_to_idx = {}
+            for k_name in CONSUMERS:
+                for group_crops_list in regimes[k_name].values():
+                    if isinstance(group_crops_list, (list, tuple, set)):
+                        # Ensure all crops in group_crops_list exist in CROPS before sorting/hashing
+                        valid_crops_in_group = [c for c in group_crops_list if c in CROPS]
+                        if valid_crops_in_group:
+                            group_key = tuple(sorted(valid_crops_in_group))
+                            if group_key not in group_to_idx:
+                                group_to_idx[group_key] = len(unique_crop_groups)
+                                unique_crop_groups.append(group_key)
 
-            for k_ in CONSUMERS:
-                for group_crops in regimes[k_].values():
-                    if not isinstance(group_crops, (list, tuple, set)):
+            num_groups = len(unique_crop_groups)
+
+            # 2. Pre-calculate fixed_availability_proportion into a tensor
+            # tensor: [consumer_idx, group_idx, crop_idx] -> proportion
+            fixed_proportion_tensor = np.zeros((num_consumers, num_groups, num_crops))
+
+            for k_name in CONSUMERS:
+                k_idx = consumer_to_idx[k_name]
+                for group_crops_list_raw in regimes[k_name].values():
+                    if not isinstance(group_crops_list_raw, (list, tuple, set)):
                         continue
 
-                    # Use Area (ha) as the basis for fixed availability weight
-                    group_total_area = sum(area.get(c2, 0) for c2 in group_crops)
+                    valid_crops_in_group = [c for c in group_crops_list_raw if c in CROPS]
+                    if not valid_crops_in_group:
+                        continue
+
+                    group_key = tuple(sorted(valid_crops_in_group))
+                    group_idx = group_to_idx[group_key]
+
+                    group_total_area = sum(area_np[crop_to_idx[c2]] for c2 in valid_crops_in_group)
 
                     if group_total_area < epsilon:
-                        continue  # Skip if group has no area
+                        continue
 
-                    group_key = tuple(sorted(group_crops))  # Use a consistent key for the group
-
-                    for c in group_crops:
-                        crop_area = area.get(c, 0)
+                    for c_name in valid_crops_in_group:
+                        c_idx = crop_to_idx[c_name]
+                        crop_area = area_np[c_idx]
                         proportion = crop_area / group_total_area
-                        fixed_availability_proportion[(k_, group_key, c)] = proportion
+                        fixed_proportion_tensor[k_idx, group_idx, c_idx] = proportion
 
-            # --------------------------------------------------------------------------
-            # 3) Define the objective function
-            # --------------------------------------------------------------------------
-            def Y_th_lin(f, a, b):
+            # 3. Pre-process regimes for diet_deviation
+            # We need a matrix that, for each consumer, for each crop, tells us its 'p_ideal'
+            # This is tricky because one crop can belong to multiple groups with different p_ideal.
+            # Instead, we'll create a list of (consumer_idx, group_idx, p_ideal) for diet deviation.
+            regimes_indexed = []  # List of (k_idx, group_idx, p_ideal)
+            regimes_group_crop_mask = np.zeros(
+                (num_consumers, num_groups, num_crops), dtype=bool
+            )  # Mask: True if crop c_idx is in group_idx for consumer k_idx
+
+            for k_name in CONSUMERS:
+                k_idx = consumer_to_idx[k_name]
+                for p_ideal, group_crops_list_raw in regimes[k_name].items():
+                    if not isinstance(group_crops_list_raw, (list, tuple, set)):
+                        continue
+
+                    valid_crops_in_group = [c for c in group_crops_list_raw if c in CROPS]
+                    if not valid_crops_in_group:
+                        continue
+
+                    group_key = tuple(sorted(valid_crops_in_group))
+                    group_idx = group_to_idx[group_key]
+
+                    regimes_indexed.append((k_idx, group_idx, p_ideal))
+                    for c_name in valid_crops_in_group:
+                        c_idx = crop_to_idx[c_name]
+                        regimes_group_crop_mask[k_idx, group_idx, c_idx] = True
+
+            # Helper for Y_th functions to handle arrays and division by zero
+            def Y_th_lin_vec(f, a, b):
                 return np.minimum(a * f, b)
 
-            def Y_th_ratio(f, ymax):
-                if f + ymax == 0:
-                    return 0
-                return f * ymax / (f + ymax)
+            def Y_th_ratio_vec(f, ymax):
+                # Avoid division by zero: where f+ymax is zero, result is zero
+                denominator = f + ymax
+                # Create a result array, set to 0 where denominator is 0, otherwise calculate
+                result = np.zeros_like(f, dtype=float)
+                non_zero_denom_mask = denominator != 0
+                result[non_zero_denom_mask] = (f[non_zero_denom_mask] * ymax[non_zero_denom_mask]) / denominator[
+                    non_zero_denom_mask
+                ]
+                return result
 
-            def objective(x):
-                """
-                Return the scalar value of the objective:
-                w_diet * diet_deviation
-                + w_Nsyn * fertilizer_deviation
-                + w_imp * import_export_deviation
-                """
+            # --------------------------------------------------------------------------
+            # 3) Define the vectorized objective function
+            # --------------------------------------------------------------------------
+            def objective_vectorized(x):
+                x = np.asarray(x)
+
+                # Extract relevant slices for clarity
+                x_synth = x[idx_synth_slice]  # synthetic fertilizers per crop (indexed by crop)
+
+                # Reshape allocation and import to (crop_idx, consumer_idx) matrices
+                # We need a matrix that maps (crop_idx, consumer_idx) to the correct position in x_alloc/x_import.
+                # This requires reconstructing the matrix from allowed_ck_indices.
+                x_alloc_matrix = np.zeros((num_crops, num_consumers))
+                x_import_matrix = np.zeros((num_crops, num_consumers))
+
+                # Fill the matrices based on allowed_ck_indices and slices
+                for i, (c_idx, k_idx) in enumerate(allowed_ck_indices):
+                    x_alloc_matrix[c_idx, k_idx] = x[idx_alloc_slice.start + i]
+                    x_import_matrix[c_idx, k_idx] = x[idx_import_slice.start + i]
 
                 # 3.a) diet_deviation
                 total_dev = 0.0
-                for k_ in CONSUMERS:
-                    # 1) Somme totale allouée (local + imports) pour le consommateur k_
-                    denom_k = 0.0
-                    for c_ in CROPS:
-                        # Allocation locale
-                        if (c_, k_) in idx_alloc:
-                            denom_k += x[idx_alloc[(c_, k_)]]
-                        # Allocation via import
-                        if (c_, k_) in idx_import:
-                            denom_k += x[idx_import[(c_, k_)]]
 
-                    # 2) Pour chaque proportion idéale, calculez la somme des cultures du groupe
-                    for p_ideal, c_list in regimes[k_].items():
-                        group_alloc = 0.0
-                        for c_ in c_list:
-                            # Ajout part locale
-                            if (c_, k_) in idx_alloc:
-                                group_alloc += x[idx_alloc[(c_, k_)]]
-                            # Ajout part importée
-                            if (c_, k_) in idx_import:
-                                group_alloc += x[idx_import[(c_, k_)]]
+                # Calculate total allocation per consumer (denom_k) for all consumers at once
+                total_alloc_per_consumer = np.sum(x_alloc_matrix, axis=0) + np.sum(x_import_matrix, axis=0)
 
-                        if denom_k < 1e-6:
-                            proportion_real = 0.0
-                        else:
-                            proportion_real = group_alloc / denom_k
+                # Iterate over pre-processed regimes_indexed
+                for k_idx, group_idx, p_ideal in regimes_indexed:
+                    denom_k = total_alloc_per_consumer[k_idx]
 
-                        # Ecart diététique
-                        total_dev += (proportion_real - p_ideal) ** 2
+                    # Use the pre-computed mask to sum allocations for this group and consumer
+                    # This selects allocations for crops within the specific group for consumer k_idx
+                    group_alloc = np.sum(x_alloc_matrix[regimes_group_crop_mask[k_idx, group_idx, :], k_idx])
+                    group_alloc += np.sum(x_import_matrix[regimes_group_crop_mask[k_idx, group_idx, :], k_idx])
+
+                    if denom_k < epsilon:  # Use epsilon from pre-processing
+                        proportion_real = 0.0
+                    else:
+                        proportion_real = group_alloc / denom_k
+
+                    total_dev += (proportion_real - p_ideal) ** 2
 
                 # 3.b) fertilizer_deviation
-                # sum of synthetic fertilizers in ktN
-                total_synth = 0.0
-                for c in CROPS:
-                    # x[idx_synth[c]] is in kgN/ha
-                    fert_per_ha = x[idx_synth[c]] + nonSynthFert[c]
-                    total_synth += x[idx_synth[c]] * area[c]  # only the synthetic part
-                # Convert from kgN to ktN
+                total_synth = np.sum(x_synth * area_np)  # Use pre-computed area_np
+
                 total_synth_kt = total_synth / 1e6
-                # desired total = (N_synth_crop + N_synth_grass)
-                if N_synth_crop + N_synth_grass < 1:
-                    scale = 1
-                else:
-                    scale = N_synth_crop + N_synth_grass
-                fert_dev = np.maximum(0, (total_synth_kt - (N_synth_crop + N_synth_grass)) / scale) ** 2
-                # fert_dev = ((total_synth_kt - (N_synth_crop + N_synth_grass)) / scale) ** 2
+
+                desired_total_N_synth = N_synth_crop + N_synth_grass
+                scale = 1 if desired_total_N_synth < 1 else desired_total_N_synth
+
+                fert_dev = np.maximum(0, (total_synth_kt - desired_total_N_synth) / scale) ** 2
+
                 # 3.c) import_export_deviation
-                # sum import
-                sum_imp = 0.0
-                for c, k in allowed_ck:
-                    sum_imp += x[idx_import[(c, k)]]
+                sum_imp = np.sum(x_import_matrix)
 
-                # Calcul de la production "non allouée" => export
-                export_total = 0.0
-                for c in CROPS:
-                    # Production locale (ktN) ; on suppose qu'elle est déjà correcte/à jour :
-                    if self.prod_func == "Ratio":
-                        production_c = (
-                            Y_th_ratio(x[idx_synth[c]] + nonSynthFert[c], Ymax[c])
-                            * df_cultures.at[c, "Area (ha)"]
-                            / 1e6
-                        )
-                    if self.prod_func == "Linear":
-                        production_c = (
-                            Y_th_lin(x[idx_synth[c]] + nonSynthFert[c], a[c], b[c])
-                            * df_cultures.at[c, "Area (ha)"]
-                            / 1e6
-                        )
+                # Production for all crops at once
+                current_synth_fert_vals = x_synth + nonSynthFert_np
 
-                    # Somme des allocations locales sur c
-                    allocated_c = 0.0
-                    # idx_alloc[(c,k)] = indice pour allocate(c,k)
-                    for k in CONSUMERS:
-                        if (c, k) in idx_alloc:
-                            allocated_c += x[idx_alloc[(c, k)]]
+                if self.prod_func == "Ratio":
+                    production_c_all = Y_th_ratio_vec(current_synth_fert_vals, Ymax_np) * area_np / 1e6
+                elif self.prod_func == "Linear":
+                    production_c_all = Y_th_lin_vec(current_synth_fert_vals, a_np, b_np) * area_np / 1e6
+                else:
+                    production_c_all = np.zeros(num_crops)
 
-                    # leftover = production - allocated
-                    # S'il est > 0 => export, s'il est < 0 => on a sur-alloué (besoin d'import net)
-                    leftover_c = production_c - allocated_c
-                    export_total += leftover_c
+                allocated_c_all = np.sum(x_alloc_matrix, axis=1)  # Sum over consumers for each crop
 
-                # Net import du modèle
+                leftover_c_all = production_c_all - allocated_c_all
+                export_total = np.sum(leftover_c_all)
+
                 net_import_model = sum_imp - export_total
 
                 if abs(net_import) < 1:
                     imp_dev = (net_import_model - net_import) ** 2
                 else:
-                    imp_dev = ((net_import_model - net_import) / (net_import + 1e-6)) ** 2
+                    imp_dev = ((net_import_model - net_import) / (net_import + epsilon)) ** 2
 
                 # --- NEW: Allocation Spread Penalty based on Fixed Proportions ---
                 spread_penalty_fixed = 0.0
-                epsilon = 1e-9
 
-                for k_ in CONSUMERS:
-                    for group_crops in regimes[k_].values():  # Iterate over the crop lists defining groups
-                        if not isinstance(group_crops, (list, tuple, set)):
-                            continue
+                # Calculate group_alloc_kG for all consumers and all groups first
+                # group_alloc_kG_matrix[k_idx, group_idx]
+                group_alloc_kG_matrix = np.zeros((num_consumers, num_groups))
 
-                        group_key = tuple(sorted(group_crops))  # Match key used in pre-calculation
+                for k_idx in range(num_consumers):
+                    for group_idx in range(num_groups):
+                        # Sum allocations for crops in this group for this consumer
+                        group_alloc_kG_matrix[k_idx, group_idx] = np.sum(
+                            x_alloc_matrix[regimes_group_crop_mask[k_idx, group_idx, :], k_idx]
+                        )
+                        group_alloc_kG_matrix[k_idx, group_idx] += np.sum(
+                            x_import_matrix[regimes_group_crop_mask[k_idx, group_idx, :], k_idx]
+                        )
 
-                        # --- Calculate group total allocation for consumer k_ ---
-                        group_alloc_kG = 0.0
-                        for c2 in group_crops:
-                            if (c2, k_) in idx_alloc:
-                                group_alloc_kG += x[idx_alloc[(c2, k_)]]
-                            if (c2, k_) in idx_import:
-                                group_alloc_kG += x[idx_import[(c2, k_)]]
+                # Now, calculate penalty using vectorised operations where possible
+                # This part iterates over (k_idx, group_idx, c_idx) for which fixed_proportion_tensor has non-zero values
 
-                        # If total allocation to group is negligible, skip penalty
-                        if group_alloc_kG < epsilon:
-                            continue
+                # Filter for relevant entries in fixed_proportion_tensor where proportion > epsilon
+                relevant_proportions_mask = fixed_proportion_tensor > epsilon
 
-                        # --- Calculate penalty for each crop in the group ---
-                        for c in group_crops:
-                            # Get the pre-calculated fixed proportion
-                            target_proportion = fixed_availability_proportion.get((k_, group_key, c), 0)
-                            if target_proportion < epsilon:  # Skip if this crop had no area in pre-calc
-                                continue
+                # Extract relevant consumer, group, crop indices
+                k_indices, group_indices, c_indices = np.where(relevant_proportions_mask)
 
-                            # Calculate target allocation based on fixed proportion
-                            target_alloc_c = target_proportion * group_alloc_kG
+                # Get the corresponding target proportions
+                target_proportions = fixed_proportion_tensor[relevant_proportions_mask]
 
-                            # Calculate this specific crop's actual allocation for consumer k_
-                            alloc_ck = 0.0
-                            if (c, k_) in idx_alloc:
-                                alloc_ck += x[idx_alloc[(c, k_)]]
-                            if (c, k_) in idx_import:
-                                alloc_ck += x[idx_import[(c, k_)]]
+                # Calculate target_alloc_c for all relevant (k, group, c) at once
+                # Need to gather group_alloc_kG for these specific k_idx, group_idx pairs
+                gathered_group_alloc_kG = group_alloc_kG_matrix[k_indices, group_indices]
 
-                            # Penalize squared deviation from the target allocation
-                            deviation = alloc_ck - target_alloc_c
-                            spread_penalty_fixed += deviation**2
-                            # Note: This penalizes both over- and under-allocation relative to the fixed proportion.
-                            # If you ONLY want to penalize under-allocation (concentration), use:
-                            # if deviation < 0: # i.e., alloc_ck < target_alloc_c
-                            #     spread_penalty_fixed += deviation**2
+                target_alloc_c_all = target_proportions * gathered_group_alloc_kG
 
+                # Calculate actual_alloc_ck for all relevant (k, group, c) at once
+                # Note: c_indices here refer to the crop's index, not its position in allowed_ck_indices
+                # Need to look up x[idx_alloc[(c_name, k_name)]] + x[idx_import[(c_name, k_name)]]
+                # This is complex because x_alloc_matrix and x_import_matrix have (crop_idx, consumer_idx)
+                # We need to map (c_indices, k_indices) back to the flat x_alloc/x_import based on allowed_ck_indices
+
+                # This part requires re-mapping from (c_idx, k_idx) to the flat index if not directly from x_alloc_matrix
+                # A simpler way is to just index x_alloc_matrix and x_import_matrix directly with the gathered indices
+                actual_alloc_ck_all = x_alloc_matrix[c_indices, k_indices] + x_import_matrix[c_indices, k_indices]
+
+                # Calculate deviations and sum of squares
+                deviations = actual_alloc_ck_all - target_alloc_c_all
+                spread_penalty_fixed = np.sum(deviations**2)
+
+                # --- Final Objective Value ---
                 return w_diet * total_dev + w_Nsyn * fert_dev + w_imp * imp_dev + w_spread_fixed * spread_penalty_fixed
 
-            def objective_gradient(x):
-                """
-                Computes the gradient of the objective function.
-                """
-                area = df_cultures["Area (ha)"].to_dict()  # Faster access than .loc inside loops
-                grad = np.zeros(n_vars, dtype=float)
-                epsilon = 1e-12  # For safe division
+            # ------------------------------------------------------------------
+            # A)  Production ≥ allocations  (une contrainte par culture)  ------
+            # ------------------------------------------------------------------
+            def prod_minus_alloc(x):
+                """Retourne un vecteur (n_crops,) : production_c - Σ_k alloc(c,k)"""
+                x_synth = x[idx_synth_slice]  # (C,)
+                fert_tot = x_synth + nonSynthFert_np  # (C,)
 
-                # --- Part 1: Import Deviation Gradient ---
-                # dDi/dx[j] = 1 if x[j] is an import variable, 0 otherwise
-                for c, k in allowed_ck:  # Assuming allowed_ck contains all keys for idx_import
-                    if (c, k) in idx_import:  # Check if the import variable exists for this combo
-                        import_idx = idx_import[(c, k)]
-                        grad[import_idx] += w_imp * 1.0
-
-                # --- Part 2: Fertilizer Deviation Gradient ---
-                total_synth_kg = 0.0
-                synth_indices = []  # Store indices of synth vars for later gradient update
-                synth_crop_map = {}  # Map index back to crop
-                for c in CROPS:
-                    if c in idx_synth:  # Make sure the crop has a synth variable
-                        synth_idx = idx_synth[c]
-                        total_synth_kg += x[synth_idx] * area.get(c, 0)  # Use .get for safety
-                        synth_indices.append(synth_idx)
-                        synth_crop_map[synth_idx] = c
-
-                total_synth_kt = total_synth_kg / 1e6
-                Target = N_synth_crop + N_synth_grass
-                Scale = max(1.0, Target)  # Ensure scale is at least 1 and float
-                Z = (total_synth_kt - Target) / Scale
-
-                if Z > 0:
-                    # Base derivative factor d(Df)/d(total_synth_kt)
-                    base_fert_deriv = (2.0 * Z) / Scale
-                    for synth_idx in synth_indices:
-                        c_syn = synth_crop_map[synth_idx]
-                        # d(total_synth_kt)/dx[j] = area[c_syn] / 1e6
-                        deriv_contrib = base_fert_deriv * (area.get(c_syn, 0) / 1e6)
-                        grad[synth_idx] += w_Nsyn * deriv_contrib
-
-                # --- Part 3: Diet Deviation Gradient ---
-                for k_ in CONSUMERS:
-                    # Calculate denom_k (total allocation for consumer k) *once*
-                    denom_k = 0.0
-                    # Store indices and type relevant to this consumer for quick lookup
-                    alloc_indices_k = {}  # Map index to crop
-                    import_indices_k = {}  # Map index to crop
-                    for c_ in CROPS:
-                        alloc_key = (c_, k_)
-                        if alloc_key in idx_alloc:
-                            idx = idx_alloc[alloc_key]
-                            denom_k += x[idx]
-                            alloc_indices_k[idx] = c_
-                        if alloc_key in idx_import:
-                            idx = idx_import[alloc_key]
-                            denom_k += x[idx]
-                            import_indices_k[idx] = c_
-
-                    if denom_k < epsilon:  # If total allocation is near zero, derivative is zero
-                        continue  # Skip this consumer
-
-                    # Calculate contributions for each group in the regime
-                    for p_ideal, c_list in regimes[k_].items():
-                        # Calculate group_alloc *once* for this group
-                        group_alloc = 0.0
-                        group_alloc_indices = set()  # Indices contributing to this group_alloc
-                        group_import_indices = set()
-
-                        for c_in_list in c_list:
-                            alloc_key = (c_in_list, k_)
-                            if alloc_key in idx_alloc:
-                                idx = idx_alloc[alloc_key]
-                                group_alloc += x[idx]
-                                group_alloc_indices.add(idx)
-                            if alloc_key in idx_import:
-                                idx = idx_import[alloc_key]
-                                group_alloc += x[idx]
-                                group_import_indices.add(idx)
-
-                        # Calculate proportion_real and the base deviation factor
-                        prop_real = group_alloc / denom_k
-                        base_diet_deriv = 2.0 * (prop_real - p_ideal)
-
-                        # Calculate d(prop_real)/d(x_j) contributions using the quotient rule components
-                        # Derivative Factor = base_diet_deriv * (1 / denom_k**2)
-                        # This avoids repeated division inside the loops below
-                        quotient_deriv_factor = base_diet_deriv / (denom_k * denom_k)  # denom_k**2 can be large
-
-                        # Term 1: + denom_k * d(group_alloc)/dx[j]
-                        # Term 2: - group_alloc * d(denom_k)/dx[j]
-
-                        # Apply derivative contributions to relevant grad entries
-
-                        # d(group_alloc)/dx[j] is 1 ONLY for alloc/import vars in this c_list
-                        # Contribution: quotient_deriv_factor * denom_k * (+1)
-                        for group_idx in group_alloc_indices.union(group_import_indices):
-                            grad[group_idx] += w_diet * quotient_deriv_factor * denom_k  # * (+1 is implicit)
-
-                        # d(denom_k)/dx[j] is 1 for ALL alloc/import vars for this consumer k
-                        # Contribution: quotient_deriv_factor * (-group_alloc) * (+1)
-                        neg_group_alloc_term = -group_alloc  # Precompute
-                        for k_alloc_idx in alloc_indices_k:  # Indices of alloc vars for consumer k
-                            grad[k_alloc_idx] += (
-                                w_diet * quotient_deriv_factor * neg_group_alloc_term
-                            )  # * (+1 implicit)
-                        for k_import_idx in import_indices_k:  # Indices of import vars for consumer k
-                            grad[k_import_idx] += (
-                                w_diet * quotient_deriv_factor * neg_group_alloc_term
-                            )  # * (+1 implicit)
-
-                return grad
-
-            def compute_objective_terms(x):
-                """
-                Return the scalar value of the objective:
-                w_diet * diet_deviation
-                + w_Nsyn * fertilizer_deviation
-                + w_imp * import_export_deviation
-                """
-
-                # 3.a) diet_deviation
-                total_dev = 0.0
-                for k_ in CONSUMERS:
-                    # 1) Somme totale allouée (local + imports) pour le consommateur k_
-                    denom_k = 0.0
-                    for c_ in CROPS:
-                        # Allocation locale
-                        if (c_, k_) in idx_alloc:
-                            denom_k += x[idx_alloc[(c_, k_)]]
-                        # Allocation via import
-                        if (c_, k_) in idx_import:
-                            denom_k += x[idx_import[(c_, k_)]]
-
-                    # 2) Pour chaque proportion idéale, calculez la somme des cultures du groupe
-                    for p_ideal, c_list in regimes[k_].items():
-                        group_alloc = 0.0
-                        for c_ in c_list:
-                            # Ajout part locale
-                            if (c_, k_) in idx_alloc:
-                                group_alloc += x[idx_alloc[(c_, k_)]]
-                            # Ajout part importée
-                            if (c_, k_) in idx_import:
-                                group_alloc += x[idx_import[(c_, k_)]]
-
-                        if denom_k < 1e-6:
-                            proportion_real = 0.0
-                        else:
-                            proportion_real = group_alloc / denom_k
-
-                        # Ecart diététique
-                        total_dev += (proportion_real - p_ideal) ** 2
-
-                # 3.b) fertilizer_deviation
-                # sum of synthetic fertilizers in ktN
-                total_synth = 0.0
-                for c in CROPS:
-                    # x[idx_synth[c]] is in kgN/ha
-                    fert_per_ha = x[idx_synth[c]] + nonSynthFert[c]
-                    total_synth += x[idx_synth[c]] * area[c]  # only the synthetic part
-                # Convert from kgN to ktN
-                total_synth_kt = total_synth / 1e6
-                # desired total = (N_synth_crop + N_synth_grass)
-                if N_synth_crop + N_synth_grass < 1:
-                    scale = 1
+                if self.prod_func == "Ratio":
+                    y_kg_ha = Y_th_ratio_vec(fert_tot, Ymax_np)
                 else:
-                    scale = N_synth_crop + N_synth_grass
-                fert_dev = np.maximum(0, (total_synth_kt - (N_synth_crop + N_synth_grass)) / scale) ** 2
-                # fert_dev = ((total_synth_kt - (N_synth_crop + N_synth_grass)) / scale) ** 2
-                # 3.c) import_export_deviation
-                # sum import
-                sum_imp = 0.0
-                for c, k in allowed_ck:
-                    sum_imp += x[idx_import[(c, k)]]
+                    y_kg_ha = Y_th_lin_vec(fert_tot, a_np, b_np)
 
-                # Calcul de la production "non allouée" => export
-                export_total = 0.0
-                for c in CROPS:
-                    # Production locale (ktN) ; on suppose qu'elle est déjà correcte/à jour :
-                    if self.prod_func == "Ratio":
-                        production_c = (
-                            Y_th_ratio(x[idx_synth[c]] + nonSynthFert[c], Ymax[c])
-                            * df_cultures.at[c, "Area (ha)"]
-                            / 1e6
-                        )
-                    if self.prod_func == "Linear":
-                        production_c = (
-                            Y_th_lin(x[idx_synth[c]] + nonSynthFert[c], a[c], b[c])
-                            * df_cultures.at[c, "Area (ha)"]
-                            / 1e6
-                        )
+                production_kt = y_kg_ha * area_np / 1e6  # (C,)
 
-                    # Somme des allocations locales sur c
-                    allocated_c = 0.0
-                    # idx_alloc[(c,k)] = indice pour allocate(c,k)
-                    for k in CONSUMERS:
-                        if (c, k) in idx_alloc:
-                            allocated_c += x[idx_alloc[(c, k)]]
+                # allocations locales seulement (import n’influence pas la prod locale)
+                x_alloc_matrix = np.zeros((num_crops, num_consumers))
+                for i, (c_idx, k_idx) in enumerate(allowed_ck_indices):
+                    x_alloc_matrix[c_idx, k_idx] = x[idx_alloc_slice.start + i]
 
-                    # leftover = production - allocated
-                    # S'il est > 0 => export, s'il est < 0 => on a sur-alloué (besoin d'import net)
-                    leftover_c = production_c - allocated_c
-                    export_total += leftover_c
+                alloc_sum_c = x_alloc_matrix.sum(axis=1)  # (C,)
 
-                # Net import du modèle
-                net_import_model = sum_imp - export_total
+                return production_kt - alloc_sum_c  # ≥ 0 voulue par SLSQP
 
-                if abs(net_import) < 1:
-                    imp_dev = (net_import_model - net_import) ** 2
-                else:
-                    imp_dev = ((net_import_model - net_import) / (net_import + 1e-6)) ** 2
+            # ------------------------------------------------------------------
+            # B)  Balance ingestion  (une contrainte par consommateur)  --------
+            # ------------------------------------------------------------------
+            def ingested_equals_alloc(x):
+                """Retourne un vecteur (n_cons,) : Σ_c(alloc+import) - ingestion_k"""
+                x_alloc_matrix = np.zeros((num_crops, num_consumers))
+                x_import_matrix = np.zeros_like(x_alloc_matrix)
 
-                return total_dev, fert_dev, imp_dev, net_import, net_import_model, sum_imp, export_total
+                for i, (c_idx, k_idx) in enumerate(allowed_ck_indices):
+                    x_alloc_matrix[c_idx, k_idx] = x[idx_alloc_slice.start + i]
+                    x_import_matrix[c_idx, k_idx] = x[idx_import_slice.start + i]
 
-            def my_callback(xk):
-                # xk is the current solution vector at iteration k
-                # Evaluate any terms you want here, e.g.:
-                f_val = objective(xk)
-                # Possibly store separate sub-terms:
-                diet_dev_term, fertilizer_term, imp_term, net_imp, net_import_model, sum_imp, export_total = (
-                    compute_objective_terms(xk)
-                )
-                # Append them to some global or nonlocal list
-                iteration_log.append(
-                    {
-                        # "x": xk.copy(),
-                        "objective": f_val,
-                        "diet_dev": diet_dev_term,
-                        "fert_dev": fertilizer_term,
-                        "import term": imp_term,
-                        "net import target": net_imp,
-                        "net import model": net_import_model,
-                        "Import model": sum_imp,
-                        "Export model": export_total,
-                    }
-                )
+                tot_per_cons = (x_alloc_matrix + x_import_matrix).sum(axis=0)  # (K,)
 
-            # --------------------------------------------------------------------------
-            # 4) Define constraints as a list of dicts (SLSQP form)
-            # --------------------------------------------------------------------------
-            # We'll have:
-            #   (i) production_balance(c) = sum_{k} allocate(c,k) + import_export(c) - prod_c == 0
-            #   (ii) consumption_rule(k) = sum_{c} allocate(c,k) - ingestion[k] == 0
-            #
-            # The “(iii) if not authorized => allocate=0” we already excluded from x.
-            # --------------------------------------------------------------------------
+                return tot_per_cons - ingestion_np  # = 0
 
-            def build_min_fraction_constraints_reformulated(BETA=0.05):
-                """
-                Returns constraint dict for SciPy using a reformulated inequality
-                to avoid direct division within the constraint function.
-
-                Constraint Logic: We want the allocation of a crop 'c' within a group 'G'
-                for consumer 'k' (alloc_ck) to be at least a certain fraction (BETA)
-                of what its proportional production (prod_c / sum_prod_g) would suggest
-                applied to the total allocation for that group (group_alloc_kG).
-
-                Original Form: alloc_ck - BETA * (prod_c / sum_prod_g) * group_alloc_kG >= 0
-                Reformulated : alloc_ck * sum_prod_g - BETA * prod_c * group_alloc_kG >= 0
-                            (for sum_prod_g > 0)
-                """
-
-                # --- Helper function to calculate production ---
-                # (Avoid recalculating this repeatedly inside the constraint function if possible,
-                # but here we need it dependent on x_synth which changes)
-                def calculate_production(x_synth_val, c):
-                    # Make sure idx_synth[c] exists if you use it here, or adjust logic
-                    fert_tot = x_synth_val + nonSynthFert[c]  # Assuming x_ maps directly for synth
-                    if self.prod_func == "Ratio":
-                        y_ha = Y_th_ratio(fert_tot, df_cultures.loc[c, "Ymax (kgN/ha)"])
-                    if self.prod_func == "Linear":
-                        y_ha = Y_th_lin(fert_tot, df_cultures.loc[c, "a"], df_cultures.loc[c, "b"])
-                    # Production in ktN (consistent units assumed)
-                    return (y_ha * df_cultures.loc[c, "Area (ha)"]) / 1e6
-
-                # We still need to determine the list of constraints to evaluate consistently
-                constraint_tuples = []
-                for k_ in CONSUMERS:
-                    # regimes[k_] has format {proportion: [crop_list]}
-                    # We need the groups (crop_lists) themselves. Using values() is fine.
-                    for group_crops in regimes[k_].values():
-                        # Ensure group_crops is actually a list/iterable of crop names
-                        if not isinstance(group_crops, (list, tuple, set)):
-                            # Handle potential errors in regimes structure if needed
-                            # print(f"Warning: Expected list of crops for consumer {k_}, got {group_crops}")
-                            continue
-                        for c in group_crops:
-                            # Only add constraints for crops that *can* be allocated (locally or imported)
-                            # This avoids creating constraints for crops that can never meet the condition.
-                            can_be_allocated = (c, k_) in idx_alloc or (c, k_) in idx_import
-                            if can_be_allocated:
-                                # Store (consumer, list_of_crops_in_group, specific_crop)
-                                constraint_tuples.append(
-                                    (k_, tuple(group_crops), c)
-                                )  # Use tuple for hashability if needed
-
-                num_constraints = len(constraint_tuples)
-                # print(f"Building {num_constraints} min_fraction constraints.")
-
-                # --- The actual constraint function passed to SciPy ---
-                def min_fraction_fn(x_):
-                    constraints_array = np.zeros(num_constraints, dtype=float)
-                    calculated_productions = {}  # Cache production calc within one function call
-
-                    for i, (k_, group_crops, c) in enumerate(constraint_tuples):
-                        # 1) Calculate production values for the group
-                        sum_prod_g = 0.0
-                        prod_values = {}
-                        for c2 in group_crops:
-                            if c2 not in calculated_productions:
-                                # Ensure c2 is a valid crop index/name
-                                if c2 in idx_synth:
-                                    prod_c2_val = calculate_production(x_[idx_synth[c2]], c2)
-                                    calculated_productions[c2] = prod_c2_val
-                                else:
-                                    # Handle case where crop might be in regimes but not synthesizable (maybe fixed production?)
-                                    # For now, assume 0 production if no synth variable
-                                    prod_c2_val = 0
-                                    calculated_productions[c2] = prod_c2_val
-
-                            prod_c2_val = calculated_productions[c2]
-                            prod_values[c2] = prod_c2_val
-                            sum_prod_g += prod_c2_val
-
-                        # The specific production for the crop 'c' we're constraining
-                        # Use the value already computed and stored in prod_values
-                        prod_c_val = prod_values.get(
-                            c, 0.0
-                        )  # Default to 0 if c wasn't calculable (shouldn't happen based on loop structure)
-
-                        # 2) Calculate total allocation to the group for this consumer
-                        group_alloc_kG = 0.0
-                        for c2 in group_crops:
-                            if (c2, k_) in idx_alloc:
-                                group_alloc_kG += x_[idx_alloc[(c2, k_)]]
-                            if (c2, k_) in idx_import:
-                                group_alloc_kG += x_[idx_import[(c2, k_)]]
-
-                        # 3) Calculate this specific crop's allocation
-                        alloc_ck = 0.0
-                        if (c, k_) in idx_alloc:
-                            alloc_ck += x_[idx_alloc[(c, k_)]]
-                        if (c, k_) in idx_import:
-                            alloc_ck += x_[idx_import[(c, k_)]]
-
-                        # 4) Apply the reformulated constraint
-                        # If total production in the group is negligible, the concept
-                        # of proportional allocation breaks down. Make constraint trivially true (>=0).
-                        # Also handle the case where there's no allocation to the group.
-                        if sum_prod_g < 1e-9 or group_alloc_kG < 1e-9:
-                            # LHS must be >= 0. Setting to 0 or a small positive value is safe.
-                            constraints_array[i] = 1.0  # Or 0.0, ensures >= 0 is met
-                        else:
-                            # Reformulated: alloc_ck * sum_prod_g - BETA * prod_c * group_alloc_kG >= 0
-                            lhs = alloc_ck * sum_prod_g - BETA * prod_c_val * group_alloc_kG
-                            constraints_array[i] = lhs
-
-                    return constraints_array
-
-                return {"type": "ineq", "fun": min_fraction_fn}
-
-            # We will define them in a wrapper that references a global or closure “x_current”
-            # so that SLSQP can evaluate.
-            # One standard pattern is to define a single function that returns an array of
-            # constraints. However, SLSQP (via scipy) also supports a list of constraint dicts.
-
+            # ------------------------------------------------------------------
+            # C)  Assemble pour `scipy.optimize`
+            # ------------------------------------------------------------------
             def build_constraints():
-                cons = []
-                # Production >= allocations (ineq)
-                for c in CROPS:
-                    cons.append({"type": "ineq", "fun": lambda x_, c=c: production_balance_expr(x_, c)})
-
-                # Ingestion = local + import (eq)
-                for k_ in CONSUMERS:
-                    cons.append({"type": "eq", "fun": lambda x_, k_=k_: consumption_rule_expr(x_, k_)})
+                cons = [
+                    {"type": "ineq", "fun": prod_minus_alloc},  # vectoriel (C, )
+                    {"type": "eq", "fun": ingested_equals_alloc},
+                ]
                 return cons
 
-            def production_balance_expr(x_, c):
-                sum_local = 0.0
-                for k_ in CONSUMERS:
-                    if (c, k_) in idx_alloc:
-                        sum_local += x_[idx_alloc[(c, k_)]]
+            # ------------------------------------------------------------------
+            # Bornes
+            # ------------------------------------------------------------------
+            bounds = np.full((n_vars, 2), (0.0, None), dtype=object)  # (lower, upper)
 
-                # production c
-                fert_tot = x_[idx_synth[c]] + nonSynthFert[c]
-                if self.prod_func == "Ratio":
-                    y = Y_th_ratio(fert_tot, Ymax[c])
-                if self.prod_func == "Linear":
-                    y = Y_th_lin(fert_tot, a[c], b[c])
-                prod_c = (y * area[c]) / 1e6
-
-                return prod_c - sum_local  # doit être >= 0
-
-            def consumption_rule_expr(x_, k_):
-                sum_local = 0.0
-                sum_import = 0.0
-                for c_ in CROPS:
-                    if (c_, k_) in idx_alloc:
-                        sum_local += x_[idx_alloc[(c_, k_)]]
-                    if (c_, k_) in idx_import:  # si vous stockez les imports sous (culture, cons)
-                        sum_import += x_[idx_import[(c_, k_)]]
-
-                return sum_local + sum_import - ingestion[k_]
-
-            # --------------------------------------------------------------------------
-            # 5) Build bounds
-            # --------------------------------------------------------------------------
-            #  - synth_fert[c] >= 0
-            #  - allocate[c,k] >= 0
-            #  - import_export[c] unbounded
-            # We must create a bounds array for each variable in x
-            # --------------------------------------------------------------------------
-
-            bounds = [None] * n_vars
+            # Légumineuses : fertilisant synthétique forcé à 0
             for c in CROPS:
-                # For synth_fert[c]
-                i = idx_synth[c]
                 if df_cultures.loc[c, "Category"] == "leguminous":
-                    bounds[i] = (0.0, 0.0)  # null
-                else:
-                    bounds[i] = (0.0, None)  # nonnegative
+                    bounds[idx_synth_slice.start + crop_to_idx[c]] = (0.0, 0.0)
 
-            for c, k_ in allowed_ck:
-                i = idx_alloc[(c, k_)]
-                bounds[i] = (0.0, None)  # nonnegative
+            # Rien d’autre à faire : alloc / import déjà ≥ 0 par défaut
+            bounds = [tuple(b) for b in bounds]  # convertir en liste de tuples pour SciPy
 
-            for c, k_ in allowed_ck:
-                i = idx_import[(c, k_)]
-                bounds[i] = (0.0, None)  # nonnegative
+            # ------------------------------------------------------------------
+            # Point initial
+            # ------------------------------------------------------------------
+            x0 = np.zeros(n_vars)
 
-            # --------------------------------------------------------------------------
-            # 6) Initial guess
-            # --------------------------------------------------------------------------
-            # You can choose a naive guess, e.g. 0 for everything
-            # or some heuristic.
-            # --------------------------------------------------------------------------
-            x0 = np.array([0.01 for i in range(n_vars)])  # np.zeros(n_vars, dtype=float)
             if self.prod_func == "Ratio":
-                x0[: len(df_cultures)] = df_cultures["Ymax (kgN/ha)"].values
-            if self.prod_func == "Linear":
-                x0[: len(df_cultures)] = df_cultures["b"].values
+                x0[idx_synth_slice] = Ymax_np  # simple heuristique
+            else:
+                x0[idx_synth_slice] = b_np
 
-            # --------------------------------------------------------------------------
-            # 7) Call the optimizer
-            # --------------------------------------------------------------------------
             cons = build_constraints()
-            # min_frac_cons = build_min_fraction_constraints_reformulated()
-            # cons.append(min_frac_cons)
 
-            iteration_log = []
-
-            # Stage 1: quick approximate solve
-            # res1 = minimize(
-            #     fun=objective,
-            #     x0=x0,
-            #     method="SLSQP",
-            #     bounds=bounds,
-            #     constraints=cons,
-            #     callback=my_callback,
-            #     options={"maxiter": 1000, "ftol": 1e-5, "disp": True},
-            # )
-
-            # Stage 2: refine from the stage 1 solution with a tighter tolerance
             res = minimize(
-                fun=objective,
+                fun=objective_vectorized,
                 x0=x0,
                 method="SLSQP",
                 bounds=bounds,
                 constraints=cons,
-                callback=my_callback,
-                options={"maxiter": 1000, "ftol": 1e-5, "disp": True, "eps": 1e-6},
+                options={
+                    "maxiter": 1000,
+                    "ftol": 1e-5,
+                    "disp": True,
+                    "eps": 1e-6,
+                },  # pas de dérivée analytique pour SLSQP
+                jac="2-point",
             )
 
-            self.log = iteration_log
+            # CROPS = list(df_cultures.index)  # par exemple
+            # CONSUMERS = list(df_cons_vege.index)
 
+            # # --------------------------------------------------------------------------
+            # # 1) Collect data from your DataFrames (example placeholders)
+            # # --------------------------------------------------------------------------
+            # area = {c: df_cultures.at[c, "Area (ha)"] for c in CROPS}
+            # if self.prod_func == "Ratio":
+            #     Ymax = {c: df_cultures.at[c, "Ymax (kgN/ha)"] for c in CROPS}
+            # # kparam = {c: df_cultures.at[c, "k (kgN/ha)"] for c in CROPS}
+            # if self.prod_func == "Linear":
+            #     a = {c: df_cultures.at[c, "a"] for c in CROPS}
+            #     b = {c: df_cultures.at[c, "b"] for c in CROPS}
+            # nonSynthFert = {c: df_cultures.at[c, "Surface Non Synthetic Fertilizer Use (kgN/ha)"] for c in CROPS}
+            # ingestion = {k: df_cons_vege.at[k] for k in CONSUMERS}
+
+            # # Filter out any (c,k) pairs not in the diet. We'll build an "allowed" pair list:
+            # allowed_ck = []
+            # for k in CONSUMERS:
+            #     # Gather all crops that appear in any sub-list of regimes[k]
+            #     authorized_crops = set()
+            #     for p_ideal, c_list in regimes[k].items():
+            #         authorized_crops.update(c_list)
+            #     # We'll keep only these (c, k) pairs
+            #     for c in CROPS:
+            #         if c in authorized_crops:
+            #             allowed_ck.append((c, k))
+
+            # # --------------------------------------------------------------------------
+            # # 2) Create indexing for decision variables
+            # # --------------------------------------------------------------------------
+
+            # idx_synth = {}
+            # offset = 0
+            # for c in CROPS:
+            #     idx_synth[c] = offset
+            #     offset += 1
+
+            # idx_alloc = {}
+            # for c, k in allowed_ck:
+            #     idx_alloc[(c, k)] = offset
+            #     offset += 1
+
+            # idx_import = {}
+            # for c, k in allowed_ck:
+            #     idx_import[(c, k)] = offset
+            #     offset += 1
+
+            # n_vars = offset  # total number of decision variables
+
+            # fixed_availability_proportion = {}  # Dict: {(k, tuple(group_crops), c): proportion}
+            # epsilon = 1e-9
+
+            # for k_ in CONSUMERS:
+            #     for group_crops in regimes[k_].values():
+            #         if not isinstance(group_crops, (list, tuple, set)):
+            #             continue
+
+            #         # Use Area (ha) as the basis for fixed availability weight
+            #         group_total_area = sum(area.get(c2, 0) for c2 in group_crops)
+
+            #         if group_total_area < epsilon:
+            #             continue  # Skip if group has no area
+
+            #         group_key = tuple(sorted(group_crops))  # Use a consistent key for the group
+
+            #         for c in group_crops:
+            #             crop_area = area.get(c, 0)
+            #             proportion = crop_area / group_total_area
+            #             fixed_availability_proportion[(k_, group_key, c)] = proportion
+
+            # # --------------------------------------------------------------------------
+            # # 3) Define the objective function
+            # # --------------------------------------------------------------------------
+            # def Y_th_lin(f, a, b):
+            #     return np.minimum(a * f, b)
+
+            # def Y_th_ratio(f, ymax):
+            #     if f + ymax == 0:
+            #         return 0
+            #     return f * ymax / (f + ymax)
+
+            # def objective(x):
+            #     """
+            #     Return the scalar value of the objective:
+            #     w_diet * diet_deviation
+            #     + w_Nsyn * fertilizer_deviation
+            #     + w_imp * import_export_deviation
+            #     """
+
+            #     # 3.a) diet_deviation
+            #     total_dev = 0.0
+            #     for k_ in CONSUMERS:
+            #         # 1) Somme totale allouée (local + imports) pour le consommateur k_
+            #         denom_k = 0.0
+            #         for c_ in CROPS:
+            #             # Allocation locale
+            #             if (c_, k_) in idx_alloc:
+            #                 denom_k += x[idx_alloc[(c_, k_)]]
+            #             # Allocation via import
+            #             if (c_, k_) in idx_import:
+            #                 denom_k += x[idx_import[(c_, k_)]]
+
+            #         # 2) Pour chaque proportion idéale, calculez la somme des cultures du groupe
+            #         for p_ideal, c_list in regimes[k_].items():
+            #             group_alloc = 0.0
+            #             for c_ in c_list:
+            #                 # Ajout part locale
+            #                 if (c_, k_) in idx_alloc:
+            #                     group_alloc += x[idx_alloc[(c_, k_)]]
+            #                 # Ajout part importée
+            #                 if (c_, k_) in idx_import:
+            #                     group_alloc += x[idx_import[(c_, k_)]]
+
+            #             if denom_k < 1e-6:
+            #                 proportion_real = 0.0
+            #             else:
+            #                 proportion_real = group_alloc / denom_k
+
+            #             # Ecart diététique
+            #             total_dev += (proportion_real - p_ideal) ** 2
+
+            #     # 3.b) fertilizer_deviation
+            #     # sum of synthetic fertilizers in ktN
+            #     total_synth = 0.0
+            #     for c in CROPS:
+            #         # x[idx_synth[c]] is in kgN/ha
+            #         fert_per_ha = x[idx_synth[c]] + nonSynthFert[c]
+            #         total_synth += x[idx_synth[c]] * area[c]  # only the synthetic part
+            #     # Convert from kgN to ktN
+            #     total_synth_kt = total_synth / 1e6
+            #     # desired total = (N_synth_crop + N_synth_grass)
+            #     if N_synth_crop + N_synth_grass < 1:
+            #         scale = 1
+            #     else:
+            #         scale = N_synth_crop + N_synth_grass
+            #     fert_dev = np.maximum(0, (total_synth_kt - (N_synth_crop + N_synth_grass)) / scale) ** 2
+            #     # fert_dev = ((total_synth_kt - (N_synth_crop + N_synth_grass)) / scale) ** 2
+            #     # 3.c) import_export_deviation
+            #     # sum import
+            #     sum_imp = 0.0
+            #     for c, k in allowed_ck:
+            #         sum_imp += x[idx_import[(c, k)]]
+
+            #     # Calcul de la production "non allouée" => export
+            #     export_total = 0.0
+            #     for c in CROPS:
+            #         # Production locale (ktN) ; on suppose qu'elle est déjà correcte/à jour :
+            #         if self.prod_func == "Ratio":
+            #             production_c = (
+            #                 Y_th_ratio(x[idx_synth[c]] + nonSynthFert[c], Ymax[c])
+            #                 * df_cultures.at[c, "Area (ha)"]
+            #                 / 1e6
+            #             )
+            #         if self.prod_func == "Linear":
+            #             production_c = (
+            #                 Y_th_lin(x[idx_synth[c]] + nonSynthFert[c], a[c], b[c])
+            #                 * df_cultures.at[c, "Area (ha)"]
+            #                 / 1e6
+            #             )
+
+            #         # Somme des allocations locales sur c
+            #         allocated_c = 0.0
+            #         # idx_alloc[(c,k)] = indice pour allocate(c,k)
+            #         for k in CONSUMERS:
+            #             if (c, k) in idx_alloc:
+            #                 allocated_c += x[idx_alloc[(c, k)]]
+
+            #         # leftover = production - allocated
+            #         # S'il est > 0 => export, s'il est < 0 => on a sur-alloué (besoin d'import net)
+            #         leftover_c = production_c - allocated_c
+            #         export_total += leftover_c
+
+            #     # Net import du modèle
+            #     net_import_model = sum_imp - export_total
+
+            #     if abs(net_import) < 1:
+            #         imp_dev = (net_import_model - net_import) ** 2
+            #     else:
+            #         imp_dev = ((net_import_model - net_import) / (net_import + 1e-6)) ** 2
+
+            #     # --- NEW: Allocation Spread Penalty based on Fixed Proportions ---
+            #     spread_penalty_fixed = 0.0
+            #     epsilon = 1e-9
+
+            #     for k_ in CONSUMERS:
+            #         for group_crops in regimes[k_].values():  # Iterate over the crop lists defining groups
+            #             if not isinstance(group_crops, (list, tuple, set)):
+            #                 continue
+
+            #             group_key = tuple(sorted(group_crops))  # Match key used in pre-calculation
+
+            #             # --- Calculate group total allocation for consumer k_ ---
+            #             group_alloc_kG = 0.0
+            #             for c2 in group_crops:
+            #                 if (c2, k_) in idx_alloc:
+            #                     group_alloc_kG += x[idx_alloc[(c2, k_)]]
+            #                 if (c2, k_) in idx_import:
+            #                     group_alloc_kG += x[idx_import[(c2, k_)]]
+
+            #             # If total allocation to group is negligible, skip penalty
+            #             if group_alloc_kG < epsilon:
+            #                 continue
+
+            #             # --- Calculate penalty for each crop in the group ---
+            #             for c in group_crops:
+            #                 # Get the pre-calculated fixed proportion
+            #                 target_proportion = fixed_availability_proportion.get((k_, group_key, c), 0)
+            #                 if target_proportion < epsilon:  # Skip if this crop had no area in pre-calc
+            #                     continue
+
+            #                 # Calculate target allocation based on fixed proportion
+            #                 target_alloc_c = target_proportion * group_alloc_kG
+
+            #                 # Calculate this specific crop's actual allocation for consumer k_
+            #                 alloc_ck = 0.0
+            #                 if (c, k_) in idx_alloc:
+            #                     alloc_ck += x[idx_alloc[(c, k_)]]
+            #                 if (c, k_) in idx_import:
+            #                     alloc_ck += x[idx_import[(c, k_)]]
+
+            #                 # Penalize squared deviation from the target allocation
+            #                 deviation = alloc_ck - target_alloc_c
+            #                 spread_penalty_fixed += deviation**2
+            #                 # Note: This penalizes both over- and under-allocation relative to the fixed proportion.
+            #                 # If you ONLY want to penalize under-allocation (concentration), use:
+            #                 # if deviation < 0: # i.e., alloc_ck < target_alloc_c
+            #                 #     spread_penalty_fixed += deviation**2
+
+            #     return w_diet * total_dev + w_Nsyn * fert_dev + w_imp * imp_dev + w_spread_fixed * spread_penalty_fixed
+
+            # def objective_gradient(x):
+            #     """
+            #     Computes the gradient of the objective function.
+            #     """
+            #     area = df_cultures["Area (ha)"].to_dict()  # Faster access than .loc inside loops
+            #     grad = np.zeros(n_vars, dtype=float)
+            #     epsilon = 1e-12  # For safe division
+
+            #     # --- Part 1: Import Deviation Gradient ---
+            #     # dDi/dx[j] = 1 if x[j] is an import variable, 0 otherwise
+            #     for c, k in allowed_ck:  # Assuming allowed_ck contains all keys for idx_import
+            #         if (c, k) in idx_import:  # Check if the import variable exists for this combo
+            #             import_idx = idx_import[(c, k)]
+            #             grad[import_idx] += w_imp * 1.0
+
+            #     # --- Part 2: Fertilizer Deviation Gradient ---
+            #     total_synth_kg = 0.0
+            #     synth_indices = []  # Store indices of synth vars for later gradient update
+            #     synth_crop_map = {}  # Map index back to crop
+            #     for c in CROPS:
+            #         if c in idx_synth:  # Make sure the crop has a synth variable
+            #             synth_idx = idx_synth[c]
+            #             total_synth_kg += x[synth_idx] * area.get(c, 0)  # Use .get for safety
+            #             synth_indices.append(synth_idx)
+            #             synth_crop_map[synth_idx] = c
+
+            #     total_synth_kt = total_synth_kg / 1e6
+            #     Target = N_synth_crop + N_synth_grass
+            #     Scale = max(1.0, Target)  # Ensure scale is at least 1 and float
+            #     Z = (total_synth_kt - Target) / Scale
+
+            #     if Z > 0:
+            #         # Base derivative factor d(Df)/d(total_synth_kt)
+            #         base_fert_deriv = (2.0 * Z) / Scale
+            #         for synth_idx in synth_indices:
+            #             c_syn = synth_crop_map[synth_idx]
+            #             # d(total_synth_kt)/dx[j] = area[c_syn] / 1e6
+            #             deriv_contrib = base_fert_deriv * (area.get(c_syn, 0) / 1e6)
+            #             grad[synth_idx] += w_Nsyn * deriv_contrib
+
+            #     # --- Part 3: Diet Deviation Gradient ---
+            #     for k_ in CONSUMERS:
+            #         # Calculate denom_k (total allocation for consumer k) *once*
+            #         denom_k = 0.0
+            #         # Store indices and type relevant to this consumer for quick lookup
+            #         alloc_indices_k = {}  # Map index to crop
+            #         import_indices_k = {}  # Map index to crop
+            #         for c_ in CROPS:
+            #             alloc_key = (c_, k_)
+            #             if alloc_key in idx_alloc:
+            #                 idx = idx_alloc[alloc_key]
+            #                 denom_k += x[idx]
+            #                 alloc_indices_k[idx] = c_
+            #             if alloc_key in idx_import:
+            #                 idx = idx_import[alloc_key]
+            #                 denom_k += x[idx]
+            #                 import_indices_k[idx] = c_
+
+            #         if denom_k < epsilon:  # If total allocation is near zero, derivative is zero
+            #             continue  # Skip this consumer
+
+            #         # Calculate contributions for each group in the regime
+            #         for p_ideal, c_list in regimes[k_].items():
+            #             # Calculate group_alloc *once* for this group
+            #             group_alloc = 0.0
+            #             group_alloc_indices = set()  # Indices contributing to this group_alloc
+            #             group_import_indices = set()
+
+            #             for c_in_list in c_list:
+            #                 alloc_key = (c_in_list, k_)
+            #                 if alloc_key in idx_alloc:
+            #                     idx = idx_alloc[alloc_key]
+            #                     group_alloc += x[idx]
+            #                     group_alloc_indices.add(idx)
+            #                 if alloc_key in idx_import:
+            #                     idx = idx_import[alloc_key]
+            #                     group_alloc += x[idx]
+            #                     group_import_indices.add(idx)
+
+            #             # Calculate proportion_real and the base deviation factor
+            #             prop_real = group_alloc / denom_k
+            #             base_diet_deriv = 2.0 * (prop_real - p_ideal)
+
+            #             # Calculate d(prop_real)/d(x_j) contributions using the quotient rule components
+            #             # Derivative Factor = base_diet_deriv * (1 / denom_k**2)
+            #             # This avoids repeated division inside the loops below
+            #             quotient_deriv_factor = base_diet_deriv / (denom_k * denom_k)  # denom_k**2 can be large
+
+            #             # Term 1: + denom_k * d(group_alloc)/dx[j]
+            #             # Term 2: - group_alloc * d(denom_k)/dx[j]
+
+            #             # Apply derivative contributions to relevant grad entries
+
+            #             # d(group_alloc)/dx[j] is 1 ONLY for alloc/import vars in this c_list
+            #             # Contribution: quotient_deriv_factor * denom_k * (+1)
+            #             for group_idx in group_alloc_indices.union(group_import_indices):
+            #                 grad[group_idx] += w_diet * quotient_deriv_factor * denom_k  # * (+1 is implicit)
+
+            #             # d(denom_k)/dx[j] is 1 for ALL alloc/import vars for this consumer k
+            #             # Contribution: quotient_deriv_factor * (-group_alloc) * (+1)
+            #             neg_group_alloc_term = -group_alloc  # Precompute
+            #             for k_alloc_idx in alloc_indices_k:  # Indices of alloc vars for consumer k
+            #                 grad[k_alloc_idx] += (
+            #                     w_diet * quotient_deriv_factor * neg_group_alloc_term
+            #                 )  # * (+1 implicit)
+            #             for k_import_idx in import_indices_k:  # Indices of import vars for consumer k
+            #                 grad[k_import_idx] += (
+            #                     w_diet * quotient_deriv_factor * neg_group_alloc_term
+            #                 )  # * (+1 implicit)
+
+            #     return grad
+
+            # def compute_objective_terms(x):
+            #     """
+            #     Return the scalar value of the objective:
+            #     w_diet * diet_deviation
+            #     + w_Nsyn * fertilizer_deviation
+            #     + w_imp * import_export_deviation
+            #     """
+
+            #     # 3.a) diet_deviation
+            #     total_dev = 0.0
+            #     for k_ in CONSUMERS:
+            #         # 1) Somme totale allouée (local + imports) pour le consommateur k_
+            #         denom_k = 0.0
+            #         for c_ in CROPS:
+            #             # Allocation locale
+            #             if (c_, k_) in idx_alloc:
+            #                 denom_k += x[idx_alloc[(c_, k_)]]
+            #             # Allocation via import
+            #             if (c_, k_) in idx_import:
+            #                 denom_k += x[idx_import[(c_, k_)]]
+
+            #         # 2) Pour chaque proportion idéale, calculez la somme des cultures du groupe
+            #         for p_ideal, c_list in regimes[k_].items():
+            #             group_alloc = 0.0
+            #             for c_ in c_list:
+            #                 # Ajout part locale
+            #                 if (c_, k_) in idx_alloc:
+            #                     group_alloc += x[idx_alloc[(c_, k_)]]
+            #                 # Ajout part importée
+            #                 if (c_, k_) in idx_import:
+            #                     group_alloc += x[idx_import[(c_, k_)]]
+
+            #             if denom_k < 1e-6:
+            #                 proportion_real = 0.0
+            #             else:
+            #                 proportion_real = group_alloc / denom_k
+
+            #             # Ecart diététique
+            #             total_dev += (proportion_real - p_ideal) ** 2
+
+            #     # 3.b) fertilizer_deviation
+            #     # sum of synthetic fertilizers in ktN
+            #     total_synth = 0.0
+            #     for c in CROPS:
+            #         # x[idx_synth[c]] is in kgN/ha
+            #         fert_per_ha = x[idx_synth[c]] + nonSynthFert[c]
+            #         total_synth += x[idx_synth[c]] * area[c]  # only the synthetic part
+            #     # Convert from kgN to ktN
+            #     total_synth_kt = total_synth / 1e6
+            #     # desired total = (N_synth_crop + N_synth_grass)
+            #     if N_synth_crop + N_synth_grass < 1:
+            #         scale = 1
+            #     else:
+            #         scale = N_synth_crop + N_synth_grass
+            #     fert_dev = np.maximum(0, (total_synth_kt - (N_synth_crop + N_synth_grass)) / scale) ** 2
+            #     # fert_dev = ((total_synth_kt - (N_synth_crop + N_synth_grass)) / scale) ** 2
+            #     # 3.c) import_export_deviation
+            #     # sum import
+            #     sum_imp = 0.0
+            #     for c, k in allowed_ck:
+            #         sum_imp += x[idx_import[(c, k)]]
+
+            #     # Calcul de la production "non allouée" => export
+            #     export_total = 0.0
+            #     for c in CROPS:
+            #         # Production locale (ktN) ; on suppose qu'elle est déjà correcte/à jour :
+            #         if self.prod_func == "Ratio":
+            #             production_c = (
+            #                 Y_th_ratio(x[idx_synth[c]] + nonSynthFert[c], Ymax[c])
+            #                 * df_cultures.at[c, "Area (ha)"]
+            #                 / 1e6
+            #             )
+            #         if self.prod_func == "Linear":
+            #             production_c = (
+            #                 Y_th_lin(x[idx_synth[c]] + nonSynthFert[c], a[c], b[c])
+            #                 * df_cultures.at[c, "Area (ha)"]
+            #                 / 1e6
+            #             )
+
+            #         # Somme des allocations locales sur c
+            #         allocated_c = 0.0
+            #         # idx_alloc[(c,k)] = indice pour allocate(c,k)
+            #         for k in CONSUMERS:
+            #             if (c, k) in idx_alloc:
+            #                 allocated_c += x[idx_alloc[(c, k)]]
+
+            #         # leftover = production - allocated
+            #         # S'il est > 0 => export, s'il est < 0 => on a sur-alloué (besoin d'import net)
+            #         leftover_c = production_c - allocated_c
+            #         export_total += leftover_c
+
+            #     # Net import du modèle
+            #     net_import_model = sum_imp - export_total
+
+            #     if abs(net_import) < 1:
+            #         imp_dev = (net_import_model - net_import) ** 2
+            #     else:
+            #         imp_dev = ((net_import_model - net_import) / (net_import + 1e-6)) ** 2
+
+            #     return total_dev, fert_dev, imp_dev, net_import, net_import_model, sum_imp, export_total
+
+            # def my_callback(xk):
+            #     # xk is the current solution vector at iteration k
+            #     # Evaluate any terms you want here, e.g.:
+            #     f_val = objective(xk)
+            #     # Possibly store separate sub-terms:
+            #     diet_dev_term, fertilizer_term, imp_term, net_imp, net_import_model, sum_imp, export_total = (
+            #         compute_objective_terms(xk)
+            #     )
+            #     # Append them to some global or nonlocal list
+            #     iteration_log.append(
+            #         {
+            #             # "x": xk.copy(),
+            #             "objective": f_val,
+            #             "diet_dev": diet_dev_term,
+            #             "fert_dev": fertilizer_term,
+            #             "import term": imp_term,
+            #             "net import target": net_imp,
+            #             "net import model": net_import_model,
+            #             "Import model": sum_imp,
+            #             "Export model": export_total,
+            #         }
+            #     )
+
+            # # --------------------------------------------------------------------------
+            # # 4) Define constraints as a list of dicts (SLSQP form)
+            # # --------------------------------------------------------------------------
+            # # We'll have:
+            # #   (i) production_balance(c) = sum_{k} allocate(c,k) + import_export(c) - prod_c == 0
+            # #   (ii) consumption_rule(k) = sum_{c} allocate(c,k) - ingestion[k] == 0
+            # #
+            # # The “(iii) if not authorized => allocate=0” we already excluded from x.
+            # # --------------------------------------------------------------------------
+
+            # def build_min_fraction_constraints_reformulated(BETA=0.05):
+            #     """
+            #     Returns constraint dict for SciPy using a reformulated inequality
+            #     to avoid direct division within the constraint function.
+
+            #     Constraint Logic: We want the allocation of a crop 'c' within a group 'G'
+            #     for consumer 'k' (alloc_ck) to be at least a certain fraction (BETA)
+            #     of what its proportional production (prod_c / sum_prod_g) would suggest
+            #     applied to the total allocation for that group (group_alloc_kG).
+
+            #     Original Form: alloc_ck - BETA * (prod_c / sum_prod_g) * group_alloc_kG >= 0
+            #     Reformulated : alloc_ck * sum_prod_g - BETA * prod_c * group_alloc_kG >= 0
+            #                 (for sum_prod_g > 0)
+            #     """
+
+            #     # --- Helper function to calculate production ---
+            #     # (Avoid recalculating this repeatedly inside the constraint function if possible,
+            #     # but here we need it dependent on x_synth which changes)
+            #     def calculate_production(x_synth_val, c):
+            #         # Make sure idx_synth[c] exists if you use it here, or adjust logic
+            #         fert_tot = x_synth_val + nonSynthFert[c]  # Assuming x_ maps directly for synth
+            #         if self.prod_func == "Ratio":
+            #             y_ha = Y_th_ratio(fert_tot, df_cultures.loc[c, "Ymax (kgN/ha)"])
+            #         if self.prod_func == "Linear":
+            #             y_ha = Y_th_lin(fert_tot, df_cultures.loc[c, "a"], df_cultures.loc[c, "b"])
+            #         # Production in ktN (consistent units assumed)
+            #         return (y_ha * df_cultures.loc[c, "Area (ha)"]) / 1e6
+
+            #     # We still need to determine the list of constraints to evaluate consistently
+            #     constraint_tuples = []
+            #     for k_ in CONSUMERS:
+            #         # regimes[k_] has format {proportion: [crop_list]}
+            #         # We need the groups (crop_lists) themselves. Using values() is fine.
+            #         for group_crops in regimes[k_].values():
+            #             # Ensure group_crops is actually a list/iterable of crop names
+            #             if not isinstance(group_crops, (list, tuple, set)):
+            #                 # Handle potential errors in regimes structure if needed
+            #                 # print(f"Warning: Expected list of crops for consumer {k_}, got {group_crops}")
+            #                 continue
+            #             for c in group_crops:
+            #                 # Only add constraints for crops that *can* be allocated (locally or imported)
+            #                 # This avoids creating constraints for crops that can never meet the condition.
+            #                 can_be_allocated = (c, k_) in idx_alloc or (c, k_) in idx_import
+            #                 if can_be_allocated:
+            #                     # Store (consumer, list_of_crops_in_group, specific_crop)
+            #                     constraint_tuples.append(
+            #                         (k_, tuple(group_crops), c)
+            #                     )  # Use tuple for hashability if needed
+
+            #     num_constraints = len(constraint_tuples)
+            #     # print(f"Building {num_constraints} min_fraction constraints.")
+
+            #     # --- The actual constraint function passed to SciPy ---
+            #     def min_fraction_fn(x_):
+            #         constraints_array = np.zeros(num_constraints, dtype=float)
+            #         calculated_productions = {}  # Cache production calc within one function call
+
+            #         for i, (k_, group_crops, c) in enumerate(constraint_tuples):
+            #             # 1) Calculate production values for the group
+            #             sum_prod_g = 0.0
+            #             prod_values = {}
+            #             for c2 in group_crops:
+            #                 if c2 not in calculated_productions:
+            #                     # Ensure c2 is a valid crop index/name
+            #                     if c2 in idx_synth:
+            #                         prod_c2_val = calculate_production(x_[idx_synth[c2]], c2)
+            #                         calculated_productions[c2] = prod_c2_val
+            #                     else:
+            #                         # Handle case where crop might be in regimes but not synthesizable (maybe fixed production?)
+            #                         # For now, assume 0 production if no synth variable
+            #                         prod_c2_val = 0
+            #                         calculated_productions[c2] = prod_c2_val
+
+            #                 prod_c2_val = calculated_productions[c2]
+            #                 prod_values[c2] = prod_c2_val
+            #                 sum_prod_g += prod_c2_val
+
+            #             # The specific production for the crop 'c' we're constraining
+            #             # Use the value already computed and stored in prod_values
+            #             prod_c_val = prod_values.get(
+            #                 c, 0.0
+            #             )  # Default to 0 if c wasn't calculable (shouldn't happen based on loop structure)
+
+            #             # 2) Calculate total allocation to the group for this consumer
+            #             group_alloc_kG = 0.0
+            #             for c2 in group_crops:
+            #                 if (c2, k_) in idx_alloc:
+            #                     group_alloc_kG += x_[idx_alloc[(c2, k_)]]
+            #                 if (c2, k_) in idx_import:
+            #                     group_alloc_kG += x_[idx_import[(c2, k_)]]
+
+            #             # 3) Calculate this specific crop's allocation
+            #             alloc_ck = 0.0
+            #             if (c, k_) in idx_alloc:
+            #                 alloc_ck += x_[idx_alloc[(c, k_)]]
+            #             if (c, k_) in idx_import:
+            #                 alloc_ck += x_[idx_import[(c, k_)]]
+
+            #             # 4) Apply the reformulated constraint
+            #             # If total production in the group is negligible, the concept
+            #             # of proportional allocation breaks down. Make constraint trivially true (>=0).
+            #             # Also handle the case where there's no allocation to the group.
+            #             if sum_prod_g < 1e-9 or group_alloc_kG < 1e-9:
+            #                 # LHS must be >= 0. Setting to 0 or a small positive value is safe.
+            #                 constraints_array[i] = 1.0  # Or 0.0, ensures >= 0 is met
+            #             else:
+            #                 # Reformulated: alloc_ck * sum_prod_g - BETA * prod_c * group_alloc_kG >= 0
+            #                 lhs = alloc_ck * sum_prod_g - BETA * prod_c_val * group_alloc_kG
+            #                 constraints_array[i] = lhs
+
+            #         return constraints_array
+
+            #     return {"type": "ineq", "fun": min_fraction_fn}
+
+            # # We will define them in a wrapper that references a global or closure “x_current”
+            # # so that SLSQP can evaluate.
+            # # One standard pattern is to define a single function that returns an array of
+            # # constraints. However, SLSQP (via scipy) also supports a list of constraint dicts.
+
+            # def build_constraints():
+            #     cons = []
+            #     # Production >= allocations (ineq)
+            #     for c in CROPS:
+            #         cons.append({"type": "ineq", "fun": lambda x_, c=c: production_balance_expr(x_, c)})
+
+            #     # Ingestion = local + import (eq)
+            #     for k_ in CONSUMERS:
+            #         cons.append({"type": "eq", "fun": lambda x_, k_=k_: consumption_rule_expr(x_, k_)})
+            #     return cons
+
+            # def production_balance_expr(x_, c):
+            #     sum_local = 0.0
+            #     for k_ in CONSUMERS:
+            #         if (c, k_) in idx_alloc:
+            #             sum_local += x_[idx_alloc[(c, k_)]]
+
+            #     # production c
+            #     fert_tot = x_[idx_synth[c]] + nonSynthFert[c]
+            #     if self.prod_func == "Ratio":
+            #         y = Y_th_ratio(fert_tot, Ymax[c])
+            #     if self.prod_func == "Linear":
+            #         y = Y_th_lin(fert_tot, a[c], b[c])
+            #     prod_c = (y * area[c]) / 1e6
+
+            #     return prod_c - sum_local  # doit être >= 0
+
+            # def consumption_rule_expr(x_, k_):
+            #     sum_local = 0.0
+            #     sum_import = 0.0
+            #     for c_ in CROPS:
+            #         if (c_, k_) in idx_alloc:
+            #             sum_local += x_[idx_alloc[(c_, k_)]]
+            #         if (c_, k_) in idx_import:  # si vous stockez les imports sous (culture, cons)
+            #             sum_import += x_[idx_import[(c_, k_)]]
+
+            #     return sum_local + sum_import - ingestion[k_]
+
+            # # --------------------------------------------------------------------------
+            # # 5) Build bounds
+            # # --------------------------------------------------------------------------
+            # #  - synth_fert[c] >= 0
+            # #  - allocate[c,k] >= 0
+            # #  - import_export[c] unbounded
+            # # We must create a bounds array for each variable in x
+            # # --------------------------------------------------------------------------
+
+            # bounds = [None] * n_vars
+            # for c in CROPS:
+            #     # For synth_fert[c]
+            #     i = idx_synth[c]
+            #     if df_cultures.loc[c, "Category"] == "leguminous":
+            #         bounds[i] = (0.0, 0.0)  # null
+            #     else:
+            #         bounds[i] = (0.0, None)  # nonnegative
+
+            # for c, k_ in allowed_ck:
+            #     i = idx_alloc[(c, k_)]
+            #     bounds[i] = (0.0, None)  # nonnegative
+
+            # for c, k_ in allowed_ck:
+            #     i = idx_import[(c, k_)]
+            #     bounds[i] = (0.0, None)  # nonnegative
+
+            # # --------------------------------------------------------------------------
+            # # 6) Initial guess
+            # # --------------------------------------------------------------------------
+            # # You can choose a naive guess, e.g. 0 for everything
+            # # or some heuristic.
+            # # --------------------------------------------------------------------------
+            # x0 = np.array([0.01 for i in range(n_vars)])  # np.zeros(n_vars, dtype=float)
+            # if self.prod_func == "Ratio":
+            #     x0[: len(df_cultures)] = df_cultures["Ymax (kgN/ha)"].values
+            # if self.prod_func == "Linear":
+            #     x0[: len(df_cultures)] = df_cultures["b"].values
+
+            # # --------------------------------------------------------------------------
+            # # 7) Call the optimizer
+            # # --------------------------------------------------------------------------
+            # cons = build_constraints()
+            # # min_frac_cons = build_min_fraction_constraints_reformulated()
+            # # cons.append(min_frac_cons)
+
+            # iteration_log = []
+
+            # # Stage 1: quick approximate solve
+            # # res1 = minimize(
+            # #     fun=objective,
+            # #     x0=x0,
+            # #     method="SLSQP",
+            # #     bounds=bounds,
+            # #     constraints=cons,
+            # #     callback=my_callback,
+            # #     options={"maxiter": 1000, "ftol": 1e-5, "disp": True},
+            # # )
+
+            # # Stage 2: refine from the stage 1 solution with a tighter tolerance
+            # res = minimize(
+            #     fun=objective_vectorized,
+            #     x0=x0,
+            #     method="SLSQP",
+            #     bounds=bounds,
+            #     constraints=cons,
+            #     # callback=my_callback,
+            #     options={"maxiter": 1000, "ftol": 1e-5, "disp": True, "eps": 1e-6},
+            # )
+
+            # self.log = iteration_log
+            # print(objective_vectorized(x0))
             x_opt = res.x
+
+            # ------------------------------------------------------------------
+            # 1)  index ↔ position pour les engrais de synthèse
+            # ------------------------------------------------------------------
+            idx_synth = {
+                c: idx_synth_slice.start + crop_to_idx[c]  # slice début + rang du crop
+                for c in CROPS
+            }
+
+            # ------------------------------------------------------------------
+            # 2)  index ↔ position pour les allocations locales
+            #     (même ordre que allowed_ck et idx_alloc_slice)
+            # ------------------------------------------------------------------
+            idx_alloc = {
+                ck_pair: idx_alloc_slice.start + i  # slice début + i
+                for i, ck_pair in enumerate(allowed_ck)  # allowed_ck = [(c,k), …]
+            }
+
+            # ------------------------------------------------------------------
+            # 3)  index ↔ position pour les imports
+            # ------------------------------------------------------------------
+            idx_import = {
+                ck_pair: idx_import_slice.start + i
+                for i, ck_pair in enumerate(allowed_ck)  # même ordre
+            }
 
             # On crée les nouvelles colonnes à zéro par défaut
             df_cultures["Surface Synthetic Fertilizer Use (kgN/ha)"] = 0.0
@@ -2829,12 +3215,12 @@ class NitrogenFlowModel_prospect:
                     if self.prod_func == "Ratio":
                         y_max = df_cultures.at[c, "Ymax (kgN/ha)"]
 
-                        new_yield = Y_th_ratio(fert_tot, y_max)
+                        new_yield = Y_th_ratio_vec(fert_tot, y_max)
                     if self.prod_func == "Linear":
                         a = df_cultures.at[c, "a"]
                         b = df_cultures.at[c, "b"]
 
-                        new_yield = Y_th_lin(fert_tot, a, b)
+                        new_yield = Y_th_lin_vec(fert_tot, a, b)
                     df_cultures.at[c, "Yield (kgN/ha)"] = new_yield
                     # Production en ktN
                     nitro_prod_ktN = (new_yield * area_ha) / 1e6
