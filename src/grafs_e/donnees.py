@@ -101,11 +101,12 @@ categories_mapping = {
     # Fourrages
     "Forage maize": "forages",
     "Forage cabbages": "forages",
-    "Non-legume temporary meadow": "forages",  # J'aurai voulu les mettres dans prairies mais GRAFS ne le fait pas comme ça....
-    "Alfalfa and clover": "forages",
     "Straw": "forages",
-    # Prairies
-    "Natural meadow ": "grasslands",
+    # Prairies temporaires
+    "Non-legume temporary meadow": "temporary meadows",
+    "Alfalfa and clover": "temporary meadows",
+    # Prairies permanentes
+    "Natural meadow ": "natural meadows ",
     # Fruits et légumes
     "Dry vegetables": "fruits and vegetables",
     "Dry fruits": "fruits and vegetables",
@@ -292,7 +293,9 @@ node_color = {
         else "darkgreen"
         if label in categories_mapping and categories_mapping[label] == "leguminous"
         else "green"
-        if label in categories_mapping and categories_mapping[label] in ["grasslands", "forages"]
+        if label in categories_mapping and categories_mapping[label] in ["temporary meadows", "forages"]
+        else "darkgreen"
+        if label in categories_mapping and categories_mapping[label] == "natural meadows "
         else "lightblue"
         if label in betail
         else "darkblue"

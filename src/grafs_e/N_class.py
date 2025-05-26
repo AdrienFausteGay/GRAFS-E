@@ -1710,12 +1710,12 @@ class NitrogenFlowModel:
                 if (
                     feed_export
                     > df_cultures.loc[
-                        df_cultures["Category"].isin(["forages", "grasslands"]),
+                        df_cultures["Category"].isin(["forages", "temporary meadows"]),
                         "Available Nitrogen After Feed and Food (ktN)",
                     ].sum()
                 ):
                     feed_export_prio = df_cultures.loc[
-                        df_cultures["Category"].isin(["forages", "grasslands"]),
+                        df_cultures["Category"].isin(["forages", "temporary meadows"]),
                         "Available Nitrogen After Feed and Food (ktN)",
                     ].sum()
                     feed_export_other = feed_export - feed_export_prio
@@ -1724,7 +1724,7 @@ class NitrogenFlowModel:
                     feed_export_other = 0
                 # Répartition de l'azote exporté inutilisé par catégorie
                 # On fait un premier tour sur les cultures prioritaires
-                for culture in df_cultures.loc[df_cultures["Category"].isin(["forages", "grasslands"])].index:
+                for culture in df_cultures.loc[df_cultures["Category"].isin(["forages", "temporary meadows"])].index:
                     categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
                     # On exporte pas en feed des catégories dédiées aux humains
                     if categorie not in ["rice", "fruits and vegetables", "roots"]:
@@ -1741,7 +1741,9 @@ class NitrogenFlowModel:
 
                 # On écoule le reste des export de feed (si il y en a) sur les autres cultures
                 if feed_export_other > 10**-6:
-                    for culture in df_cultures.loc[~df_cultures["Category"].isin(["forages", "grasslands"])].index:
+                    for culture in df_cultures.loc[
+                        ~df_cultures["Category"].isin(["forages", "temporary meadows"])
+                    ].index:
                         categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
                         # On exporte pas en feed des catégories dédiées aux humains
                         if categorie not in ["rice", "fruits and vegetables", "roots"]:
@@ -1780,7 +1782,7 @@ class NitrogenFlowModel:
         for idx, row in df_cultures.iterrows():
             culture = row.name
             categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
-            if categorie not in ["grasslands", "forages"]:
+            if categorie not in ["temporary medows", "natural meadows forages"]:
                 source = {
                     culture: df_cultures.loc[
                         df_cultures.index == culture,
@@ -1788,7 +1790,10 @@ class NitrogenFlowModel:
                     ].item()
                 }
                 target = {f"{categorie} food trade": 1}
-            else:  # TODO Que faire des production de feed qui ne sont ni consommées ni exportées ? Pour l'instant on les exporte....
+            elif (
+                culture != "Natural meadows "
+            ):  # TODO Que faire des production de feed qui ne sont ni consommées ni exportées ? Pour l'instant on les exporte....
+                # Il faut les laisser retourner en terre si c'est une prairie naturelle (recommandation de JLN)
                 source = {
                     culture: df_cultures.loc[
                         df_cultures.index == culture,
@@ -1796,6 +1801,14 @@ class NitrogenFlowModel:
                     ].item()
                 }
                 target = {f"{categorie} feed trade": 1}
+            else:
+                source = {
+                    culture: df_cultures.loc[
+                        df_cultures.index == culture,
+                        "Available Nitrogen After Feed, Export Feed and Food (ktN)",
+                    ].item()
+                }
+                target = {"soil stock": 1}
             flux_generator.generate_flux(source, target)
 
         # Que faire d'eventuel surplus de prairies ou forage ? Pour l'instant on les ignores... Ou alors vers soil stock ?
@@ -2036,7 +2049,8 @@ class NitrogenFlowModel:
 
     def grassland_and_forages_production(self):
         return self.df_cultures.loc[
-            self.df_cultures["Category"].isin(["grasslands", "forages"]), "Nitrogen Production (ktN)"
+            self.df_cultures["Category"].isin(["temporary meadows", "natural meadows ", "forages"]),
+            "Nitrogen Production (ktN)",
         ].sum()
 
     def roots_production(self):
@@ -2073,7 +2087,8 @@ class NitrogenFlowModel:
     def grassland_and_forages_production_r(self):
         return (
             self.df_cultures.loc[
-                self.df_cultures["Category"].isin(["grasslands", "forages"]), "Nitrogen Production (ktN)"
+                self.df_cultures["Category"].isin(["temporary meadows", "natural meadows", "forages"]),
+                "Nitrogen Production (ktN)",
             ].sum()
             * 100
             / self.total_plant_production()

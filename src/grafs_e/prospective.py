@@ -3169,7 +3169,7 @@ class NitrogenFlowModel_prospect:
         for idx, row in df_cultures.iterrows():
             culture = row.name
             categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
-            if categorie not in ["grasslands", "forages"]:
+            if categorie not in ["temporary meadows", "forages"]:
                 source = {
                     culture: df_cultures.loc[
                         df_cultures.index == culture,
@@ -3178,17 +3178,29 @@ class NitrogenFlowModel_prospect:
                 }
                 target = {f"{categorie} food trade": 1}
                 flux_generator.generate_flux(source, target)
+            elif (
+                culture != "Natural meadows "
+            ):  # TODO Que faire des production de feed qui ne sont ni consommées ni exportées ? Pour l'instant on les exporte....
+                # NOOOON Il faut les laisser retourner en terre si c'est une prairie naturelle (recommandation de JLN)
+                source = {
+                    culture: df_cultures.loc[
+                        df_cultures.index == culture,
+                        "Available Nitrogen After Feed, Export Feed and Food (ktN)",
+                    ].item()
+                }
+                target = {f"{categorie} feed trade": 1}
             else:
                 source = {
                     culture: df_cultures.loc[
                         df_cultures.index == culture,
-                        "Available Nitrogen After Feed and Food (ktN)",
+                        "Available Nitrogen After Feed, Export Feed and Food (ktN)",
                     ].item()
                 }
-                target = {f"{categorie} feed trade": 1}
-                flux_generator.generate_flux(source, target)
+                target = {"soil stock": 1}
+            flux_generator.generate_flux(source, target)
 
-        # Que faire d'eventuel surplus de prairies ou forage ? Pour l'instant on les ignores... Ou alors vers soil stock ?
+        # Que faire d'eventuel surplus de prairies ou forage ?
+        # Sur recommandation de JLN c'est retourné vers le sol pour les prairies permanentes et exporté pour tout le reste
 
         ## Usage de l'azote animal pour nourir la population, on pourrait améliorer en distinguant viande, oeufs et lait
 
@@ -3416,7 +3428,8 @@ class NitrogenFlowModel_prospect:
 
     def grassland_and_forages_production(self):
         return self.df_cultures.loc[
-            self.df_cultures["Category"].isin(["grasslands", "forages"]), "Nitrogen Production (ktN)"
+            self.df_cultures["Category"].isin(["temporary meadows", "natural meadows forages"]),
+            "Nitrogen Production (ktN)",
         ].sum()
 
     def roots_production(self):
@@ -3453,7 +3466,8 @@ class NitrogenFlowModel_prospect:
     def grassland_and_forages_production_r(self):
         return (
             self.df_cultures.loc[
-                self.df_cultures["Category"].isin(["grasslands", "forages"]), "Nitrogen Production (ktN)"
+                self.df_cultures["Category"].isin(["temporary meadows", "natural meadows ", "forages"]),
+                "Nitrogen Production (ktN)",
             ].sum()
             * 100
             / self.total_plant_production()
