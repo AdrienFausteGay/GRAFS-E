@@ -935,7 +935,6 @@ def sankey_systemic_flows(
             "Grain maize",
             "Rice",
             "Other cereals",
-            "Straw",
         ],
         "fruits and vegetables": [
             "Dry vegetables",
@@ -947,20 +946,27 @@ def sankey_systemic_flows(
             "Olives",
             "Citrus",
         ],
-        "leguminous": legumineuses,
+        "leguminous": [
+            "Horse beans and faba beans",
+            "Peas",
+            "Other protein crops",
+            "Green peas",
+            "Dry beans",
+            "Green beans",
+            "Soybean",
+        ],
         "oleaginous": [
             "Rapeseed",
             "Sunflower",
             "Other oil crops",
         ],
-        "Temporary meadows": [
-            "Alfalfa and clover",
-            "Non-legume temporary meadow",
-        ],
-        "Forages": [
+        "forages": [
             "Forage maize",
             "Forage cabbages",
+            "Straw",
         ],
+        "temporary meadows": ["Non-legume temporary meadow", "Alfalfa and clover"],
+        "natural meadows ": ["Natural meadows "],
         "trade": [
             "animal trade",
             "cereals (excluding rice) food trade",
@@ -978,15 +984,15 @@ def sankey_systemic_flows(
         "ruminants": ["bovines", "ovines", "caprines", "equine"],
         "monogastrics": ["porcines", "poultry"],
         "population": ["urban", "rural"],
-        "losses": [
+        "Environment": [
             "NH3 volatilization",
             "N2O emission",
             "hydro-system",
             "other losses",
+            "atmospheric N2",
         ],
         "roots": ["Sugar beet", "Potatoes", "Other roots"],
     },
-    THRESHOLD=1e-1,
 ):
     """
     Crée un diagramme de Sankey systémique montrant tous les flux à partir d'une matrice d'adjacence et de labels.
@@ -1000,24 +1006,23 @@ def sankey_systemic_flows(
     # 1) Fusion des nœuds
     new_matrix, new_labels, old_to_new = merge_nodes(adjacency_matrix, labels, merges)
     n_new = len(new_labels)
-
+    THRESHOLD = 0.01
     # 2) Définir les couleurs des nœuds fusionnés
     color_dict = {
         "cereals (excluding rice)": "gold",
         "fruits and vegetables": "lightgreen",
         "leguminous": "darkgreen",
         "oleaginous": "lightgreen",
-        "Temporary meadows": "green",
+        "meadow and forage": "green",
         "trade": "gray",
         "monogastrics": "lightblue",
         "ruminants": "lightblue",
         "population": "darkblue",
         "losses": "crimson",
         "roots": "orange",
-        "Haber-Bosch": "purple",
-        "Natural meadow ": "brown",
-        "atmospheric N2": "cyan",
-        "Forages": "pink",
+        "forages": "limegreen",
+        "Environment": "crimson",
+        "temporary meadows": "seagreen",
     }
     # node_color et index_to_label ne sont pas définis ici.
     # Si des couleurs spécifiques pour les labels d'origine sont nécessaires,

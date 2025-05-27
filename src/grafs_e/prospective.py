@@ -3169,7 +3169,7 @@ class NitrogenFlowModel_prospect:
         for idx, row in df_cultures.iterrows():
             culture = row.name
             categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
-            if categorie not in ["temporary meadows", "forages"]:
+            if categorie not in ["temporary meadows", "forages", "natural meadows "]:
                 source = {
                     culture: df_cultures.loc[
                         df_cultures.index == culture,
@@ -3179,7 +3179,7 @@ class NitrogenFlowModel_prospect:
                 target = {f"{categorie} food trade": 1}
                 flux_generator.generate_flux(source, target)
             elif (
-                culture != "Natural meadows "
+                culture != "Natural meadow "
             ):  # TODO Que faire des production de feed qui ne sont ni consommées ni exportées ? Pour l'instant on les exporte....
                 # NOOOON Il faut les laisser retourner en terre si c'est une prairie naturelle (recommandation de JLN)
                 source = {
@@ -3189,6 +3189,8 @@ class NitrogenFlowModel_prospect:
                     ].item()
                 }
                 target = {f"{categorie} feed trade": 1}
+                print(culture)
+                print(categorie)
             else:
                 source = {
                     culture: df_cultures.loc[

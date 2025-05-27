@@ -169,7 +169,8 @@ ext = [
     "forages feed trade",
     "leguminous feed trade",
     "oleaginous feed trade",
-    "grasslands feed trade",
+    "forages feed trade",
+    "temporary meadows feed trade",
 ]
 
 labels_init = cultures + legumineuses + prairies + betail + Pop + ext
