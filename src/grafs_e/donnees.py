@@ -302,6 +302,8 @@ node_color = {
         if label in ["urban", "rural"]
         else "red"
         if label in ["atmospheric volatilization", "hydro-system", "other losses", "NH3 volatilization", "N2O emission"]
+        else "sienna"
+        if label in ["soil stock"]
         else "cyan"
         if label in ["Atmospheric deposition"]
         else "purple"
