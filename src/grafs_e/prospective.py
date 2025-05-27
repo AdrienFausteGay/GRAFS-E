@@ -3169,7 +3169,7 @@ class NitrogenFlowModel_prospect:
         for idx, row in df_cultures.iterrows():
             culture = row.name
             categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
-            if categorie not in ["grasslands", "forages"]:
+            if categorie not in ["temporary meadows", "forages"]:
                 source = {
                     culture: df_cultures.loc[
                         df_cultures.index == culture,
@@ -3178,17 +3178,29 @@ class NitrogenFlowModel_prospect:
                 }
                 target = {f"{categorie} food trade": 1}
                 flux_generator.generate_flux(source, target)
+            elif (
+                culture != "Natural meadows "
+            ):  # TODO Que faire des production de feed qui ne sont ni consommées ni exportées ? Pour l'instant on les exporte....
+                # NOOOON Il faut les laisser retourner en terre si c'est une prairie naturelle (recommandation de JLN)
+                source = {
+                    culture: df_cultures.loc[
+                        df_cultures.index == culture,
+                        "Available Nitrogen After Feed, Export Feed and Food (ktN)",
+                    ].item()
+                }
+                target = {f"{categorie} feed trade": 1}
             else:
                 source = {
                     culture: df_cultures.loc[
                         df_cultures.index == culture,
-                        "Available Nitrogen After Feed and Food (ktN)",
+                        "Available Nitrogen After Feed, Export Feed and Food (ktN)",
                     ].item()
                 }
-                target = {f"{categorie} feed trade": 1}
-                flux_generator.generate_flux(source, target)
+                target = {"soil stock": 1}
+            flux_generator.generate_flux(source, target)
 
-        # Que faire d'eventuel surplus de prairies ou forage ? Pour l'instant on les ignores... Ou alors vers soil stock ?
+        # Que faire d'eventuel surplus de prairies ou forage ?
+        # Sur recommandation de JLN c'est retourné vers le sol pour les prairies permanentes et exporté pour tout le reste
 
         ## Usage de l'azote animal pour nourir la population, on pourrait améliorer en distinguant viande, oeufs et lait
 
@@ -3323,6 +3335,53 @@ class NitrogenFlowModel_prospect:
         source = {"atmospheric N2": 1}
         flux_generator.generate_flux(source, target)
 
+        LU = scenario.livestock_LU(self.data_loader, self.region)[self.year]
+        LU["equine"] = LU.pop("equines")
+        df_elevage["LU"] = LU
+
+        # On ajoute une ligne total à df_cultures et df_elevage
+        colonnes_a_exclure = [
+            "Spreading Rate (%)",
+            "Nitrogen Content (%)",
+            "Seed input (kt seeds/kt Ymax)",
+            "Category",
+            "N fixation coef (kgN/kgN)",
+            "Fertilization Need (kgN/qtl)",
+            "Surface Fertilization Need (kgN/ha)",
+            "Yield (qtl/ha)",
+            "Yield (kgN/ha)",
+            "Surface Non Synthetic Fertilizer Use (kgN/ha)",
+            "Raw Surface Synthetic Fertilizer Use (ktN/ha)",
+        ]
+        colonnes_a_sommer = df_cultures.columns.difference(colonnes_a_exclure)
+        total = df_cultures[colonnes_a_sommer].sum()
+        total.name = "Total"
+        df_cultures = pd.concat([df_cultures, total.to_frame().T])
+
+        colonnes_a_exclure = [
+            "% edible",
+            "% excreted indoors",
+            "% excreted indoors as manure",
+            "% excreted indoors as slurry",
+            "% excreted on grassland",
+            "% non edible",
+            "%N dairy",
+            "N-N2 EM. manure indoor",
+            "N-N2 EM. outdoor",
+            "N-N2 EM. slurry indoor",
+            "N-N2O EM. manure indoor",
+            "N-N2O EM. outdoor",
+            "N-N2O EM. slurry indoor",
+            "N-NH3 EM. manure indoor",
+            "N-NH3 EM. outdoor",
+            "N-NH3 EM. slurry indoor",
+            "Conversion factor (%)",
+        ]
+        colonnes_a_sommer = df_elevage.columns.difference(colonnes_a_exclure)
+        total = df_elevage[colonnes_a_sommer].sum()
+        total.name = "Total"
+        df_elevage = pd.concat([df_elevage, total.to_frame().T])
+
         self.df_cultures = df_cultures
         self.df_elevage = df_elevage
         self.adjacency_matrix = adjacency_matrix
@@ -3416,7 +3475,8 @@ class NitrogenFlowModel_prospect:
 
     def grassland_and_forages_production(self):
         return self.df_cultures.loc[
-            self.df_cultures["Category"].isin(["grasslands", "forages"]), "Nitrogen Production (ktN)"
+            self.df_cultures["Category"].isin(["temporary meadows", "natural meadows forages"]),
+            "Nitrogen Production (ktN)",
         ].sum()
 
     def roots_production(self):
@@ -3453,7 +3513,8 @@ class NitrogenFlowModel_prospect:
     def grassland_and_forages_production_r(self):
         return (
             self.df_cultures.loc[
-                self.df_cultures["Category"].isin(["grasslands", "forages"]), "Nitrogen Production (ktN)"
+                self.df_cultures["Category"].isin(["temporary meadows", "natural meadows ", "forages"]),
+                "Nitrogen Production (ktN)",
             ].sum()
             * 100
             / self.total_plant_production()
