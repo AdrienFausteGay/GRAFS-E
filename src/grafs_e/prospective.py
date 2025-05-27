@@ -3335,6 +3335,53 @@ class NitrogenFlowModel_prospect:
         source = {"atmospheric N2": 1}
         flux_generator.generate_flux(source, target)
 
+        LU = scenario.livestock_LU(self.data_loader, self.region)[self.year]
+        LU["equine"] = LU.pop("equines")
+        df_elevage["LU"] = LU
+
+        # On ajoute une ligne total à df_cultures et df_elevage
+        colonnes_a_exclure = [
+            "Spreading Rate (%)",
+            "Nitrogen Content (%)",
+            "Seed input (kt seeds/kt Ymax)",
+            "Category",
+            "N fixation coef (kgN/kgN)",
+            "Fertilization Need (kgN/qtl)",
+            "Surface Fertilization Need (kgN/ha)",
+            "Yield (qtl/ha)",
+            "Yield (kgN/ha)",
+            "Surface Non Synthetic Fertilizer Use (kgN/ha)",
+            "Raw Surface Synthetic Fertilizer Use (ktN/ha)",
+        ]
+        colonnes_a_sommer = df_cultures.columns.difference(colonnes_a_exclure)
+        total = df_cultures[colonnes_a_sommer].sum()
+        total.name = "Total"
+        df_cultures = pd.concat([df_cultures, total.to_frame().T])
+
+        colonnes_a_exclure = [
+            "% edible",
+            "% excreted indoors",
+            "% excreted indoors as manure",
+            "% excreted indoors as slurry",
+            "% excreted on grassland",
+            "% non edible",
+            "%N dairy",
+            "N-N2 EM. manure indoor",
+            "N-N2 EM. outdoor",
+            "N-N2 EM. slurry indoor",
+            "N-N2O EM. manure indoor",
+            "N-N2O EM. outdoor",
+            "N-N2O EM. slurry indoor",
+            "N-NH3 EM. manure indoor",
+            "N-NH3 EM. outdoor",
+            "N-NH3 EM. slurry indoor",
+            "Conversion factor (%)",
+        ]
+        colonnes_a_sommer = df_elevage.columns.difference(colonnes_a_exclure)
+        total = df_elevage[colonnes_a_sommer].sum()
+        total.name = "Total"
+        df_elevage = pd.concat([df_elevage, total.to_frame().T])
+
         self.df_cultures = df_cultures
         self.df_elevage = df_elevage
         self.adjacency_matrix = adjacency_matrix
