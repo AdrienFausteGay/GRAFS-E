@@ -3193,7 +3193,7 @@ class NitrogenFlowModel_prospect:
                 source = {
                     culture: df_cultures.loc[
                         df_cultures.index == culture,
-                        "Available Nitrogen After Feed, Export Feed and Food (ktN)",
+                        "Available Nitrogen After Feed and Food (ktN)",
                     ].item()
                 }
                 target = {f"{categorie} feed trade": 1}
