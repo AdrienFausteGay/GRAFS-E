@@ -515,6 +515,14 @@ class scenario:
                 "Business as usual",
             ] = self.historic_trend(region, 32)[-1]
 
+            excel_dict = {
+                "bovines": 1250,
+                "ovines": 1264,
+                "caprines": 1278,
+                "porcines": 1292,
+                "poultry": 1306,
+                "equines": 1320,
+            }
             # Excretion managment
             for t in betail:
                 if t == "equine":
@@ -522,19 +530,19 @@ class scenario:
                 sheets["technical"].loc[
                     sheets["technical"]["Variable"] == f"{t.capitalize()} % excretion on grassland",
                     "Business as usual",
-                ] = self.historic_trend(region, 1250)[-1]
+                ] = self.historic_trend(region, excel_dict[t])[-1]
                 sheets["technical"].loc[
                     sheets["technical"]["Variable"] == f"{t.capitalize()} % excretion in the barn as litter manure",
                     "Business as usual",
-                ] = self.historic_trend(region, 1252)[-1]
+                ] = self.historic_trend(region, excel_dict[t] + 2)[-1]
                 sheets["technical"].loc[
                     sheets["technical"]["Variable"] == f"{t.capitalize()} % excretion in the barn as other manure",
                     "Business as usual",
-                ] = self.historic_trend(region, 1253)[-1]
+                ] = self.historic_trend(region, excel_dict[t] + 3)[-1]
                 sheets["technical"].loc[
                     sheets["technical"]["Variable"] == f"{t.capitalize()} % excretion in the barn as slurry",
                     "Business as usual",
-                ] = self.historic_trend(region, 1254)[-1]
+                ] = self.historic_trend(region, excel_dict[t] + 4)[-1]
 
             # LU prop
             LU_prop = self.livestock_LU(self.dataloader, self.region)[annees_disponibles[-1]]
