@@ -1140,7 +1140,6 @@ def streamlit_sankey_systemic_flows(
             "Grain maize",
             "Rice",
             "Other cereals",
-            "Straw",
         ],
         "fruits and vegetables": [
             "Dry vegetables",
@@ -1152,18 +1151,27 @@ def streamlit_sankey_systemic_flows(
             "Olives",
             "Citrus",
         ],
-        "leguminous": legumineuses,
+        "leguminous": [
+            "Horse beans and faba beans",
+            "Peas",
+            "Other protein crops",
+            "Green peas",
+            "Dry beans",
+            "Green beans",
+            "Soybean",
+        ],
         "oleaginous": [
             "Rapeseed",
             "Sunflower",
             "Other oil crops",
         ],
-        "meadow and forage": [
-            "Natural meadow ",
-            "Non-legume temporary meadow",
+        "forages": [
             "Forage maize",
             "Forage cabbages",
+            "Straw",
         ],
+        "temporary meadows": ["Non-legume temporary meadow", "Alfalfa and clover"],
+        "natural meadows ": ["Natural meadows "],
         "trade": [
             "animal trade",
             "cereals (excluding rice) food trade",
@@ -1181,15 +1189,15 @@ def streamlit_sankey_systemic_flows(
         "ruminants": ["bovines", "ovines", "caprines", "equine"],
         "monogastrics": ["porcines", "poultry"],
         "population": ["urban", "rural"],
-        "losses": [
+        "Environment": [
             "NH3 volatilization",
             "N2O emission",
             "hydro-system",
             "other losses",
+            "atmospheric N2",
         ],
         "roots": ["Sugar beet", "Potatoes", "Other roots"],
     },
-    THRESHOLD=1e-1,
 ):
     """
     Crée un diagramme de Sankey systémique montrant tous les flux de la matrice d'adjacence du modèle.
@@ -1211,7 +1219,7 @@ def streamlit_sankey_systemic_flows(
     adjacency_matrix = model.adjacency_matrix
     labels = model.labels
     new_matrix, new_labels, old_to_new = merge_nodes(adjacency_matrix, labels, merges)
-
+    THRESHOLD = (adjacency_matrix.sum() / 100,)
     n_new = len(new_labels)
 
     # 2) Définir les couleurs des nœuds fusionnés
@@ -1227,6 +1235,9 @@ def streamlit_sankey_systemic_flows(
         "population": "darkblue",
         "losses": "crimson",
         "roots": "orange",
+        "forages": "limegreen",
+        "Environment": "crimson",
+        "temporary meadows": "seagreen",
     }
     # Ajouter les couleurs des labels d'origine si disponibles
     for k, v in node_color.items():
@@ -1316,7 +1327,7 @@ def streamlit_sankey_systemic_flows(
                 customdata=link_hover_texts,
                 hovertemplate="%{customdata}<extra></extra>",
             ),
-            arrangement="snap",
+            arrangement="freeform",
         )
     )
 

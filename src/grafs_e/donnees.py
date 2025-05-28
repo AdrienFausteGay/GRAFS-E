@@ -169,7 +169,8 @@ ext = [
     "forages feed trade",
     "leguminous feed trade",
     "oleaginous feed trade",
-    "grasslands feed trade",
+    "forages feed trade",
+    "temporary meadows feed trade",
 ]
 
 labels_init = cultures + legumineuses + prairies + betail + Pop + ext
@@ -302,6 +303,8 @@ node_color = {
         if label in ["urban", "rural"]
         else "red"
         if label in ["atmospheric volatilization", "hydro-system", "other losses", "NH3 volatilization", "N2O emission"]
+        else "sienna"
+        if label in ["soil stock"]
         else "cyan"
         if label in ["Atmospheric deposition"]
         else "purple"

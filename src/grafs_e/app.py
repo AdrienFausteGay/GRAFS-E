@@ -608,11 +608,11 @@ with tab3:
 
         st.subheader("Territorial Systemic Overview")
         st.write(
-            "This Sankey diagram presents the primary flows (>1ktN/yr) within the model, organized by key categories."
+            f"This Sankey diagram presents the primary flows (>{np.round(model.adjacency_matrix.sum() / 100, 2)}ktN/yr) within the model, organized by key categories."
         )
         st.write("For optimal visualization, please switch to full screen mode.")
 
-        streamlit_sankey_systemic_flows(model, THRESHOLD=1)
+        streamlit_sankey_systemic_flows(model)
 
 with tab4:
     st.title("Detailed data")

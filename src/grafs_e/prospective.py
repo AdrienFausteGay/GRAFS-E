@@ -3086,73 +3086,76 @@ class NitrogenFlowModel_prospect:
             # Inférer les types pour éviter le warning sur les colonnes object
             df_elevage = df_elevage.infer_objects(copy=False)
 
-        #     feed_export = import_feed - import_feed_net
-        #     flux_exported = {}
-        #     if feed_export > 10**-6:  # On a importé plus que les imports net, la diff est l'export de feed
-        #         feed_export = min(
-        #             feed_export,
-        #             df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum(),
-        #         )  # Patch pour gérer les cas où on a une surexportation (cf Bretagne 2010)
-        #         # On distingue les exports de feed prioritaires (prairies et fourrages) au reste
-        #         # On distingue le cas où il y a assez dans les exports prioritaires pour couvrir
-        #         # les export de feed au cas où il faut en plus exporter les autres cultures (mais d'abord les exports prio)
-        #         if (
-        #             feed_export
-        #             > df_cultures.loc[
-        #                 df_cultures["Category"].isin(["forages", "grasslands"]),
-        #                 "Available Nitrogen After Feed and Food (ktN)",
-        #             ].sum()
-        #         ):
-        #             feed_export_prio = df_cultures.loc[
-        #                 df_cultures["Category"].isin(["forages", "grasslands"]),
-        #                 "Available Nitrogen After Feed and Food (ktN)",
-        #             ].sum()
-        #             feed_export_other = feed_export - feed_export_prio
-        #         else:
-        #             feed_export_prio = feed_export
-        #             feed_export_other = 0
-        #         # Répartition de l'azote exporté inutilisé par catégorie
-        #         # On fait un premier tour sur les cultures prioritaires
-        #         for culture in df_cultures.loc[df_cultures["Category"].isin(["forages", "grasslands"])].index:
-        #             categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
-        #             # On exporte pas en feed des catégories dédiées aux humains
-        #             if categorie not in ["rice", "fruits and vegetables", "roots"]:
-        #                 # Calculer la quantité exportée par catégorie proportionnellement aux catégories présentes dans df_cultures
-        #                 culture_nitrogen_available = df_cultures.loc[df_cultures.index == culture][
-        #                     "Available Nitrogen After Feed and Food (ktN)"
-        #                 ].item()
+            # feed_export = import_feed - import_feed_net
 
-        #                 if culture_nitrogen_available > 0:
-        #                     flux_exported[culture] = feed_export_prio * (
-        #                         culture_nitrogen_available
-        #                         / df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
-        #                     )
+            # flux_exported = {}
+            # if feed_export > 10**-6:  # On a importé plus que les imports net, la diff est l'export de feed
+            #     feed_export = min(
+            #         feed_export,
+            #         df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum(),
+            #     )  # Patch pour gérer les cas où on a une surexportation (cf Bretagne 2010)
+            #     # On distingue les exports de feed prioritaires (prairies et fourrages) au reste
+            #     # On distingue le cas où il y a assez dans les exports prioritaires pour couvrir
+            #     # les export de feed au cas où il faut en plus exporter les autres cultures (mais d'abord les exports prio)
+            #     if (
+            #         feed_export
+            #         > df_cultures.loc[
+            #             df_cultures["Category"].isin(["forages", "temporary meadows"]),
+            #             "Available Nitrogen After Feed and Food (ktN)",
+            #         ].sum()
+            #     ):
+            #         feed_export_prio = df_cultures.loc[
+            #             df_cultures["Category"].isin(["forages", "temporary meadows"]),
+            #             "Available Nitrogen After Feed and Food (ktN)",
+            #         ].sum()
+            #         feed_export_other = feed_export - feed_export_prio
+            #     else:
+            #         feed_export_prio = feed_export
+            #         feed_export_other = 0
+            #     # Répartition de l'azote exporté inutilisé par catégorie
+            #     # On fait un premier tour sur les cultures prioritaires
+            #     for culture in df_cultures.loc[df_cultures["Category"].isin(["forages", "temporary meadows"])].index:
+            #         categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
+            #         # On exporte pas en feed des catégories dédiées aux humains
+            #         if categorie not in ["rice", "fruits and vegetables", "roots"]:
+            #             # Calculer la quantité exportée par catégorie proportionnellement aux catégories présentes dans df_cultures
+            #             culture_nitrogen_available = df_cultures.loc[df_cultures.index == culture][
+            #                 "Available Nitrogen After Feed and Food (ktN)"
+            #             ].item()
 
-        #         # On écoule le reste des export de feed (si il y en a) sur les autres cultures
-        #         if feed_export_other > 10**-6:
-        #             for culture in df_cultures.loc[~df_cultures["Category"].isin(["forages", "grasslands"])].index:
-        #                 categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
-        #                 # On exporte pas en feed des catégories dédiées aux humains
-        #                 if categorie not in ["rice", "fruits and vegetables", "roots"]:
-        #                     # Calculer la quantité exportée par catégorie proportionnellement aux catégories présentes dans df_cultures
-        #                     culture_nitrogen_available = df_cultures.loc[df_cultures.index == culture][
-        #                         "Available Nitrogen After Feed and Food (ktN)"
-        #                     ].item()
+            #             if culture_nitrogen_available > 0:
+            #                 flux_exported[culture] = feed_export_prio * (
+            #                     culture_nitrogen_available
+            #                     / df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
+            #                 )
 
-        #                     if culture_nitrogen_available > 0:
-        #                         flux_exported[culture] = feed_export_prio * (
-        #                             culture_nitrogen_available
-        #                             / df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
-        #                         )
+            #     # On écoule le reste des export de feed (si il y en a) sur les autres cultures
+            #     if feed_export_other > 10**-6:
+            #         for culture in df_cultures.loc[
+            #             ~df_cultures["Category"].isin(["forages", "temporary meadows"])
+            #         ].index:
+            #             categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
+            #             # On exporte pas en feed des catégories dédiées aux humains
+            #             if categorie not in ["rice", "fruits and vegetables", "roots"]:
+            #                 # Calculer la quantité exportée par catégorie proportionnellement aux catégories présentes dans df_cultures
+            #                 culture_nitrogen_available = df_cultures.loc[df_cultures.index == culture][
+            #                     "Available Nitrogen After Feed and Food (ktN)"
+            #                 ].item()
 
-        #         # Générer des flux les exportations vers leur catégorie d'origine
-        #         for label_source, azote_exported in flux_exported.items():
-        #             if azote_exported > 0:
-        #                 categorie = df_cultures.loc[df_cultures.index == label_source, "Category"].item()
-        #                 label_target = f"{categorie} feed trade"
-        #                 target = {label_target: 1}
-        #                 source = {label_source: azote_exported}
-        #                 flux_generator.generate_flux(source, target)
+            #                 if culture_nitrogen_available > 0:
+            #                     flux_exported[culture] = feed_export_prio * (
+            #                         culture_nitrogen_available
+            #                         / df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
+            #                     )
+
+            #     # Générer des flux les exportations vers leur catégorie d'origine
+            #     for label_source, azote_exported in flux_exported.items():
+            #         if azote_exported > 0:
+            #             categorie = df_cultures.loc[df_cultures.index == label_source, "Category"].item()
+            #             label_target = f"{categorie} feed trade"
+            #             target = {label_target: 1}
+            #             source = {label_source: azote_exported}
+            #             flux_generator.generate_flux(source, target)
 
         # # Mise à jour du DataFrame avec les quantités exportées
         # df_cultures["Nitrogen Exported For Feed (ktN)"] = df_cultures.index.map(flux_exported).fillna(
@@ -3169,7 +3172,7 @@ class NitrogenFlowModel_prospect:
         for idx, row in df_cultures.iterrows():
             culture = row.name
             categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
-            if categorie not in ["temporary meadows", "forages"]:
+            if categorie not in ["temporary meadows", "forages", "natural meadows "]:
                 source = {
                     culture: df_cultures.loc[
                         df_cultures.index == culture,
@@ -3179,7 +3182,7 @@ class NitrogenFlowModel_prospect:
                 target = {f"{categorie} food trade": 1}
                 flux_generator.generate_flux(source, target)
             elif (
-                culture != "Natural meadows "
+                culture != "Natural meadow "
             ):  # TODO Que faire des production de feed qui ne sont ni consommées ni exportées ? Pour l'instant on les exporte....
                 # NOOOON Il faut les laisser retourner en terre si c'est une prairie naturelle (recommandation de JLN)
                 source = {
@@ -3193,7 +3196,7 @@ class NitrogenFlowModel_prospect:
                 source = {
                     culture: df_cultures.loc[
                         df_cultures.index == culture,
-                        "Available Nitrogen After Feed, Export Feed and Food (ktN)",
+                        "Available Nitrogen After Feed and Food (ktN)",
                     ].item()
                 }
                 target = {"soil stock": 1}
@@ -3334,10 +3337,6 @@ class NitrogenFlowModel_prospect:
         target = {"Haber-Bosch": adjacency_matrix[:, label_to_index["Haber-Bosch"]].sum()}
         source = {"atmospheric N2": 1}
         flux_generator.generate_flux(source, target)
-
-        LU = scenario.livestock_LU(self.data_loader, self.region)[self.year]
-        LU["equine"] = LU.pop("equines")
-        df_elevage["LU"] = LU
 
         # On ajoute une ligne total à df_cultures et df_elevage
         colonnes_a_exclure = [
