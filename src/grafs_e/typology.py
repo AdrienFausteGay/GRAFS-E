@@ -29,7 +29,6 @@ matrices = {}
 for reg in regions:  # « regions » est ta liste de 33 régions
     for year in annees_disponibles:
         if not (reg == "Savoie" and year == "1852"):
-            print(year, reg)
             model = NitrogenFlowModel(data, year, reg)
             T = model.get_transition_matrix()  # (n_nodes × n_nodes)
             matrices[reg + "_" + year] = T.astype(float)
@@ -492,6 +491,7 @@ fig = go.Figure(
                 + "<b>%{customdata[1]}</b> ➜ <b>%{customdata[2]}</b><extra></extra>"
             ),
         ),
+        arrangement="snap",
     )
 )
 
