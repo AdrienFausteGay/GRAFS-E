@@ -1709,9 +1709,15 @@ class NitrogenFlowModel_prospect:
             )
 
         # Flux depuis 'other sectors' vers les cibles sélectionnées
-        target = (
-            df_cultures["Seed input (kt seeds/kt Ymax)"] * df_cultures[ym] * df_cultures["Area (ha)"] * 1e-6
-        ).to_dict()
+        if self.prod_func == "Ratio":
+            # Pour éviter des valeur délirante, on interprète ymax comme un niveau de fertilisation caractéristique (Y(Ymax) = Ymax/2)
+            target = (
+                df_cultures["Seed input (kt seeds/kt Ymax)"] * df_cultures[ym] / 2 * df_cultures["Area (ha)"] * 1e-6
+            ).to_dict()
+        else:
+            target = (
+                df_cultures["Seed input (kt seeds/kt Ymax)"] * df_cultures[ym] * df_cultures["Area (ha)"] * 1e-6
+            ).to_dict()
         source = {"other sectors": 1}
         flux_generator.generate_flux(source, target)
 
@@ -3180,7 +3186,6 @@ class NitrogenFlowModel_prospect:
                     ].item()
                 }
                 target = {f"{categorie} food trade": 1}
-                flux_generator.generate_flux(source, target)
             elif (
                 culture != "Natural meadow "
             ):  # TODO Que faire des production de feed qui ne sont ni consommées ni exportées ? Pour l'instant on les exporte....
