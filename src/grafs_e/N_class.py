@@ -1742,7 +1742,7 @@ class NitrogenFlowModel:
                 # On écoule le reste des export de feed (si il y en a) sur les autres cultures
                 if feed_export_other > 10**-6:
                     for culture in df_cultures.loc[
-                        ~df_cultures["Category"].isin(["forages", "temporary meadows"])
+                        ~df_cultures["Category"].isin(["forages", "temporary meadows", "natural meadows "])
                     ].index:
                         categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
                         # On exporte pas en feed des catégories dédiées aux humains
@@ -1782,7 +1782,7 @@ class NitrogenFlowModel:
         for idx, row in df_cultures.iterrows():
             culture = row.name
             categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
-            if categorie not in ["temporary medows", "natural meadows forages"]:
+            if categorie not in ["temporary meadows", "natural meadows ", "forages"]:
                 source = {
                     culture: df_cultures.loc[
                         df_cultures.index == culture,
@@ -1791,7 +1791,7 @@ class NitrogenFlowModel:
                 }
                 target = {f"{categorie} food trade": 1}
             elif (
-                culture != "Natural meadows "
+                culture != "Natural meadow "
             ):  # TODO Que faire des production de feed qui ne sont ni consommées ni exportées ? Pour l'instant on les exporte....
                 # Il faut les laisser retourner en terre si c'est une prairie naturelle (recommandation de JLN)
                 source = {
@@ -1856,9 +1856,6 @@ class NitrogenFlowModel:
 
             commerce["Produit"] = commerce["Produit"].map(corresp_dict).fillna(commerce["Produit"])
             commerce["Ratio"] = commerce["Valeur"] / commerce["Valeur"].sum()
-            # from IPython import embed
-
-            # embed()
             commerce.index = commerce["Produit"]
 
             target = {
