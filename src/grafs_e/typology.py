@@ -28,11 +28,11 @@ matrices = {}
 
 for reg in regions:  # « regions » est ta liste de 33 régions
     for year in annees_disponibles:
-        if reg == "Savoie" and year == "1852":
-            pass
-        model = NitrogenFlowModel(data, year, reg)
-        T = model.get_transition_matrix()  # (n_nodes × n_nodes)
-        matrices[reg + "_" + year] = T.astype(float)
+        if not (reg == "Savoie" and year == "1852"):
+            print(year, reg)
+            model = NitrogenFlowModel(data, year, reg)
+            T = model.get_transition_matrix()  # (n_nodes × n_nodes)
+            matrices[reg + "_" + year] = T.astype(float)
 
     # %% Normalisation
 
