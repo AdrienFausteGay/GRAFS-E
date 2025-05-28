@@ -1327,7 +1327,7 @@ def streamlit_sankey_systemic_flows(
                 customdata=link_hover_texts,
                 hovertemplate="%{customdata}<extra></extra>",
             ),
-            arrangement="snap",
+            arrangement="freeform",
         )
     )
 

@@ -1742,7 +1742,7 @@ class NitrogenFlowModel:
                 # On écoule le reste des export de feed (si il y en a) sur les autres cultures
                 if feed_export_other > 10**-6:
                     for culture in df_cultures.loc[
-                        ~df_cultures["Category"].isin(["forages", "temporary meadows"])
+                        ~df_cultures["Category"].isin(["forages", "temporary meadows", "natural meadows "])
                     ].index:
                         categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
                         # On exporte pas en feed des catégories dédiées aux humains
