@@ -504,6 +504,92 @@ fig.update_layout(
 )
 
 fig.show()
+
+# %% Test sous forme de fonction
+
+
+def sankey_highlight_region(df_plot, highlight=None):
+    """
+    Génère un diagramme de Sankey des transitions entre clusters pour plusieurs régions.
+    Si `highlight` est spécifié (liste de régions), seules les transitions de ces régions sont mises en couleur.
+
+    :param df_plot: DataFrame contenant les colonnes 'Region_year', 'ClusterName'
+    :param highlight: liste de régions à mettre en couleur (ou None pour tout colorer normalement)
+    :return: figure Plotly Sankey
+    """
+    df_plot = df_plot.reset_index()
+    df_plot[["Region", "Year"]] = df_plot["Region_year"].str.rsplit("_", n=1, expand=True)
+    df_plot["Year"] = df_plot["Year"].astype(int)
+    df_plot["Node"] = df_plot["Year"].astype(str) + " – " + df_plot["ClusterName"]
+
+    nodes_df = df_plot[["Node", "Year", "ClusterName"]].drop_duplicates().reset_index(drop=True)
+    node_index = {n: i for i, n in nodes_df["Node"].items()}
+
+    links = []
+    for reg, grp in df_plot.sort_values("Year").groupby("Region"):
+        for (_, row0), (_, row1) in zip(grp.iloc[:-1].iterrows(), grp.iloc[1:].iterrows()):
+            links.append(
+                {
+                    "source": node_index[row0["Node"]],
+                    "target": node_index[row1["Node"]],
+                    "value": 1,
+                    "region": reg,
+                    "src_clu": row0["ClusterName"],
+                    "dst_clu": row1["ClusterName"],
+                }
+            )
+    links_df = pd.DataFrame(links)
+
+    # Génération de la palette
+    clusters_unique = nodes_df["ClusterName"].unique()
+    palette = dict(zip(clusters_unique, sns.color_palette("husl", len(clusters_unique)).as_hex()))
+
+    # Gestion des couleurs selon le paramètre `highlight`
+    highlight_color = "red"
+    fade_color = "rgba(200, 200, 200, 0.2)"
+
+    if highlight is not None:
+        links_df["color"] = links_df["region"].apply(lambda r: highlight_color if r in highlight else fade_color)
+        nodes_used = set(df_plot[df_plot["Region"].isin(highlight)]["Node"].values)
+        nodes_df["color"] = nodes_df["Node"].apply(lambda n: highlight_color if n in nodes_used else fade_color)
+    else:
+        links_df["color"] = links_df["dst_clu"].map(palette)
+        nodes_df["color"] = nodes_df["ClusterName"].map(palette)
+
+    fig = go.Figure(
+        go.Sankey(
+            node=dict(
+                pad=3,
+                thickness=12,
+                line=dict(width=0.5, color="black"),
+                label=nodes_df["ClusterName"],
+                color=nodes_df["color"],
+                customdata=np.stack([nodes_df["Year"]], axis=-1),
+                hovertemplate="<b>Year :</b> %{customdata[0]}<br>",
+            ),
+            link=dict(
+                source=links_df["source"],
+                target=links_df["target"],
+                value=links_df["value"],
+                color=links_df["color"],
+                customdata=np.stack([links_df["region"], links_df["src_clu"], links_df["dst_clu"]], axis=-1),
+                hovertemplate="<b>Région :</b> %{customdata[0]}<br><b>%{customdata[1]}</b> ➜ <b>%{customdata[2]}</b><extra></extra>",
+            ),
+            arrangement="snap",
+        )
+    )
+
+    fig.update_layout(
+        title="Transitions des régions entre clusters (1852-2014)",
+        font_size=12,
+        height=1080,
+        width=1900,
+        template="plotly_white",
+    )
+
+    return fig
+
+
 # %%
 
 # On utilise norm_matrices car ce sont les matrices qui ont été la base du X pour le clustering.
@@ -925,6 +1011,58 @@ def merge_nodes(adjacency_matrix, labels, merges):
     return new_matrix, new_labels, old_to_new
 
 
+def compute_node_positions(new_labels, label_to_x):
+    """
+    Pour chaque label dans new_labels, retourne sa position x (colonne) selon le dictionnaire label_to_x.
+    Si le label n'est pas dans le dictionnaire, lui attribue une position automatique.
+    Retourne également les positions y uniformément espacées dans chaque colonne.
+    """
+    from collections import defaultdict
+
+    # Regrouper les labels par colonne (x)
+    x_pos_by_label = {}
+    col_to_labels = defaultdict(list)
+    for label in new_labels:
+        label_key = label.lower().strip()
+        x = label_to_x.get(label_key, None)
+        if x is not None:
+            x_pos_by_label[label] = x
+            col_to_labels[x].append(label)
+
+    # Assigner les positions x et y finales
+    final_x = []
+    final_y = []
+
+    for label in new_labels:
+        x = x_pos_by_label.get(label, 0.5)  # position par défaut si inconnue
+        labels_in_col = col_to_labels.get(x, [label])
+        y = labels_in_col.index(label) / max(len(labels_in_col), 1)
+        final_x.append(x)
+        final_y.append(y)
+
+    return final_x, final_y
+
+
+label_to_x = {
+    "atmospheric n2": 0.0,
+    "industry": 0.25,
+    "leguminous": 0.25,
+    "cereals (excluding rice)": 0.5,
+    "oleaginous": 0.5,
+    "fruits and vegetables": 0.5,
+    "roots": 0.5,
+    "forages": 0.5,
+    "temporary meadows": 0.5,
+    "natural meadows": 0.5,
+    "monogastrics": 0.75,
+    "ruminants": 0.75,
+    "population": 0.75,
+    "trade": 0.75,
+    "soil stock": 0.75,
+    "environment": 1.0,
+}
+
+
 def sankey_systemic_flows(
     adjacency_matrix,
     labels=labels,
@@ -991,10 +1129,10 @@ def sankey_systemic_flows(
             "N2O emission",
             "hydro-system",
             "other losses",
-            "atmospheric N2",
         ],
         "roots": ["Sugar beet", "Potatoes", "Other roots"],
     },
+    label_to_x=label_to_x,
 ):
     """
     Crée un diagramme de Sankey systémique montrant tous les flux à partir d'une matrice d'adjacence et de labels.
@@ -1092,6 +1230,15 @@ def sankey_systemic_flows(
         f"Node: {new_labels[idx]}<br>Throughflow: {format_scientific(throughflows[idx])}" for idx in unique_final_nodes
     ]
 
+    # 8) Calcul des positions X/Y si un mapping est fourni
+    if label_to_x:
+        sankey_x, sankey_y = compute_node_positions(
+            [new_labels[i] for i in unique_final_nodes],
+            label_to_x={k.lower().strip(): v for k, v in label_to_x.items()},  # normalisation
+        )
+    else:
+        sankey_x = sankey_y = None
+
     # 8) Création du Sankey final
     fig = go.Figure(
         go.Sankey(
@@ -1103,6 +1250,7 @@ def sankey_systemic_flows(
                 color=node_final_colors,
                 customdata=node_hover_data,
                 hovertemplate="%{customdata}<extra></extra>",
+                **({"x": sankey_x, "y": sankey_y} if sankey_x and sankey_y else {}),  # 👈 ajout conditionnel
             ),
             link=dict(
                 source=sankey_sources,
