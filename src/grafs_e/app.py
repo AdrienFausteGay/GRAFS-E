@@ -1473,6 +1473,7 @@ with tab6:
         # st.markdown("The yield is computed as $Y = Y_{\\text{max}} \\cdot (1 - e^{-F/k})$")
         st.markdown(" Ratio: $Y(F) = \\frac{Y_{max}F}{Y_{max}+F}$")
         st.markdown(" Linear: $Y(F) = min(a*F, b)$")
+        st.markdown(" Exponential: $Y(F) = Y_{max}(1-e^{F/F^*})")
 
         st.markdown(
             "- Technical: This tab encompass all technical coefficient (excretion per LU, weight of the optimization model, time spend by livestock in crops). It reflects potential technical evolution in agriculture and physical constraints."
@@ -1516,7 +1517,7 @@ with tab6:
         )
         # 🟢 Sélection de la fonction de production
         st.session_state.pros_func = st.selectbox(
-            "Select Production function", ["Ratio", "Linear"], index=0, key="func_pros_selection"
+            "Select Production function", ["Ratio", "Linear", "Exponential"], index=0, key="func_pros_selection"
         )
         st.text_input("Scenario name", key="scenario_name_input")
 

@@ -279,7 +279,7 @@ class scenario:
                 }
 
             elif function_name == "exp":
-                ym, k, _ = Y_pros.fit_Y_exp_2(culture, region)
+                ym, k, _ = Y_pros.fit_Y_exp(culture, region)
                 r2 = 0 if empty_data else r2_score(Yr, Y_pros.Y_th_exp_cap(F, ym, k))
                 return {
                     "culture": culture,
@@ -327,7 +327,9 @@ class scenario:
 
     def pre_generate_scenario_excel(self, function_name="Linear"):
         model_sheets = pd.read_excel(os.path.join(self.data_path, "scenario.xlsx"), sheet_name=None)
-        for region in ["France"]:  # tqdm(regions[23:], total=len(regions[23:]), desc="Regions", position=0):
+        for region in tqdm(
+            regions, total=len(regions), desc="Régions", position=0
+        ):  # tqdm(regions[23:], total=len(regions[23:]), desc="Regions", position=0):
             sheets = {}
             sheet_corres = {
                 "doc": "doc",
@@ -381,6 +383,7 @@ class scenario:
         sheets["doc"].iloc[14, 1] = name
         sheets["doc"].iloc[15, 1] = region
         sheets["doc"].iloc[16, 1] = year
+        sheets["doc"].iloc[17, 1] = function_name
 
         def format_dep(dep_series):
             return " + ".join(dep_series.astype(str).unique())
@@ -637,7 +640,7 @@ class scenario:
             sheet[f"A{last_row}"] = "Proportion area sum correct ?"
             sheet[f"B{last_row}"] = f'=IF(SUM(B2:B{last_row - 3})=100, "✅ OK", "❌ Erreur")'
 
-    def generate_base_scenar(self):
+    def generate_base_scenar(self, prod_func):
         # Create scenar for all regions with only area filled
         for region in tqdm(regions, desc="Calcul des Ymax et k", unit="region"):
             try:
@@ -657,7 +660,7 @@ class scenario:
             }
             for sheet_name, df in model_sheets.items():
                 sheets[sheet_corres[sheet_name]] = df
-            sheets["area"] = self.generate_crop_tab(region)
+            sheets["area"] = self.generate_crop_tab(region, prod_func)
 
             with pd.ExcelWriter(
                 os.path.join(self.data_path, "scenario_region", region + ".xlsx"), engine="openpyxl"
@@ -1122,14 +1125,14 @@ class Y:
         if len(Y) == 0:
             print(f"no {culture} found in {region}")
             return None
-        Y_max, k, _ = self.fit_Y_exp(culture, region)
+        Y_max, k, _ = self.fit_Y_exp_2(culture, region)
         F_th = np.linspace(0, 1.05 * max(F), 100)
         Y_th = self.Y_th_exp_cap(F_th, Y_max, k)
         r2 = np.round(r2_score(Y, self.Y_th_exp_cap(F, Y_max, k)), 2)
         plt.figure(figsize=(8, 6))
         plt.plot(F, Y, "o", color="tab:blue", markersize=8, label=f"Historic Data, r2 = {r2}")  # Points et ligne
         plt.plot(Y, Y, "--")
-        plt.plot(F_th, Y_th, label=f"Theoric curve, Y_max = {int(Y_max)}", color="orange", linewidth=4)
+        plt.plot(F_th, Y_th, label=f"Theoric curve, Y_max = {int(Y_max)}, k = {int(k)}", color="orange", linewidth=4)
         plt.xlim(0, max(F_th))  # Départ de l'axe X à 0
         plt.ylim(0, max(Y))  # Départ de l'axe Y à 0
         plt.gca().set_aspect("equal")  # Échelle identique en ajustant les limites
