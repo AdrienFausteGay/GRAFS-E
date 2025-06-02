@@ -383,7 +383,11 @@ class scenario:
         sheets["doc"].iloc[14, 1] = name
         sheets["doc"].iloc[15, 1] = region
         sheets["doc"].iloc[16, 1] = year
-        sheets["doc"].iloc[17, 1] = function_name
+        # Du à une mauvaise construction des fiches scenar...
+        if function_name == "Exponential":
+            sheets["doc"].loc[len(sheets["doc"])] = ["Production function", function_name]
+        else:
+            sheets["doc"].iloc[17, 1] = function_name
 
         def format_dep(dep_series):
             return " + ".join(dep_series.astype(str).unique())
@@ -1704,7 +1708,7 @@ class NitrogenFlowModel_prospect:
         flux_generator = self.flux_generator
         if self.prod_func == "Linear":
             ym = "a"
-        if self.prod_func == "Ratio":
+        if self.prod_func in ["Ratio", "Exponential"]:
             ym = "Ymax (kgN/ha)"
 
         # Gestion du cas particulier pour 'Straw'
@@ -1720,7 +1724,7 @@ class NitrogenFlowModel_prospect:
             )
 
         # Flux depuis 'other sectors' vers les cibles sélectionnées
-        if self.prod_func == "Ratio":
+        if self.prod_func in ["Ratio", "Exponential"]:
             # Pour éviter des valeur délirante, on interprète ymax comme un niveau de fertilisation caractéristique (Y(Ymax) = Ymax/2)
             target = (
                 df_cultures["Seed input (kt seeds/kt Ymax)"] * df_cultures[ym] / 2 * df_cultures["Area (ha)"] * 1e-6
@@ -2018,6 +2022,12 @@ class NitrogenFlowModel_prospect:
                     df_cultures.loc[df_cultures.index == leg, "Surface Non Synthetic Fertilizer Use (kgN/ha)"].item(),
                     df_cultures.loc[df_cultures.index == leg, "Ymax (kgN/ha)"].item(),
                 )
+            if self.prod_func == "Exponential":
+                Yield = Y.Y_th_exp_cap(
+                    df_cultures.loc[df_cultures.index == leg, "Surface Non Synthetic Fertilizer Use (kgN/ha)"].item(),
+                    df_cultures.loc[df_cultures.index == leg, "Ymax (kgN/ha)"].item(),
+                    df_cultures.loc[df_cultures.index == leg, "k (kgN/ha)"].item(),
+                )
             df_cultures.loc[df_cultures.index == leg, "Yield (kgN/ha)"] = Yield
 
         df_cultures["Nitrogen Production (ktN)"] = df_cultures["Yield (kgN/ha)"] * df_cultures["Area (ha)"] / 1e6
@@ -2118,6 +2128,9 @@ class NitrogenFlowModel_prospect:
             if self.prod_func == "Linear":
                 a = {c: df_cultures.at[c, "a"] for c in CROPS}
                 b = {c: df_cultures.at[c, "b"] for c in CROPS}
+            if self.prod_func == "Exponential":
+                Ymax = {c: df_cultures.at[c, "Ymax (kgN/ha)"] for c in CROPS}
+                k = {c: df_cultures.at[c, "k (kgN/ha)"] for c in CROPS}
             nonSynthFert = {c: df_cultures.at[c, "Surface Non Synthetic Fertilizer Use (kgN/ha)"] for c in CROPS}
             ingestion = {k: df_cons_vege.at[k] for k in CONSUMERS}
 
@@ -2263,6 +2276,12 @@ class NitrogenFlowModel_prospect:
                     if self.prod_func == "Linear":
                         production_c = (
                             Y_th_lin(x[idx_synth[c]] + nonSynthFert[c], a[c], b[c])
+                            * df_cultures.at[c, "Area (ha)"]
+                            / 1e6
+                        )
+                    if self.prod_func == "Exponential":
+                        production_c = (
+                            Y.Y_th_exp_cap(x[idx_synth[c]] + nonSynthFert[c], Ymax[c], k[c])
                             * df_cultures.at[c, "Area (ha)"]
                             / 1e6
                         )
@@ -2527,6 +2546,12 @@ class NitrogenFlowModel_prospect:
                             * df_cultures.at[c, "Area (ha)"]
                             / 1e6
                         )
+                    if self.prod_func == "Exponential":
+                        production_c = (
+                            Y.Y_th_exp_cap(x[idx_synth[c]] + nonSynthFert[c], Ymax[c], k[c])
+                            * df_cultures.at[c, "Area (ha)"]
+                            / 1e6
+                        )
 
                     # Somme des allocations locales sur c
                     allocated_c = 0.0
@@ -2608,6 +2633,10 @@ class NitrogenFlowModel_prospect:
                         y_ha = Y_th_ratio(fert_tot, df_cultures.loc[c, "Ymax (kgN/ha)"])
                     if self.prod_func == "Linear":
                         y_ha = Y_th_lin(fert_tot, df_cultures.loc[c, "a"], df_cultures.loc[c, "b"])
+                    if self.prod_func == "Exponential":
+                        y_ha = Y.Y_th_exp_cap(
+                            fert_tot, df_cultures.loc[c, "Ymax (kgN/ha)"], df_cultures.loc[c, "k (kgN/ha)"]
+                        )
                     # Production in ktN (consistent units assumed)
                     return (y_ha * df_cultures.loc[c, "Area (ha)"]) / 1e6
 
@@ -2725,6 +2754,8 @@ class NitrogenFlowModel_prospect:
                     y = Y_th_ratio(fert_tot, Ymax[c])
                 if self.prod_func == "Linear":
                     y = Y_th_lin(fert_tot, a[c], b[c])
+                if self.prod_func == "Exponential":
+                    y = Y.Y_th_exp_cap(fert_tot, Ymax[c], k[c])
                 prod_c = (y * area[c]) / 1e6
 
                 return prod_c - sum_local  # doit être >= 0
@@ -2773,7 +2804,7 @@ class NitrogenFlowModel_prospect:
             # or some heuristic.
             # --------------------------------------------------------------------------
             x0 = np.array([0.01 for i in range(n_vars)])  # np.zeros(n_vars, dtype=float)
-            if self.prod_func == "Ratio":
+            if self.prod_func in ["Ratio", "Exponential"]:
                 x0[: len(df_cultures)] = df_cultures["Ymax (kgN/ha)"].values
             if self.prod_func == "Linear":
                 x0[: len(df_cultures)] = df_cultures["b"].values
@@ -2850,6 +2881,10 @@ class NitrogenFlowModel_prospect:
                     if self.prod_func == "Linear":
                         a = df_cultures.at[c, "a"]
                         b = df_cultures.at[c, "b"]
+
+                    if self.prod_func == "Eponential":
+                        y_max = df_cultures.at[c, "Ymax (kgN/ha)"]
+                        k = df_cultures.at[c, "k (kgN/ha)"]
 
                         new_yield = Y_th_lin(fert_tot, a, b)
                     df_cultures.at[c, "Yield (kgN/ha)"] = new_yield
