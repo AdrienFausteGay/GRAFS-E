@@ -1,19 +1,12 @@
 # %%
-import string
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import seaborn as sns
-from matplotlib.patches import Patch
 from scipy.cluster.hierarchy import dendrogram, fcluster, linkage
 from scipy.spatial.distance import pdist
-from scipy.stats import f_oneway
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.feature_selection import mutual_info_classif
-from sklearn.inspection import permutation_importance
-from sklearn.metrics import silhouette_samples
 from sklearn.preprocessing import MaxAbsScaler, StandardScaler, normalize
 
 from grafs_e.donnees import *
@@ -61,14 +54,14 @@ regions_order = list(norm_matrices.keys())
 
 X_scaled = StandardScaler().fit_transform(X)
 # %% Clusterisation
-
+seuil = 0.22
 Z = linkage(X, method="complete")  # ou "average", "complete", …
 Z2 = linkage(normalize(X, norm="l2"), method="ward")
 Z3 = linkage(MaxAbsScaler().fit_transform(X), method="ward")
 D = pdist(X_normalized_l2, metric="cosine")
 Zc = linkage(D, method="average")
 plt.figure(figsize=(80, 4), dpi=500)
-dendrogram(Zc, labels=regions_order, leaf_rotation=90, color_threshold=0.24)
+dendrogram(Zc, labels=regions_order, leaf_rotation=90, color_threshold=seuil)
 plt.ylabel("Dissimilarity")
 plt.tight_layout()
 plt.show()
@@ -78,334 +71,10 @@ plt.show()
 # labels = clt.fit_predict(X)
 # df_clusters = pd.DataFrame({"Region": regions_order, "Cluster": labels}).sort_values("Cluster")
 
-labels = fcluster(Zc, t=0.24, criterion="distance")
+labels = fcluster(Zc, t=seuil, criterion="distance")
 df_plot = pd.DataFrame(
     {"Region_year": regions_order, "Cluster": labels, "ClusterName": labels.astype(str)}
 ).sort_values("Cluster")
-
-# %% Visualisation des clusters en fonction des indicateurs
-
-rows = []
-for reg, lab in zip(regions, labels):  # `labels` vient du clustering précédent
-    m = NitrogenFlowModel(data, "2014", reg)
-    rows.append(
-        {
-            "Region": reg,
-            "Cluster": lab,
-            "Haber-Bosch": m.rel_fert()["Mining"],  # kt  → Mt
-            "Leguminous fertilization": m.tot_fert()["Leguminous soil enrichment"],
-            "NUE": m.NUE(),  # rendement global
-            # "ImpN_ratio"   : m.imported_nitrogen(),        # 0-1
-            # "Animal_share" : m.animal_production() /
-            #  m.total_plant_production(),
-            # "Self-sufficiency": m.N_self_sufficient(),
-            # "Animal production": m.animal_production(),
-            "Relative leguminous": m.leguminous_production_r(),
-            "Net_footprint": m.net_footprint(),
-        }
-    )
-
-df_indic = pd.DataFrame(rows).set_index("Region").sort_values("Cluster")
-
-(
-    sns.pairplot(
-        df_indic,
-        vars=[
-            "Haber-Bosch",
-            "Leguminous fertilization",
-            "NUE",
-            # "Self-sufficiency",
-            "Relative leguminous",
-            "Net_footprint",
-        ],
-        hue="Cluster",
-        palette="tab10",
-        diag_kind="kde",
-        plot_kws=dict(s=80, edgecolor="k", linewidth=0.3),
-        diag_kws=dict(common_norm=False),
-    ),
-)
-plt.suptitle("Position des régions dans l'espace des 5 indicateurs", y=1.02)
-plt.show()
-
-# %% Recherche des indicateurs les plus pertinents pour expliquer la clusterisation
-
-rows = []
-models = {
-    reg: NitrogenFlowModel(  # ➜ instance pour chaque région
-        data=data,  # le chargeur de données
-        year="2014",  # année choisie
-        region=reg,  # la région courante
-    )
-    for reg in regions
-}
-scalar_funcs = [
-    "imported_nitrogen",
-    "net_imported_plant",
-    "net_imported_animal",
-    "total_plant_production",
-    "cereals_production",
-    "leguminous_production",
-    "oleaginous_production",
-    "grassland_and_forages_production",
-    "roots_production",
-    "fruits_and_vegetable_production",
-    "cereals_production_r",
-    "leguminous_production_r",
-    "oleaginous_production_r",
-    "grassland_and_forages_production_r",
-    "roots_production_r",
-    "fruits_and_vegetable_production_r",
-    "animal_production",
-    "surfaces_tot",
-    "N_eff",
-    "C_eff",
-    "F_eff",
-    "R_eff",
-    "NUE",
-    "NUE_system",
-    "NUE_system_2",
-    "N_self_sufficient",
-    "primXsec",
-    "net_footprint",
-]
-
-series_funcs = [
-    ("emissions", "EMI_"),  #  ➜ N2O …, NH3… (= 3 colonnes préfixées EMI_)
-    ("tot_fert", "FERT_"),  #  ➜ Mining, Seeds, … (= 8 colonnes FERT_)
-    ("rel_fert", "FERTrel_"),  #  ➜ parts en %        (= 8 colonnes FERTrel_)
-]
-for reg, mdl in models.items():
-    row = {"Region": reg}
-
-    # ---- indicateurs scalaires ---------------------------------------------
-    for f in scalar_funcs:
-        try:
-            row[f] = getattr(mdl, f)()
-        except Exception as err:
-            print(f"[{reg}]  ⚠️ {f} impossible : {err}")
-            row[f] = pd.NA  # on mettra NaN ensuite
-
-    # ---- indicateurs Series / dict -----------------------------------------
-    for func_name, prefix in series_funcs:
-        try:
-            s = getattr(mdl, func_name)()  # Series ou dict
-            if isinstance(s, dict):
-                s = pd.Series(s)
-            for k, v in s.items():
-                row[f"{prefix}{k}"] = v
-        except Exception as err:
-            print(f"[{reg}]  ⚠️ {func_name} impossible : {err}")
-
-    rows.append(row)
-
-df_ind = (
-    pd.DataFrame(rows)
-    .set_index("Region")
-    .apply(pd.to_numeric, errors="coerce")  # force en numérique, NaN sinon
-    .sort_index()
-)
-
-X = df_ind.copy()
-y = df_clusters["Cluster"]  # mêmes régions, même ordre
-
-# ─── standardisation
-Xz = pd.DataFrame(StandardScaler().fit_transform(X), index=X.index, columns=X.columns)
-
-mask = pd.Series(y, index=Xz.index)  # même index que Xz
-# ─── 1) ANOVA F-score
-anova = {
-    col: f_oneway(
-        *[
-            Xz.loc[mask == c, col].values  # 1-D ndarray
-            for c in np.unique(y)
-        ]
-    ).statistic
-    for col in Xz.columns
-}
-
-# ─── 2) Silhouette 1-D
-silh = {col: silhouette_samples(Xz[[col]].values, y).mean() for col in Xz.columns}
-
-# ─── 3) Random-Forest importance + permutation
-rf = RandomForestClassifier(n_estimators=500, random_state=0).fit(Xz, y)
-rf_imp = dict(zip(Xz.columns, rf.feature_importances_))
-perm_imp = dict(
-    zip(
-        Xz.columns,
-        permutation_importance(rf, Xz, y, n_repeats=200, random_state=0).importances_mean,
-    )
-)
-
-# ─── 4) Mutual information
-mi = dict(zip(Xz.columns, mutual_info_classif(Xz, y, random_state=0)))
-
-# ─── synthèse des rangs
-rank = (
-    pd.DataFrame({"ANOVA": anova, "Silh": silh, "RF": rf_imp, "Perm": perm_imp, "MI": mi})
-    .rank(ascending=False)
-    .mean(axis=1)
-    .sort_values()
-)
-
-print("Indicateurs les plus discriminants :\n", rank.head(15))
-
-best = rank.index[:4]  # les 4 plus explicatifs
-sns.pairplot(df_ind.join(y), vars=best, hue="Cluster", palette="tab10", height=2.5)
-plt.suptitle("Indicateurs les plus discriminants des clusters", y=1.02)
-plt.show()
-
-# %% dictionnaire de modèles
-
-models = {}
-
-for reg in regions:  # « regions » est ta liste de 33 régions
-    for year in annees_disponibles:
-        model = NitrogenFlowModel(data, year, reg)
-        models[reg + "_" + year] = model
-
-# %% Clusterisation par indicateur
-
-rows = []
-
-for reg in regions:
-    for year in annees_disponibles:
-        # m = NitrogenFlowModel(data, "2014", reg)
-        m = models[reg + "_" + year]
-
-        # --- quelques helpers ------------
-        def _safe_sum(x):
-            return np.nansum(list(x.values())) if isinstance(x, dict) else x
-
-        # Y moyen sur 4 cultures repères
-        cultures_ref = ["Wheat", "Barley", "Rapeseed", "Forage maize"]
-        y_vals = [m.Y(c) for c in cultures_ref if m.Y(c) > 0 and m.Y(c) < 200]
-        Y_mean = np.mean(y_vals)
-
-        surf = m.surfaces()
-        rows.append(
-            {
-                "Region_year": reg + "_" + year,
-                "Yield_mean": Y_mean,
-                "Tot_fert": m.tot_fert(),
-                "ImpN_ratio": m.imported_nitrogen() / max(m.total_plant_production(), 1e-6),
-                "Net_footp": m.net_footprint(),
-                "Emissions": m.emissions(),
-                "NUE": m.NUE_system(),
-                "Grass_share": surf.get("Natural meadow ", 0) / max(m.surfaces_tot(), 1e-6),
-                "Imp_anim%": m.net_imported_animal() / max(m.animal_production(), 1e-6),
-            }
-        )
-
-df = pd.DataFrame(rows).set_index("Region_year")
-
-
-# %%
-def expand_dict_column(df, col, prefix):
-    # transforme chaque dict en Series puis concatène
-    expanded = df[col].apply(lambda d: pd.Series(d)).add_prefix(f"{prefix}_")
-    return df.drop(columns=[col]).join(expanded)
-
-
-df = expand_dict_column(df, "Emissions", "E")
-df = expand_dict_column(df, "Tot_fert", "F")
-
-# %%
-df_numeric = df.apply(pd.to_numeric, errors="coerce").fillna(0)
-
-df_numeric = df_numeric[
-    ["Yield_mean", "Net_footp", "Grass_share", "E_NH3 volatilization", "F_atmospheric N2", "F_Haber-Bosch"]
-]
-
-# %% Affichage
-
-X = StandardScaler().fit_transform(df_numeric)  # toutes colonnes désormais numériques
-# D = pdist(X, metric="cosine")
-# Zc = linkage(D, method="average")  # ou "ward", "complete", …
-
-Zc = linkage(X, method="ward")
-
-plt.figure(figsize=(100, 4))
-dendrogram(Zc, labels=df_numeric.index, leaf_rotation=90, color_threshold=0.6)
-plt.ylabel("Dissimilarity")
-plt.show()
-
-# %% Visualisation des liens avec indicateurs
-
-labels = fcluster(Zc, t=12, criterion="distance")
-# ou   labels  = fcluster(Z, t=4,  criterion='maxclust')
-
-df_numeric["Cluster"] = labels
-
-# palette de couleurs, une couleur / cluster
-n_clust = df_numeric["Cluster"].nunique()
-palette = sns.color_palette("tab10", n_clust)
-lut = dict(zip(sorted(df_numeric["Cluster"].unique()), palette))
-row_colors = df_numeric["Cluster"].map(lut)  # couleur associée à chaque région
-
-g = sns.clustermap(
-    df_numeric.drop(columns="Cluster"),
-    row_linkage=Zc,
-    col_cluster=False,
-    cmap="vlag",
-    center=0,
-    standard_scale=1,
-    figsize=(10, 10),
-    row_colors=row_colors,  # ← la bande de couleur à gauche
-)
-
-# Ajouter la légende des couleurs
-handles = [Patch(facecolor=col, label=f"Cluster {k}") for k, col in lut.items()]
-g.ax_row_dendrogram.legend(
-    handles=handles,
-    loc="upper right",
-    ncol=1,
-    title="Clusters",
-    bbox_to_anchor=(2, 1.3),
-)
-plt.show()
-
-# %% Rapport des indicateurs par cluster
-
-summary = (
-    df_numeric.groupby("Cluster")
-    .agg(["mean", "std"])  # moyenne & écart-type par variable
-    .round(2)
-)
-summary["name"] = list(string.ascii_uppercase[: len(summary)])
-# %% Visualisation des trajectoires
-
-# ─── on remet Region / Year & Cluster dans le même DF
-df_plot = df_numeric.copy()
-
-df_plot = df_plot.reset_index()
-
-df_plot = df_plot.rename(columns={"index": "Region_year"})
-
-df_plot[["Region", "Year"]] = df_plot["Region_year"].str.rsplit("_", n=1, expand=True)
-df_plot["Year"] = df_plot["Year"].astype(int)
-
-# %%
-
-# ────────────────── 3) visualisation des trajectoires ───────────────────
-palette = dict(zip(regions, sns.color_palette("husl", n_colors=len(regions))))
-
-fig, ax = plt.subplots(figsize=(12, 8))
-
-# a) nuage de points (x=cluster, y=année)
-sns.scatterplot(data=df_plot, x="Cluster", y="Year", hue="Region", palette=palette, s=90, edgecolor="k", ax=ax)
-
-# b) segments région → région (années ordonnées)
-for reg, grp in df_plot.sort_values("Year").groupby("Region"):
-    ax.plot(grp["Cluster"], grp["Year"], color=palette[reg], linewidth=1, alpha=0.4)
-
-ax.set(xlabel="Cluster assigné", ylabel="Année", title="Trajectoires régionales dans l’espace des clusters")
-ax.invert_yaxis()  # année la plus ancienne en haut
-ax.grid(alpha=0.3)
-ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left", title="Région")
-
-plt.tight_layout()
-plt.show()
 
 # %%
 
@@ -505,24 +174,118 @@ fig.update_layout(
 
 fig.show()
 
-# %% Test sous forme de fonction
+# %% test
 
 
-def sankey_highlight_region(df_plot, highlight=None):
-    """
-    Génère un diagramme de Sankey des transitions entre clusters pour plusieurs régions.
-    Si `highlight` est spécifié (liste de régions), seules les transitions de ces régions sont mises en couleur.
+def sankey_highlight_region_ordered(df_plot, highlight=None):
+    import numpy as np
+    import pandas as pd
+    import plotly.graph_objects as go
+    import seaborn as sns
 
-    :param df_plot: DataFrame contenant les colonnes 'Region_year', 'ClusterName'
-    :param highlight: liste de régions à mettre en couleur (ou None pour tout colorer normalement)
-    :return: figure Plotly Sankey
-    """
     df_plot = df_plot.reset_index()
     df_plot[["Region", "Year"]] = df_plot["Region_year"].str.rsplit("_", n=1, expand=True)
     df_plot["Year"] = df_plot["Year"].astype(int)
     df_plot["Node"] = df_plot["Year"].astype(str) + " – " + df_plot["ClusterName"]
 
-    nodes_df = df_plot[["Node", "Year", "ClusterName"]].drop_duplicates().reset_index(drop=True)
+    # Construction de nodes_df avec tri par année puis région
+    nodes_df = (
+        df_plot[["Node", "Year", "ClusterName", "Region"]]
+        .drop_duplicates()
+        .sort_values(["Year", "Region"])
+        .reset_index(drop=True)
+    )
+    node_index = {n: i for i, n in nodes_df["Node"].items()}
+
+    # Génération des liens avec tri cohérent
+    df_plot = df_plot.sort_values(["Region", "Year"])
+    links = []
+    for reg, grp in df_plot.groupby("Region"):
+        grp = grp.sort_values("Year")
+        for (_, row0), (_, row1) in zip(grp.iloc[:-1].iterrows(), grp.iloc[1:].iterrows()):
+            links.append(
+                {
+                    "source": node_index[row0["Node"]],
+                    "target": node_index[row1["Node"]],
+                    "value": 1,
+                    "region": reg,
+                    "src_clu": row0["ClusterName"],
+                    "dst_clu": row1["ClusterName"],
+                }
+            )
+    links_df = pd.DataFrame(links)
+
+    from IPython import embed
+
+    embed()
+
+    # Palette pour clusters
+    clusters_unique = nodes_df["ClusterName"].unique()
+    cluster_palette = dict(zip(clusters_unique, sns.color_palette("husl", len(clusters_unique)).as_hex()))
+    node_colors = nodes_df["ClusterName"].map(cluster_palette)
+
+    # Gestion des couleurs des liens
+    if highlight is None:
+        links_df["color"] = links_df["dst_clu"].map(cluster_palette)
+    else:
+        regions_unique = links_df["region"].unique()
+        region_palette = dict(zip(regions_unique, sns.color_palette("tab10", len(regions_unique)).as_hex()))
+        links_df["color"] = links_df["region"].map(lambda r: region_palette[r] if r in highlight else "lightgray")
+
+    fig = go.Figure(
+        go.Sankey(
+            node=dict(
+                pad=3,
+                thickness=12,
+                line=dict(width=0.5, color="black"),
+                label=nodes_df["ClusterName"],
+                color=node_colors,
+                customdata=np.stack([nodes_df["Year"]], axis=-1),
+                hovertemplate=("<b>Year :</b> %{customdata[0]}<br>"),
+            ),
+            link=dict(
+                source=links_df["source"],
+                target=links_df["target"],
+                value=links_df["value"],
+                color=links_df["color"],
+                customdata=np.stack([links_df["region"], links_df["src_clu"], links_df["dst_clu"]], axis=-1),
+                hovertemplate=(
+                    "<b>Région :</b> %{customdata[0]}<br>"
+                    + "<b>%{customdata[1]}</b> ➜ <b>%{customdata[2]}</b><extra></extra>"
+                ),
+            ),
+            arrangement="snap",
+        )
+    )
+
+    fig.update_layout(
+        title="Transitions des régions entre clusters",
+        font_size=12,
+        height=1000,
+        width=1800,
+        template="plotly_white",
+    )
+
+    return fig
+
+
+# %% Test sous forme de fonction
+
+
+def sankey_highlight_region(df_plot, highlight=None):
+    df_plot = df_plot.reset_index()
+    df_plot[["Region", "Year"]] = df_plot["Region_year"].str.rsplit("_", n=1, expand=True)
+    df_plot["Year"] = df_plot["Year"].astype(int)
+    df_plot["Node"] = df_plot["Year"].astype(str) + " – " + df_plot["ClusterName"]
+
+    # nodes_df = df_plot[["Node", "Year", "ClusterName"]].drop_duplicates().reset_index(drop=True)
+    df_plot["Region"] = df_plot["Region_year"].str.rsplit("_", n=1).str[0]
+    nodes_df = (
+        df_plot[["Node", "Year", "ClusterName", "Region"]]
+        .drop_duplicates()
+        .sort_values(["Year", "Region"])
+        .reset_index(drop=True)
+    )
     node_index = {n: i for i, n in nodes_df["Node"].items()}
 
     links = []
@@ -540,21 +303,22 @@ def sankey_highlight_region(df_plot, highlight=None):
             )
     links_df = pd.DataFrame(links)
 
-    # Génération de la palette
+    # Palette pour clusters (noeuds)
     clusters_unique = nodes_df["ClusterName"].unique()
-    palette = dict(zip(clusters_unique, sns.color_palette("husl", len(clusters_unique)).as_hex()))
+    cluster_palette = dict(zip(clusters_unique, sns.color_palette("husl", len(clusters_unique)).as_hex()))
 
-    # Gestion des couleurs selon le paramètre `highlight`
-    highlight_color = "red"
-    fade_color = "rgba(200, 200, 200, 0.2)"
-
+    # Palette pour régions à surligner (liens)
+    region_palette = {}
     if highlight is not None:
-        links_df["color"] = links_df["region"].apply(lambda r: highlight_color if r in highlight else fade_color)
-        nodes_used = set(df_plot[df_plot["Region"].isin(highlight)]["Node"].values)
-        nodes_df["color"] = nodes_df["Node"].apply(lambda n: highlight_color if n in nodes_used else fade_color)
-    else:
-        links_df["color"] = links_df["dst_clu"].map(palette)
-        nodes_df["color"] = nodes_df["ClusterName"].map(palette)
+        colors = sns.color_palette("husl", len(highlight)).as_hex()
+        region_palette = dict(zip(highlight, colors))
+
+    def get_link_color(row):
+        if highlight is None:
+            return cluster_palette.get(row["dst_clu"], "gray")
+        return region_palette.get(row["region"], "#DDDDDD")  # gris clair si pas dans highlight
+
+    links_df["color"] = links_df.apply(get_link_color, axis=1)
 
     fig = go.Figure(
         go.Sankey(
@@ -563,9 +327,9 @@ def sankey_highlight_region(df_plot, highlight=None):
                 thickness=12,
                 line=dict(width=0.5, color="black"),
                 label=nodes_df["ClusterName"],
-                color=nodes_df["color"],
+                color=nodes_df["ClusterName"].map(cluster_palette),
                 customdata=np.stack([nodes_df["Year"]], axis=-1),
-                hovertemplate="<b>Year :</b> %{customdata[0]}<br>",
+                hovertemplate=("<b>Year :</b> %{customdata[0]}<br>"),
             ),
             link=dict(
                 source=links_df["source"],
@@ -655,10 +419,10 @@ if global_mean_matrix is not None and mean_matrices_by_cluster:
 
     # --- Dendrogramme pour référence (votre code existant) ---
     plt.figure(figsize=(80, 4), dpi=500)
-    dendrogram(Zc, labels=regions_order, leaf_rotation=90, color_threshold=my_threshold)
+    dendrogram(Zc, labels=regions_order, leaf_rotation=90, color_threshold=seuil)
     plt.ylabel("Dissimilarity")
-    plt.title(f"Dendrogramme de Clusterisation (Seuil: {my_threshold})")
-    plt.axhline(y=my_threshold, color="r", linestyle="--", label=f"Seuil de coupure ({my_threshold})")
+    plt.title(f"Dendrogramme de Clusterisation (Seuil: {seuil})")
+    plt.axhline(y=seuil, color="r", linestyle="--", label=f"Seuil de coupure ({seuil})")
     plt.legend()
     plt.tight_layout()
     plt.show()
@@ -1032,7 +796,9 @@ def compute_node_positions(new_labels, label_to_x):
     # Assigner les positions x et y finales
     final_x = []
     final_y = []
+    # from IPython import embed
 
+    # embed()
     for label in new_labels:
         x = x_pos_by_label.get(label, 0.5)  # position par défaut si inconnue
         labels_in_col = col_to_labels.get(x, [label])
@@ -1045,20 +811,22 @@ def compute_node_positions(new_labels, label_to_x):
 
 label_to_x = {
     "atmospheric n2": 0.0,
-    "industry": 0.25,
+    "haber-bosch": 0.25,
     "leguminous": 0.25,
     "cereals (excluding rice)": 0.5,
     "oleaginous": 0.5,
     "fruits and vegetables": 0.5,
     "roots": 0.5,
     "forages": 0.5,
+    "fishery products": 0.5,
     "temporary meadows": 0.5,
-    "natural meadows": 0.5,
+    "natural meadows ": 0.5,
     "monogastrics": 0.75,
     "ruminants": 0.75,
-    "population": 0.75,
+    "population": 0.9,
     "trade": 0.75,
     "soil stock": 0.75,
+    "other sectors": 0.75,
     "environment": 1.0,
 }
 
@@ -1095,18 +863,14 @@ def sankey_systemic_flows(
             "Green beans",
             "Soybean",
         ],
-        "oleaginous": [
-            "Rapeseed",
-            "Sunflower",
-            "Other oil crops",
-        ],
+        "oleaginous": ["Rapeseed", "Sunflower", "Other oil crops", "Flax", "Hemp"],
         "forages": [
             "Forage maize",
             "Forage cabbages",
             "Straw",
         ],
         "temporary meadows": ["Non-legume temporary meadow", "Alfalfa and clover"],
-        "natural meadows ": ["Natural meadows "],
+        "natural meadows ": ["Natural meadow "],
         "trade": [
             "animal trade",
             "cereals (excluding rice) food trade",
@@ -1120,6 +884,7 @@ def sankey_systemic_flows(
             "leguminous feed trade",
             "oleaginous feed trade",
             "grasslands feed trade",
+            "temporary meadows feed trade",
         ],
         "ruminants": ["bovines", "ovines", "caprines", "equine"],
         "monogastrics": ["porcines", "poultry"],
@@ -1163,6 +928,10 @@ def sankey_systemic_flows(
         "forages": "limegreen",
         "Environment": "crimson",
         "temporary meadows": "seagreen",
+        "natural meadows ": "darkgreen",
+        "soil stock": "sienna",
+        "Haber-Bosch": "purple",
+        "atmospheric N2": "seagreen",
     }
     # node_color et index_to_label ne sont pas définis ici.
     # Si des couleurs spécifiques pour les labels d'origine sont nécessaires,
@@ -1260,7 +1029,7 @@ def sankey_systemic_flows(
                 customdata=link_hover_texts,
                 hovertemplate="%{customdata}<extra></extra>",
             ),
-            arrangement="snap",
+            arrangement="fixed",
         )
     )
     fig.update_layout(
