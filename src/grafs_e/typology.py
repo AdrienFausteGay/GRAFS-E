@@ -1,5 +1,7 @@
 # %%
 
+from collections import defaultdict
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -13,27 +15,37 @@ from grafs_e.donnees import *
 from grafs_e.N_class import DataLoader, NitrogenFlowModel
 
 # %%
-
-data = DataLoader()
+run = True
+if run:
+    data = DataLoader()
 
 # %%
-matrices = {}
 
-for reg in regions:  # « regions » est ta liste de 33 régions
-    for year in annees_disponibles:
-        if not (reg == "Savoie" and year == "1852"):
-            model = NitrogenFlowModel(data, year, reg)
-            T = model.get_transition_matrix()  # (n_nodes × n_nodes)
-            matrices[reg + "_" + year] = T.astype(float)
 
-    # %% Normalisation
+def get_matrices(data):
+    matrices = {}
 
-# Global M/T
-norm_matrices = {}
-for reg, M in matrices.items():
-    s = M.sum()
-    norm_matrices[reg] = M / s if s else M
+    for reg in regions:  # « regions » est ta liste de 33 régions
+        for year in annees_disponibles:
+            if not (reg == "Savoie" and year == "1852"):
+                model = NitrogenFlowModel(data, year, reg)
+                T = model.get_transition_matrix()  # (n_nodes × n_nodes)
+                matrices[reg + "_" + year] = T.astype(float)
 
+    # Normalisation
+
+    # Global M/T
+    norm_matrices = {}
+    for reg, M in matrices.items():
+        s = M.sum()
+        norm_matrices[reg] = M / s if s else M
+    return matrices, norm_matrices
+
+
+# %%
+if run:
+    matrices, norm_matrices = get_matrices()
+# %%
 # Leontieff-like normalization: divide each column by its total
 # norm_matrices = {}
 # for reg, M in matrices.items():
@@ -45,134 +57,136 @@ for reg, M in matrices.items():
 
 # %% vectorization
 
-# X = np.vstack([M.flatten() for M in norm_matrices.values()])  # shape = (33, n*n)
-# regions_order = list(norm_matrices.keys())
 
-X = np.vstack([M.flatten() for M in norm_matrices.values()])
-X_normalized_l2 = normalize(X, norm="l2", axis=1)
-regions_order = list(norm_matrices.keys())
+def plot_dendrogram(norm_matrices, seuil=0.22):
+    # X = np.vstack([M.flatten() for M in norm_matrices.values()])  # shape = (33, n*n)
+    # regions_order = list(norm_matrices.keys())
+    X = np.vstack([M.flatten() for M in norm_matrices.values()])
+    X_normalized_l2 = normalize(X, norm="l2", axis=1)
+    regions_order = list(norm_matrices.keys())
 
-X_scaled = StandardScaler().fit_transform(X)
-# %% Clusterisation
-seuil = 0.22
-Z = linkage(X, method="complete")  # ou "average", "complete", …
-Z2 = linkage(normalize(X, norm="l2"), method="ward")
-Z3 = linkage(MaxAbsScaler().fit_transform(X), method="ward")
-D = pdist(X_normalized_l2, metric="cosine")
-Zc = linkage(D, method="average")
-plt.figure(figsize=(80, 4), dpi=500)
-dendrogram(Zc, labels=regions_order, leaf_rotation=90, color_threshold=seuil)
-plt.ylabel("Dissimilarity")
-plt.tight_layout()
-plt.show()
+    X_scaled = StandardScaler().fit_transform(X)
+    # %% Clusterisation
+    Z = linkage(X, method="complete")  # ou "average", "complete", …
+    Z2 = linkage(normalize(X, norm="l2"), method="ward")
+    Z3 = linkage(MaxAbsScaler().fit_transform(X), method="ward")
+    D = pdist(X_normalized_l2, metric="cosine")
+    Zc = linkage(D, method="average")
+    plt.figure(figsize=(80, 4), dpi=500)
+    dendrogram(Zc, labels=regions_order, leaf_rotation=90, color_threshold=seuil)
+    plt.ylabel("Dissimilarity")
+    plt.tight_layout()
+    plt.show()
 
-# Si tu veux garder, disons, 4 clusters après inspection visuelle :
-# clt = AgglomerativeClustering(n_clusters=4, metric="euclidean", linkage="ward")
-# labels = clt.fit_predict(X)
-# df_clusters = pd.DataFrame({"Region": regions_order, "Cluster": labels}).sort_values("Cluster")
+    # Si tu veux garder, disons, 4 clusters après inspection visuelle :
+    # clt = AgglomerativeClustering(n_clusters=4, metric="euclidean", linkage="ward")
+    # labels = clt.fit_predict(X)
+    # df_clusters = pd.DataFrame({"Region": regions_order, "Cluster": labels}).sort_values("Cluster")
 
-labels = fcluster(Zc, t=seuil, criterion="distance")
-df_plot = pd.DataFrame(
-    {"Region_year": regions_order, "Cluster": labels, "ClusterName": labels.astype(str)}
-).sort_values("Cluster")
+    labels_cluster = fcluster(Zc, t=seuil, criterion="distance")
+    df_plot = pd.DataFrame(
+        {"Region_year": regions_order, "Cluster": labels_cluster, "ClusterName": labels_cluster.astype(str)}
+    ).sort_values("Cluster")
+    return df_plot
+
 
 # %%
+if run:
+    # ──────────────────────────────────────────────────────────────────────────
+    # 0)  Données : df_numeric    (index = Region_Year)      ───────────
+    #     + colonne "Cluster"            (int)
+    #     + mapping numéro  → nom  :  cluster_names
+    # ──────────────────────────────────────────────────────────────────────────
+    # cluster_names = summary["name"]  # Series : index = n° , value = libellé
+    # cluster_names = [str(i) for i in range(max(df_plot["Cluster"]))]
+    # df_plot = df_numeric[["Cluster"]].copy()
+    # df_plot["ClusterName"] = df_plot["Cluster"].map(cluster_names)
 
-# ──────────────────────────────────────────────────────────────────────────
-# 0)  Données : df_numeric    (index = Region_Year)      ───────────
-#     + colonne "Cluster"            (int)
-#     + mapping numéro  → nom  :  cluster_names
-# ──────────────────────────────────────────────────────────────────────────
-# cluster_names = summary["name"]  # Series : index = n° , value = libellé
-# cluster_names = [str(i) for i in range(max(df_plot["Cluster"]))]
-# df_plot = df_numeric[["Cluster"]].copy()
-# df_plot["ClusterName"] = df_plot["Cluster"].map(cluster_names)
+    df_plot = df_plot.reset_index()
+    # Séparation de l’index  "Region_Year"  → deux colonnes
+    df_plot[["Region", "Year"]] = (
+        df_plot["Region_year"].str.rsplit("_", n=1, expand=True)  # ← ici expand est bien nommé
+        # .rename({0: "Region", 1: "Year"})
+    )
+    df_plot["Year"] = df_plot["Year"].astype(int)
 
-df_plot = df_plot.reset_index()
-# Séparation de l’index  "Region_Year"  → deux colonnes
-df_plot[["Region", "Year"]] = (
-    df_plot["Region_year"].str.rsplit("_", n=1, expand=True)  # ← ici expand est bien nommé
-    # .rename({0: "Region", 1: "Year"})
-)
-df_plot["Year"] = df_plot["Year"].astype(int)
+    # ──────────────────────────────────────────────────────────────────────────
+    # 1)  Génération des nœuds « année-cluster » et des liens régionaux
+    # ──────────────────────────────────────────────────────────────────────────
+    # (ex. nœud  "1970 – Cluster A")
+    df_plot["Node"] = df_plot["Year"].astype(str) + " – " + df_plot["ClusterName"]
 
-# ──────────────────────────────────────────────────────────────────────────
-# 1)  Génération des nœuds « année-cluster » et des liens régionaux
-# ──────────────────────────────────────────────────────────────────────────
-# (ex. nœud  "1970 – Cluster A")
-df_plot["Node"] = df_plot["Year"].astype(str) + " – " + df_plot["ClusterName"]
+    # table des nœuds uniques
+    nodes_df = df_plot[["Node", "Year", "ClusterName"]].drop_duplicates().reset_index(drop=True)
+    node_index = {n: i for i, n in nodes_df["Node"].items()}  # nom → id entier
 
-# table des nœuds uniques
-nodes_df = df_plot[["Node", "Year", "ClusterName"]].drop_duplicates().reset_index(drop=True)
-node_index = {n: i for i, n in nodes_df["Node"].items()}  # nom → id entier
+    # table des liens : on relie année‐t  →  année-t+1   pour chaque région
+    links = []
+    for reg, grp in df_plot.sort_values("Year").groupby("Region"):
+        for (_, row0), (_, row1) in zip(grp.iloc[:-1].iterrows(), grp.iloc[1:].iterrows()):
+            links.append(
+                {
+                    "source": node_index[row0["Node"]],
+                    "target": node_index[row1["Node"]],
+                    "value": 1,  # un passage = 1
+                    "region": reg,
+                    "src_clu": row0["ClusterName"],
+                    "dst_clu": row1["ClusterName"],
+                }
+            )
+    links_df = pd.DataFrame(links)
 
-# table des liens : on relie année‐t  →  année-t+1   pour chaque région
-links = []
-for reg, grp in df_plot.sort_values("Year").groupby("Region"):
-    for (_, row0), (_, row1) in zip(grp.iloc[:-1].iterrows(), grp.iloc[1:].iterrows()):
-        links.append(
-            {
-                "source": node_index[row0["Node"]],
-                "target": node_index[row1["Node"]],
-                "value": 1,  # un passage = 1
-                "region": reg,
-                "src_clu": row0["ClusterName"],
-                "dst_clu": row1["ClusterName"],
-            }
+    # ──────────────────────────────────────────────────────────────────────────
+    # 2)  Couleurs : une couleur par cluster (husl → rgba)
+    # ──────────────────────────────────────────────────────────────────────────
+    clusters_unique = nodes_df["ClusterName"].unique()
+    palette = dict(
+        zip(
+            clusters_unique,
+            sns.color_palette("husl", len(clusters_unique)).as_hex(),  # hex OK pour Plotly
         )
-links_df = pd.DataFrame(links)
-
-# ──────────────────────────────────────────────────────────────────────────
-# 2)  Couleurs : une couleur par cluster (husl → rgba)
-# ──────────────────────────────────────────────────────────────────────────
-clusters_unique = nodes_df["ClusterName"].unique()
-palette = dict(
-    zip(
-        clusters_unique,
-        sns.color_palette("husl", len(clusters_unique)).as_hex(),  # hex OK pour Plotly
     )
-)
-# couleur du lien = couleur du cluster d’arrivée
-links_df["color"] = links_df["dst_clu"].map(palette)
+    # couleur du lien = couleur du cluster d’arrivée
+    links_df["color"] = links_df["dst_clu"].map(palette)
 
-# ──────────────────────────────────────────────────────────────────────────
-# 3)  Sankey Plotly
-# ──────────────────────────────────────────────────────────────────────────
-fig = go.Figure(
-    go.Sankey(
-        node=dict(
-            pad=3,
-            thickness=12,
-            line=dict(width=0.5, color="black"),
-            label=nodes_df["ClusterName"],
-            color=nodes_df["ClusterName"].map(palette),
-            customdata=np.stack([nodes_df["Year"]], axis=-1),
-            hovertemplate=("<b>Year :</b> %{customdata[0]}<br>"),
-        ),
-        link=dict(
-            source=links_df["source"],
-            target=links_df["target"],
-            value=links_df["value"],
-            color=links_df["color"],
-            customdata=np.stack([links_df["region"], links_df["src_clu"], links_df["dst_clu"]], axis=-1),
-            hovertemplate=(
-                "<b>Région :</b> %{customdata[0]}<br>"
-                + "<b>%{customdata[1]}</b> ➜ <b>%{customdata[2]}</b><extra></extra>"
+    # ──────────────────────────────────────────────────────────────────────────
+    # 3)  Sankey Plotly
+    # ──────────────────────────────────────────────────────────────────────────
+    fig = go.Figure(
+        go.Sankey(
+            node=dict(
+                pad=3,
+                thickness=12,
+                line=dict(width=0.5, color="black"),
+                label=nodes_df["ClusterName"],
+                color=nodes_df["ClusterName"].map(palette),
+                customdata=np.stack([nodes_df["Year"]], axis=-1),
+                hovertemplate=("<b>Year :</b> %{customdata[0]}<br>"),
             ),
-        ),
-        arrangement="snap",
+            link=dict(
+                source=links_df["source"],
+                target=links_df["target"],
+                value=links_df["value"],
+                color=links_df["color"],
+                customdata=np.stack([links_df["region"], links_df["src_clu"], links_df["dst_clu"]], axis=-1),
+                hovertemplate=(
+                    "<b>Région :</b> %{customdata[0]}<br>"
+                    + "<b>%{customdata[1]}</b> ➜ <b>%{customdata[2]}</b><extra></extra>"
+                ),
+            ),
+            arrangement="snap",
+        )
     )
-)
 
-fig.update_layout(
-    title="Transitions des régions entre clusters (1852-2014)",
-    font_size=12,
-    height=1080,
-    width=1900,
-    template="plotly_white",
-)
+    fig.update_layout(
+        title="Transitions des régions entre clusters (1852-2014)",
+        font_size=12,
+        height=1080,
+        width=1900,
+        template="plotly_white",
+    )
 
-fig.show()
+    fig.show()
 
 # %% test
 
@@ -214,10 +228,6 @@ def sankey_highlight_region_ordered(df_plot, highlight=None):
                 }
             )
     links_df = pd.DataFrame(links)
-
-    from IPython import embed
-
-    embed()
 
     # Palette pour clusters
     clusters_unique = nodes_df["ClusterName"].unique()
@@ -355,93 +365,99 @@ def sankey_highlight_region(df_plot, highlight=None):
 
 
 # %%
+def compute_mean_matrice(norm_matrices, df_plot):
+    # On utilise norm_matrices car ce sont les matrices qui ont été la base du X pour le clustering.
+    all_normed_matrices_values = list(norm_matrices.values())
 
-# On utilise norm_matrices car ce sont les matrices qui ont été la base du X pour le clustering.
-all_normed_matrices_values = list(norm_matrices.values())
-
-if all_normed_matrices_values:
-    stacked_all_matrices = np.array(all_normed_matrices_values)
-    global_mean_matrix = np.mean(stacked_all_matrices, axis=0)
-    print("\n--- Matrice Moyenne Globale ---")
-    print(global_mean_matrix)
-    print(f"Forme de la matrice moyenne globale: {global_mean_matrix.shape}")
-else:
-    print("\nAucune matrice disponible pour calculer la moyenne globale.")
-    global_mean_matrix = None  # Assurer que la variable est définie
-
-# --- Calcul des Matrices Moyennes par Cluster ---
-mean_matrices_by_cluster = {}
-# mean_matrices_by_cluster_notnormed = {}
-for cluster_id in df_plot["Cluster"].unique():
-    regions_in_cluster = df_plot[df_plot["Cluster"] == cluster_id]["Region_year"].tolist()
-    matrices_in_current_cluster = []
-    matrices_in_current_cluster_notnormed = []
-    for region_year_key in regions_in_cluster:
-        if region_year_key in norm_matrices:  # Utilisez norm_matrices pour la cohérence
-            matrices_in_current_cluster.append(norm_matrices[region_year_key])
-            # matrices_in_current_cluster_notnormed.append(matrices[region_year_key])
-        else:
-            print(f"Attention : La clé '{region_year_key}' n'a pas été trouvée dans 'norm_matrices'.")
-
-    if matrices_in_current_cluster:
-        stacked_matrices = np.array(matrices_in_current_cluster)
-        mean_matrix = np.mean(stacked_matrices, axis=0)
-        mean_matrices_by_cluster[f"Cluster_{cluster_id}"] = mean_matrix
-
-        # stacked_matrices_notnormed = np.array(matrices_in_current_cluster_notnormed)
-        # mean_matrix = np.mean(stacked_matrices, axis=0)
-        # mean_matrices_by_cluster[f"Cluster_{cluster_id}"] = mean_matrix
+    if all_normed_matrices_values:
+        stacked_all_matrices = np.array(all_normed_matrices_values)
+        global_mean_matrix = np.mean(stacked_all_matrices, axis=0)
+        print("\n--- Matrice Moyenne Globale ---")
+        print(global_mean_matrix)
+        print(f"Forme de la matrice moyenne globale: {global_mean_matrix.shape}")
     else:
-        print(f"Le cluster {cluster_id} ne contient aucune matrice valide.")
+        print("\nAucune matrice disponible pour calculer la moyenne globale.")
+        global_mean_matrix = None  # Assurer que la variable est définie
 
-print(f"\nCalculées les moyennes pour {len(mean_matrices_by_cluster)} clusters.")
+    # --- Calcul des Matrices Moyennes par Cluster ---
+    mean_matrices_by_cluster = {}
+    # mean_matrices_by_cluster_notnormed = {}
+    for cluster_id in df_plot["Cluster"].unique():
+        regions_in_cluster = df_plot[df_plot["Cluster"] == cluster_id]["Region_year"].tolist()
+        matrices_in_current_cluster = []
+        matrices_in_current_cluster_notnormed = []
+        for region_year_key in regions_in_cluster:
+            if region_year_key in norm_matrices:  # Utilisez norm_matrices pour la cohérence
+                matrices_in_current_cluster.append(norm_matrices[region_year_key])
+                # matrices_in_current_cluster_notnormed.append(matrices[region_year_key])
+            else:
+                print(f"Attention : La clé '{region_year_key}' n'a pas été trouvée dans 'norm_matrices'.")
+
+        if matrices_in_current_cluster:
+            stacked_matrices = np.array(matrices_in_current_cluster)
+            mean_matrix = np.mean(stacked_matrices, axis=0)
+            mean_matrices_by_cluster[f"Cluster_{cluster_id}"] = mean_matrix
+
+            # stacked_matrices_notnormed = np.array(matrices_in_current_cluster_notnormed)
+            # mean_matrix = np.mean(stacked_matrices, axis=0)
+            # mean_matrices_by_cluster[f"Cluster_{cluster_id}"] = mean_matrix
+        else:
+            print(f"Le cluster {cluster_id} ne contient aucune matrice valide.")
+
+    print(f"\nCalculées les moyennes pour {len(mean_matrices_by_cluster)} clusters.")
+    return mean_matrices_by_cluster, global_mean_matrix
+
+
+if run:
+    mean_matrices_by_cluster, global_mean_matrix = compute_mean_matrice(norm_matrices)
 # %%
-if global_mean_matrix is not None and mean_matrices_by_cluster:
-    n_clusters = len(mean_matrices_by_cluster)
-    fig_cols = 3  # Nombre de colonnes pour l'affichage
-    fig_rows = int(np.ceil(n_clusters / fig_cols))  # Calcul du nombre de lignes
+if run:
+    if global_mean_matrix is not None and mean_matrices_by_cluster:
+        n_clusters = len(mean_matrices_by_cluster)
+        fig_cols = 3  # Nombre de colonnes pour l'affichage
+        fig_rows = int(np.ceil(n_clusters / fig_cols))  # Calcul du nombre de lignes
 
-    plt.figure(figsize=(fig_cols * 6, fig_rows * 5))  # Ajuster la taille de la figure
+        plt.figure(figsize=(fig_cols * 6, fig_rows * 5))  # Ajuster la taille de la figure
 
-    for i, (cluster_name, cluster_mean_matrix) in enumerate(mean_matrices_by_cluster.items()):
-        difference_matrix = cluster_mean_matrix - global_mean_matrix
+        for i, (cluster_name, cluster_mean_matrix) in enumerate(mean_matrices_by_cluster.items()):
+            difference_matrix = cluster_mean_matrix - global_mean_matrix
 
-        plt.subplot(fig_rows, fig_cols, i + 1)
-        sns.heatmap(
-            difference_matrix, cmap="coolwarm", center=0, annot=False, fmt=".2f", cbar=True, square=True
-        )  # cmap="coolwarm" pour différences, center=0 pour le point neutre
-        plt.title(f"Différence: {cluster_name} - Moyenne Globale")
-        plt.xlabel("Colonne de la Matrice")
-        plt.ylabel("Ligne de la Matrice")
+            plt.subplot(fig_rows, fig_cols, i + 1)
+            sns.heatmap(
+                difference_matrix, cmap="coolwarm", center=0, annot=False, fmt=".2f", cbar=True, square=True
+            )  # cmap="coolwarm" pour différences, center=0 pour le point neutre
+            plt.title(f"Différence: {cluster_name} - Moyenne Globale")
+            plt.xlabel("Colonne de la Matrice")
+            plt.ylabel("Ligne de la Matrice")
 
-    plt.tight_layout()
-    plt.show()
+        plt.tight_layout()
+        plt.show()
 
-    # --- Dendrogramme pour référence (votre code existant) ---
-    plt.figure(figsize=(80, 4), dpi=500)
-    dendrogram(Zc, labels=regions_order, leaf_rotation=90, color_threshold=seuil)
-    plt.ylabel("Dissimilarity")
-    plt.title(f"Dendrogramme de Clusterisation (Seuil: {seuil})")
-    plt.axhline(y=seuil, color="r", linestyle="--", label=f"Seuil de coupure ({seuil})")
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+        # --- Dendrogramme pour référence (votre code existant) ---
+        plt.figure(figsize=(80, 4), dpi=500)
+        dendrogram(Zc, labels=regions_order, leaf_rotation=90, color_threshold=seuil)
+        plt.ylabel("Dissimilarity")
+        plt.title(f"Dendrogramme de Clusterisation (Seuil: {seuil})")
+        plt.axhline(y=seuil, color="r", linestyle="--", label=f"Seuil de coupure ({seuil})")
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
 
-else:
-    print("\nImpossible d'afficher les heatmaps : matrices moyennes non disponibles.")
+    else:
+        print("\nImpossible d'afficher les heatmaps : matrices moyennes non disponibles.")
 # %%
-
-# Définir les labels des nœuds (lignes/colonnes de la matrice de transition)
-# Ces labels sont supposés être constants pour toutes vos matrices de transition.
-# Si votre NitrogenFlowModel a un attribut self.labels, utilisez-le.
-# Sinon, utilisez une liste générique basée sur n_nodes.
-if "model" in locals() and hasattr(model, "labels"):
-    node_labels = model.labels
-else:
-    # Fallback si model.labels n'est pas défini ou n'existe pas
-    # Assurez-vous que n_nodes est correctement défini plus haut dans votre code
-    n_nodes_example = matrices[list(matrices.keys())[0]].shape[0] if matrices else 10
-    node_labels = [f"N_Pool_{i + 1}" for i in range(n_nodes_example)]
+if run:
+    # Définir les labels des nœuds (lignes/colonnes de la matrice de transition)
+    # Ces labels sont supposés être constants pour toutes vos matrices de transition.
+    # Si votre NitrogenFlowModel a un attribut self.labels, utilisez-le.
+    # Sinon, utilisez une liste générique basée sur n_nodes.
+    if "model" in locals() and hasattr(model, "labels"):
+        node_labels = model.labels
+    else:
+        # Fallback si model.labels n'est pas défini ou n'existe pas
+        # Assurez-vous que n_nodes est correctement défini plus haut dans votre code
+        n_nodes_example = matrices[list(matrices.keys())[0]].shape[0] if matrices else 10
+        node_labels = [f"N_Pool_{i + 1}" for i in range(n_nodes_example)]
 
 
 def plot_matrix_heatmap(matrix_to_plot, title, node_labels_list):
@@ -775,36 +791,65 @@ def merge_nodes(adjacency_matrix, labels, merges):
     return new_matrix, new_labels, old_to_new
 
 
-def compute_node_positions(new_labels, label_to_x):
+def compute_node_positions(node_labels_to_position, label_to_x, y_spacing=0.05):
     """
-    Pour chaque label dans new_labels, retourne sa position x (colonne) selon le dictionnaire label_to_x.
-    Si le label n'est pas dans le dictionnaire, lui attribue une position automatique.
-    Retourne également les positions y uniformément espacées dans chaque colonne.
-    """
-    from collections import defaultdict
+    Calcule les positions x et y pour les nœuds d'un diagramme de Sankey,
+    en utilisant un mapping de labels vers des coordonnées x souhaitées.
+    Les positions y sont calculées pour espacer les nœuds dans chaque colonne.
 
-    # Regrouper les labels par colonne (x)
+    :param node_labels_to_position: La liste des labels des nœuds pour lesquels calculer les positions.
+                                    Cette liste doit être l'ordre final des labels dans le Sankey.
+    :param label_to_x: Dictionnaire mappant les labels (normalisés en minuscules/sans espaces)
+                       à leurs positions x (0.0 à 1.0).
+    :param y_spacing: L'espacement minimum entre les nœuds sur l'axe y dans une même colonne.
+    :return: Une paire de listes (final_x, final_y) des coordonnées x et y des nœuds.
+    """
     x_pos_by_label = {}
-    col_to_labels = defaultdict(list)
-    for label in new_labels:
-        label_key = label.lower().strip()
-        x = label_to_x.get(label_key, None)
-        if x is not None:
-            x_pos_by_label[label] = x
-            col_to_labels[x].append(label)
+    col_to_labels_sorted = defaultdict(list)
 
-    # Assigner les positions x et y finales
+    # 1. Déterminer la position X pour chaque label affiché et regrouper par colonne
+    # Utilisation d'un dictionnaire intermédiaire pour conserver l'ordre de `node_labels_to_position`
+    # tout en remplissant `col_to_labels_sorted` avec des listes ordonnées.
+    for label in node_labels_to_position:
+        label_key = label.lower().strip()
+        x = label_to_x.get(label_key, 0.5)  # Default to 0.5 if not found
+        x_pos_by_label[label] = x
+        col_to_labels_sorted[x].append(label)
+
+    # 2. Calculer les positions Y pour chaque nœud dans chaque colonne
     final_x = []
     final_y = []
-    # from IPython import embed
 
-    # embed()
-    for label in new_labels:
-        x = x_pos_by_label.get(label, 0.5)  # position par défaut si inconnue
-        labels_in_col = col_to_labels.get(x, [label])
-        y = labels_in_col.index(label) / max(len(labels_in_col), 1)
-        final_x.append(x)
-        final_y.append(y)
+    # Créer un dictionnaire pour stocker les positions y calculées pour chaque label
+    # afin de les récupérer dans l'ordre de `node_labels_to_position`
+    calculated_y_positions = {}
+
+    for x_coord in sorted(col_to_labels_sorted.keys()):
+        labels_in_current_col = col_to_labels_sorted[x_coord]
+        num_labels_in_col = len(labels_in_current_col)
+
+        # Calculer l'espace total nécessaire pour cette colonne
+        total_y_height_needed = num_labels_in_col * y_spacing
+
+        # Calculer le point de départ pour centrer les nœuds verticalement
+        # Nous voulons que les nœuds s'étendent sur tout l'axe Y (0 à 1)
+        # Assurez-vous que l'espacement ne pousse pas les nœuds hors de la zone visible [0, 1]
+        if num_labels_in_col > 1:
+            # Distribue les nœuds uniformément sur l'axe Y (0 à 1)
+            # Ajout d'un petit décalage pour ne pas commencer à 0 ou finir à 1 exactement
+            y_increment = (1.0 - 2 * y_spacing) / (num_labels_in_col - 1)
+            y_start = y_spacing
+        else:
+            y_increment = 0
+            y_start = 0.5  # Center single node in column
+
+        for i, label in enumerate(labels_in_current_col):
+            calculated_y_positions[label] = y_start + i * y_increment
+
+    # 3. Remplir final_x et final_y dans l'ordre des `node_labels_to_position`
+    for label in node_labels_to_position:
+        final_x.append(x_pos_by_label[label])
+        final_y.append(calculated_y_positions.get(label, 0.5))  # Fallback to 0.5 if somehow not calculated
 
     return final_x, final_y
 
@@ -1029,17 +1074,17 @@ def sankey_systemic_flows(
                 customdata=link_hover_texts,
                 hovertemplate="%{customdata}<extra></extra>",
             ),
-            arrangement="fixed",
+            arrangement="snap",
         )
     )
     fig.update_layout(
         template="plotly_dark",  # Thème sombre de Plotly
         font_color="white",  # Couleur générale du texte (titres, axes, etc.)
         width=2000,
-        height=1500,
+        height=750,
     )
 
-    return fig
+    return fig, new_labels, new_matrix
 
 
 # %%

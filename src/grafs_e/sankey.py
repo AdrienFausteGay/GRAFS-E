@@ -1194,7 +1194,6 @@ def streamlit_sankey_systemic_flows(
             "N2O emission",
             "hydro-system",
             "other losses",
-            "atmospheric N2",
         ],
         "roots": ["Sugar beet", "Potatoes", "Other roots"],
     },

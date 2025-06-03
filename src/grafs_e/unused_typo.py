@@ -321,3 +321,292 @@ ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left", title="Région")
 
 plt.tight_layout()
 plt.show()
+
+# %% Try sankeys with matplotlib
+
+label_to_level = {
+    "atmospheric n2": 0,
+    "haber-bosch": 1,
+    "leguminous": 1,
+    "cereals (excluding rice)": 2,
+    "oleaginous": 2,
+    "fruits and vegetables": 2,
+    "roots": 2,  # <--- Still at level 2
+    "forages": 2,
+    "fishery products": 2,
+    "temporary meadows": 2,
+    "natural meadows ": 2,
+    "monogastrics": 3,
+    "ruminants": 3,  # <--- Still at level 3
+    "population": 4,
+    "trade": 3,
+    "soil stock": 3,
+    "other sectors": 3,
+    "environment": 4,
+}
+
+
+def sankey_systemic_flows_matplotlib(
+    adjacency_matrix,
+    labels,
+    merges={
+        "cereals (excluding rice)": [
+            "Wheat",
+            "Rye",
+            "Barley",
+            "Oat",
+            "Grain maize",
+            "Rice",
+            "Other cereals",
+        ],
+        "fruits and vegetables": [
+            "Dry vegetables",
+            "Dry fruits",
+            "Squash and melons",
+            "Cabbage",
+            "Leaves vegetables",
+            "Fruits",
+            "Olives",
+            "Citrus",
+        ],
+        "leguminous": [
+            "Horse beans and faba beans",
+            "Peas",
+            "Other protein crops",
+            "Green peas",
+            "Dry beans",
+            "Green beans",
+            "Soybean",
+        ],
+        "oleaginous": ["Rapeseed", "Sunflower", "Other oil crops", "Flax", "Hemp"],
+        "forages": [
+            "Forage maize",
+            "Forage cabbages",
+            "Straw",
+        ],
+        "temporary meadows": ["Non-legume temporary meadow", "Alfalfa and clover"],
+        "natural meadows ": ["Natural meadow "],
+        "trade": [
+            "animal trade",
+            "cereals (excluding rice) food trade",
+            "fruits and vegetables food trade",
+            "leguminous food trade",
+            "oleaginous food trade",
+            "roots food trade",
+            "rice food trade",
+            "cereals (excluding rice) feed trade",
+            "forages feed trade",
+            "leguminous feed trade",
+            "oleaginous feed trade",
+            "grasslands feed trade",
+            "temporary meadows feed trade",
+        ],
+        "ruminants": ["bovines", "ovines", "caprines", "equine"],
+        "monogastrics": ["porcines", "poultry"],
+        "population": ["urban", "rural"],
+        "Environment": [
+            "NH3 volatilization",
+            "N2O emission",
+            "hydro-system",
+            "other losses",
+        ],
+        "roots": ["Sugar beet", "Potatoes", "Other roots"],
+    },
+    label_to_level=label_to_level,  # Renamed to reflect 'levels'
+    THRESHOLD=0.01,
+    figure_size=(16, 12),  # For publication quality, control figure size
+    dpi=300,  # High DPI for publication
+):
+    """
+    Crée un diagramme de Sankey systémique pour publication en utilisant sankeyflow.
+    Les nœuds sont fusionnés, les flux sous le seuil sont éliminés,
+    et les positions des nœuds sont définies par des niveaux.
+    """
+    # 1) Fusion des nœuds
+    new_matrix, new_labels, old_to_new = merge_nodes(adjacency_matrix, labels, merges)
+    n_new = len(new_labels)
+
+    # 2) Définir les couleurs des nœuds fusionnés
+    color_dict = {
+        "cereals (excluding rice)": "gold",
+        "fruits and vegetables": "lightgreen",
+        "leguminous": "darkgreen",
+        "oleaginous": "lightgreen",
+        "meadow and forage": "green",  # Is this merged label present in new_labels?
+        "trade": "gray",
+        "monogastrics": "lightblue",
+        "ruminants": "lightblue",
+        "population": "darkblue",
+        "losses": "crimson",  # Is this merged label present in new_labels?
+        "roots": "orange",
+        "forages": "limegreen",
+        "Environment": "crimson",
+        "temporary meadows": "seagreen",
+        "natural meadows ": "darkgreen",
+        "soil stock": "sienna",
+        "haber-bosch": "purple",
+        "atmospheric n2": "seagreen",
+        "other sectors": "lightgray",
+        "fishery products": "cadetblue",
+    }
+
+    default_node_color = "gray"
+    # Ensure merged labels in color_dict actually exist in new_labels or are handled.
+    # Otherwise, they won't apply.
+    # It's better to get the actual labels after merge and then map colors.
+
+    # 3) Collecter tous les flux de la matrice fusionnée
+    # We now collect as (source_label, target_label, value) tuples for sankeyflow
+    all_flows_data = []
+
+    def format_scientific(value):
+        return f"{value:.2e} ktN/yr"
+
+    for s_idx in range(n_new):
+        for t_idx in range(n_new):
+            flow = new_matrix[s_idx, t_idx]
+            if flow > THRESHOLD:
+                source_label = new_labels[s_idx]
+                target_label = new_labels[t_idx]
+                all_flows_data.append((source_label, target_label, flow))
+
+    # 4) Filter nodes based on throughflow
+    throughflows = np.sum(new_matrix, axis=0) + np.sum(new_matrix, axis=1)
+    # Map original merged labels to their throughflows for filtering
+    label_throughflow = {new_labels[i]: throughflows[i] for i in range(n_new)}
+
+    # Filter out flows where source or target node has insufficient throughflow
+    filtered_flows_data = []
+    kept_labels_set = set()  # To keep track of nodes that remain
+    for s_label, t_label, flow_val in all_flows_data:
+        if label_throughflow.get(s_label, 0) >= THRESHOLD and label_throughflow.get(t_label, 0) >= THRESHOLD:
+            filtered_flows_data.append((s_label, t_label, flow_val))
+            kept_labels_set.add(s_label)
+            kept_labels_set.add(t_label)
+
+    # Ensure label_to_level keys are normalized to match
+    # new_labels (which are already normalized by merge_nodes if original labels were).
+    normalized_label_to_level = {k.lower().strip(): v for k, v in label_to_level.items()}
+
+    # Create the nodes list for sankeyflow
+    nodes = defaultdict(list)  # Maps level -> list of nodes for that level
+    node_metadata = {}  # To store colors and hover info
+
+    # Sort kept_labels for consistent Y-ordering within each level
+    # This is critical for controlling vertical stacking.
+    # We will sort alphabetically within each level, but you could define a custom order
+    # if you have specific vertical stacking preferences for publication.
+
+    # First, group labels by their assigned level
+    labels_by_level = defaultdict(list)
+    for label in sorted(list(kept_labels_set)):  # Sort alphabetically for consistent ordering
+        level = normalized_label_to_level.get(label.lower().strip())
+        if level is not None:
+            labels_by_level[level].append(label)
+        else:
+            print(f"Warning: Node '{label}' does not have a defined level in label_to_level. Skipping.")
+            # If a node doesn't have a level, it won't be drawn.
+            # You might want to assign a default level or handle it.
+
+    # Now, build the `nodes` structure for sankeyflow, which is a list of lists.
+    # Each inner list is a "level" (column), and contains tuples of (node_name, node_value)
+    # The order within the inner list determines y-position.
+    sankeyflow_nodes = []
+
+    for level_idx in sorted(labels_by_level.keys()):
+        current_level_nodes = []
+        for label in labels_by_level[level_idx]:
+            # sankeyflow needs a 'value' for the node's overall size, often the throughflow
+            node_val = label_throughflow.get(label, 0)
+            current_level_nodes.append((label, node_val))
+            # Store color and hover info for this node
+            node_metadata[label] = {
+                "color": color_dict.get(label, default_node_color),
+                "hover_text": f"Node: {label}<br>Throughflow: {format_scientific(node_val)}",
+            }
+        sankeyflow_nodes.append(current_level_nodes)
+
+    # Create flows for sankeyflow, adding colors and potentially curvature
+    sankeyflow_flows = []
+    for s_label, t_label, flow_val in filtered_flows_data:
+        link_color = color_dict.get(s_label, default_node_color)  # Color link by source node
+        hover_text = f"Source: {s_label}<br>Target: {t_label}<br>Value: {format_scientific(flow_val)}"
+
+        flow_opts = {
+            "color": link_color,
+            "data": {"hover_text": hover_text},  # Custom data for tooltips if we want to add later
+        }
+
+        # You can adjust curvature here.
+        # For backward flows (level_source > level_target), positive curvature can help.
+        # For forward flows, 0 (straight) or a small positive value is often good.
+        s_level = normalized_label_to_level.get(s_label.lower().strip())
+        t_level = normalized_label_to_level.get(t_label.lower().strip())
+
+        if s_level is not None and t_level is not None and s_level > t_level:
+            # This is a backward flow. Increase curvature to make it loop nicely.
+            flow_opts["curvature"] = 0.5  # Experiment with this value (e.g., 0.2 to 1.0)
+        else:
+            # Forward flow or same-level flow. Keep it relatively straight or slightly curved.
+            flow_opts["curvature"] = 0.1  # A small value can make it look smoother
+
+        sankeyflow_flows.append((s_label, t_label, flow_val, flow_opts))
+
+    fig, ax = plt.subplots(figsize=figure_size, dpi=dpi)
+
+    # Create the Sankey diagram
+    # Use ProcessGroup for defining nodes more explicitly.
+    # node_color_mode can be 'default' or 'value' or a custom dict.
+    # We'll apply colors after creation for more control.
+
+    # Map from node label to a unique integer ID for SankeyFlow's internal use if needed
+    # (though it largely works with string labels)
+
+    sankey = Sankey(
+        flows=sankeyflow_flows,
+        nodes=sankeyflow_nodes,  # Pass the structured nodes list
+        flow_color_mode="individual",  # We provide colors per flow in flow_opts
+        node_opts=dict(
+            label_format="{label}"  # Only show label, we'll add value to hover if needed later
+        ),
+        ax=ax,  # Pass the Matplotlib axes
+    )
+
+    # Draw the Sankey diagram
+    sankey.draw()
+
+    # --- Post-processing for node colors and labels (sankeyflow gives good control here) ---
+    for node_name, node_patch in sankey.node_patches.items():
+        if node_name in node_metadata:
+            node_patch.set_facecolor(node_metadata[node_name]["color"])
+            # sankeyflow automatically adds tooltips if 'data' is in flow_opts or node_opts,
+            # but for publication, you might add hover text when saving as HTML (not default Matplotlib).
+            # For static publication, you'd typically rely on labels or external captions.
+
+    # Customize node labels if you want more than just the name
+    for node_label, label_obj in sankey.node_labels.items():
+        if node_label in node_metadata:
+            # You can set font size, color, etc.
+            label_obj.set_fontsize(10)
+            # You can also customize position if needed
+            # For publication, you might want to show throughflow next to the label
+            label_obj.set_text(f"{node_label}\n({format_scientific(label_throughflow.get(node_label, 0))})")
+
+    # Customize flow labels if needed (e.g., add value labels)
+    # sankeyflow doesn't automatically put flow labels. You'd add them manually using ax.text.
+
+    ax.set_title("Système de Flux de Nutriments", fontsize=16, color="black")
+    ax.axis("off")  # Turn off standard Matplotlib axes
+
+    # For publication, save the figure
+    # You can save as PDF, SVG (vector formats are best for publication), or high-res PNG
+    # plt.savefig("sankey_publication.pdf", bbox_inches='tight')
+    # plt.savefig("sankey_publication.png", dpi=dpi, bbox_inches='tight')
+
+    # To show the plot (for debugging or interactive viewing during development)
+    plt.show()
+
+    return fig  # Return the matplotlib figure object
+
+
+# %%
