@@ -455,8 +455,8 @@ def update_svg_fluxes(svg_path, output_path, flux_matrix, labels, mapping_svg_fl
 
     for id_svg, ij_list in mapping_svg_fluxes.items():
         total_flux = sum(flux_matrix[i, j] for i, j in ij_list)
-        if total_flux > 0.005:
-            width = max(total_flux * scale, 0.5)  # Épaisseur minimale à 0.5 pour visibilité
+        if total_flux > 0:
+            width = total_flux * scale  # Épaisseur minimale à 0.5 pour visibilité
         else:
             width = 0
         xpath = f"//svg:path[@id='{id_svg}']"

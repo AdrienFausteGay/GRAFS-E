@@ -24,10 +24,16 @@ if run:
 
 def get_matrices(data):
     matrices = {}
-
+    exclusions = [
+        ("Savoie", "1852"),
+        ("Alsace", "1885"),
+        ("Alsace", "1906"),
+        ("Alpes", "1852"),
+        ("Pyrénées Orient", "1989"),
+    ]
     for reg in regions:  # « regions » est ta liste de 33 régions
         for year in annees_disponibles:
-            if not (reg == "Savoie" and year == "1852"):
+            if (reg, year) not in exclusions:
                 model = NitrogenFlowModel(data, year, reg)
                 T = model.get_transition_matrix()  # (n_nodes × n_nodes)
                 matrices[reg + "_" + year] = T.astype(float)
@@ -90,6 +96,8 @@ def plot_dendrogram(norm_matrices, seuil=0.22):
     return df_plot
 
 
+if run:
+    df_plot = plot_dendrogram(norm_matrices)
 # %%
 if run:
     # ──────────────────────────────────────────────────────────────────────────
