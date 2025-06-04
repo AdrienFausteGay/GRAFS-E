@@ -15,7 +15,7 @@ from grafs_e.donnees import *
 from grafs_e.N_class import DataLoader, NitrogenFlowModel
 
 # %%
-run = True
+run = False
 if run:
     data = DataLoader()
 
@@ -417,7 +417,7 @@ def compute_mean_matrice(norm_matrices, df_plot):
 
 
 if run:
-    mean_matrices_by_cluster, global_mean_matrix = compute_mean_matrice(norm_matrices)
+    mean_matrices_by_cluster, global_mean_matrix = compute_mean_matrice(norm_matrices, df_plot)
 # %%
 if run:
     if global_mean_matrix is not None and mean_matrices_by_cluster:
