@@ -181,16 +181,36 @@ mapping_svg_fluxes = {
         (8, 6),
         (8, 10),
         (8, 13),
+        (8, 2),
         (14, 0),
         (14, 3),
         (14, 5),
         (14, 6),
         (14, 10),
         (14, 13),
+        (14, 2),
+        (12, 0),
+        (12, 3),
+        (12, 5),
+        (12, 6),
+        (12, 10),
+        (12, 13),
+        (12, 2),
     ],
     "path36": [(8, 0), (14, 0)],
-    "path37": [(12, 0), (12, 3), (12, 5), (12, 6), (12, 10), (12, 13)],
+    "path37": [(12, 0), (12, 3), (12, 5), (12, 6), (12, 10), (12, 13), (12, 2)],
     "path39": [(3, 14), (5, 14), (7, 14), (16, 14)],
+    "path40": [(3, 12), (6, 12), (7, 12), (8, 12), (10, 12), (13, 12), (14, 12)],
+    "path41": [(3, 8), (7, 8), (10, 8)],
+    "path42": [(7, 17), (7, 12), (7, 14), (7, 8)],
+    "path43": [(5, 17), (5, 14)],
+    "path44": [(7, 3)],
+    "path45": [(3, 8), (3, 12), (3, 14), (3, 17)],
+    "path46": [(10, 12), (10, 8), (10, 14), (10, 17)],
+    "path47": [(13, 12), (13, 17)],
+    "path48": [(6, 12), (6, 17)],
+    "path49": [(3, 17), (5, 17), (6, 17), (7, 17), (10, 17), (13, 17), (16, 17)],
+    "path50": [(6, 17)],
 }
 
 # %%
@@ -209,7 +229,7 @@ def update_svg_fluxes(svg_path, output_path, flux_matrix, labels, mapping_svg_fl
         scale (float): facteur multiplicateur pour l'épaisseur (ajuste selon besoin).
 
     """
-    parser = etree.XMLParser(remove_blank_text=True)
+    parser = etree.XMLParser(remove_blank_text=False)
     tree = etree.parse(svg_path, parser)
     root = tree.getroot()
     ns = root.nsmap.get(None)
@@ -237,7 +257,7 @@ def update_svg_fluxes(svg_path, output_path, flux_matrix, labels, mapping_svg_fl
         # new_style = re.sub(r"stroke-width:[^;]+", f"stroke-width:{width}", style)
         # path.attrib["style"] = new_style
 
-    tree.write(output_path, pretty_print=True, xml_declaration=True, encoding="UTF-8")
+    tree.write(output_path, pretty_print=False, xml_declaration=True, encoding="UTF-8")
 
 
 # %%
