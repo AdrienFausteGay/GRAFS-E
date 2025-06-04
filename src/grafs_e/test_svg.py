@@ -18,7 +18,7 @@ mean_matrices_by_cluster, global_mean_matrices = compute_mean_matrice(norm_matri
 
 mean_matrices_by_cluster_merged = {}
 for cluster in mean_matrices_by_cluster.keys():
-    mean_matrices_by_cluster_merged[cluster], _, _ = merge_nodes(
+    mean_matrices_by_cluster_merged[cluster], new_labels, _ = merge_nodes(
         mean_matrices_by_cluster[cluster],
         labels,
         merges={
@@ -163,16 +163,15 @@ new_labels = [
 boxes_labels = {new_labels[i]: int(i) for i in range(len(new_labels))}
 
 mapping_svg_fluxes = {
-    "path12-2": [(14, 12), (14, 17)],
+    "path12-2": [(14, 12), (14, 17), (14, 11)],
     "path15": [(9, 15), (9, 0)],
     "path17": [(17, 8)],
     "path23": [(14, 16)],
     "path26": [(9, 15)],
     "path27": [(9, 0)],
-    "path29": [(8, 17), (8, 12)],
+    "path29": [(8, 17), (8, 12), (8, 11)],
     "path31": [(14, 9)],
     "path32": [(9, 14)],
-    "path33": [(8, 0), (8, 3), (8, 5), (8, 6), (8, 10), (8, 13)],
     "path34": [(14, 0), (14, 3), (14, 5), (14, 6), (14, 10), (14, 13)],
     "path35": [
         (8, 0),
@@ -204,13 +203,233 @@ mapping_svg_fluxes = {
     "path41": [(3, 8), (7, 8), (10, 8)],
     "path42": [(7, 17), (7, 12), (7, 14), (7, 8)],
     "path43": [(5, 17), (5, 14)],
-    "path44": [(7, 3)],
     "path45": [(3, 8), (3, 12), (3, 14), (3, 17)],
     "path46": [(10, 12), (10, 8), (10, 14), (10, 17)],
     "path47": [(13, 12), (13, 17)],
     "path48": [(6, 12), (6, 17)],
     "path49": [(3, 17), (5, 17), (6, 17), (7, 17), (10, 17), (13, 17), (16, 17)],
     "path50": [(6, 17)],
+    "path52": [(3, 17), (5, 17), (7, 17), (10, 17), (13, 17), (16, 17)],
+    "path53": [(13, 17)],
+    "path54": [(3, 17), (5, 17), (7, 17), (10, 17), (16, 17)],
+    "path55": [(10, 17)],
+    "path56": [(3, 17), (5, 17), (7, 17), (16, 17)],
+    "path57": [(3, 17)],
+    "path58": [(5, 17), (7, 17), (16, 17)],
+    "path62": [(16, 17), (16, 14)],
+    "path65": [(1, 3), (1, 5), (1, 6), (1, 7), (1, 9), (1, 10), (1, 13), (1, 16)],
+    "path66": [(1, 3)],
+    "path68": [(1, 6)],
+    "path69": [(1, 13)],
+    "path70": [(1, 6), (1, 13)],
+    "path71": [(1, 10)],
+    "path72": [(1, 10), (1, 6), (1, 13)],
+    "path74": [(0, 3), (0, 6), (0, 7), (0, 5), (0, 9), (0, 10), (0, 13), (0, 16)],
+    "path75": [(0, 9), (1, 9), (2, 9)],
+    "path76": [(0, 16), (1, 16), (2, 16)],
+    "path77": [(1, 5), (1, 16), (1, 9)],
+    "path78": [(1, 5)],
+    "path79": [(2, 7), (2, 9), (2, 16)],
+    "path80": [(2, 7), (0, 7)],
+    "path81": [(0, 1)],
+    "path83": [(2, 7)],
+    "path123": [
+        (12, 3),
+        (12, 6),
+        (12, 10),
+        (12, 13),
+        (8, 3),
+        (8, 6),
+        (8, 10),
+        (8, 13),
+        (14, 3),
+        (14, 6),
+        (14, 10),
+        (14, 13),
+    ],
+    "path87": [(2, 9)],
+    "path88": [(2, 16)],
+    "path89": [(2, 9), (2, 16)],
+    "path91": [(0, 9)],
+    "path92": [(0, 3), (0, 6), (0, 7), (0, 5), (0, 10), (0, 13), (0, 16)],
+    "path93": [(0, 16)],
+    "path118": [(13, 12)],
+    "path119": [(6, 12)],
+    "path120": [(10, 12), (10, 14), (10, 8)],
+    "path121": [(10, 8)],
+    "path122": [(10, 12)],
+    "path124": [(12, 5), (8, 5), (14, 5)],
+    "path125": [
+        (12, 6),
+        (12, 10),
+        (12, 13),
+        (8, 6),
+        (8, 10),
+        (8, 13),
+        (14, 6),
+        (14, 10),
+        (14, 13),
+    ],
+    "path126": [(12, 3), (14, 3), (8, 3)],
+    "path127": [
+        (12, 6),
+        (12, 13),
+        (8, 6),
+        (8, 13),
+        (14, 6),
+        (14, 13),
+    ],
+    "path128": [(12, 10), (14, 10), (8, 10)],
+    "path129": [(12, 13), (14, 13), (8, 13)],
+    "path130": [(12, 6), (14, 6), (8, 6)],
+    "path131": [(0, 3), (0, 6), (0, 7), (0, 5), (0, 10), (0, 13)],
+    "path132": [(0, 7)],
+    "path133": [
+        (12, 3),
+        (12, 6),
+        (12, 10),
+        (12, 13),
+        (12, 5),
+        (8, 3),
+        (8, 6),
+        (8, 10),
+        (8, 13),
+        (8, 5),
+        (14, 3),
+        (14, 6),
+        (14, 10),
+        (14, 13),
+        (14, 5),
+    ],
+    "path134": [(0, 3), (0, 6), (0, 5), (0, 10), (0, 13)],
+    "path135": [(0, 3), (0, 6), (0, 10), (0, 13)],
+    "path136": [(0, 6), (0, 10), (0, 13)],
+    "path137": [(0, 6), (0, 13)],
+    "path138": [(0, 6)],
+    "path139": [(0, 13)],
+    "path140": [(0, 10)],
+    "path141": [(0, 3)],
+    "path142": [(0, 5)],
+    "path143": [(0, 5), (12, 5), (8, 5), (14, 5)],
+    "path144": [(0, 3), (12, 3), (8, 3), (14, 3), (16, 3), (7, 3), (15, 3)],
+    "path145": [(0, 10), (12, 10), (8, 10), (14, 10)],
+    "path146": [(0, 13), (12, 13), (8, 13), (14, 13)],
+    "path147": [[0, 6], (12, 6), (8, 6), (14, 6)],
+    "path151": [(1, 16)],
+    "path152": [(1, 9)],
+    "path153": [(1, 16), (1, 9)],
+    "path155": [(14, 12), (14, 17), (14, 11)],
+    "path156": [(3, 12), (6, 12), (7, 12), (10, 12), (13, 12)],
+    "path157": [(14, 12), (8, 12)],
+    "path158": [(8, 12), (14, 12)],
+    "path159": [(3, 8), (3, 12), (3, 14)],
+    "path160": [(3, 8), (3, 14)],
+    "path166": [(3, 12)],
+    "path171": [(5, 17)],
+    "path172": [(10, 14), (5, 14)],
+    "path173": [(10, 14), (5, 14), (3, 14)],
+    "path174": [(3, 8)],
+    "path175": [(3, 14)],
+    "path176": [(3, 8)],
+    "path177": [(7, 12)],
+    "path178": [(7, 14), (7, 8), (7, 17)],
+    "path179": [(7, 17), (16, 17)],
+    "path180": [(7, 17)],
+    "path181": [(7, 8), (7, 14)],
+    "path182": [(7, 14)],
+    "path183": [(7, 8)],
+    "path184": [(16, 17)],
+    "path185": [(16, 14)],
+    "path186": [(16, 0)],
+    "path187": [(16, 0), (9, 0), (3, 0), (5, 0), (6, 0), (7, 0), (10, 0), (13, 0)],
+    "path188": [(17, 14), (17, 8), (17, 12)],
+    "path189": [(17, 14)],
+    "path190": [(17, 12)],
+    "path191": [(15, 9)],
+    "path192": [(15, 16), (15, 3), (15, 5), (15, 6), (15, 7), (15, 10), (15, 13)],
+    "path193": [(15, 6)],
+    "path194": [(15, 3), (15, 5), (15, 7), (15, 10), (15, 13)],
+    "path195": [(15, 13)],
+    "path196": [(15, 3), (15, 5), (15, 7), (15, 10)],
+    "path197": [(15, 10)],
+    "path198": [(15, 7), (15, 5), (15, 3)],
+    "path199": [(15, 7)],
+    "path201": [(15, 10)],
+    "path6": [(4, 12)],
+    "path7": [(4, 12), (17, 12)],
+    "path8": [(5, 14)],
+    "path9": [(5, 14)],
+    "path10": [(10, 14)],
+    "path11": [(10, 12), (10, 8)],
+    "path12": [(8, 0), (8, 3), (8, 5), (8, 6), (8, 10), (8, 13), (8, 2)],
+    "path13": [
+        (8, 0),
+        (8, 3),
+        (8, 5),
+        (8, 6),
+        (8, 10),
+        (8, 13),
+        (8, 2),
+        (12, 0),
+        (12, 3),
+        (12, 5),
+        (12, 6),
+        (12, 10),
+        (12, 13),
+        (12, 2),
+    ],
+    "path14": [(12, 2), (14, 2), (8, 2)],
+    "path16": [
+        (8, 3),
+        (8, 5),
+        (8, 6),
+        (8, 10),
+        (8, 13),
+        (8, 2),
+        (14, 3),
+        (14, 5),
+        (14, 6),
+        (14, 10),
+        (14, 13),
+        (14, 2),
+        (12, 3),
+        (12, 5),
+        (12, 6),
+        (12, 10),
+        (12, 13),
+        (12, 2),
+    ],
+    "path18": [(14, 12), (14, 11), (14, 17), (8, 12), (8, 11), (8, 17)],
+    "path19": [(14, 11), (14, 17), (8, 11), (8, 17)],
+    "path20": [(14, 11), (8, 11)],
+    "path21": [(15, 16)],
+    "path22": [(15, 3), (15, 5), (15, 6), (15, 7), (15, 10), (15, 13)],
+    "path24": [(16, 0), (9, 0)],
+    "path25": [(6, 0)],
+    "path28": [(16, 0), (9, 0), (6, 0)],
+    "path30": [(13, 0)],
+    "path33": [(16, 0), (9, 0), (6, 0), (13, 0)],
+    "path38": [(3, 0), (10, 0)],
+    "path51": [(10, 0)],
+    "path59": [(3, 0)],
+    "path63": [(16, 0), (9, 0), (3, 0), (6, 0), (10, 0), (13, 0)],
+    "path64": [(7, 0)],
+    "path67": [(16, 0), (9, 0), (3, 0), (6, 0), (7, 0), (10, 0), (13, 0)],
+    "path73": [(5, 0)],
+    "path82": [(2, 9), (0, 9)],
+    "path84": [(2, 16), (0, 16)],
+    "path148": [(16, 3)],
+    "path161": [(16, 3), (16, 0)],
+    "path162": [(12, 3), (14, 3), (8, 3), (0, 3)],
+    "path163": [(16, 3)],
+    "path164": [(7, 3)],
+    "path168": [(7, 3), (7, 0)],
+    "path169": [(7, 3), (16, 3), (15, 3)],
+    "path202": [(15, 3)],
+    "path203": [(15, 3), (16, 3)],
+    "path204": [(15, 5)],
+    "path205": [(0, 5), (12, 5), (8, 5), (14, 5), (15, 5)],
+    "path206": [(15, 3), (15, 5)],
 }
 
 # %%
@@ -236,8 +455,10 @@ def update_svg_fluxes(svg_path, output_path, flux_matrix, labels, mapping_svg_fl
 
     for id_svg, ij_list in mapping_svg_fluxes.items():
         total_flux = sum(flux_matrix[i, j] for i, j in ij_list)
-        width = max(total_flux * scale, 0.5)  # Épaisseur minimale à 0.5 pour visibilité
-
+        if total_flux > 0.005:
+            width = max(total_flux * scale, 0.5)  # Épaisseur minimale à 0.5 pour visibilité
+        else:
+            width = 0
         xpath = f"//svg:path[@id='{id_svg}']"
         elems = root.xpath(xpath, namespaces={"svg": ns})
         if not elems:
@@ -258,6 +479,72 @@ def update_svg_fluxes(svg_path, output_path, flux_matrix, labels, mapping_svg_fl
         # path.attrib["style"] = new_style
 
     tree.write(output_path, pretty_print=False, xml_declaration=True, encoding="UTF-8")
+
+
+# %% Test pour améliorer l'aspect des fluxs :
+
+
+def pretty_split_branches(svg_in, svg_out, group_ids, gap_px=1.0):
+    """
+    Décale légèrement les branches (paths) listées dans group_ids
+    pour éviter qu'elles se superposent au nœud de jonction.
+
+    Parameters
+    ----------
+    svg_in : str
+        Fichier SVG d'origine.
+    svg_out : str
+        Fichier SVG de sortie.
+    group_ids : dict
+        {parent_id: [branch_id1, branch_id2, ...]}
+    gap_px : float
+        Décalage vertical (en px) entre deux branches successives.
+    """
+    tree = etree.parse(svg_in)
+    root = tree.getroot()
+    ns = {"svg": root.nsmap.get(None)}
+
+    def first_move_point(path_d):
+        # renvoie (x, y) du premier MoveTo
+        m = re.search(r"M\s*([0-9.\-eE]+),([0-9.\-eE]+)", path_d)
+        if m:
+            return float(m.group(1)), float(m.group(2))
+        return None, None
+
+    for parent_id, branch_ids in group_ids.items():
+        parent = root.xpath(f"//svg:path[@id='{parent_id}']", namespaces=ns)
+        if not parent:
+            print(f"Parent introuvable : {parent_id}")
+            continue
+
+        x_p, y_p = first_move_point(parent[0].attrib["d"])
+        if x_p is None:
+            continue
+
+        n = len(branch_ids)
+        offsets = [(i - (n - 1) / 2) * gap_px for i in range(n)]
+
+        for branch_id, dy in zip(branch_ids, offsets):
+            node = root.xpath(f"//svg:path[@id='{branch_id}']", namespaces=ns)
+            if not node:
+                print(f"  Branche manquante : {branch_id}")
+                continue
+            path = node[0]
+            d = path.attrib["d"]
+
+            def shift(match):
+                x, y = float(match.group(1)), float(match.group(2))
+                # compare au nœud parent
+                dx = x - x_p
+                dy0 = y - y_p
+                if abs(dx) < 1e-3 and abs(dy0) < 1e-3:
+                    return f"M {x},{y + dy}"
+                return match.group(0)
+
+            d_new = re.sub(r"M\s*([0-9.\-eE]+),([0-9.\-eE]+)", shift, d, count=1)
+            path.attrib["d"] = d_new
+
+    tree.write(svg_out, xml_declaration=True, encoding="utf-8", pretty_print=False)
 
 
 # %%

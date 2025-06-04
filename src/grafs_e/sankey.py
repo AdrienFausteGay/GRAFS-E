@@ -539,13 +539,12 @@ def streamlit_sankey_app(model, mode_complet):
                 "Other cereals",
                 "Rice",
             ],
-            "Grassland and forages": [
-                "Natural meadow ",
+            "Forages": [
                 "Straw",
                 "Forage maize",
-                "Non-legume temporary meadow",
                 "Forage cabbages",
             ],
+            "Temporary meadows": ["Non-legume temporary meadow", "Alfalfa and clover"],
             "Oleaginous": ["Rapeseed", "Sunflower", "Hemp", "Flax"],
             "Leguminous": [
                 "Soybean",
@@ -556,7 +555,6 @@ def streamlit_sankey_app(model, mode_complet):
                 "Green peas",
                 "Dry beans",
                 "Green beans",
-                "Alfalfa and clover",
             ],
             "Fruits and vegetables": [
                 "Dry vegetables",
@@ -592,6 +590,7 @@ def streamlit_sankey_app(model, mode_complet):
                 "oleaginous feed trade",
                 "grasslands feed trade",
                 "fishery products",
+                "temporary meadows feed trade",
             ],
         }
 
@@ -620,7 +619,9 @@ def streamlit_sankey_app(model, mode_complet):
             return "crimson"
         if lbl == "Leguminous":
             return "lightgreen"
-        if lbl == "Grassland and forages":
+        if lbl == "Forages":
+            return "limegreen"
+        if lbl == "Temporary meadows":
             return "darkgreen"
         if lbl == "Cereals":
             return "gold"

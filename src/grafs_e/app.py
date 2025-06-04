@@ -469,13 +469,12 @@ with tab3:
                     "Other cereals",
                     "Rice",
                 ],
-                "Grassland and forages": [
-                    "Natural meadow ",
+                "Forages": [
                     "Straw",
                     "Forage maize",
-                    "Non-legume temporary meadow",
                     "Forage cabbages",
                 ],
+                "Temporary meadows": ["Non-legume temporary meadow", "Alfalfa and clover"],
                 "Oleaginous": ["Rapeseed", "Sunflower", "Hemp", "Flax"],
                 "Leguminous": [
                     "Soybean",
@@ -486,7 +485,6 @@ with tab3:
                     "Green peas",
                     "Dry beans",
                     "Green beans",
-                    "Alfalfa and clover",
                 ],
                 "Fruits and vegetables": [
                     "Dry vegetables",
@@ -554,13 +552,12 @@ with tab3:
                     "Other cereals",
                     "Rice",
                 ],
-                "Grassland and forages": [
-                    "Natural meadow ",
+                "Forages": [
                     "Straw",
                     "Forage maize",
-                    "Non-legume temporary meadow",
                     "Forage cabbages",
                 ],
+                "Temporary meadows": ["Non-legume temporary meadow", "Alfalfa and clover"],
                 "Oleaginous": ["Rapeseed", "Sunflower", "Hemp", "Flax"],
                 "Leguminous": [
                     "Soybean",
@@ -571,7 +568,6 @@ with tab3:
                     "Green peas",
                     "Dry beans",
                     "Green beans",
-                    "Alfalfa and clover",
                 ],
                 "Fruits and vegetables": [
                     "Dry vegetables",
@@ -602,6 +598,8 @@ with tab3:
             "leguminous feed trade",
             "oleaginous feed trade",
             "grasslands feed trade",
+            "temporary meadows feed trade",
+            "natural meadows feed trade",
         ]
 
         streamlit_sankey_food_flows(model, cultures, legumineuses, prairies, trades, merges=merge)

@@ -44,7 +44,7 @@ def get_matrices(data):
 
 # %%
 if run:
-    matrices, norm_matrices = get_matrices()
+    matrices, norm_matrices = get_matrices(data)
 # %%
 # Leontieff-like normalization: divide each column by its total
 # norm_matrices = {}
@@ -55,10 +55,11 @@ if run:
 #         norm_M[np.isnan(norm_M)] = 0  # replace NaNs from division by zero
 #     norm_matrices[reg] = norm_M
 
-# %% vectorization
+# %%
 
 
 def plot_dendrogram(norm_matrices, seuil=0.22):
+    # vectorization
     # X = np.vstack([M.flatten() for M in norm_matrices.values()])  # shape = (33, n*n)
     # regions_order = list(norm_matrices.keys())
     X = np.vstack([M.flatten() for M in norm_matrices.values()])
@@ -66,7 +67,6 @@ def plot_dendrogram(norm_matrices, seuil=0.22):
     regions_order = list(norm_matrices.keys())
 
     X_scaled = StandardScaler().fit_transform(X)
-    # %% Clusterisation
     Z = linkage(X, method="complete")  # ou "average", "complete", …
     Z2 = linkage(normalize(X, norm="l2"), method="ward")
     Z3 = linkage(MaxAbsScaler().fit_transform(X), method="ward")
