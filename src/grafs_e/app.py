@@ -6,6 +6,7 @@ import os
 import pickle
 import tempfile
 from importlib.metadata import version
+from pathlib import Path
 
 import branca
 import folium
@@ -27,8 +28,8 @@ from grafs_e.sankey import (
     streamlit_sankey_app,
     streamlit_sankey_fertilization,
     streamlit_sankey_food_flows,
-    streamlit_sankey_systemic_flows,
 )
+from grafs_e.system_flows_svg import mapping_svg_fluxes, streamlit_sankey_systemic_flows_svg
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -610,7 +611,14 @@ with tab3:
         )
         st.write("For optimal visualization, please switch to full screen mode.")
 
-        streamlit_sankey_systemic_flows(model)
+        # streamlit_sankey_systemic_flows(model)
+        # os.path.join(os.getcwd(), "data/system_flows.svg")
+        # 1) Point de départ : le dossier racine du projet
+        base = Path(__file__).parent.parent  # par exemple, un dossier au-dessus de app.py
+        # 2) Construire le chemin vers le SVG
+        svg_template_path = base / "grafs_e" / "data" / "system_flows.svg"
+
+        streamlit_sankey_systemic_flows_svg(model, mapping_svg_fluxes, svg_template_path)
 
 with tab4:
     st.title("Detailed data")

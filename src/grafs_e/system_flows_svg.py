@@ -1,11 +1,9 @@
 # %%
 import re
-import subprocess
 from pathlib import Path
 
-import cairosvg
 import numpy as np
-import streamlit as st
+import streamlit.components.v1 as components
 from lxml import etree
 
 from grafs_e.donnees import *
@@ -14,117 +12,83 @@ from grafs_e.typology import compute_mean_matrice, get_matrices, merge_nodes, pl
 
 # %%
 # etree.register_namespace('', "http://www.w3.org/2000/svg")
-
-data = DataLoader()
-matrices, norm_matrices = get_matrices(data)
-df_plot = plot_dendrogram(norm_matrices)
-mean_matrices_by_cluster, global_mean_matrices = compute_mean_matrice(norm_matrices, df_plot)
+run = False
+if run == True:
+    data = DataLoader()
+    matrices, norm_matrices = get_matrices(data)
+    df_plot = plot_dendrogram(norm_matrices)
+    mean_matrices_by_cluster, global_mean_matrices = compute_mean_matrice(norm_matrices, df_plot)
 # %%
-
-mean_matrices_by_cluster_merged = {}
-for cluster in mean_matrices_by_cluster.keys():
-    mean_matrices_by_cluster_merged[cluster], new_labels, _ = merge_nodes(
-        mean_matrices_by_cluster[cluster],
-        labels,
-        merges={
-            "cereals (excluding rice)": [
-                "Wheat",
-                "Rye",
-                "Barley",
-                "Oat",
-                "Grain maize",
-                "Rice",
-                "Other cereals",
-            ],
-            "fruits and vegetables": [
-                "Dry vegetables",
-                "Dry fruits",
-                "Squash and melons",
-                "Cabbage",
-                "Leaves vegetables",
-                "Fruits",
-                "Olives",
-                "Citrus",
-            ],
-            "leguminous": [
-                "Horse beans and faba beans",
-                "Peas",
-                "Other protein crops",
-                "Green peas",
-                "Dry beans",
-                "Green beans",
-                "Soybean",
-            ],
-            "oleaginous": ["Rapeseed", "Sunflower", "Other oil crops", "Flax", "Hemp"],
-            "forages": [
-                "Forage maize",
-                "Forage cabbages",
-                "Straw",
-            ],
-            "temporary meadows": ["Non-legume temporary meadow", "Alfalfa and clover"],
-            "natural meadows ": ["Natural meadow "],
-            "trade": [
-                "animal trade",
-                "cereals (excluding rice) food trade",
-                "fruits and vegetables food trade",
-                "leguminous food trade",
-                "oleaginous food trade",
-                "roots food trade",
-                "rice food trade",
-                "cereals (excluding rice) feed trade",
-                "forages feed trade",
-                "leguminous feed trade",
-                "oleaginous feed trade",
-                "grasslands feed trade",
-                "temporary meadows feed trade",
-            ],
-            "ruminants": ["bovines", "ovines", "caprines", "equine"],
-            "monogastrics": ["porcines", "poultry"],
-            "population": ["urban", "rural"],
-            "Environment": [
-                "NH3 volatilization",
-                "N2O emission",
-                "hydro-system",
-                "other losses",
-            ],
-            "roots": ["Sugar beet", "Potatoes", "Other roots"],
-        },
-    )
-
-
-# %% Premier test
-def update_svg_flows(svg_path, output_path, stroke_by_id):
-    """
-    Met à jour l'épaisseur des traits (stroke-width) pour des éléments SVG donnés par leur ID.
-    Le marqueur (flèche) s'adapte automatiquement si markerUnits="strokeWidth".
-    """
-    parser = etree.XMLParser(remove_blank_text=True)
-    tree = etree.parse(svg_path, parser)
-    root = tree.getroot()
-    ns = root.nsmap.get(None)
-
-    for elem_id, new_width in stroke_by_id.items():
-        xpath = f"//svg:path[@id='{elem_id}']"
-        elems = root.xpath(xpath, namespaces={"svg": ns})
-        if not elems:
-            print(f"⚠️ Élément non trouvé : {elem_id}")
-            continue
-        path = elems[0]
-        style = path.attrib.get("style", "")
-        # Mise à jour du stroke-width dans l'attribut style
-        new_style = re.sub(r"stroke-width:[^;]+", f"stroke-width:{new_width}", style)
-        path.attrib["style"] = new_style
-
-    tree.write(output_path, pretty_print=True, xml_declaration=True, encoding="UTF-8")
-
-
-# update_svg_flows(
-#     svg_path="C:/Users/faustega/Documents/These/Typologie/test schéma/plain_svg.svg",
-#     output_path="C:/Users/faustega/Documents/These/Typologie/test schéma/test_updated.svg",
-#     stroke_by_id={
-#         "flux_cereals_trade": 3.0  # ou n’importe quelle valeur
-#     },
-# )
+if run == True:
+    mean_matrices_by_cluster_merged = {}
+    for cluster in mean_matrices_by_cluster.keys():
+        mean_matrices_by_cluster_merged[cluster], new_labels, _ = merge_nodes(
+            mean_matrices_by_cluster[cluster],
+            labels,
+            merges={
+                "cereals (excluding rice)": [
+                    "Wheat",
+                    "Rye",
+                    "Barley",
+                    "Oat",
+                    "Grain maize",
+                    "Rice",
+                    "Other cereals",
+                ],
+                "fruits and vegetables": [
+                    "Dry vegetables",
+                    "Dry fruits",
+                    "Squash and melons",
+                    "Cabbage",
+                    "Leaves vegetables",
+                    "Fruits",
+                    "Olives",
+                    "Citrus",
+                ],
+                "leguminous": [
+                    "Horse beans and faba beans",
+                    "Peas",
+                    "Other protein crops",
+                    "Green peas",
+                    "Dry beans",
+                    "Green beans",
+                    "Soybean",
+                ],
+                "oleaginous": ["Rapeseed", "Sunflower", "Other oil crops", "Flax", "Hemp"],
+                "forages": [
+                    "Forage maize",
+                    "Forage cabbages",
+                    "Straw",
+                ],
+                "temporary meadows": ["Non-legume temporary meadow", "Alfalfa and clover"],
+                "natural meadows ": ["Natural meadow "],
+                "trade": [
+                    "animal trade",
+                    "cereals (excluding rice) food trade",
+                    "fruits and vegetables food trade",
+                    "leguminous food trade",
+                    "oleaginous food trade",
+                    "roots food trade",
+                    "rice food trade",
+                    "cereals (excluding rice) feed trade",
+                    "forages feed trade",
+                    "leguminous feed trade",
+                    "oleaginous feed trade",
+                    "grasslands feed trade",
+                    "temporary meadows feed trade",
+                ],
+                "ruminants": ["bovines", "ovines", "caprines", "equine"],
+                "monogastrics": ["porcines", "poultry"],
+                "population": ["urban", "rural"],
+                "Environment": [
+                    "NH3 volatilization",
+                    "N2O emission",
+                    "hydro-system",
+                    "other losses",
+                ],
+                "roots": ["Sugar beet", "Potatoes", "Other roots"],
+            },
+        )
 
 # %% lire les id
 
@@ -143,7 +107,7 @@ def list_svg_paths(svg_path):
 
 
 # Exemple d'usage
-list_svg_paths("C:/Users/faustega/Documents/These/Typologie/test schéma/system_flows.svg")
+# list_svg_paths("C:/Users/faustega/Documents/These/Typologie/test schéma/system_flows.svg")
 # %% Dictionnaire des correspondances flux et path (svg)
 new_labels = [
     "Environment",
@@ -444,10 +408,10 @@ def update_svg_fluxes(
     svg_path,
     output_path,
     flux_matrix,
-    labels,
     mapping_svg_fluxes,
     scale=100,
     inkscape_exe="C:/Program Files/Inkscape/bin/inkscape.exe",
+    save=False,
 ):
     """
     Met à jour les épaisseurs des flux dans le SVG selon la matrice et le mapping.
@@ -491,112 +455,333 @@ def update_svg_fluxes(
         # new_style = re.sub(r"stroke-width:[^;]+", f"stroke-width:{width}", style)
         # path.attrib["style"] = new_style
 
-    if output_path.lower().endswith((".jpg", ".jpeg")):
-        # 2. ⬇️  Écrit un SVG temporaire (même dossier que output)
-        tmp_svg = Path(output_path).with_suffix(".tmp.svg")
-        tree.write(tmp_svg, xml_declaration=True, encoding="UTF-8", pretty_print=False)
+    # if output_path.lower().endswith((".jpg", ".jpeg")):
+    #     # 2. ⬇️  Écrit un SVG temporaire (même dossier que output)
+    #     tmp_svg = Path(output_path).with_suffix(".tmp.svg")
+    #     tree.write(tmp_svg, xml_declaration=True, encoding="UTF-8", pretty_print=False)
 
-        # 3. ⬇️  Construit la commande Inkscape CLI
-        cmd = [
-            inkscape_exe,
-            str(tmp_svg),
-            f"--export-filename={output_path}",
-            "--export-background=#ffffff",
-            "--export-area-drawing",
-        ]
-        export_width = 2000
-        export_height = None
-        if export_width:
-            cmd.append(f"--export-width={export_width}")
-        if export_height:
-            cmd.append(f"--export-height={export_height}")
+    #     # 3. ⬇️  Construit la commande Inkscape CLI
+    #     cmd = [
+    #         inkscape_exe,
+    #         str(tmp_svg),
+    #         f"--export-filename={output_path}",
+    #         "--export-background=#ffffff",
+    #         "--export-area-drawing",
+    #     ]
+    #     export_width = 2000
+    #     export_height = None
+    #     if export_width:
+    #         cmd.append(f"--export-width={export_width}")
+    #     if export_height:
+    #         cmd.append(f"--export-height={export_height}")
 
-        # 4. ⬇️  Exécute Inkscape
-        subprocess.run(cmd, check=True)
-        print(f"✅  Image générée via Inkscape : {output_path}")
+    #     # 4. ⬇️  Exécute Inkscape
+    #     subprocess.run(cmd, check=True)
+    #     print(f"✅  Image générée via Inkscape : {output_path}")
 
-        # 5. ⬇️  Si JPG, convertir le PNG temporaire
-        if output_path.lower().endswith((".jpg", ".jpeg")):
-            # Inkscape vient d’exporter un JPG directement; s’il a exporté un PNG,
-            # décocher ce bloc et adapter: convertir PNG -> JPG via Pillow.
-            pass
+    #     # 5. ⬇️  Si JPG, convertir le PNG temporaire
+    #     if output_path.lower().endswith((".jpg", ".jpeg")):
+    #         # Inkscape vient d’exporter un JPG directement; s’il a exporté un PNG,
+    #         # décocher ce bloc et adapter: convertir PNG -> JPG via Pillow.
+    #         pass
 
-        # 6. ⬇️  Nettoyage
-        tmp_svg.unlink(missing_ok=True)
-    else:
+    #     # 6. ⬇️  Nettoyage
+    #     tmp_svg.unlink(missing_ok=True)
+    if save == True:
         tree.write(output_path, pretty_print=False, xml_declaration=True, encoding="UTF-8")
+    else:
+        return etree.tostring(
+            tree,
+            encoding="utf-8",
+            xml_declaration=True,  # on retire <?xml…> pour l’embed
+            pretty_print=False,
+        ).decode()
 
 
-def streamlit_sankey_systemic_flows(
+def build_flow_svg(
     svg_template_path: str,
     flux_matrix: np.ndarray,
     mapping_svg_fluxes: dict[str, list[tuple[int, int]]],
-    scale_px: float = 100.0,
-    legend_steps: int = 4,
-):
+    scale_max_px: float = 25.0,
+) -> str:
     """
-    Affiche le diagramme (SVG → PNG) + légende dans Streamlit.
+    Charge le template SVG et met à jour les `stroke-width`
+    en normalisant l’épaisseur maximale à `scale_max_px` pixels.
+    Retourne le SVG en **chaîne de caractères**.
+    """
+    parser = etree.XMLParser(remove_blank_text=False)
+    # try:
+    #     tree = etree.parse(svg_template_path, parser)
+    # except Exception as e:
+    #     print("❌ Erreur durant le parsing du SVG :")
+    #     print(f"   Chemin utilisé  : {svg_template_path}")
+    #     print(f"   Exception levée : {repr(e)}")
+    #     raise
+    tree = etree.parse(svg_template_path, parser)
+    root = tree.getroot()
+    # # Force le SVG à être redimensionnable selon son viewBox
+    # if "width" in root.attrib:
+    #     del root.attrib["width"]
+    # if "height" in root.attrib:
+    #     del root.attrib["height"]
+    # # On s’assure que le viewBox sera pris en compte à 100 %
+    # root.attrib["preserveAspectRatio"] = "xMinYMin meet"
+    ns = {"svg": root.nsmap.get(None)}
 
-    • flux_matrix est normalisée (somme = 1) avant mise à l'échelle.
-    • Légende : barres d'épaisseur correspondant aux paliers de flux.
+    # Valeur max pour la normalisation
+    vmax = max(
+        (flux_matrix[i, j] for pairs in mapping_svg_fluxes.values() for i, j in pairs if flux_matrix[i, j] > 0),
+        default=1e-9,
+    )
 
-    Parameters
-    ----------
-    svg_template_path : chemin du SVG « vide » (flux fins).
-    flux_matrix       : np.ndarray carrée des flux (kt N / yr).
-    mapping_svg_fluxes: {id_svg: [(i,j), …]}  liste des paires sommées.
-    scale_px          : facteur px / (kt N / yr).
-    legend_steps      : nombre de paliers de légende.
+    for path_id, ij_list in mapping_svg_fluxes.items():
+        total = sum(float(flux_matrix[i, j]) for i, j in ij_list)
+        width = 0 if total == 0 else total / vmax * scale_max_px
+
+        nodes = root.xpath(f"//svg:path[@id='{path_id}']", namespaces=ns)
+        if not nodes:
+            continue
+        path = nodes[0]
+        style = path.attrib.get("style", "")
+        if "stroke-width" in style:
+            style = re.sub(r"stroke-width:[^;]+", f"stroke-width:{width}", style)
+        else:
+            style = style.rstrip(";") + f";stroke-width:{width}"
+        path.attrib["style"] = style
+
+    return etree.tostring(
+        tree,
+        encoding="utf-8",
+        xml_declaration=False,  # on retire <?xml…> pour l’embed
+        pretty_print=False,
+    ).decode()
+
+
+def build_flow_svg_full(
+    svg_template_path: str,
+    flux_matrix: np.ndarray,
+    mapping_svg_fluxes: dict[str, list[tuple[int, int]]],
+    scale_max_px: float = 25.0,
+) -> str:
+    """
+    1) Met à jour les `stroke-width` des chemins SVG selon flux_matrix (normalisé).
+    2) Calcule la bounding‐box de toutes les formes (paths + rects).
+    3) Réécrit le <svg> pour supprimer width/height, ajouter viewBox et overflow="visible".
+    4) Retourne le SVG complet (chaîne UTF‐8), prêt à être injecté tel quel.
     """
 
-    # ───── 1. normalisation ─────
-    total_flux = flux_matrix.sum()
-    if total_flux == 0:
-        st.warning("Matrice vide ; aucun flux à tracer.")
-        return
-    mat_norm = flux_matrix / total_flux  # somme = 1
-
-    # ───── 2. mise à jour du SVG en mémoire ─────
+    # --- 1) parser le SVG ---
     parser = etree.XMLParser(remove_blank_text=False)
     tree = etree.parse(svg_template_path, parser)
     root = tree.getroot()
     ns = {"svg": root.nsmap.get(None)}
 
-    max_width_px = 0  # pour savoir jusqu'où va le scale, utile à la légende
+    # --- 2) Traiter les stroke‐width comme avant ---
+    # 2.1 Calculer vmax pour la normalisation
+    all_flux = [flux_matrix[i, j] for pairs in mapping_svg_fluxes.values() for i, j in pairs if flux_matrix[i, j] > 0]
+    vmax = max(all_flux) if all_flux else 1e-9
+
+    # 2.2 Mettre à jour chaque <path> ciblé
     for path_id, ij_list in mapping_svg_fluxes.items():
-        flux_value = sum(float(mat_norm[i, j]) for i, j in ij_list)  # normalisé
-        width_px = flux_value * scale_px
-        max_width_px = max(max_width_px, width_px)
+        total = sum(float(flux_matrix[i, j]) for i, j in ij_list)
+        width = 0 if total == 0 else (total / vmax) * scale_max_px
 
         nodes = root.xpath(f"//svg:path[@id='{path_id}']", namespaces=ns)
         if not nodes:
-            st.write(f"⚠️ id {path_id} absent du SVG.")
             continue
-
-        style = nodes[0].attrib.get("style", "")
+        path = nodes[0]
+        style = path.attrib.get("style", "")
         if "stroke-width" in style:
-            style = re.sub(r"stroke-width:[^;]+", f"stroke-width:{width_px}", style)
+            style = re.sub(r"stroke-width:[^;]+", f"stroke-width:{width}", style)
         else:
-            style = style.rstrip(";") + f";stroke-width:{width_px}"
-        nodes[0].attrib["style"] = style
+            style = style.rstrip(";") + f";stroke-width:{width}"
+        path.attrib["style"] = style
 
-    # ───── 3. SVG → PNG (fond blanc) ─────
-    svg_bytes = etree.tostring(tree, xml_declaration=True, encoding="utf-8", pretty_print=False)
-    png_bytes = cairosvg.svg2png(bytestring=svg_bytes, background_color="white", unsafe=True, output_width=2000)
+    # --- 3) Calculer la bounding‐box de tout le contenu ---
+    # On cherche minx, miny, maxx, maxy parmi:
+    #   • Tous les ‘M x,y’, ‘L x,y’, ‘C …’ d’un <path> (on prend TOUTES les coordonnées absolues)
+    #   • Tous les coins des <rect> (x,y) + (x+width, y+height)
+    minx = miny = float("inf")
+    maxx = maxy = float("-inf")
 
-    # ───── 4. Streamlit : affiche le diagramme ─────
-    st.image(png_bytes, caption="Diagramme systémique (flux normalisés)")
+    # 3.1 Pour chaque <path> : extraire tous les nombres de ‘d=’
+    for elem in root.xpath("//svg:path", namespaces=ns):
+        d = elem.attrib.get("d", "")
+        # trouver toutes les valeurs numériques (x1, y1, x2, y2, …)
+        nums = re.findall(r"[-+]?\d*\.?\d+|[-+]?\d+", d)
+        # on convertit en float et on prend paires (0,1), (2,3), …
+        coords = [float(x) for x in nums]
+        xs = coords[0::2]
+        ys = coords[1::2]
+        if xs and ys:
+            minx = min(minx, min(xs))
+            maxx = max(maxx, max(xs))
+            miny = min(miny, min(ys))
+            maxy = max(maxy, max(ys))
 
-    # ───── 5. Légende (barres horizontales) ─────
-    st.markdown("#### Légende (kt N / yr → épaisseur en pixels)")
-    legend_vals = np.linspace(0, total_flux / legend_steps, legend_steps + 1)[1:]
-    for val in legend_vals:
-        width_px = val / total_flux * scale_px
-        bar_svg = f"""
-        <svg width="200" height="{width_px + 4}">
-            <line x1="0" y1="{width_px / 2 + 2}" x2="150" y2="{width_px / 2 + 2}"
-                  stroke="black" stroke-width="{width_px}" />
-            <text x="160" y="{width_px / 2 + 6}" font-size="12">{val:.2e}</text>
-        </svg>
-        """
-        st.markdown(bar_svg, unsafe_allow_html=True)
+    # 3.2 Pour chaque <rect> : coins (x, y) et (x+width, y+height)
+    for elem in root.xpath("//svg:rect", namespaces=ns):
+        x = float(elem.attrib.get("x", 0))
+        y = float(elem.attrib.get("y", 0))
+        w = float(elem.attrib.get("width", 0))
+        h = float(elem.attrib.get("height", 0))
+        minx = min(minx, x)
+        maxx = max(maxx, x + w)
+        miny = min(miny, y)
+        maxy = max(maxy, y + h)
+
+    # Si on n’a rien trouvé (aucun path ni rect), on reste sur le viewBox existant (ou on quitte)
+    if minx == float("inf"):
+        # Rien à calculer, on renvoie le SVG original modifié
+        return etree.tostring(tree, encoding="utf-8", pretty_print=False).decode()
+
+    # --- 4) Réécrire le <svg> pour englober ces bornes ---
+    # 4.1 Supprimer width/height (pour que le viewBox gouverne l’affichage)
+    for attr in ("width", "height"):
+        if attr in root.attrib:
+            del root.attrib[attr]
+
+    # 4.2 Ajouter le viewBox = "minx miny width_box height_box"
+    vb_x = minx
+    vb_y = miny
+    vb_width = maxx - minx
+    vb_height = maxy - miny
+    root.attrib["viewBox"] = f"{vb_x} {vb_y} {vb_width} {vb_height}"
+
+    # 4.3 S’assurer que rien n’est masqué : overflow="visible"
+    root.attrib["overflow"] = "visible"
+
+    tree.write(Path(svg_template_path).parent / "test.svg", pretty_print=False, xml_declaration=True, encoding="UTF-8")
+
+    # --- 5) Renvoyer le SVG final (sans <?xml …>) ---
+    return etree.tostring(tree, encoding="utf-8", xml_declaration=False, pretty_print=False).decode()
+
+
+# ──────────────────────────────────────────────
+# 2)  Fonction Streamlit qui affiche le SVG + légende
+# ──────────────────────────────────────────────
+# def streamlit_sankey_systemic_flows_svg(
+#     flux_matrix: np.ndarray,
+#     mapping_svg_fluxes: dict,
+#     svg_template_path: str,
+#     n_legend_steps: int = 4,
+#     scale_max_px: float = 25.0,
+# ):
+#     # 2.1  produire le SVG final (string)
+#     svg_str = build_flow_svg(svg_template_path, flux_matrix, mapping_svg_fluxes, scale_max_px)
+
+#     # 2.2  injection directe dans la page
+#     st.markdown(f'<div style="text-align:center">{svg_str}</div>', unsafe_allow_html=True)
+
+#     # 2.3  légende dynamique
+#     vmax = max(
+#         (flux_matrix[i, j] for pairs in mapping_svg_fluxes.values() for i, j in pairs if flux_matrix[i, j] > 0),
+#         default=1e-9,
+#     )
+#     step_vals = np.linspace(0, vmax, n_legend_steps + 1)[1:]
+
+#     legend_svg = [
+#         '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="{}">'.format(
+#             int((scale_max_px + 6) * len(step_vals))
+#         )
+#     ]
+#     y_cursor = 0
+#     for v in step_vals:
+#         w = int(v / vmax * scale_max_px)
+#         legend_svg.append(
+#             f'<path d="M 10 {y_cursor + w / 2 + 3} L 150 {y_cursor + w / 2 + 3}" stroke="black" stroke-width="{w}" />'
+#         )
+#         legend_svg.append(
+#             f'<text x="80" y="{y_cursor + w + 6}" font-size="9" text-anchor="middle">{v:.2f} kt N / an</text>'
+#         )
+#         y_cursor += w + 10
+#     legend_svg.append("</svg>")
+
+#     st.markdown("<br/><b>Légende – Intensité des flux</b>", unsafe_allow_html=True)
+#     st.markdown("".join(legend_svg), unsafe_allow_html=True)
+
+
+def streamlit_sankey_systemic_flows_svg(model, mapping_svg_fluxes, svg_template_path):
+    # 1. on génère le SVG string (avec build_flow_svg déjà modifié)
+    # svg_str = build_flow_svg_full(svg_template_path, flux_matrix, mapping_svg_fluxes, scale_max_px=25.0)
+    merged_matrix, _, _ = merge_nodes(
+        model.get_transition_matrix(),
+        labels_init,
+        merges={
+            "cereals (excluding rice)": [
+                "Wheat",
+                "Rye",
+                "Barley",
+                "Oat",
+                "Grain maize",
+                "Rice",
+                "Other cereals",
+            ],
+            "fruits and vegetables": [
+                "Dry vegetables",
+                "Dry fruits",
+                "Squash and melons",
+                "Cabbage",
+                "Leaves vegetables",
+                "Fruits",
+                "Olives",
+                "Citrus",
+            ],
+            "leguminous": [
+                "Horse beans and faba beans",
+                "Peas",
+                "Other protein crops",
+                "Green peas",
+                "Dry beans",
+                "Green beans",
+                "Soybean",
+            ],
+            "oleaginous": ["Rapeseed", "Sunflower", "Other oil crops", "Flax", "Hemp"],
+            "forages": [
+                "Forage maize",
+                "Forage cabbages",
+                "Straw",
+            ],
+            "temporary meadows": ["Non-legume temporary meadow", "Alfalfa and clover"],
+            "natural meadows ": ["Natural meadow "],
+            "trade": [
+                "animal trade",
+                "cereals (excluding rice) food trade",
+                "fruits and vegetables food trade",
+                "leguminous food trade",
+                "oleaginous food trade",
+                "roots food trade",
+                "rice food trade",
+                "cereals (excluding rice) feed trade",
+                "forages feed trade",
+                "leguminous feed trade",
+                "oleaginous feed trade",
+                "grasslands feed trade",
+                "temporary meadows feed trade",
+            ],
+            "ruminants": ["bovines", "ovines", "caprines", "equine"],
+            "monogastrics": ["porcines", "poultry"],
+            "population": ["urban", "rural"],
+            "Environment": [
+                "NH3 volatilization",
+                "N2O emission",
+                "hydro-system",
+                "other losses",
+            ],
+            "roots": ["Sugar beet", "Potatoes", "Other roots"],
+        },
+    )
+    normed_matrix = merged_matrix / merged_matrix.sum()
+    svg_str = update_svg_fluxes(
+        svg_template_path, Path(svg_template_path).parent / "test.svg", normed_matrix, mapping_svg_fluxes, save=False
+    )
+    # 2. on l’affiche dans un composant HTML dédié, en précisant largeur et hauteur ou en laissant défiler
+    components.html(
+        svg_str,
+        width=None,  # ou None pour full-width
+        height=1200,  # adapter si besoin
+        scrolling=False,
+    )
+
+
+# %%
