@@ -1,5 +1,7 @@
 # %%
 import re
+import subprocess
+from pathlib import Path
 
 from lxml import etree
 
@@ -435,7 +437,15 @@ mapping_svg_fluxes = {
 # %%
 
 
-def update_svg_fluxes(svg_path, output_path, flux_matrix, labels, mapping_svg_fluxes, scale=100):
+def update_svg_fluxes(
+    svg_path,
+    output_path,
+    flux_matrix,
+    labels,
+    mapping_svg_fluxes,
+    scale=100,
+    inkscape_exe="C:/Program Files/Inkscape/bin/inkscape.exe",
+):
     """
     Met à jour les épaisseurs des flux dans le SVG selon la matrice et le mapping.
 
@@ -478,7 +488,40 @@ def update_svg_fluxes(svg_path, output_path, flux_matrix, labels, mapping_svg_fl
         # new_style = re.sub(r"stroke-width:[^;]+", f"stroke-width:{width}", style)
         # path.attrib["style"] = new_style
 
-    tree.write(output_path, pretty_print=False, xml_declaration=True, encoding="UTF-8")
+    if output_path.lower().endswith((".jpg", ".jpeg")):
+        # 2. ⬇️  Écrit un SVG temporaire (même dossier que output)
+        tmp_svg = Path(output_path).with_suffix(".tmp.svg")
+        tree.write(tmp_svg, xml_declaration=True, encoding="UTF-8", pretty_print=False)
+
+        # 3. ⬇️  Construit la commande Inkscape CLI
+        cmd = [
+            inkscape_exe,
+            str(tmp_svg),
+            f"--export-filename={output_path}",
+            "--export-background=#ffffff",
+            "--export-area-drawing",
+        ]
+        export_width = 2000
+        export_height = None
+        if export_width:
+            cmd.append(f"--export-width={export_width}")
+        if export_height:
+            cmd.append(f"--export-height={export_height}")
+
+        # 4. ⬇️  Exécute Inkscape
+        subprocess.run(cmd, check=True)
+        print(f"✅  Image générée via Inkscape : {output_path}")
+
+        # 5. ⬇️  Si JPG, convertir le PNG temporaire
+        if output_path.lower().endswith((".jpg", ".jpeg")):
+            # Inkscape vient d’exporter un JPG directement; s’il a exporté un PNG,
+            # décocher ce bloc et adapter: convertir PNG -> JPG via Pillow.
+            pass
+
+        # 6. ⬇️  Nettoyage
+        tmp_svg.unlink(missing_ok=True)
+    else:
+        tree.write(output_path, pretty_print=False, xml_declaration=True, encoding="UTF-8")
 
 
 # %% Test pour améliorer l'aspect des fluxs :

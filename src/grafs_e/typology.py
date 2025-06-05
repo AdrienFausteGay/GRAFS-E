@@ -194,6 +194,17 @@ if run:
         template="plotly_white",
     )
 
+    for i in range(len(annees_disponibles)):
+        fig.add_annotation(
+            x=i * 1.05 / len(annees_disponibles),
+            y=-0.05,  # ou y=-0.05 pour dessous
+            xref="paper",
+            yref="paper",  # repère du canevas complet
+            text=str(annees_disponibles[i]),
+            showarrow=False,
+            font=dict(size=14),
+        )
+
     fig.show()
 
 # %% test
