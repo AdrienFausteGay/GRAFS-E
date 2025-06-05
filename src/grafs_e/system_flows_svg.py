@@ -3,6 +3,9 @@ import re
 import subprocess
 from pathlib import Path
 
+import cairosvg
+import numpy as np
+import streamlit as st
 from lxml import etree
 
 from grafs_e.donnees import *
@@ -524,70 +527,76 @@ def update_svg_fluxes(
         tree.write(output_path, pretty_print=False, xml_declaration=True, encoding="UTF-8")
 
 
-# %% Test pour améliorer l'aspect des fluxs :
-
-
-def pretty_split_branches(svg_in, svg_out, group_ids, gap_px=1.0):
+def streamlit_sankey_systemic_flows(
+    svg_template_path: str,
+    flux_matrix: np.ndarray,
+    mapping_svg_fluxes: dict[str, list[tuple[int, int]]],
+    scale_px: float = 100.0,
+    legend_steps: int = 4,
+):
     """
-    Décale légèrement les branches (paths) listées dans group_ids
-    pour éviter qu'elles se superposent au nœud de jonction.
+    Affiche le diagramme (SVG → PNG) + légende dans Streamlit.
+
+    • flux_matrix est normalisée (somme = 1) avant mise à l'échelle.
+    • Légende : barres d'épaisseur correspondant aux paliers de flux.
 
     Parameters
     ----------
-    svg_in : str
-        Fichier SVG d'origine.
-    svg_out : str
-        Fichier SVG de sortie.
-    group_ids : dict
-        {parent_id: [branch_id1, branch_id2, ...]}
-    gap_px : float
-        Décalage vertical (en px) entre deux branches successives.
+    svg_template_path : chemin du SVG « vide » (flux fins).
+    flux_matrix       : np.ndarray carrée des flux (kt N / yr).
+    mapping_svg_fluxes: {id_svg: [(i,j), …]}  liste des paires sommées.
+    scale_px          : facteur px / (kt N / yr).
+    legend_steps      : nombre de paliers de légende.
     """
-    tree = etree.parse(svg_in)
+
+    # ───── 1. normalisation ─────
+    total_flux = flux_matrix.sum()
+    if total_flux == 0:
+        st.warning("Matrice vide ; aucun flux à tracer.")
+        return
+    mat_norm = flux_matrix / total_flux  # somme = 1
+
+    # ───── 2. mise à jour du SVG en mémoire ─────
+    parser = etree.XMLParser(remove_blank_text=False)
+    tree = etree.parse(svg_template_path, parser)
     root = tree.getroot()
     ns = {"svg": root.nsmap.get(None)}
 
-    def first_move_point(path_d):
-        # renvoie (x, y) du premier MoveTo
-        m = re.search(r"M\s*([0-9.\-eE]+),([0-9.\-eE]+)", path_d)
-        if m:
-            return float(m.group(1)), float(m.group(2))
-        return None, None
+    max_width_px = 0  # pour savoir jusqu'où va le scale, utile à la légende
+    for path_id, ij_list in mapping_svg_fluxes.items():
+        flux_value = sum(float(mat_norm[i, j]) for i, j in ij_list)  # normalisé
+        width_px = flux_value * scale_px
+        max_width_px = max(max_width_px, width_px)
 
-    for parent_id, branch_ids in group_ids.items():
-        parent = root.xpath(f"//svg:path[@id='{parent_id}']", namespaces=ns)
-        if not parent:
-            print(f"Parent introuvable : {parent_id}")
+        nodes = root.xpath(f"//svg:path[@id='{path_id}']", namespaces=ns)
+        if not nodes:
+            st.write(f"⚠️ id {path_id} absent du SVG.")
             continue
 
-        x_p, y_p = first_move_point(parent[0].attrib["d"])
-        if x_p is None:
-            continue
+        style = nodes[0].attrib.get("style", "")
+        if "stroke-width" in style:
+            style = re.sub(r"stroke-width:[^;]+", f"stroke-width:{width_px}", style)
+        else:
+            style = style.rstrip(";") + f";stroke-width:{width_px}"
+        nodes[0].attrib["style"] = style
 
-        n = len(branch_ids)
-        offsets = [(i - (n - 1) / 2) * gap_px for i in range(n)]
+    # ───── 3. SVG → PNG (fond blanc) ─────
+    svg_bytes = etree.tostring(tree, xml_declaration=True, encoding="utf-8", pretty_print=False)
+    png_bytes = cairosvg.svg2png(bytestring=svg_bytes, background_color="white", unsafe=True, output_width=2000)
 
-        for branch_id, dy in zip(branch_ids, offsets):
-            node = root.xpath(f"//svg:path[@id='{branch_id}']", namespaces=ns)
-            if not node:
-                print(f"  Branche manquante : {branch_id}")
-                continue
-            path = node[0]
-            d = path.attrib["d"]
+    # ───── 4. Streamlit : affiche le diagramme ─────
+    st.image(png_bytes, caption="Diagramme systémique (flux normalisés)")
 
-            def shift(match):
-                x, y = float(match.group(1)), float(match.group(2))
-                # compare au nœud parent
-                dx = x - x_p
-                dy0 = y - y_p
-                if abs(dx) < 1e-3 and abs(dy0) < 1e-3:
-                    return f"M {x},{y + dy}"
-                return match.group(0)
-
-            d_new = re.sub(r"M\s*([0-9.\-eE]+),([0-9.\-eE]+)", shift, d, count=1)
-            path.attrib["d"] = d_new
-
-    tree.write(svg_out, xml_declaration=True, encoding="utf-8", pretty_print=False)
-
-
-# %%
+    # ───── 5. Légende (barres horizontales) ─────
+    st.markdown("#### Légende (kt N / yr → épaisseur en pixels)")
+    legend_vals = np.linspace(0, total_flux / legend_steps, legend_steps + 1)[1:]
+    for val in legend_vals:
+        width_px = val / total_flux * scale_px
+        bar_svg = f"""
+        <svg width="200" height="{width_px + 4}">
+            <line x1="0" y1="{width_px / 2 + 2}" x2="150" y2="{width_px / 2 + 2}"
+                  stroke="black" stroke-width="{width_px}" />
+            <text x="160" y="{width_px / 2 + 6}" font-size="12">{val:.2e}</text>
+        </svg>
+        """
+        st.markdown(bar_svg, unsafe_allow_html=True)

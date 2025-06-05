@@ -710,6 +710,8 @@ def streamlit_sankey_fertilization(
         "Cereals": "gold",
         "Oleaginous": "darkkhaki",
         "Livestock and human": "lightblue",
+        "Temporary meadows": "forestgreen",
+        "Forages": "limegreen",
     }
     # On récupère éventuellement certaines couleurs d'origine
     # On suppose model.node_color: dict(index->couleur) ou dict(label->couleur)
@@ -1072,6 +1074,8 @@ def streamlit_sankey_food_flows(
         "Livestock": "lightblue",
         "Population": "darkblue",
         "Roots": "orange",
+        "Temporary meadows": "forestgreen",
+        "Forages": "limegreen",
     }
     for old_i in sorted_kept:
         lbl = all_sankey_nodes[old_i]
@@ -1226,7 +1230,7 @@ def streamlit_sankey_systemic_flows(
     color_dict = {
         "cereals (excluding rice)": "gold",
         "fruits and vegetables": "lightgreen",
-        "leguminous": "darkgreen",
+        "leguminous": "lime",
         "oleaginous": "lightgreen",
         "meadow and forage": "green",
         "trade": "gray",
@@ -1237,7 +1241,7 @@ def streamlit_sankey_systemic_flows(
         "roots": "orange",
         "forages": "limegreen",
         "Environment": "crimson",
-        "temporary meadows": "seagreen",
+        "temporary meadows": "forestgreen",
     }
     # Ajouter les couleurs des labels d'origine si disponibles
     for k, v in node_color.items():

@@ -293,7 +293,7 @@ node_color = {
         if label in categories_mapping and categories_mapping[label] == "oleaginous"
         else "darkgreen"
         if label in categories_mapping and categories_mapping[label] == "leguminous"
-        else "green"
+        else "lime"
         if label in categories_mapping and categories_mapping[label] in ["temporary meadows", "forages"]
         else "darkgreen"
         if label in categories_mapping and categories_mapping[label] == "natural meadows "
