@@ -216,7 +216,7 @@ def sankey_highlight_region_ordered(df_plot, highlight=None):
     import plotly.graph_objects as go
     import seaborn as sns
 
-    df_plot = df_plot.reset_index()
+    # df_plot = df_plot.reset_index()
     df_plot[["Region", "Year"]] = df_plot["Region_year"].str.rsplit("_", n=1, expand=True)
     df_plot["Year"] = df_plot["Year"].astype(int)
     df_plot["Node"] = df_plot["Year"].astype(str) + " – " + df_plot["ClusterName"]
@@ -295,6 +295,17 @@ def sankey_highlight_region_ordered(df_plot, highlight=None):
         template="plotly_white",
     )
 
+    for i in range(len(annees_disponibles)):
+        fig.add_annotation(
+            x=i * 1.05 / len(annees_disponibles),
+            y=-0.05,  # ou y=-0.05 pour dessous
+            xref="paper",
+            yref="paper",  # repère du canevas complet
+            text=str(annees_disponibles[i]),
+            showarrow=False,
+            font=dict(size=14),
+        )
+
     return fig
 
 
@@ -302,7 +313,7 @@ def sankey_highlight_region_ordered(df_plot, highlight=None):
 
 
 def sankey_highlight_region(df_plot, highlight=None):
-    df_plot = df_plot.reset_index()
+    # df_plot = df_plot.reset_index()
     df_plot[["Region", "Year"]] = df_plot["Region_year"].str.rsplit("_", n=1, expand=True)
     df_plot["Year"] = df_plot["Year"].astype(int)
     df_plot["Node"] = df_plot["Year"].astype(str) + " – " + df_plot["ClusterName"]
@@ -379,6 +390,17 @@ def sankey_highlight_region(df_plot, highlight=None):
         width=1900,
         template="plotly_white",
     )
+
+    for i in range(len(annees_disponibles)):
+        fig.add_annotation(
+            x=i * 1.05 / len(annees_disponibles),
+            y=-0.05,  # ou y=-0.05 pour dessous
+            xref="paper",
+            yref="paper",  # repère du canevas complet
+            text=str(annees_disponibles[i]),
+            showarrow=False,
+            font=dict(size=14),
+        )
 
     return fig
 

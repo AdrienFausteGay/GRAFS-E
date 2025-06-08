@@ -166,7 +166,6 @@ ext = [
     "roots food trade",
     "rice food trade",
     "cereals (excluding rice) feed trade",
-    "forages feed trade",
     "leguminous feed trade",
     "oleaginous feed trade",
     "forages feed trade",
