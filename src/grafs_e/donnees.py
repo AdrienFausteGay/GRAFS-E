@@ -166,7 +166,6 @@ ext = [
     "roots food trade",
     "rice food trade",
     "cereals (excluding rice) feed trade",
-    "forages feed trade",
     "leguminous feed trade",
     "oleaginous feed trade",
     "forages feed trade",
@@ -293,7 +292,7 @@ node_color = {
         if label in categories_mapping and categories_mapping[label] == "oleaginous"
         else "darkgreen"
         if label in categories_mapping and categories_mapping[label] == "leguminous"
-        else "green"
+        else "lime"
         if label in categories_mapping and categories_mapping[label] in ["temporary meadows", "forages"]
         else "darkgreen"
         if label in categories_mapping and categories_mapping[label] == "natural meadows "
