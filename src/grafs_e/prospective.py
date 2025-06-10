@@ -2893,7 +2893,7 @@ class NitrogenFlowModel_prospect:
                     if self.prod_func == "Linear":
                         a = df_cultures.at[c, "a"]
                         b = df_cultures.at[c, "b"]
-
+                        new_yield = Y_th_lin(fert_tot, a, b)
                     if self.prod_func == "Exponential":
                         y_max = df_cultures.at[c, "Ymax (kgN/ha)"]
                         k_param = df_cultures.at[c, "k (kgN/ha)"]
