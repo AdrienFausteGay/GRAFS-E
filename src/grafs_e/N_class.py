@@ -571,7 +571,7 @@ class NitrogenFlowModel:
         flux_generator.generate_flux(source, target)
 
         # Azote excrété sur prairies
-        # Production d'azote comestible
+        # Production d'azote
 
         df_elevage["Edible Nitrogen (ktN)"] = df_elevage["Production"] * df_elevage["% edible"]
         df_elevage.loc["poultry", "Edible Nitrogen (ktN)"] += (
@@ -691,7 +691,7 @@ class NitrogenFlowModel:
 
         # NH3
         # 1 % est volatilisée de manière indirecte sous forme de N2O
-        target = {"NH3 volatilization": 0.99}
+        target = {"NH3 volatilization": 0.99, "N2O emission": 0.01}
         source = (
             df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["% excreted on grassland"]
@@ -701,18 +701,17 @@ class NitrogenFlowModel:
 
         flux_generator.generate_flux(source, target)
 
-        volat_N2O = (
-            0.01
-            * df_elevage["Excreted nitrogen (ktN)"]
-            * df_elevage["% excreted on grassland"]
-            / 100
-            * df_elevage["N-NH3 EM. outdoor"]
-        )
+        # volat_N2O = (
+        #     0.01
+        #     * df_elevage["Excreted nitrogen (ktN)"]
+        #     * df_elevage["% excreted on grassland"]
+        #     / 100
+        #     * df_elevage["N-NH3 EM. outdoor"]
+        # )
         # N2O
         target = {"N2O emission": 1}
         source = (
-            volat_N2O
-            + df_elevage["Excreted nitrogen (ktN)"]
+            df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["% excreted on grassland"]
             / 100
             * df_elevage["N-N2O EM. outdoor"]
@@ -727,7 +726,7 @@ class NitrogenFlowModel:
             * df_elevage["% excreted indoors"]
             / 100
             * (
-                df_elevage["% excreted indoors as slurry"]
+                df_elevage["% excreted indoors as manure"]
                 / 100
                 * (
                     1
@@ -735,7 +734,7 @@ class NitrogenFlowModel:
                     - df_elevage["N-N2O EM. manure indoor"]
                     - df_elevage["N-N2 EM. manure indoor"]
                 )
-                + df_elevage["% excreted indoors as manure"]
+                + df_elevage["% excreted indoors as slurry"]
                 / 100
                 * (
                     1
@@ -766,7 +765,7 @@ class NitrogenFlowModel:
 
         # NH3
         # 1 % est volatilisée de manière indirecte sous forme de N2O
-        target = {"NH3 volatilization": 0.99}
+        target = {"NH3 volatilization": 0.99, "N2O emission": 0.01}
         source = (
             df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["% excreted indoors"]
@@ -779,21 +778,20 @@ class NitrogenFlowModel:
 
         flux_generator.generate_flux(source, target)
 
-        volat_N2O = (
-            0.01
-            * df_elevage["Excreted nitrogen (ktN)"]
-            * df_elevage["% excreted indoors"]
-            / 100
-            * (
-                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-NH3 EM. slurry indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-NH3 EM. manure indoor"]
-            )
-        )
+        # volat_N2O = (
+        #     0.01
+        #     * df_elevage["Excreted nitrogen (ktN)"]
+        #     * df_elevage["% excreted indoors"]
+        #     / 100
+        #     * (
+        #         df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-NH3 EM. slurry indoor"]
+        #         + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-NH3 EM. manure indoor"]
+        #     )
+        # )
         # N2O
         target = {"N2O emission": 1}
         source = (
-            volat_N2O
-            + df_elevage["Excreted nitrogen (ktN)"]
+            df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["% excreted indoors"]
             / 100
             * (
@@ -808,7 +806,7 @@ class NitrogenFlowModel:
         # Calcul de l'azote épendu par hectare
         def calculer_azote_ependu(culture):
             sources = self.betail + self.Pop + ["atmospheric N2", "N2O emission", "NH3 volatilization", "other sectors"]
-            adj_matrix_df = pd.DataFrame(adjacency_matrix, index=self.labels, columns=self.labels)
+            adj_matrix_df = pd.DataFrame(self.adjacency_matrix, index=self.labels, columns=self.labels)
             return adj_matrix_df.loc[sources, culture].sum()
 
         df_cultures["Total Non Synthetic Fertilizer Use (ktN)"] = df_cultures.index.map(calculer_azote_ependu)
@@ -1877,10 +1875,10 @@ class NitrogenFlowModel:
         # Calcul des déséquilibres négatifs
         for label in cultures + legumineuses + prairies:
             node_index = label_to_index[label]
-            row_sum = adjacency_matrix[node_index, :].sum()
-            col_sum = adjacency_matrix[:, node_index].sum()
+            row_sum = self.adjacency_matrix[node_index, :].sum()
+            col_sum = self.adjacency_matrix[:, node_index].sum()
             imbalance = row_sum - col_sum  # Déséquilibre entre sorties et entrées
-            if abs(imbalance) < 10**-4:
+            if abs(imbalance) < 10**-6:
                 imbalance = 0
 
             if (
@@ -1942,7 +1940,7 @@ class NitrogenFlowModel:
         )
 
         # On équilibre Haber-Bosch avec atmospheric N2 pour le faire entrer dans le système
-        target = {"Haber-Bosch": adjacency_matrix[label_to_index["Haber-Bosch"], :].sum()}
+        target = {"Haber-Bosch": self.adjacency_matrix[label_to_index["Haber-Bosch"], :].sum()}
         source = {"atmospheric N2": 1}
         flux_generator.generate_flux(source, target)
 
@@ -2001,7 +1999,7 @@ class NitrogenFlowModel:
 
         self.df_cultures = df_cultures
         self.df_elevage = df_elevage
-        self.adjacency_matrix = adjacency_matrix
+        # self.adjacency_matrix = adjacency_matrix
 
     def get_df_culture(self):
         return self.df_cultures
