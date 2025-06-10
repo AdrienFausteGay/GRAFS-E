@@ -23,9 +23,9 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#505050"
      inkscape:document-units="mm"
-     inkscape:zoom="11.313708"
-     inkscape:cx="559.58663"
-     inkscape:cy="1642.1229"
+     inkscape:zoom="3.9999998"
+     inkscape:cx="467.87502"
+     inkscape:cy="1663.1251"
      inkscape:window-width="1920"
      inkscape:window-height="986"
      inkscape:window-x="-11"
@@ -34,6 +34,97 @@
      inkscape:current-layer="layer1" />
   <defs
      id="defs1">
+    <inkscape:path-effect
+       effect="fillet_chamfer"
+       id="path-effect61"
+       is_visible="true"
+       lpeversion="1"
+       nodesatellites_param="F,0,0,1,0,0,0,1 @ F,0,0,1,0,12.473914,0,1 @ F,0,0,1,0,23.517046,0,1 @ F,0,0,1,0,21.066184,0,1 @ F,0,0,1,0,0,0,1"
+       radius="0"
+       unit="px"
+       method="auto"
+       mode="F"
+       chamfer_steps="1"
+       flexible="false"
+       use_knot_distance="true"
+       apply_no_radius="true"
+       apply_with_radius="true"
+       only_selected="false"
+       hide_knots="false" />
+    <marker
+       markerWidth="0.52499998"
+       markerHeight="0.99999995"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       id="marker60"
+       viewBox="0 0 0.525 1"
+       inkscape:stockid="Triangle cap"
+       style="overflow:visible"
+       preserveAspectRatio="xMidYMid"
+       inkscape:isstock="true"
+       inkscape:collect="always">
+      <path
+         style="fill:context-stroke;stroke-linecap:butt"
+         d="M 0,-1 1,0 0,1 -0.05,0 Z"
+         sodipodi:nodetypes="sssssscsss"
+         transform="scale(0.5)"
+         id="path60" />
+    </marker>
+    <marker
+       markerWidth="0.52499998"
+       markerHeight="0.99999995"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       id="marker4"
+       viewBox="0 0 0.525 1"
+       inkscape:stockid="Triangle cap"
+       style="overflow:visible"
+       preserveAspectRatio="xMidYMid"
+       inkscape:isstock="true"
+       inkscape:collect="always">
+      <path
+         style="fill:context-stroke;stroke-linecap:butt"
+         d="M 0,-1 1,0 0,1 -0.05,0 Z"
+         sodipodi:nodetypes="sssssscsss"
+         transform="scale(0.5)"
+         id="path4" />
+    </marker>
+    <inkscape:path-effect
+       effect="fillet_chamfer"
+       id="path-effect2"
+       is_visible="true"
+       lpeversion="1"
+       nodesatellites_param="F,0,0,1,0,0,0,1 @ F,0,0,1,0,11.24849,0,1 @ F,0,0,1,0,0,0,1"
+       radius="0"
+       unit="px"
+       method="auto"
+       mode="F"
+       chamfer_steps="1"
+       flexible="false"
+       use_knot_distance="true"
+       apply_no_radius="true"
+       apply_with_radius="true"
+       only_selected="false"
+       hide_knots="false" />
+    <inkscape:path-effect
+       effect="fillet_chamfer"
+       id="path-effect1"
+       is_visible="true"
+       lpeversion="1"
+       nodesatellites_param="F,0,0,1,0,0,0,1 @ F,0,0,1,0,11.24849,0,1 @ F,0,0,1,0,0,0,1"
+       radius="0"
+       unit="px"
+       method="auto"
+       mode="F"
+       chamfer_steps="1"
+       flexible="false"
+       use_knot_distance="true"
+       apply_no_radius="true"
+       apply_with_radius="true"
+       only_selected="false"
+       hide_knots="false" />
     <inkscape:path-effect
        effect="fillet_chamfer"
        id="path-effect162"
@@ -107,7 +198,7 @@
        id="path-effect7"
        is_visible="true"
        lpeversion="1"
-       nodesatellites_param="F,0,0,1,0,4.7456722,0,1 @ F,0,0,1,0,4.7456722,0,1 @ F,0,0,1,0,4.7456722,0,1 @ F,0,0,1,0,4.7456722,0,1"
+       nodesatellites_param="F,0,0,1,0,4.7456722,0,1 @ F,0,0,1,0,4.7456722,0,1 @ F,0,0,1,0,4.7456722,0,1 @ F,0,0,1,0,4.7456722,0,1 @ F,0,0,1,0,0,0,1 @ F,0,0,1,0,0,0,1 @ F,0,0,1,0,0,0,1 @ F,0,0,1,0,0,0,1"
        radius="0"
        unit="px"
        method="auto"
@@ -2135,7 +2226,7 @@
        width="871.27179"
        height="486.47504"
        x="-405.60516"
-       y="-47.625"
+       y="-47.624992"
        ry="4.7012987" />
     <rect
        style="fill:#ebb900;fill-opacity:1;stroke:#000000;stroke-width:1;stroke-linejoin:round;stroke-dasharray:none"
@@ -2466,19 +2557,19 @@
        id="rect1-3-0-0-2-6-8-1-4-9-2-7"
        width="46.665779"
        height="25.310253"
-       x="-127.90493"
-       y="169.80226"
+       x="-125.2591"
+       y="170.33142"
        ry="4.7456722" />
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.35px;font-family:'Segoe UI';-inkscape-font-specification:'Segoe UI';text-align:center;letter-spacing:1.09537px;word-spacing:0.322792px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:0"
-       x="-104.61076"
-       y="184.06194"
+       x="-101.96492"
+       y="184.59109"
        id="text1-1-8-3-3-6-4-2-0-6-4-6"><tspan
          sodipodi:role="line"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;font-family:'Segoe UI';-inkscape-font-specification:'Segoe UI Bold';fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1;stroke-opacity:0"
-         x="-104.06308"
-         y="184.06194"
+         x="-101.41724"
+         y="184.59109"
          id="tspan2-2-3-1-1-1-3-0-9-4-7">Forages</tspan></text>
     <rect
        style="fill:#33ae77;fill-opacity:1;stroke:#000000;stroke-width:1;stroke-linejoin:round;stroke-dasharray:none"
@@ -2611,7 +2702,7 @@
        transform="matrix(0.99405282,0,0,0.99999989,1.97553,1.0434526e-5)" />
     <path
        style="fill:#ffffff;fill-opacity:0;stroke:#000000;stroke-width:0.999997;stroke-linejoin:round;stroke-opacity:1;marker-end:url(#marker85)"
-       d="m 210,214.08422 h 11.34939"
+       d="m 210,214.10423 h 11.34939"
        id="path39" />
     <path
        style="fill:#ffffff;fill-opacity:0;stroke:#000000;stroke-width:0.999999;stroke-linejoin:round;stroke-opacity:1;marker-start:url(#marker86)"
@@ -3136,11 +3227,12 @@
        inkscape:original-d="m 186.0878,184.0689 h 12.31779 v 11.34405"
        sodipodi:nodetypes="ccc" />
     <path
-       style="fill:#0000ff;fill-opacity:0;stroke:#000000;stroke-width:1;stroke-linejoin:round;stroke-opacity:1"
+       style="fill:#0000ff;fill-opacity:0;stroke:#000000;stroke-width:1.00054;stroke-linejoin:round;stroke-opacity:1"
        d="m 198.40559,195.41295 0,7.11688 A 11.59441,11.59441 45 0 0 210,214.12424 h 0"
        id="path173"
        inkscape:path-effect="#path-effect176"
-       inkscape:original-d="m 198.40559,195.41295 v 18.71129 H 210" />
+       inkscape:original-d="m 198.40559,195.41295 v 18.71129 H 210"
+       transform="matrix(1,0,0,0.99893059,0,0.20897614)" />
     <path
        style="fill:#0000ff;fill-opacity:0;stroke:#000000;stroke-width:1;stroke-linejoin:round;stroke-opacity:1"
        d="m 198.40559,159.39561 v 2.12815 A 11.588672,11.588672 44.985817 0 0 210,173.11243 l 0,0"
@@ -3478,10 +3570,11 @@
        id="path168" />
     <path
        style="fill:#0000ff;fill-opacity:0;stroke:#000000;stroke-width:1;stroke-linejoin:round"
-       d="m -152.72215,225.06763 v -62.60251 a 11.24849,11.24849 135 0 1 11.24849,-11.24849 v 0"
+       d="m -152.72215,194.74953 v -32.28441 a 11.24849,11.24849 135 0 1 11.24849,-11.24849 v 0"
        id="path169"
-       inkscape:path-effect="#path-effect175"
-       inkscape:original-d="m -152.72215,225.06763 v -73.851 h 11.24849" />
+       inkscape:path-effect="#path-effect1"
+       inkscape:original-d="m -152.72215,194.74953 v -43.5329 h 11.24849"
+       sodipodi:nodetypes="ccc" />
     <path
        style="fill:#0000ff;fill-opacity:0;stroke:#000000;stroke-width:1;stroke-linejoin:round"
        d="m -152.72215,292.06448 -1e-5,52.85149 a 14.139916,14.139916 44.952673 0 0 14.16328,14.1399 l 0,0"
@@ -3494,15 +3587,10 @@
        d="M -152.72215,292.06447 V 225.06764"
        id="path203" />
     <path
-       style="fill:#0000ff;fill-opacity:0;stroke:#000000;stroke-width:1;stroke-linejoin:round"
-       d="m -138.55888,359.05588 h -15.72784 a 13.723689,13.723689 45 0 1 -13.72369,-13.72369 V 191.08131 a 8.94982,8.94982 135 0 1 8.94982,-8.94982"
-       id="path204"
-       inkscape:path-effect="#path-effect207"
-       inkscape:original-d="m -138.55888,359.05588 h -29.45153 V 182.13149 h 8.94982" />
-    <path
-       style="fill:#0000ff;fill-opacity:0;stroke:#000000;stroke-width:1;stroke-linejoin:round;marker-end:url(#marker86)"
-       d="m -159.06059,182.13149 h 19.60937"
-       id="path205" />
+       style="fill:#0000ff;fill-opacity:0;stroke:#000000;stroke-width:0.999998;stroke-linejoin:round"
+       d="m -159.06059,182.13149 h 20.89222"
+       id="path205"
+       sodipodi:nodetypes="cc" />
     <path
        style="fill:#0000ff;fill-opacity:0;stroke:#000000;stroke-width:1;stroke-linejoin:round"
        d="M -24.660628,359.05588 H -138.55888"
@@ -3517,7 +3605,7 @@
        ry="4.7456722"
        inkscape:path-effect="#path-effect7"
        sodipodi:type="rect"
-       d="m 348.89188,-47.625 h 112.12906 a 4.7456722,4.7456722 45 0 1 4.74568,4.745672 v 80.211216 a 4.7456722,4.7456722 135 0 1 -4.74568,4.745672 H 348.89188 a 4.7456722,4.7456722 45 0 1 -4.74567,-4.745672 v -80.211216 a 4.7456722,4.7456722 135 0 1 4.74567,-4.745672 z"
+       d="m 353.63755,-47.625 102.63772,0 c 2.62096,0 7.38239,0.06274 8.7408,2.176518 0.79918,1.243595 0.75055,4.693864 0.75055,7.314826 v 70.719872 c 0,2.620962 -0.0627,7.382384 -2.17652,8.740799 -0.73958,0.475288 -1.62104,0.750545 -2.56916,0.750545 H 348.89188 c -2.6291,0 -4.74567,-2.116569 -4.74567,-4.745672 v -80.211216 c 0,-0.948081 0.27524,-1.829512 0.75049,-2.569075 1.3584,-2.113845 6.11989,-2.176597 8.74085,-2.176597 z"
        transform="matrix(0.99588892,0,0,0.92804006,1.4148143,-3.0268401)" />
     <path
        style="fill:#0000ff;fill-opacity:0;stroke:#000000;stroke-width:0.999996;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0"
@@ -3528,7 +3616,7 @@
        inkscape:original-d="m -257.2999,390.37742 -19.68547,-0.002 V 295.0381" />
     <path
        style="fill:#0000ff;fill-opacity:0;stroke:#000000;stroke-width:0.983618;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0"
-       d="m -242.09394,282.84389 -22.70005,0.002 a 12.192359,12.192359 134.9977 0 0 -12.19138,12.19236 v 2e-5"
+       d="m -242.09394,282.84389 -22.70005,0.002 a 12.192428,12.192428 134.99754 0 0 -12.19138,12.19243 v 2e-5"
        id="path90"
        inkscape:path-effect="#path-effect125"
        inkscape:original-d="m -242.09394,282.84389 -34.89143,0.003 v 12.1914"
@@ -3552,8 +3640,28 @@
        sodipodi:nodetypes="cc" />
     <path
        style="fill:#0000ff;fill-opacity:0;stroke:#000000;stroke-width:1;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0"
-       d="m -258.10936,390.37734 -39.42034,-0.003"
+       d="m -257.2999,390.37742 -40.2298,-0.003"
        id="path165"
        sodipodi:nodetypes="cc" />
+    <path
+       style="fill:#0000ff;fill-opacity:0;stroke:#000000;stroke-width:0.999999;stroke-linejoin:round;stroke-dasharray:none"
+       d="M -152.72215,225.06764 V 194.74953"
+       id="path1" />
+    <path
+       style="fill:#0000ff;fill-opacity:0;stroke:#000000;stroke-width:1;stroke-linejoin:round;stroke-dasharray:none"
+       d="m -152.72215,194.74953 v -1.36955 a 11.24849,11.24849 135 0 1 11.24849,-11.24849 h 3.30529"
+       id="path2"
+       inkscape:path-effect="#path-effect2"
+       inkscape:original-d="m -152.72215,194.74953 v -12.61804 h 14.55378" />
+    <path
+       style="fill:#0000ff;fill-opacity:0;stroke:#000000;stroke-width:1;stroke-linejoin:round;stroke-dasharray:none;marker-end:url(#marker4)"
+       d="m -138.16837,182.13149 h 7.62987"
+       id="path3" />
+    <path
+       style="fill:#0000ff;fill-opacity:0;stroke:#000000;stroke-width:1;stroke-linejoin:round;stroke-dasharray:none;marker-end:url(#marker60)"
+       d="m -57.582131,-6.9396702 v -6.7962178 a 12.473914,12.473914 45 0 0 -12.473914,-12.473914 l -300.158385,0 a 23.517046,23.517046 135 0 0 -23.51705,23.517046 V 313.24389 a 21.066184,21.066184 45 0 0 21.06618,21.06618 h 127.8564"
+       id="path5"
+       inkscape:path-effect="#path-effect61"
+       inkscape:original-d="M -57.582131,-6.9396702 V -26.209802 H -393.73148 V 334.31007 h 148.92258" />
   </g>
 </svg>

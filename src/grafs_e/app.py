@@ -607,9 +607,9 @@ with tab3:
 
         st.subheader("Territorial Systemic Overview")
         st.write(
-            f"This Sankey diagram presents the primary flows (>{np.round(model.adjacency_matrix.sum() / 100, 2)}ktN/yr) within the model, organized by key categories."
+            f"This Sankey diagram presents nitrogen flows in the agricultural system organized by key categories (10% = {np.round(model.adjacency_matrix.sum() / 10, 0)} ktN/yr)."
         )
-        st.write("For optimal visualization, please switch to full screen mode.")
+        # st.write("For optimal visualization, please switch to full screen mode.")
 
         # streamlit_sankey_systemic_flows(model)
         # os.path.join(os.getcwd(), "data/system_flows.svg")
