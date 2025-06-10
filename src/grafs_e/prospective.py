@@ -1908,7 +1908,7 @@ class NitrogenFlowModel_prospect:
             * df_elevage["% excreted indoors"]
             / 100
             * (
-                df_elevage["% excreted indoors as slurry"]
+                df_elevage["% excreted indoors as manure"]
                 / 100
                 * (
                     1
@@ -1916,7 +1916,7 @@ class NitrogenFlowModel_prospect:
                     - df_elevage["N-N2O EM. manure indoor"]
                     - df_elevage["N-N2 EM. manure indoor"]
                 )
-                + df_elevage["% excreted indoors as manure"]
+                + df_elevage["% excreted indoors as slurry"]
                 / 100
                 * (
                     1
@@ -3255,6 +3255,8 @@ class NitrogenFlowModel_prospect:
                     ].item()
                 }
                 target = {f"{categorie} feed trade": 1}
+                print(culture)
+                print(categorie)
             else:
                 source = {
                     culture: df_cultures.loc[
