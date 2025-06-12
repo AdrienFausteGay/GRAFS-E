@@ -2160,11 +2160,13 @@ class NitrogenFlowModel:
     def emissions(self):
         return pd.Series(
             {
-                "N2O emission": self.adjacency_matrix[:, label_to_index["N2O emission"]].sum()
-                * (14 * 2 + 16)
-                / (14 * 2),
-                "atmospheric N2": self.adjacency_matrix[:, label_to_index["atmospheric N2"]].sum(),
-                "NH3 volatilization": self.adjacency_matrix[:, label_to_index["NH3 volatilization"]].sum() * 17 / 14,
+                "N2O emission": np.round(
+                    self.adjacency_matrix[:, label_to_index["N2O emission"]].sum() * (14 * 2 + 16) / (14 * 2), 2
+                ),
+                "atmospheric N2": np.round(self.adjacency_matrix[:, label_to_index["atmospheric N2"]].sum(), 2),
+                "NH3 volatilization": np.round(
+                    self.adjacency_matrix[:, label_to_index["NH3 volatilization"]].sum() * 17 / 14, 2
+                ),
             },
             name="Emission",
         ).to_frame()["Emission"]
@@ -2525,6 +2527,15 @@ class NitrogenFlowModel:
         df_total_export = df.loc[["Export Food", "Export Feed", "Export Livestock"]].sum(axis=0)
         net_import_export = df_total_import + df_total_export
         return np.round(net_import_export / 1e6, 2)
+
+    def LU_density(self):
+        return np.round(self.df_elevage["LU"].sum() / self.df_cultures["Area (ha)"].sum(), 2)
+
+    def NH3_vol(self):
+        return self.emissions()["NH3 volatilization"]
+
+    def N2O_em(self):
+        return self.emissions()["N2O emission"]
 
 
 # Créer une instance du modèle
