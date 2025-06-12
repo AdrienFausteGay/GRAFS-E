@@ -94,6 +94,7 @@ for k, v in {
 st.title("GRAFS-E")
 __version__ = version("grafs_e")
 st.write(f"📦 GRAFS-E version: {__version__}")
+st.text("Contact: Adrien Fauste-Gay, adrien.fauste-gay@univ-grenoble-alpes.fr")
 st.title("Nitrogen Flow Simulation Model: A Territorial Ecology Approach")
 
 # # 🔹 Initialiser les valeurs dans session_state si elles ne sont pas encore définies
@@ -650,19 +651,22 @@ with tab4:
 def run_models_for_all_regions(year, regions, _data_loader):
     models = {}
     for region in regions:
-        models[region] = NitrogenFlowModel(
-            data=_data_loader,
-            year=year,
-            region=region,
-            categories_mapping=categories_mapping,
-            labels=labels,
-            cultures=cultures,
-            legumineuses=legumineuses,
-            prairies=prairies,
-            betail=betail,
-            Pop=Pop,
-            ext=ext,
-        )
+        if region == "Savoie" and year == "1852":
+            pass
+        else:
+            models[region] = NitrogenFlowModel(
+                data=_data_loader,
+                year=year,
+                region=region,
+                categories_mapping=categories_mapping,
+                labels=labels,
+                cultures=cultures,
+                legumineuses=legumineuses,
+                prairies=prairies,
+                betail=betail,
+                Pop=Pop,
+                ext=ext,
+            )
     return models
 
 
@@ -677,6 +681,7 @@ def get_metrics_for_all_regions(_models, metric_name, year):
         "Environmental Footprint": "net_footprint",
         "NUE": "NUE",
         "System NUE": "NUE_system",
+        "Livestock density": "LU_density",
         "Cereals production": "cereals_production",
         "Leguminous production": "leguminous_production",
         "Oleaginous production": "oleaginous_production",
@@ -690,6 +695,8 @@ def get_metrics_for_all_regions(_models, metric_name, year):
         "Relative Roots production": "roots_production_r",
         "Relative Fruits and vegetables production": "fruits_and_vegetable_production_r",
         "Total animal production": "animal_production",
+        "NH3 volatilization": "NH3_vol",
+        "N2O emission": "N2O_em",
         "Effective number of nodes": "N_eff",
         "Effective connectivity": "C_eff",
         "Effective number of links": "F_eff",
@@ -697,13 +704,15 @@ def get_metrics_for_all_regions(_models, metric_name, year):
     }
     metric_function_name = metric_dict[metric_name]
     metrics = {}
+    area = {}
     for region, model in _models.items():
         metric_function = getattr(model, metric_function_name, None)
         if callable(metric_function):
             metrics[region] = metric_function()
         else:
             metrics[region] = None  # Si la méthode n'existe pas, on met None
-    return metrics
+        area[region] = model.surfaces_tot()
+    return metrics, area
 
 
 @st.cache_data
@@ -749,6 +758,17 @@ def create_map_with_metrics(geojson_data, metrics, metric_name, year):
             # 📌 Normaliser et mapper les couleurs
             norm = mcolors.Normalize(vmin=min_val, vmax=max_val)
 
+            if "Relative" in metric_name or "NUE" in metric_name:
+                unit = "%"
+            elif "Eff" in metric_name:
+                unit = ""
+            elif "Footprint" in metric_name:
+                unit = "Mha"
+            elif "Livestock density" == metric_name:
+                unit = "LU/ha"
+            else:
+                unit = "ktN/yr"
+
             for feature in geojson_data["features"]:
                 region_name = feature["properties"]["nom"]
                 metric_value = metrics.get(region_name, np.nan)  # Valeur de l'indicateur
@@ -766,34 +786,25 @@ def create_map_with_metrics(geojson_data, metrics, metric_name, year):
                         "fillOpacity": 0.6,
                     }
 
-                # Ajouter le polygone à la carte
-                if "Relative" in metric_name or "NUE" in metric_name:
-                    folium.GeoJson(
-                        feature,
-                        style_function=style_function,
-                        tooltip=folium.Tooltip(f"{region_name}: {metric_value:.0f} %"),
-                    ).add_to(m)
+                folium.GeoJson(
+                    feature,
+                    style_function=style_function,
+                    tooltip=folium.Tooltip(f"{region_name}: {metric_value:.2f} {unit}"),
+                ).add_to(m)
 
-                if "Eff" in metric_name:
-                    folium.GeoJson(
-                        feature,
-                        style_function=style_function,
-                        tooltip=folium.Tooltip(f"{region_name}: {metric_value:.2f}"),
-                    ).add_to(m)
-                if "Footprint" in metric_name:
-                    folium.GeoJson(
-                        feature,
-                        style_function=style_function,
-                        tooltip=folium.Tooltip(f"{region_name}: {metric_value} M ha"),
-                    ).add_to(m)
-                else:
-                    folium.GeoJson(
-                        feature,
-                        style_function=style_function,
-                        tooltip=folium.Tooltip(f"{region_name}: {metric_value:.2f} ktN/yr"),
-                    ).add_to(m)
     add_color_legend(m, min_val, max_val, cmap, metric_name)
     return m
+
+
+def weighted_mean(metrics, area):
+    # Calcul de la somme des produits des valeurs et des poids
+    weighted_sum = sum(metrics[key] * area[key] for key in metrics)
+
+    # Calcul de la somme des poids
+    total_area = sum(area[key] for key in area)
+
+    # Retourner la moyenne pondérée
+    return weighted_sum / total_area if total_area != 0 else 0
 
 
 # 🔹 Assurer la persistance de la carte dans `st.session_state`
@@ -816,6 +827,7 @@ with tab5:
         "Environmental Footprint",
         "NUE",
         "System NUE",
+        "Livestock density",
         "Cereals production",
         "Leguminous production",
         "Grassland and forage production",
@@ -828,10 +840,12 @@ with tab5:
         "Relative Roots production",
         "Relative Oleaginous production",
         "Relative Fruits and vegetables production",
-        "Effective number of nodes",
-        "Effective connectivity",
-        "Effective number of links",
-        "Effective number of role",
+        "NH3 volatilization",
+        "N2O emission",
+        # "Effective number of nodes",
+        # "Effective connectivity",
+        # "Effective number of links",
+        # "Effective number of role",
     ]
     st.session_state.metric = st.selectbox("Select a metric", metric_map, index=0, key="metric_selection")
 
@@ -845,7 +859,7 @@ with tab5:
         with st.spinner("🚀 Running models and calculating metrics..."):
             # 📌 Exécuter les modèles et récupérer les métriques
             models = run_models_for_all_regions(st.session_state.map_year, regions, data)
-            metrics = get_metrics_for_all_regions(models, st.session_state.metric, st.session_state.map_year)
+            metrics, area = get_metrics_for_all_regions(models, st.session_state.metric, st.session_state.map_year)
 
             # 📌 Charger le GeoJSON et créer la carte
             geojson_data = load_geojson()
@@ -857,6 +871,27 @@ with tab5:
 
             # 🔹 Vérifier si la carte est déjà générée et l'afficher
             st.title("Nitrogen Map")
+            if st.session_state.metric in [
+                "NUE",
+                "System NUE",
+                "Livestock density",
+                "Relative Cereals production",
+                "Relative Leguminous production",
+                "Relative Grassland and forage production",
+                "Relative Roots production",
+                "Relative Oleaginous production",
+                "Relative Fruits and vegetables production",
+                "Environmental Footprint",
+            ]:
+                if st.session_state.metric == "Livestock density":
+                    st.text(f"Mean for France: {np.round(weighted_mean(metrics, area), 2)} LU/ha")
+                elif st.session_state.metric == "Environmental Footprint":
+                    # st.text(f"Mean for France: {np.round(weighted_mean(metrics, area), 2)} Mha")
+                    pass
+                else:
+                    st.text(f"Mean for France: {np.round(weighted_mean(metrics, area), 2)} %")
+            else:
+                st.text(f"Total for France: {np.round(np.sum(list(metrics.values())), 2)} ktN/yr")
 
         if st.session_state.map_html:
             st.components.v1.html(st.session_state.map_html, height=800, scrolling=True)
@@ -868,19 +903,22 @@ with tab5:
 def run_models_for_all_years(region, _data_loader):
     models = {}
     for year in annees_disponibles:
-        models[year] = NitrogenFlowModel(
-            data=_data_loader,
-            year=year,
-            region=region,
-            categories_mapping=categories_mapping,
-            labels=labels,
-            cultures=cultures,
-            legumineuses=legumineuses,
-            prairies=prairies,
-            betail=betail,
-            Pop=Pop,
-            ext=ext,
-        )
+        if year == "1852" and region == "Savoie":
+            pass
+        else:
+            models[year] = NitrogenFlowModel(
+                data=_data_loader,
+                year=year,
+                region=region,
+                categories_mapping=categories_mapping,
+                labels=labels,
+                cultures=cultures,
+                legumineuses=legumineuses,
+                prairies=prairies,
+                betail=betail,
+                Pop=Pop,
+                ext=ext,
+            )
     return models
 
 
@@ -901,6 +939,7 @@ def get_metrics_for_all_years(_models, metric_name, region):
         "Emissions": "emissions",
         "NUE": "NUE",
         "System NUE": "NUE_system_2",
+        "Livestock density": "LU_density",
         "Self-Sufficiency": "N_self_sufficient",
         "Cereals production": "cereals_production",
         "Leguminous production": "leguminous_production",
@@ -974,8 +1013,10 @@ def plot_standard_graph(_models, metric, region):
 
     if "Eff" in metric:
         y_label = "#"
-    if "NUE" in metric or "Primary" in metric or "Sufficiency" in metric:
+    elif "NUE" in metric or "Primary" in metric or "Sufficiency" in metric or "Relative" in metric:
         y_label = "%"
+    elif "Livestock density" in metric:
+        y_label = "LU/ha"
     else:
         y_label = "ktN/yr"
 
@@ -1353,7 +1394,7 @@ def stacked_area_chart(_models, metric, region):
         df_total_export = df.loc[export_categories].sum(axis=0)
         df_net_import_export = df_total_import + df_total_export
 
-        # Ajouter la ligne de production végétale totale
+        # Ajouter la ligne total
         fig.add_trace(
             go.Scatter(
                 x=all_years,
@@ -1363,7 +1404,7 @@ def stacked_area_chart(_models, metric, region):
                     color=net_curve_color, width=4, dash="dash"
                 ),  # line=dict(color="Black", width=4, dash="dash"),
                 name="Net Land Import",
-                hovertemplate="Year: %{x}<br>Value: %{customdata:.2f} M ha<extra></extra>",
+                hovertemplate="Year: %{x}<br>Value: %{customdata:.2f} Mha<extra></extra>",
                 customdata=df_net_import_export.values.reshape(-1, 1)
                 / 1e6,  # Utiliser les valeurs non cumulées pour le hover, divisées par 1e6
             )
@@ -1405,6 +1446,7 @@ with tab6:
         "NUE",
         "System NUE",
         "Self-Sufficiency",
+        "Livestock density",
         "Cereals production",
         "Leguminous production",
         "Grassland and forage production",
@@ -1417,10 +1459,10 @@ with tab6:
         "Relative Roots production",
         "Relative Oleaginous production",
         "Relative Fruits and vegetables production",
-        "Effective number of nodes",
-        "Effective connectivity",
-        "Effective number of links",
-        "Effective number of role",
+        # "Effective number of nodes",
+        # "Effective connectivity",
+        # "Effective number of links",
+        # "Effective number of role",
     ]
 
     st.session_state.metric_hist = st.selectbox("Select a metric", metric_hist, index=0, key="hist_metric_selection")
