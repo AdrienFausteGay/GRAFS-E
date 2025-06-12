@@ -2272,7 +2272,7 @@ class NitrogenFlowModel:
         colonnes_a_sommer = df_cultures.columns.difference(colonnes_a_exclure)
         total = df_cultures[colonnes_a_sommer].sum()
         total.name = "Total"
-        df_cultures = pd.concat([df_cultures, total.to_frame().T])
+        df_cultures_display = pd.concat([df_cultures, total.to_frame().T])
 
         colonnes_a_exclure = [
             "% edible",
@@ -2296,22 +2296,51 @@ class NitrogenFlowModel:
         colonnes_a_sommer = df_elevage.columns.difference(colonnes_a_exclure)
         total = df_elevage[colonnes_a_sommer].sum()
         total.name = "Total"
-        df_elevage = pd.concat([df_elevage, total.to_frame().T])
+        df_elevage_display = pd.concat([df_elevage, total.to_frame().T])
 
         self.df_cultures = df_cultures
         self.df_elevage = df_elevage
         # self.adjacency_matrix = adjacency_matrix
 
     def get_df_culture(self):
+        """
+        Returns the DataFrame containing crop-related data.
+
+        :return: A pandas DataFrame with crop data used in the nitrogen model.
+        :rtype: pandas.DataFrame
+        """
         return self.df_cultures
 
     def get_df_elevage(self):
+        """
+        Returns the DataFrame containing livestock-related data.
+
+        :return: A pandas DataFrame with livestock data used in the nitrogen model.
+        :rtype: pandas.DataFrame
+        """
         return self.df_elevage
 
     def get_transition_matrix(self):
+        """
+        Returns the full nitrogen transition matrix.
+
+        This matrix represents all nitrogen fluxes between sectors, including core and external processes.
+
+        :return: A 2D NumPy array representing nitrogen fluxes between all sectors.
+        :rtype: numpy.ndarray
+        """
         return self.adjacency_matrix
 
     def get_core_matrix(self):
+        """
+        Extracts and returns the core matrix of nitrogen fluxes between active sectors.
+
+        This method filters out rows and columns with no flows and excludes external sectors.
+        The result isolates the central dynamics of the system.
+
+        :return: A 2D NumPy array of the filtered core matrix.
+        :rtype: numpy.ndarray
+        """
         # Calcul de la taille du noyau
         core_size = len(self.adjacency_matrix) - len(self.ext)
 
@@ -2336,10 +2365,33 @@ class NitrogenFlowModel:
         return core_matrix_filtered
 
     def get_adjacency_matrix(self):
+        """
+        Returns the binary adjacency matrix of nitrogen fluxes.
+
+        This matrix has the same dimensions as the core matrix and indicates the presence
+        (1) or absence (0) of nitrogen fluxes between sectors.
+
+        :return: A binary adjacency matrix.
+        :rtype: numpy.ndarray
+        """
         _ = self.get_core_matrix()
         return (self.core_matrix != 0).astype(int)
 
     def extract_input_output_matrixs(self, clean=True):
+        """
+        Extracts input and output matrices (C and B blocks) from the full transition matrix.
+
+        These matrices represent the nitrogen flows between core and external sectors:
+        - B: Outputs from core to external sectors.
+        - C: Inputs from external to core sectors.
+
+        If `clean` is True, the method removes rows and columns corresponding to inactive sectors.
+
+        :param clean: Whether to remove zero-flow sectors from the matrices.
+        :type clean: bool
+        :return: A tuple (B, C) of NumPy arrays.
+        :rtype: tuple[numpy.ndarray, numpy.ndarray]
+        """
         # Fonction pour extraire la matrice entrée (C) et la matrice sortie (B) de la matrice complète.
         # Taille de la matrice coeur
         core_size = len(self.adjacency_matrix) - len(self.ext)
@@ -2357,56 +2409,132 @@ class NitrogenFlowModel:
         return B, C
 
     def imported_nitrogen(self):
+        """
+        Calculates the total amount of nitrogen imported into the system.
+
+        Includes nitrogen in imported food, feed, and excess feed.
+
+        :return: Total imported nitrogen (in ktN).
+        :rtype: float
+        """
         return self.allocation_vege.loc[
             self.allocation_vege["Type"].isin(["Imported Food", "Imported Feed", "Excess feed imports"]),
             "Allocated Nitrogen",
         ].sum()
 
     def net_imported_plant(self):
+        """
+        Computes the net nitrogen imports for plant sectors.
+
+        Calculated as the difference between total nitrogen imports and plant sector availability after local uses (feed and food).
+
+        :return: Net nitrogen import for plant-based products (in ktN).
+        :rtype: float
+        """
         return (
             self.importations_df["Imported Nitrogen (ktN)"].sum()
             - self.df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
         )
 
     def net_imported_animal(self):
+        """
+        Returns the net nitrogen export for animal sectors.
+
+        :return: Total nitrogen exported via animal products (in ktN).
+        :rtype: float
+        """
         return self.df_elevage["Net animal nitrogen exports (ktN)"].sum()
 
     def total_plant_production(self):
+        """
+        Computes the total nitrogen production from all crop categories.
+
+        :return: Total nitrogen produced by crops (in ktN).
+        :rtype: float
+        """
         return self.df_cultures["Nitrogen Production (ktN)"].sum()
 
     def stacked_plant_production(self):
+        """
+        Returns the vector of nitrogen production by crop category.
+
+        :return: A pandas Series of nitrogen production per crop.
+        :rtype: pandas.Series
+        """
         return self.df_cultures["Nitrogen Production (ktN)"]
 
     def cereals_production(self):
+        """
+        Returns the nitrogen production from cereal crops.
+
+        :return: Total nitrogen from cereals (in ktN).
+        :rtype: float
+        """
         return self.df_cultures.loc[
             self.df_cultures["Category"].isin(["cereals (excluding rice)", "rice"]), "Nitrogen Production (ktN)"
         ].sum()
 
     def leguminous_production(self):
+        """
+        Returns the nitrogen production from leguminous crops.
+
+        :return: Total nitrogen from leguminous (in ktN).
+        :rtype: float
+        """
         return self.df_cultures.loc[
             self.df_cultures["Category"].isin(["leguminous"]), "Nitrogen Production (ktN)"
         ].sum()
 
     def oleaginous_production(self):
+        """
+        Returns the nitrogen production from oleaginous crops.
+
+        :return: Total nitrogen from oleaginous (in ktN).
+        :rtype: float
+        """
         return self.df_cultures.loc[
             self.df_cultures["Category"].isin(["oleaginous"]), "Nitrogen Production (ktN)"
         ].sum()
 
     def grassland_and_forages_production(self):
+        """
+        Returns the nitrogen production from grassland and forages crops.
+
+        :return: Total nitrogen from grassland and forages (in ktN).
+        :rtype: float
+        """
         return self.df_cultures.loc[
             self.df_cultures["Category"].isin(["temporary meadows", "natural meadows ", "forages"]),
             "Nitrogen Production (ktN)",
         ].sum()
 
     def roots_production(self):
+        """
+        Returns the nitrogen production from roots crops.
+
+        :return: Total nitrogen from roots (in ktN).
+        :rtype: float
+        """
         return self.df_cultures.loc[self.df_cultures["Category"].isin(["roots"]), "Nitrogen Production (ktN)"].sum()
 
     def fruits_and_vegetable_production(self):
+        """
+        Returns the nitrogen production from fruits and vegetables crops.
+
+        :return: Total nitrogen from fruits and vegetables (in ktN).
+        :rtype: float
+        """
         return self.df_cultures.loc[
             self.df_cultures["Category"].isin(["fruits and vegetables"]), "Nitrogen Production (ktN)"
         ].sum()
 
     def cereals_production_r(self):
+        """
+        Returns the share of nitrogen production from cereals relative to total plant production.
+
+        :return: Percentage of total plant nitrogen production from cereals.
+        :rtype: float
+        """
         return (
             self.df_cultures.loc[
                 self.df_cultures["Category"].isin(["cereals (excluding rice)", "rice"]), "Nitrogen Production (ktN)"
@@ -2416,6 +2544,12 @@ class NitrogenFlowModel:
         )
 
     def leguminous_production_r(self):
+        """
+        Returns the share of nitrogen production from leguminous relative to total plant production.
+
+        :return: Percentage of total plant nitrogen production from leguminous.
+        :rtype: float
+        """
         return (
             self.df_cultures.loc[self.df_cultures["Category"].isin(["leguminous"]), "Nitrogen Production (ktN)"].sum()
             * 100
@@ -2423,6 +2557,12 @@ class NitrogenFlowModel:
         )
 
     def oleaginous_production_r(self):
+        """
+        Returns the share of nitrogen production from oleaginous relative to total plant production.
+
+        :return: Percentage of total plant nitrogen production from oleaginous.
+        :rtype: float
+        """
         return (
             self.df_cultures.loc[self.df_cultures["Category"].isin(["oleaginous"]), "Nitrogen Production (ktN)"].sum()
             * 100
@@ -2430,6 +2570,12 @@ class NitrogenFlowModel:
         )
 
     def grassland_and_forages_production_r(self):
+        """
+        Returns the share of nitrogen production from forages relative to total plant production.
+
+        :return: Percentage of total plant nitrogen production from forages.
+        :rtype: float
+        """
         return (
             self.df_cultures.loc[
                 self.df_cultures["Category"].isin(["temporary meadows", "natural meadows", "forages"]),
@@ -2440,6 +2586,12 @@ class NitrogenFlowModel:
         )
 
     def roots_production_r(self):
+        """
+        Returns the share of nitrogen production from roots relative to total plant production.
+
+        :return: Percentage of total plant nitrogen production from roots.
+        :rtype: float
+        """
         return (
             self.df_cultures.loc[self.df_cultures["Category"].isin(["roots"]), "Nitrogen Production (ktN)"].sum()
             * 100
@@ -2447,6 +2599,12 @@ class NitrogenFlowModel:
         )
 
     def fruits_and_vegetable_production_r(self):
+        """
+        Returns the share of nitrogen production from fruits and vegetables relative to total plant production.
+
+        :return: Percentage of total plant nitrogen production from fruits and vegetables.
+        :rtype: float
+        """
         return (
             self.df_cultures.loc[
                 self.df_cultures["Category"].isin(["fruits and vegetables"]), "Nitrogen Production (ktN)"
@@ -2456,9 +2614,23 @@ class NitrogenFlowModel:
         )
 
     def animal_production(self):
+        """
+        Returns the total edible nitrogen produced by livestock sectors.
+
+        :return: Total nitrogen in edible animal products (in ktN).
+        :rtype: float
+        """
         return self.df_elevage["Edible Nitrogen (ktN)"].sum()
 
     def emissions(self):
+        """
+        Computes the total nitrogen emissions from the system.
+
+        Includes N₂O emissions, atmospheric N₂ release, and NH₃ volatilization, with unit conversions.
+
+        :return: A pandas Series with nitrogen emission quantities.
+        :rtype: pandas.Series
+        """
         return pd.Series(
             {
                 "N2O emission": np.round(
@@ -2473,9 +2645,21 @@ class NitrogenFlowModel:
         ).to_frame()["Emission"]
 
     def surfaces(self):
+        """
+        Returns the cultivated area per crop.
+
+        :return: A pandas Series with area per crop (in hectares).
+        :rtype: pandas.Series
+        """
         return self.df_cultures["Area (ha)"]
 
     def surfaces_tot(self):
+        """
+        Returns the total cultivated area in the model.
+
+        :return: Total area (in hectares).
+        :rtype: float
+        """
         return self.df_cultures["Area (ha)"].sum()
 
     def N_eff(self):
@@ -2497,12 +2681,30 @@ class NitrogenFlowModel:
         return self.adjacency_matrix[:, label_to_index[culture]].sum() * 1e6 / area
 
     def Y(self, culture):
+        """
+        Computes the nitrogen yield of a given crop.
+
+        Yield is calculated as nitrogen production (kgN) per hectare for the specified crop.
+
+        :param culture: The name of the crop (index of `df_cultures`).
+        :type culture: str
+        :return: Nitrogen yield in kgN/ha.
+        :rtype: float
+        """
         area = self.df_cultures.loc[self.df_cultures.index == culture, "Area (ha)"].item()
         if area == 0:  # Vérification pour éviter la division par zéro
             return 0
         return self.df_cultures.loc[self.df_cultures.index == culture, "Nitrogen Production (ktN)"].item() * 1e6 / area
 
     def tot_fert(self):
+        """
+        Computes total nitrogen inputs to the system, broken down by origin.
+
+        Categories include animal and human excretion, atmospheric deposition, Haber-Bosch inputs, leguminous enrichment, etc.
+
+        :return: A pandas Series of nitrogen inputs by source (in ktN).
+        :rtype: pandas.Series
+        """
         return pd.Series(
             {
                 "Mining": self.adjacency_matrix[label_to_index["soil stock"], :].sum(),
@@ -2533,10 +2735,25 @@ class NitrogenFlowModel:
         )
 
     def rel_fert(self):
+        """
+        Computes the relative share (%) of each nitrogen input source.
+
+        :return: A pandas Series with nitrogen input sources as percentage of the total.
+        :rtype: pandas.Series
+        """
         df = self.tot_fert()
         return df * 100 / df.sum()
 
     def primXsec(self):
+        """
+        Calculates the percentage of nitrogen from secondary sources (biological or recycled),
+        compared to the total nitrogen inputs.
+
+        Secondary sources include: human excretion, animal excretion, atmospheric inputs, seeds, and leguminous fixation.
+
+        :return: Share of secondary sources in total nitrogen inputs (%).
+        :rtype: float
+        """
         df = self.tot_fert()
         return (
             (
@@ -2552,10 +2769,26 @@ class NitrogenFlowModel:
         )
 
     def NUE(self):
+        """
+        Calculates the crop-level nitrogen use efficiency (NUE).
+
+        Defined as the ratio of nitrogen produced by crops over total nitrogen inputs.
+
+        :return: NUE of crop systems (%).
+        :rtype: float
+        """
         df = self.tot_fert()
         return self.df_cultures["Nitrogen Production (ktN)"].sum() * 100 / df.sum()
 
     def NUE_system(self):
+        """
+        Calculates system-wide nitrogen use efficiency, including crop and livestock production.
+
+        Accounts for feed losses and nitrogen consumed via imported feed.
+
+        :return: System-wide NUE (%).
+        :rtype: float
+        """
         N_NP = (
             self.df_cultures["Nitrogen Production (ktN)"].sum()
             - self.df_cultures["Nitrogen For Feed (ktN)"].sum()
@@ -2572,6 +2805,14 @@ class NitrogenFlowModel:
         return N_NP / N_tot * 100
 
     def NUE_system_2(self):
+        """
+        Alternative NUE computation considering livestock conversion factors and feed inputs.
+
+        Includes non-edible nitrogen outputs and imported feed consumption in the calculation.
+
+        :return: Adjusted system-wide NUE (%).
+        :rtype: float
+        """
         N_NP = (
             self.df_cultures["Nitrogen Production (ktN)"].sum()
             + (
@@ -2590,6 +2831,14 @@ class NitrogenFlowModel:
         return N_NP / N_tot * 100
 
     def N_self_sufficient(self):
+        """
+        Estimates nitrogen self-sufficiency of the system.
+
+        Defined as the share of atmospheric (biological) nitrogen inputs relative to all external nitrogen sources.
+
+        :return: Self-sufficiency ratio (%).
+        :rtype: float
+        """
         df_fert = self.tot_fert()
         return (
             (df_fert["atmospheric N2"] + df_fert["Atmospheric deposition"])
@@ -2603,6 +2852,18 @@ class NitrogenFlowModel:
         )
 
     def env_footprint(self):
+        """
+        Calculates the land footprint (in ha) of nitrogen flows linked to:
+        - local food and feed production,
+        - imported food and feed,
+        - imported and exported livestock nitrogen,
+        - crop exports for feed and food.
+
+        This is expressed as theoretical land areas mobilized by the nitrogen content.
+
+        :return: A pandas Series of land footprint values (in ha), positive for imports and local use, negative for exports.
+        :rtype: pandas.Series
+        """
         local_surface_food = (
             self.df_cultures["Nitrogen For Food (ktN)"]
             / self.df_cultures["Nitrogen Production (ktN)"]
@@ -2823,6 +3084,14 @@ class NitrogenFlowModel:
         )
 
     def net_footprint(self):
+        """
+        Computes the net nitrogen land footprint of the region (in Mha).
+
+        Aggregates all imports and exports to yield a net balance of nitrogen-dependent land use.
+
+        :return: Net land footprint (in million hectares).
+        :rtype: float
+        """
         df = self.env_footprint()
         df_total_import = df.loc[["Import Food", "Import Feed", "Import Livestock"]].sum(axis=0)
         df_total_export = df.loc[["Export Food", "Export Feed", "Export Livestock"]].sum(axis=0)
@@ -2830,12 +3099,30 @@ class NitrogenFlowModel:
         return np.round(net_import_export / 1e6, 2)
 
     def LU_density(self):
+        """
+        Calculates the livestock unit density over the agricultural area.
+
+        :return: Livestock unit per hectare (LU/ha).
+        :rtype: float
+        """
         return np.round(self.df_elevage["LU"].sum() / self.df_cultures["Area (ha)"].sum(), 2)
 
     def NH3_vol(self):
+        """
+        Returns the total NH₃ volatilization in the system.
+
+        :return: NH₃ emissions in kt.
+        :rtype: float
+        """
         return self.emissions()["NH3 volatilization"]
 
     def N2O_em(self):
+        """
+        Returns the total N₂O emissions in the system.
+
+        :return: N₂O emissions in kt.
+        :rtype: float
+        """
         return self.emissions()["N2O emission"]
 
 

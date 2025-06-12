@@ -631,11 +631,11 @@ with tab4:
 
         st.subheader("Cultures data")
 
-        st.dataframe(model.df_cultures)
+        st.dataframe(model.df_cultures_display)
 
         st.subheader("Livestock data")
 
-        st.dataframe(model.df_elevage)
+        st.dataframe(model.df_elevage_display)
 
         st.subheader("Culture allocation to livestock and population")
 
