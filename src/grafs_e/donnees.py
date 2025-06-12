@@ -101,11 +101,12 @@ categories_mapping = {
     # Fourrages
     "Forage maize": "forages",
     "Forage cabbages": "forages",
-    "Non-legume temporary meadow": "forages",  # J'aurai voulu les mettres dans prairies mais GRAFS ne le fait pas comme ça....
-    "Alfalfa and clover": "forages",
     "Straw": "forages",
-    # Prairies
-    "Natural meadow ": "grasslands",
+    # Prairies temporaires
+    "Non-legume temporary meadow": "temporary meadows",
+    "Alfalfa and clover": "temporary meadows",
+    # Prairies permanentes
+    "Natural meadow ": "natural meadows ",
     # Fruits et légumes
     "Dry vegetables": "fruits and vegetables",
     "Dry fruits": "fruits and vegetables",
@@ -165,10 +166,10 @@ ext = [
     "roots food trade",
     "rice food trade",
     "cereals (excluding rice) feed trade",
-    "forages feed trade",
     "leguminous feed trade",
     "oleaginous feed trade",
-    "grasslands feed trade",
+    "forages feed trade",
+    "temporary meadows feed trade",
 ]
 
 labels_init = cultures + legumineuses + prairies + betail + Pop + ext
@@ -291,14 +292,18 @@ node_color = {
         if label in categories_mapping and categories_mapping[label] == "oleaginous"
         else "darkgreen"
         if label in categories_mapping and categories_mapping[label] == "leguminous"
-        else "green"
-        if label in categories_mapping and categories_mapping[label] in ["grasslands", "forages"]
+        else "lime"
+        if label in categories_mapping and categories_mapping[label] in ["temporary meadows", "forages"]
+        else "darkgreen"
+        if label in categories_mapping and categories_mapping[label] == "natural meadows "
         else "lightblue"
         if label in betail
         else "darkblue"
         if label in ["urban", "rural"]
         else "red"
         if label in ["atmospheric volatilization", "hydro-system", "other losses", "NH3 volatilization", "N2O emission"]
+        else "sienna"
+        if label in ["soil stock"]
         else "cyan"
         if label in ["Atmospheric deposition"]
         else "purple"

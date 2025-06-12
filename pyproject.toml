@@ -1,6 +1,6 @@
 [project]
 name = "grafs_e"
-version = "0.65"
+version = "0.7"
 description = "Metabolic analysis of Agricultural systems"
 readme = "README.md"
 license = {file="LICENCE"}
@@ -24,16 +24,22 @@ keywords = ["agriculture", "nitrogen", "ecological", "scientific", "research"]
 requires-python = ">=3.10"
 
 dependencies = [
+    "cairosvg>=2.8.2",
     "folium>=0.19.4",
     "ipykernel>=6.29.5",
     "ipython>=8.34.0",
+    "ipywidgets>=8.1.7",
+    "lxml>=5.4.0",
     "matplotlib>=3.10.0",
+    "nbformat>=5.10.4",
     "networkx>=3.4.2",
     "openpyxl>=3.1.5",
     "pandas>=2.2.3",
     "plotly>=5.24.1",
     "pulp>=2.9.0",
     "pyomo[appsi]>=6.9.1",
+    "sankeyflow>=0.4.1",
+    "scikit-learn>=1.6.1",
     "scipy>=1.15.2",
     "seaborn>=0.13.2",
     "sphinx>=8.1.3",

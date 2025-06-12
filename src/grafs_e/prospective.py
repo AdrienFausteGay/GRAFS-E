@@ -24,7 +24,7 @@ _ = _appsi_solvers
 
 class scenario:
     def __init__(self, scenario_path, dataloader=None):
-        self.data_path = os.path.join(os.path.dirname(__file__), "data")
+        self.data_path = os.path.join(os.getcwd(), "src", "grafs_e", "data")
         if dataloader is None:
             self.dataloader = DataLoader()
         else:
@@ -229,7 +229,7 @@ class scenario:
         slope, intercept, r_value, p_value, std_err = linregress(int_year, logit)
         return 100.0 / (1.0 + np.exp(-(intercept + slope * int(year))))
 
-    def generate_crop_tab(self, region, function_name="linear"):
+    def generate_crop_tab(self, region, function_name="Linear"):
         df = self.dataloader.pre_process_df(annees_disponibles[-1], region)
 
         cultures_df = df.loc[df["index_excel"].isin(range(259, 294)), ("nom", region)]
@@ -279,7 +279,7 @@ class scenario:
                 }
 
             elif function_name == "exp":
-                ym, k, _ = Y_pros.fit_Y_exp_2(culture, region)
+                ym, k, _ = Y_pros.fit_Y_exp(culture, region)
                 r2 = 0 if empty_data else r2_score(Yr, Y_pros.Y_th_exp_cap(F, ym, k))
                 return {
                     "culture": culture,
@@ -305,12 +305,6 @@ class scenario:
         all_cultures = cultures + legumineuses + prairies
         results = []
         run_fit = partial(fit_and_store, region=region)
-        # # Lancer le traitement en parallèle
-        # with ThreadPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
-        #     results = list(
-        #         tqdm(executor.map(run_fit, all_cultures), total=len(all_cultures), desc="Fitting models", position=1,
-        #         leave=False
-        #     )
 
         with ThreadPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
             futures = {executor.submit(run_fit, culture): culture for culture in all_cultures}
@@ -324,12 +318,6 @@ class scenario:
                     pbar.update(1)
                     pbar.refresh()
 
-        # results = []
-        # for culture in tqdm(all_cultures,
-        #                     desc="Fitting models",
-        #                     total=len(all_cultures)):
-        #     results.append(fit_and_store(culture, region))
-
         df_temp = pd.DataFrame(results).set_index("culture")
 
         # Ajouter (ou mettre à jour) les colonnes dans df_insert
@@ -337,9 +325,11 @@ class scenario:
             df_insert[col] = df_temp[col]
         return df_insert
 
-    def pre_generate_scenario_excel(self, function_name="linear"):
+    def pre_generate_scenario_excel(self, function_name="Linear"):
         model_sheets = pd.read_excel(os.path.join(self.data_path, "scenario.xlsx"), sheet_name=None)
-        for region in tqdm(regions[23:], total=len(regions[23:]), desc="Regions", position=0):
+        for region in tqdm(
+            regions, total=len(regions), desc="Régions", position=0
+        ):  # tqdm(regions[23:], total=len(regions[23:]), desc="Regions", position=0):
             sheets = {}
             sheet_corres = {
                 "doc": "doc",
@@ -358,7 +348,7 @@ class scenario:
                 for sheet_name, df in sheets.items():
                     df.to_excel(writer, sheet_name=sheet_name, index=False)
 
-    def generate_scenario_excel(self, year, region, name, function_name="linear"):
+    def generate_scenario_excel(self, year, region, name, function_name="Linear"):
         self.region = region
         self.year = year
         self.last_data_year = annees_disponibles[-1]
@@ -368,7 +358,6 @@ class scenario:
             self.data = self.dataloader.pre_process_df(self.last_data_year, "France")
             print(f"No region named {region} in the data")
 
-        # model_sheets = pd.read_excel(os.path.join(self.data_path, "scenario.xlsx"), sheet_name=None)
         model_sheets = pd.read_excel(
             os.path.join(self.data_path, "scenario_region", function_name, self.region + ".xlsx"), sheet_name=None
         )
@@ -394,6 +383,11 @@ class scenario:
         sheets["doc"].iloc[14, 1] = name
         sheets["doc"].iloc[15, 1] = region
         sheets["doc"].iloc[16, 1] = year
+        # Du à une mauvaise construction des fiches scenar...
+        if function_name == "Exponential":
+            sheets["doc"].loc[len(sheets["doc"])] = ["Production function", function_name]
+        else:
+            sheets["doc"].iloc[17, 1] = function_name
 
         def format_dep(dep_series):
             return " + ".join(dep_series.astype(str).unique())
@@ -477,7 +471,12 @@ class scenario:
             .reset_index()
         )
 
-        proj = grouped_proj_pop.loc[grouped_proj_pop["Region"] == region, f"POP_{year}"].item()
+        if region == "France":
+            proj = 0
+            for r in regions:
+                proj += grouped_proj_pop.loc[grouped_proj_pop["Region"] == r, f"POP_{year}"].item()
+        else:
+            proj = grouped_proj_pop.loc[grouped_proj_pop["Region"] == region, f"POP_{year}"].item()
         sheets["main"].loc[sheets["main"]["Variable"] == "Population", "Business as usual"] = (
             proj / 1000
         )  # to be in thousands, not in millions !
@@ -523,6 +522,14 @@ class scenario:
                 "Business as usual",
             ] = self.historic_trend(region, 32)[-1]
 
+            excel_dict = {
+                "bovines": 1250,
+                "ovines": 1264,
+                "caprines": 1278,
+                "porcines": 1292,
+                "poultry": 1306,
+                "equines": 1320,
+            }
             # Excretion managment
             for t in betail:
                 if t == "equine":
@@ -530,127 +537,19 @@ class scenario:
                 sheets["technical"].loc[
                     sheets["technical"]["Variable"] == f"{t.capitalize()} % excretion on grassland",
                     "Business as usual",
-                ] = self.historic_trend(region, 1250)[-1]
+                ] = self.historic_trend(region, excel_dict[t])[-1]
                 sheets["technical"].loc[
                     sheets["technical"]["Variable"] == f"{t.capitalize()} % excretion in the barn as litter manure",
                     "Business as usual",
-                ] = self.historic_trend(region, 1252)[-1]
+                ] = self.historic_trend(region, excel_dict[t] + 2)[-1]
                 sheets["technical"].loc[
                     sheets["technical"]["Variable"] == f"{t.capitalize()} % excretion in the barn as other manure",
                     "Business as usual",
-                ] = self.historic_trend(region, 1253)[-1]
+                ] = self.historic_trend(region, excel_dict[t] + 3)[-1]
                 sheets["technical"].loc[
                     sheets["technical"]["Variable"] == f"{t.capitalize()} % excretion in the barn as slurry",
                     "Business as usual",
-                ] = self.historic_trend(region, 1254)[-1]
-
-            # #bovines
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Bovines % excretion on grassland",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1250)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Bovines % excretion in the barn as litter manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1252)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Bovines % excretion in the barn as other manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1253)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Bovines % excretion in the barn as slurry",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1254)[-1]
-
-            # # ovines
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Ovines % excretion on grassland",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1264)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Ovines % excretion in the barn as litter manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1266)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Ovines % excretion in the barn as other manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1267)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Ovines % excretion in the barn as slurry",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1268)[-1]
-
-            # # caprines
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Caprines % excretion on grassland",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1278)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Caprines % excretion in the barn as litter manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1280)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Caprines % excretion in the barn as other manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1281)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Caprines % excretion in the barn as slurry",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1282)[-1]
-
-            # # porcines
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Porcines % excretion on grassland",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1292)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Porcines % excretion in the barn as litter manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1294)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Porcines % excretion in the barn as other manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1295)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Porcines % excretion in the barn as slurry",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1296)[-1]
-
-            # # poultry
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Poultry % excretion on grassland",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1306)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Poultry % excretion in the barn as litter manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1308)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Poultry % excretion in the barn as other manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1309)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Poultry % excretion in the barn as slurry",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1310)[-1]
-
-            # # equines
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Equines % excretion on grassland",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1320)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Equines % excretion in the barn as litter manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1322)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Equines % excretion in the barn as other manure",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1323)[-1]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Equines % excretion in the barn as slurry",
-            #     "Business as usual",
-            # ] = self.historic_trend(region, 1244)[-1]
+                ] = self.historic_trend(region, excel_dict[t] + 4)[-1]
 
             # LU prop
             LU_prop = self.livestock_LU(self.dataloader, self.region)[annees_disponibles[-1]]
@@ -663,31 +562,6 @@ class scenario:
                     sheets["technical"]["Variable"] == f"{t.capitalize()} LU",
                     "Business as usual",
                 ] = LU_prop[t]
-
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Bovines LU",
-            #     "Business as usual",
-            # ] = LU_prop["bovines"]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Ovines LU",
-            #     "Business as usual",
-            # ] = LU_prop["ovines"]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Caprines LU",
-            #     "Business as usual",
-            # ] = LU_prop["caprines"]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Porcines LU",
-            #     "Business as usual",
-            # ] = LU_prop["porcines"]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Poultry LU",
-            #     "Business as usual",
-            # ] = LU_prop["poultry"]
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "Equines LU",
-            #     "Business as usual",
-            # ] = LU_prop["equines"]
 
             # Historical trend
             sheets["main"].loc[
@@ -704,41 +578,6 @@ class scenario:
                 ] = self.extrapolate_recent_trend(self.LU_excretion(self.dataloader, self.region, type), self.year)[1][
                     -1
                 ]
-
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "kgN excreted by ovines LU",
-            #     "Business as usual",
-            # ] = self.extrapolate_recent_trend(self.LU_excretion(self.dataloader, self.region, "ovines"), self.year)[1][
-            #     -1
-            # ]
-
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "kgN excreted by caprines LU",
-            #     "Business as usual",
-            # ] = self.extrapolate_recent_trend(self.LU_excretion(self.dataloader, self.region, "caprines"), self.year)[
-            #     1
-            # ][-1]
-
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "kgN excreted by porcines LU",
-            #     "Business as usual",
-            # ] = self.extrapolate_recent_trend(self.LU_excretion(self.dataloader, self.region, "porcines"), self.year)[
-            #     1
-            # ][-1]
-
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "kgN excreted by poultry LU",
-            #     "Business as usual",
-            # ] = self.extrapolate_recent_trend(self.LU_excretion(self.dataloader, self.region, "poultry"), self.year)[1][
-            #     -1
-            # ]
-
-            # sheets["technical"].loc[
-            #     sheets["technical"]["Variable"] == "kgN excreted by equines LU",
-            #     "Business as usual",
-            # ] = self.extrapolate_recent_trend(self.LU_excretion(self.region, "equines"), self.year)[1][-1]
-
-            # LU_prod = self.LU_prod(self.dataloader, self.region)
 
             for type in betail:
                 if type == "equine":
@@ -805,7 +644,7 @@ class scenario:
             sheet[f"A{last_row}"] = "Proportion area sum correct ?"
             sheet[f"B{last_row}"] = f'=IF(SUM(B2:B{last_row - 3})=100, "✅ OK", "❌ Erreur")'
 
-    def generate_base_scenar(self):
+    def generate_base_scenar(self, prod_func):
         # Create scenar for all regions with only area filled
         for region in tqdm(regions, desc="Calcul des Ymax et k", unit="region"):
             try:
@@ -825,7 +664,7 @@ class scenario:
             }
             for sheet_name, df in model_sheets.items():
                 sheets[sheet_corres[sheet_name]] = df
-            sheets["area"] = self.generate_crop_tab(region)
+            sheets["area"] = self.generate_crop_tab(region, prod_func)
 
             with pd.ExcelWriter(
                 os.path.join(self.data_path, "scenario_region", region + ".xlsx"), engine="openpyxl"
@@ -879,6 +718,8 @@ class Y:
 
     @staticmethod
     def Y_th(f, y_max):
+        if f + y_max == 0:
+            return 0
         return f * y_max / (f + y_max)
 
     @staticmethod
@@ -1288,14 +1129,14 @@ class Y:
         if len(Y) == 0:
             print(f"no {culture} found in {region}")
             return None
-        Y_max, k, _ = self.fit_Y_exp(culture, region)
+        Y_max, k, _ = self.fit_Y_exp_2(culture, region)
         F_th = np.linspace(0, 1.05 * max(F), 100)
         Y_th = self.Y_th_exp_cap(F_th, Y_max, k)
         r2 = np.round(r2_score(Y, self.Y_th_exp_cap(F, Y_max, k)), 2)
         plt.figure(figsize=(8, 6))
         plt.plot(F, Y, "o", color="tab:blue", markersize=8, label=f"Historic Data, r2 = {r2}")  # Points et ligne
         plt.plot(Y, Y, "--")
-        plt.plot(F_th, Y_th, label=f"Theoric curve, Y_max = {int(Y_max)}", color="orange", linewidth=4)
+        plt.plot(F_th, Y_th, label=f"Theoric curve, Y_max = {int(Y_max)}, k = {int(k)}", color="orange", linewidth=4)
         plt.xlim(0, max(F_th))  # Départ de l'axe X à 0
         plt.ylim(0, max(Y))  # Départ de l'axe Y à 0
         plt.gca().set_aspect("equal")  # Échelle identique en ajustant les limites
@@ -1534,6 +1375,14 @@ class CultureData_prospect:
             Ymax.index = crops_index
 
             epend["Ymax (kgN/ha)"] = Ymax
+        if self.func_prod == "Exponential":
+            Ymax = self.area["Ymax (kgN/ha)"][:-2]
+            Ymax.index = crops_index
+            epend["Ymax (kgN/ha)"] = Ymax
+
+            k = self.area["k (kgN/ha)"][:-2]
+            k.index = crops_index
+            epend["k (kgN/ha)"] = k
 
         return epend
 
@@ -1642,7 +1491,7 @@ class NitrogenFlowModel_prospect:
         self.area = pd.DataFrame(self.scenar_sheets["area"])
         self.technical = pd.DataFrame(self.scenar_sheets["technical"])
         self.prod_func = self.doc.loc[
-            self.doc["excel sheet for scenario writing"] == "Production function", "Unnamed: 1"
+            self.doc["excel sheet for scenario writing"] == "Production function", self.doc.columns.tolist()[1]
         ].item()
         self.culture_data = CultureData_prospect(
             self.main, self.area, self.data_path, categories_mapping, self.prod_func
@@ -1860,14 +1709,15 @@ class NitrogenFlowModel_prospect:
         technical = self.technical
         area = self.area
         doc = self.doc
-        year = doc.loc[doc["excel sheet for scenario writing"] == "Year", "Unnamed: 1"].item()
-        region = doc.loc[doc["excel sheet for scenario writing"] == "Region name", "Unnamed: 1"].item()
+        year = doc.loc[doc["excel sheet for scenario writing"] == "Year", doc.columns.tolist()[1]].item()
+        region = doc.loc[doc["excel sheet for scenario writing"] == "Region name", doc.columns.tolist()[1]].item()
         self.year = year
         self.region = region
         flux_generator = self.flux_generator
+
         if self.prod_func == "Linear":
             ym = "a"
-        if self.prod_func == "Ratio":
+        if self.prod_func in ["Ratio", "Exponential"]:
             ym = "Ymax (kgN/ha)"
 
         # Gestion du cas particulier pour 'Straw'
@@ -1883,9 +1733,15 @@ class NitrogenFlowModel_prospect:
             )
 
         # Flux depuis 'other sectors' vers les cibles sélectionnées
-        target = (
-            df_cultures["Seed input (kt seeds/kt Ymax)"] * df_cultures[ym] * df_cultures["Area (ha)"] * 1e-6
-        ).to_dict()
+        if self.prod_func in ["Ratio", "Exponential"]:
+            # Pour éviter des valeur délirante, on interprète ymax comme un niveau de fertilisation caractéristique (Y(Ymax) = Ymax/2)
+            target = (
+                df_cultures["Seed input (kt seeds/kt Ymax)"] * df_cultures[ym] / 2 * df_cultures["Area (ha)"] * 1e-6
+            ).to_dict()
+        else:
+            target = (
+                df_cultures["Seed input (kt seeds/kt Ymax)"] * df_cultures[ym] * df_cultures["Area (ha)"] * 1e-6
+            ).to_dict()
         source = {"other sectors": 1}
         flux_generator.generate_flux(source, target)
 
@@ -2052,7 +1908,7 @@ class NitrogenFlowModel_prospect:
             * df_elevage["% excreted indoors"]
             / 100
             * (
-                df_elevage["% excreted indoors as slurry"]
+                df_elevage["% excreted indoors as manure"]
                 / 100
                 * (
                     1
@@ -2060,7 +1916,7 @@ class NitrogenFlowModel_prospect:
                     - df_elevage["N-N2O EM. manure indoor"]
                     - df_elevage["N-N2 EM. manure indoor"]
                 )
-                + df_elevage["% excreted indoors as manure"]
+                + df_elevage["% excreted indoors as slurry"]
                 / 100
                 * (
                     1
@@ -2175,6 +2031,12 @@ class NitrogenFlowModel_prospect:
                     df_cultures.loc[df_cultures.index == leg, "Surface Non Synthetic Fertilizer Use (kgN/ha)"].item(),
                     df_cultures.loc[df_cultures.index == leg, "Ymax (kgN/ha)"].item(),
                 )
+            if self.prod_func == "Exponential":
+                Yield = Y.Y_th_exp_cap(
+                    df_cultures.loc[df_cultures.index == leg, "Surface Non Synthetic Fertilizer Use (kgN/ha)"].item(),
+                    df_cultures.loc[df_cultures.index == leg, "Ymax (kgN/ha)"].item(),
+                    df_cultures.loc[df_cultures.index == leg, "k (kgN/ha)"].item(),
+                )
             df_cultures.loc[df_cultures.index == leg, "Yield (kgN/ha)"] = Yield
 
         df_cultures["Nitrogen Production (ktN)"] = df_cultures["Yield (kgN/ha)"] * df_cultures["Area (ha)"] / 1e6
@@ -2275,6 +2137,9 @@ class NitrogenFlowModel_prospect:
             if self.prod_func == "Linear":
                 a = {c: df_cultures.at[c, "a"] for c in CROPS}
                 b = {c: df_cultures.at[c, "b"] for c in CROPS}
+            if self.prod_func == "Exponential":
+                Ymax = {c: df_cultures.at[c, "Ymax (kgN/ha)"] for c in CROPS}
+                k_param = {c: df_cultures.at[c, "k (kgN/ha)"] for c in CROPS}
             nonSynthFert = {c: df_cultures.at[c, "Surface Non Synthetic Fertilizer Use (kgN/ha)"] for c in CROPS}
             ingestion = {k: df_cons_vege.at[k] for k in CONSUMERS}
 
@@ -2341,6 +2206,8 @@ class NitrogenFlowModel_prospect:
                 return np.minimum(a * f, b)
 
             def Y_th_ratio(f, ymax):
+                if f + ymax == 0:
+                    return 0
                 return f * ymax / (f + ymax)
 
             def objective(x):
@@ -2418,6 +2285,12 @@ class NitrogenFlowModel_prospect:
                     if self.prod_func == "Linear":
                         production_c = (
                             Y_th_lin(x[idx_synth[c]] + nonSynthFert[c], a[c], b[c])
+                            * df_cultures.at[c, "Area (ha)"]
+                            / 1e6
+                        )
+                    if self.prod_func == "Exponential":
+                        production_c = (
+                            Y.Y_th_exp_cap(x[idx_synth[c]] + nonSynthFert[c], Ymax[c], k_param[c])
                             * df_cultures.at[c, "Area (ha)"]
                             / 1e6
                         )
@@ -2682,6 +2555,12 @@ class NitrogenFlowModel_prospect:
                             * df_cultures.at[c, "Area (ha)"]
                             / 1e6
                         )
+                    if self.prod_func == "Exponential":
+                        production_c = (
+                            Y.Y_th_exp_cap(x[idx_synth[c]] + nonSynthFert[c], Ymax[c], k_param[c])
+                            * df_cultures.at[c, "Area (ha)"]
+                            / 1e6
+                        )
 
                     # Somme des allocations locales sur c
                     allocated_c = 0.0
@@ -2763,6 +2642,10 @@ class NitrogenFlowModel_prospect:
                         y_ha = Y_th_ratio(fert_tot, df_cultures.loc[c, "Ymax (kgN/ha)"])
                     if self.prod_func == "Linear":
                         y_ha = Y_th_lin(fert_tot, df_cultures.loc[c, "a"], df_cultures.loc[c, "b"])
+                    if self.prod_func == "Exponential":
+                        y_ha = Y.Y_th_exp_cap(
+                            fert_tot, df_cultures.loc[c, "Ymax (kgN/ha)"], df_cultures.loc[c, "k (kgN/ha)"]
+                        )
                     # Production in ktN (consistent units assumed)
                     return (y_ha * df_cultures.loc[c, "Area (ha)"]) / 1e6
 
@@ -2880,6 +2763,8 @@ class NitrogenFlowModel_prospect:
                     y = Y_th_ratio(fert_tot, Ymax[c])
                 if self.prod_func == "Linear":
                     y = Y_th_lin(fert_tot, a[c], b[c])
+                if self.prod_func == "Exponential":
+                    y = Y.Y_th_exp_cap(fert_tot, Ymax[c], k_param[c])
                 prod_c = (y * area[c]) / 1e6
 
                 return prod_c - sum_local  # doit être >= 0
@@ -2928,7 +2813,7 @@ class NitrogenFlowModel_prospect:
             # or some heuristic.
             # --------------------------------------------------------------------------
             x0 = np.array([0.01 for i in range(n_vars)])  # np.zeros(n_vars, dtype=float)
-            if self.prod_func == "Ratio":
+            if self.prod_func in ["Ratio", "Exponential"]:
                 x0[: len(df_cultures)] = df_cultures["Ymax (kgN/ha)"].values
             if self.prod_func == "Linear":
                 x0[: len(df_cultures)] = df_cultures["b"].values
@@ -2953,6 +2838,9 @@ class NitrogenFlowModel_prospect:
             #     options={"maxiter": 1000, "ftol": 1e-5, "disp": True},
             # )
 
+            # from IPython import embed
+
+            # embed()
             # Stage 2: refine from the stage 1 solution with a tighter tolerance
             res = minimize(
                 fun=objective,
@@ -3005,8 +2893,12 @@ class NitrogenFlowModel_prospect:
                     if self.prod_func == "Linear":
                         a = df_cultures.at[c, "a"]
                         b = df_cultures.at[c, "b"]
-
                         new_yield = Y_th_lin(fert_tot, a, b)
+                    if self.prod_func == "Exponential":
+                        y_max = df_cultures.at[c, "Ymax (kgN/ha)"]
+                        k_param = df_cultures.at[c, "k (kgN/ha)"]
+
+                        new_yield = Y.Y_th_exp_cap(fert_tot, y_max, k_param)
                     df_cultures.at[c, "Yield (kgN/ha)"] = new_yield
                     # Production en ktN
                     nitro_prod_ktN = (new_yield * area_ha) / 1e6
@@ -3258,73 +3150,76 @@ class NitrogenFlowModel_prospect:
             # Inférer les types pour éviter le warning sur les colonnes object
             df_elevage = df_elevage.infer_objects(copy=False)
 
-        #     feed_export = import_feed - import_feed_net
-        #     flux_exported = {}
-        #     if feed_export > 10**-6:  # On a importé plus que les imports net, la diff est l'export de feed
-        #         feed_export = min(
-        #             feed_export,
-        #             df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum(),
-        #         )  # Patch pour gérer les cas où on a une surexportation (cf Bretagne 2010)
-        #         # On distingue les exports de feed prioritaires (prairies et fourrages) au reste
-        #         # On distingue le cas où il y a assez dans les exports prioritaires pour couvrir
-        #         # les export de feed au cas où il faut en plus exporter les autres cultures (mais d'abord les exports prio)
-        #         if (
-        #             feed_export
-        #             > df_cultures.loc[
-        #                 df_cultures["Category"].isin(["forages", "grasslands"]),
-        #                 "Available Nitrogen After Feed and Food (ktN)",
-        #             ].sum()
-        #         ):
-        #             feed_export_prio = df_cultures.loc[
-        #                 df_cultures["Category"].isin(["forages", "grasslands"]),
-        #                 "Available Nitrogen After Feed and Food (ktN)",
-        #             ].sum()
-        #             feed_export_other = feed_export - feed_export_prio
-        #         else:
-        #             feed_export_prio = feed_export
-        #             feed_export_other = 0
-        #         # Répartition de l'azote exporté inutilisé par catégorie
-        #         # On fait un premier tour sur les cultures prioritaires
-        #         for culture in df_cultures.loc[df_cultures["Category"].isin(["forages", "grasslands"])].index:
-        #             categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
-        #             # On exporte pas en feed des catégories dédiées aux humains
-        #             if categorie not in ["rice", "fruits and vegetables", "roots"]:
-        #                 # Calculer la quantité exportée par catégorie proportionnellement aux catégories présentes dans df_cultures
-        #                 culture_nitrogen_available = df_cultures.loc[df_cultures.index == culture][
-        #                     "Available Nitrogen After Feed and Food (ktN)"
-        #                 ].item()
+            # feed_export = import_feed - import_feed_net
 
-        #                 if culture_nitrogen_available > 0:
-        #                     flux_exported[culture] = feed_export_prio * (
-        #                         culture_nitrogen_available
-        #                         / df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
-        #                     )
+            # flux_exported = {}
+            # if feed_export > 10**-6:  # On a importé plus que les imports net, la diff est l'export de feed
+            #     feed_export = min(
+            #         feed_export,
+            #         df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum(),
+            #     )  # Patch pour gérer les cas où on a une surexportation (cf Bretagne 2010)
+            #     # On distingue les exports de feed prioritaires (prairies et fourrages) au reste
+            #     # On distingue le cas où il y a assez dans les exports prioritaires pour couvrir
+            #     # les export de feed au cas où il faut en plus exporter les autres cultures (mais d'abord les exports prio)
+            #     if (
+            #         feed_export
+            #         > df_cultures.loc[
+            #             df_cultures["Category"].isin(["forages", "temporary meadows"]),
+            #             "Available Nitrogen After Feed and Food (ktN)",
+            #         ].sum()
+            #     ):
+            #         feed_export_prio = df_cultures.loc[
+            #             df_cultures["Category"].isin(["forages", "temporary meadows"]),
+            #             "Available Nitrogen After Feed and Food (ktN)",
+            #         ].sum()
+            #         feed_export_other = feed_export - feed_export_prio
+            #     else:
+            #         feed_export_prio = feed_export
+            #         feed_export_other = 0
+            #     # Répartition de l'azote exporté inutilisé par catégorie
+            #     # On fait un premier tour sur les cultures prioritaires
+            #     for culture in df_cultures.loc[df_cultures["Category"].isin(["forages", "temporary meadows"])].index:
+            #         categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
+            #         # On exporte pas en feed des catégories dédiées aux humains
+            #         if categorie not in ["rice", "fruits and vegetables", "roots"]:
+            #             # Calculer la quantité exportée par catégorie proportionnellement aux catégories présentes dans df_cultures
+            #             culture_nitrogen_available = df_cultures.loc[df_cultures.index == culture][
+            #                 "Available Nitrogen After Feed and Food (ktN)"
+            #             ].item()
 
-        #         # On écoule le reste des export de feed (si il y en a) sur les autres cultures
-        #         if feed_export_other > 10**-6:
-        #             for culture in df_cultures.loc[~df_cultures["Category"].isin(["forages", "grasslands"])].index:
-        #                 categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
-        #                 # On exporte pas en feed des catégories dédiées aux humains
-        #                 if categorie not in ["rice", "fruits and vegetables", "roots"]:
-        #                     # Calculer la quantité exportée par catégorie proportionnellement aux catégories présentes dans df_cultures
-        #                     culture_nitrogen_available = df_cultures.loc[df_cultures.index == culture][
-        #                         "Available Nitrogen After Feed and Food (ktN)"
-        #                     ].item()
+            #             if culture_nitrogen_available > 0:
+            #                 flux_exported[culture] = feed_export_prio * (
+            #                     culture_nitrogen_available
+            #                     / df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
+            #                 )
 
-        #                     if culture_nitrogen_available > 0:
-        #                         flux_exported[culture] = feed_export_prio * (
-        #                             culture_nitrogen_available
-        #                             / df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
-        #                         )
+            #     # On écoule le reste des export de feed (si il y en a) sur les autres cultures
+            #     if feed_export_other > 10**-6:
+            #         for culture in df_cultures.loc[
+            #             ~df_cultures["Category"].isin(["forages", "temporary meadows"])
+            #         ].index:
+            #             categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
+            #             # On exporte pas en feed des catégories dédiées aux humains
+            #             if categorie not in ["rice", "fruits and vegetables", "roots"]:
+            #                 # Calculer la quantité exportée par catégorie proportionnellement aux catégories présentes dans df_cultures
+            #                 culture_nitrogen_available = df_cultures.loc[df_cultures.index == culture][
+            #                     "Available Nitrogen After Feed and Food (ktN)"
+            #                 ].item()
 
-        #         # Générer des flux les exportations vers leur catégorie d'origine
-        #         for label_source, azote_exported in flux_exported.items():
-        #             if azote_exported > 0:
-        #                 categorie = df_cultures.loc[df_cultures.index == label_source, "Category"].item()
-        #                 label_target = f"{categorie} feed trade"
-        #                 target = {label_target: 1}
-        #                 source = {label_source: azote_exported}
-        #                 flux_generator.generate_flux(source, target)
+            #                 if culture_nitrogen_available > 0:
+            #                     flux_exported[culture] = feed_export_prio * (
+            #                         culture_nitrogen_available
+            #                         / df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
+            #                     )
+
+            #     # Générer des flux les exportations vers leur catégorie d'origine
+            #     for label_source, azote_exported in flux_exported.items():
+            #         if azote_exported > 0:
+            #             categorie = df_cultures.loc[df_cultures.index == label_source, "Category"].item()
+            #             label_target = f"{categorie} feed trade"
+            #             target = {label_target: 1}
+            #             source = {label_source: azote_exported}
+            #             flux_generator.generate_flux(source, target)
 
         # # Mise à jour du DataFrame avec les quantités exportées
         # df_cultures["Nitrogen Exported For Feed (ktN)"] = df_cultures.index.map(flux_exported).fillna(
@@ -3341,7 +3236,7 @@ class NitrogenFlowModel_prospect:
         for idx, row in df_cultures.iterrows():
             culture = row.name
             categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
-            if categorie not in ["grasslands", "forages"]:
+            if categorie not in ["temporary meadows", "forages", "natural meadows "]:
                 source = {
                     culture: df_cultures.loc[
                         df_cultures.index == culture,
@@ -3349,8 +3244,10 @@ class NitrogenFlowModel_prospect:
                     ].item()
                 }
                 target = {f"{categorie} food trade": 1}
-                flux_generator.generate_flux(source, target)
-            else:
+            elif (
+                culture != "Natural meadow "
+            ):  # TODO Que faire des production de feed qui ne sont ni consommées ni exportées ? Pour l'instant on les exporte....
+                # NOOOON Il faut les laisser retourner en terre si c'est une prairie naturelle (recommandation de JLN)
                 source = {
                     culture: df_cultures.loc[
                         df_cultures.index == culture,
@@ -3358,9 +3255,20 @@ class NitrogenFlowModel_prospect:
                     ].item()
                 }
                 target = {f"{categorie} feed trade": 1}
-                flux_generator.generate_flux(source, target)
+                print(culture)
+                print(categorie)
+            else:
+                source = {
+                    culture: df_cultures.loc[
+                        df_cultures.index == culture,
+                        "Available Nitrogen After Feed and Food (ktN)",
+                    ].item()
+                }
+                target = {"soil stock": 1}
+            flux_generator.generate_flux(source, target)
 
-        # Que faire d'eventuel surplus de prairies ou forage ? Pour l'instant on les ignores... Ou alors vers soil stock ?
+        # Que faire d'eventuel surplus de prairies ou forage ?
+        # Sur recommandation de JLN c'est retourné vers le sol pour les prairies permanentes et exporté pour tout le reste
 
         ## Usage de l'azote animal pour nourir la population, on pourrait améliorer en distinguant viande, oeufs et lait
 
@@ -3389,7 +3297,7 @@ class NitrogenFlowModel_prospect:
 
             cons_viande_import = cons_viande - df_elevage["Edible Nitrogen (ktN)"].sum()
             commerce_path = "FAOSTAT_data_fr_viande_import.csv"
-            commerce = pd.read_csv(os.path.join(self.data_loader.data_path, commerce_path))
+            commerce = pd.read_csv(os.path.join(self.data_path, commerce_path))
             if (
                 int(year) < 1965
             ):  # Si on est avant 65, on se base sur les rations de 65. De toute façon ça concerne des import minoritaires...
@@ -3495,6 +3403,49 @@ class NitrogenFlowModel_prospect:
         source = {"atmospheric N2": 1}
         flux_generator.generate_flux(source, target)
 
+        # On ajoute une ligne total à df_cultures et df_elevage
+        colonnes_a_exclure = [
+            "Spreading Rate (%)",
+            "Nitrogen Content (%)",
+            "Seed input (kt seeds/kt Ymax)",
+            "Category",
+            "N fixation coef (kgN/kgN)",
+            "Fertilization Need (kgN/qtl)",
+            "Surface Fertilization Need (kgN/ha)",
+            "Yield (qtl/ha)",
+            "Yield (kgN/ha)",
+            "Surface Non Synthetic Fertilizer Use (kgN/ha)",
+            "Raw Surface Synthetic Fertilizer Use (ktN/ha)",
+        ]
+        colonnes_a_sommer = df_cultures.columns.difference(colonnes_a_exclure)
+        total = df_cultures[colonnes_a_sommer].sum()
+        total.name = "Total"
+        df_cultures = pd.concat([df_cultures, total.to_frame().T])
+
+        colonnes_a_exclure = [
+            "% edible",
+            "% excreted indoors",
+            "% excreted indoors as manure",
+            "% excreted indoors as slurry",
+            "% excreted on grassland",
+            "% non edible",
+            "%N dairy",
+            "N-N2 EM. manure indoor",
+            "N-N2 EM. outdoor",
+            "N-N2 EM. slurry indoor",
+            "N-N2O EM. manure indoor",
+            "N-N2O EM. outdoor",
+            "N-N2O EM. slurry indoor",
+            "N-NH3 EM. manure indoor",
+            "N-NH3 EM. outdoor",
+            "N-NH3 EM. slurry indoor",
+            "Conversion factor (%)",
+        ]
+        colonnes_a_sommer = df_elevage.columns.difference(colonnes_a_exclure)
+        total = df_elevage[colonnes_a_sommer].sum()
+        total.name = "Total"
+        df_elevage = pd.concat([df_elevage, total.to_frame().T])
+
         self.df_cultures = df_cultures
         self.df_elevage = df_elevage
         self.adjacency_matrix = adjacency_matrix
@@ -3588,7 +3539,8 @@ class NitrogenFlowModel_prospect:
 
     def grassland_and_forages_production(self):
         return self.df_cultures.loc[
-            self.df_cultures["Category"].isin(["grasslands", "forages"]), "Nitrogen Production (ktN)"
+            self.df_cultures["Category"].isin(["temporary meadows", "natural meadows forages"]),
+            "Nitrogen Production (ktN)",
         ].sum()
 
     def roots_production(self):
@@ -3625,7 +3577,8 @@ class NitrogenFlowModel_prospect:
     def grassland_and_forages_production_r(self):
         return (
             self.df_cultures.loc[
-                self.df_cultures["Category"].isin(["grasslands", "forages"]), "Nitrogen Production (ktN)"
+                self.df_cultures["Category"].isin(["temporary meadows", "natural meadows ", "forages"]),
+                "Nitrogen Production (ktN)",
             ].sum()
             * 100
             / self.total_plant_production()
