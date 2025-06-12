@@ -6,12 +6,22 @@
 GRAFS-E documentation
 =====================
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
+.. GRAFS-E documentation master file
 
+Welcome to the documentation of GRAFS-E
+=======================================
+
+This documentation presents the prospective nitrogen flow model used in GRAFS-E,
+including modules for scenario creation, crop and livestock nitrogen budgeting, and
+system-wide flux computation via an adjacency matrix.
+
+Contents:
+---------
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   docs/source/modules
+   :caption: API:
+
+   modules
 
