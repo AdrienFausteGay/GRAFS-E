@@ -5,7 +5,6 @@ import json
 import os
 import pickle
 import tempfile
-import urllib.parse
 from importlib.metadata import version
 from pathlib import Path
 
@@ -143,14 +142,27 @@ with tab1:
     """,
         unsafe_allow_html=True,
     )
+
+    import threading
+    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
     # Chemin absolu vers .../docs/_build/html/index.html
-    doc_path = Path(__file__).parent / "docs" / "_build" / "html" / "index.html"
-    st.text("See full documentation here: ")
-    file_url = urllib.parse.urljoin("file:", doc_path.as_uri())
-    st.markdown(
-        f'<a href="{file_url}" target="_blank">📖 See model documentation</a>',
-        unsafe_allow_html=True,
-    )
+    INDEX_HTML = Path(__file__).parent.parent.parent / "docs" / "source" / ".docs" / "_build" / "html" / "index.html"
+
+    import os
+
+    DOC_DIR = Path(__file__).parent.parent.parent / "docs" / "source" / ".docs" / "_build" / "html"
+    PORT = 8765
+
+    def run_server():
+        os.chdir(DOC_DIR)
+        ThreadingHTTPServer(("0.0.0.0", PORT), SimpleHTTPRequestHandler).serve_forever()
+
+    threading.Thread(target=run_server, daemon=True).start()
+    # ----------------------------------------------------------------------
+
+    DOC_URL = f"http://localhost:{PORT}/index.html"
+    st.link_button("📖  Documentation", DOC_URL)
 
     # 🔹 Mise en cache du chargement de l'image
     @st.cache_data

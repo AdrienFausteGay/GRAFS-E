@@ -4020,10 +4020,8 @@ class NitrogenFlowModel_prospect:
 
         # Calcul de imbalance dans df_cultures
         df_cultures["Balance (ktN)"] = (
-            df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"]
+            df_cultures["Synthetic Fertilizer Use (ktN)"]
             + df_cultures["Total Non Synthetic Fertilizer Use (ktN)"]
-            + df_cultures["Leguminous heritage (ktN)"]
-            - df_cultures["Leguminous Nitrogen Surplus (ktN)"]
             - df_cultures["Nitrogen Production (ktN)"]
             - df_cultures["Volatilized Nitrogen N-NH3 (ktN)"]
             - df_cultures["Volatilized Nitrogen N-N2O (ktN)"]  # Pas de volat sous forme de N2 ?
