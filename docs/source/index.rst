@@ -16,6 +16,9 @@ including modules for scenario creation, crop and livestock nitrogen budgeting, 
 system-wide flux computation via an adjacency matrix.
 
 All these function can be used with python installation using 'pip install grafs_e'.
+Once grafs-e installed, you can run 'grafs-e' command in terminal to lauch graphical interface on local.
+
+Graphical interface is accessible online at grafs-e.streamlit.app
 
 Contents:
 ---------
