@@ -6,326 +6,37 @@ from grafs_e.donnees import *
 from grafs_e.N_class import *
 
 
-def create_sankey_from_transition_matrix(transition_matrix, main_node, scope=2):
-    """
-    Crée un diagramme de Sankey à partir d'une matrice de transition.
-
-    :param transition_matrix: Matrice de transition (numpy array) où chaque élément [i, j] est le flux de i vers j.
-    :param main_node: Le nœud principal qui servira de base pour le Sankey.
-    :param scope: Le nombre de niveaux à inclure dans le Sankey (profils de profondeur de la hiérarchie).
-    """
-    # Récupérer le nombre de nœuds
-    n_nodes = transition_matrix.shape[0]
-
-    # Créer une liste vide de labels pour les nœuds et une liste vide pour les flux
-    labels = []
-    sources = []
-    targets = []
-    values = []
-
-    # Générer les labels à partir des nœuds
-    for i in range(n_nodes):
-        labels.append(index_to_label[i])  # Utiliser les indices des nœuds comme labels de base
-
-    # Fonction récursive pour ajouter les flux dans la direction descendante
-    def add_flows(node, depth, parent=None):
-        if depth > scope:
-            return
-        # Ajouter le flux pour les nœuds voisins du nœud courant
-        for target_node in range(n_nodes):
-            flow = transition_matrix[node, target_node]
-            if flow > 0:  # Si un flux existe
-                sources.append(node)
-                targets.append(target_node)
-                values.append(flow)
-
-                # Ajouter récursivement les flux pour les nœuds cibles
-                add_flows(target_node, depth + 1, parent=node)
-
-    # Ajouter les flux à partir du nœud principal
-    add_flows(main_node, 1)
-
-    # Créer le diagramme de Sankey
-    fig = go.Figure(
-        go.Sankey(
-            node=dict(pad=15, thickness=20, line=dict(color="black", width=0.5), label=labels),
-            link=dict(source=sources, target=targets, value=values),
-        )
-    )
-
-    # Ajouter un titre
-    # fig.update_layout(title_text=f"Flow Diagram starting from Node {main_node}", font_size=10)
-
-    # Afficher le graphique
-    fig.show()
-
-
-def create_sankey_from_transition_matrix_2(
-    transition_matrix,
-    main_node,
-    scope=1,
-    index_to_label=index_to_label,
-    index_to_color=node_color,
-):
-    """
-    Crée un diagramme de Sankey montrant à la fois les flux entrants (sources) et sortants (cibles) d'un nœud principal.
-
-    :param transition_matrix: Matrice de transition (numpy array) où chaque élément [i, j] est le flux de i vers j.
-    :param main_node: Le nœud principal qui servira de base pour le Sankey.
-    :param scope: Le nombre de niveaux à inclure dans le Sankey (profondeur).
-    """
-    # Récupérer le nombre de nœuds
-    n_nodes = transition_matrix.shape[0]
-
-    # Créer une liste vide de labels pour les nœuds et une liste vide pour les flux
-    labels = []
-    sources = []
-    targets = []
-    values = []
-    node_colors = []  # Liste pour les couleurs des nœuds
-    link_colors = []  # Liste pour les couleurs des flux
-
-    # Générer les labels à partir des nœuds
-    for i in range(n_nodes):
-        if index_to_label[i] == "cereals (excluding rice) food nitrogen import-export":
-            labels.append("cereals food export")
-        elif index_to_label[i] == "cereals (excluding rice) feed nitrogen import-export":
-            labels.append("cereals feed export")
-        else:
-            labels.append(index_to_label[i])  # Utiliser les indices des nœuds comme labels de base
-        node_colors.append(index_to_color[i])  # Définir une couleur de base pour les nœuds (par exemple, lightblue)
-
-    # Ajouter les flux sortants (cibles) à partir du nœud principal
-    def add_forward_flows(node, depth):
-        if depth > scope:
-            return
-        for target_node in range(n_nodes):
-            flow = transition_matrix[node, target_node]
-            if flow > 0:  # Si un flux existe
-                sources.append(node)
-                targets.append(target_node)
-                values.append(flow)
-                link_colors.append(index_to_color[target_node])  # Couleur des flux sortants
-                add_forward_flows(target_node, depth + 1)
-
-    # Ajouter les flux entrants (sources) vers le nœud principal
-    def add_backward_flows(node, depth):
-        if depth > scope:
-            return
-        for source_node in range(n_nodes):
-            flow = transition_matrix[source_node, node]
-            if flow > 0:  # Si un flux existe
-                sources.append(source_node)
-                targets.append(node)
-                values.append(flow)
-                link_colors.append(index_to_color[source_node])  # Couleur des flux entrants
-                add_backward_flows(source_node, depth + 1)
-
-    # Ajouter les flux sortants (cibles) et entrants (sources)
-    add_forward_flows(main_node, 1)
-    add_backward_flows(main_node, 1)
-
-    # Créer le diagramme de Sankey
-    fig = go.Figure(
-        go.Sankey(
-            node=dict(
-                pad=7,
-                thickness=15,
-                line=dict(color="black", width=0.5),
-                label=labels,
-                color=node_colors,  # Application des couleurs aux nœuds
-            ),
-            link=dict(
-                source=sources,
-                target=targets,
-                value=values,
-                color=link_colors,  # Application des couleurs aux flux
-            ),
-        )
-    )
-    # fig.write_image("sankey_high_resolution.png", width=2400, height=1600, scale=2)
-
-    # Afficher le graphique
-    fig.show()
-
-
-def create_sankey_tot(transition_matrix, index_to_label, index_to_color):
-    """
-    Fonction toute claquée, il y a trop d'infos
-    Crée un diagramme de Sankey à partir d'une matrice de transition des flux d'azote.
-    Les nœuds sont organisés en trois colonnes :
-    1. Nœuds 47 à 50 (première colonne)
-    2. Nœuds 0 à 35 (deuxième colonne)
-    3. Les autres nœuds (troisième colonne)
-
-    :param transition_matrix: Matrice de transition des flux d'azote (61x61 numpy array)
-    :param index_to_label: Dictionnaire associant les indices des nœuds à leurs labels
-    :param index_to_color: Dictionnaire associant les indices des nœuds à leurs couleurs
-    """
-    n_nodes = transition_matrix.shape[0]
-
-    # Créer les labels et couleurs des nœuds
-    labels = [index_to_label[i] for i in range(n_nodes)]
-    node_colors = [index_to_color[i] for i in range(n_nodes)]
-
-    # Déclarer les nœuds et les flux dans l'ordre correct
-    sources = []
-    targets = []
-    values = []
-    link_colors = []
-
-    # Première colonne : nœuds 47 à 50
-    col1_nodes = list(range(47, 51))  # Nœuds 47 à 50
-
-    # Deuxième colonne : nœuds 0 à 35
-    col2_nodes = list(range(36))  # Nœuds 0 à 35
-
-    # Troisième colonne : nœuds 51 à 60
-    col3_nodes = list(range(36, 47)) + list(range(51, 63))  # Nœuds 51 à 60
-
-    # Organiser les nœuds en 3 colonnes
-    all_nodes = col1_nodes + col2_nodes + col3_nodes
-
-    # Ajouter les flux sortants et entrants en fonction des nœuds
-    for i in all_nodes:
-        for j in all_nodes:
-            flow = transition_matrix[i, j]
-            if flow > 0:  # Si un flux existe
-                sources.append(i)
-                targets.append(j)
-                values.append(flow)
-                link_colors.append(index_to_color[j])  # Couleur des flux sortants
-
-    # Créer le diagramme de Sankey
-    fig = go.Figure(
-        go.Sankey(
-            node=dict(
-                pad=7,
-                thickness=10,
-                line=dict(color="black", width=0.5),
-                label=None,
-                color=node_colors,  # Application des couleurs aux nœuds
-            ),
-            link=dict(
-                source=sources,
-                target=targets,
-                value=values,
-                color=link_colors,  # Application des couleurs aux flux
-            ),
-        )
-    )
-
-    # Afficher le graphique
-    fig.show()
-
-
-def create_sankey_agreg(transition_matrix):
-    """
-    Crée un diagramme de Sankey simplifié en fusionnant les nœuds par groupe.
-    Les groupes sont fusionnés et organisés en trois colonnes :
-    1. Première colonne : "Industry", "Cereals", "Oleaginous", "Roots"
-    2. Deuxième colonne : "Fruits and vegetables", "Grasslands and forages", "Leguminous"
-    3. Troisième colonne : "Livestock", "Population", "Losses", "Trade", "Atmosphere"
-
-    :param transition_matrix: Matrice de transition des flux d'azote (61x61 numpy array)
-    :param index_to_label: Dictionnaire associant les indices des nœuds à leurs labels
-    :param index_to_color: Dictionnaire associant les indices des nœuds à leurs couleurs
-    """
-    # Définir les groupes de nœuds à fusionner
-    groups = {
-        "Industry": [49, 50],  # Place Industry en haut
-        "Cereals": list(range(8)),
-        "Oleaginous": list(range(8, 11)),
-        "Roots": list(range(11, 14)),
-        "Fruits and vegetables": list(range(14, 24)),
-        "Grasslands and forages": [24, 25, 26, 35],
-        "Leguminous": list(range(27, 35)),
-        "Livestock": list(range(36, 42)),
-        "Population": [42, 43],
-        "Losses": list(range(44, 47)),
-        "Atmosphere": list(range(47, 49)),
-        "Import": [51, 53],
-        "Export": [52, 54, 55, 56, 57, 59, 60, 61, 62],
-    }
-
-    # Créer un dictionnaire de nouveaux labels pour les nœuds fusionnés
-    merged_labels = {i: label for i, label in enumerate(groups.keys())}
-
-    # Créer les labels et couleurs des nœuds fusionnés
-    labels = list(groups.keys())  # Ajouter les labels des groupes fusionnés
-    node_colors = [
-        "purple",
-        "gold",
-        "olive",
-        "orange",
-        "lightyellow",
-        "darkgreen",
-        "lightgreen",
-        "lightblue",
-        "darkblue",
-        "crimson",
-        "cyan",
-        "gray",
-        "gray",
-    ]  # Définir les couleurs de chaque groupe
-
-    # Créer les flux agrégés
-    sources = []
-    targets = []
-    values = []
-    link_colors = []
-
-    # Créer les flux entre les groupes de nœuds fusionnés
-    for i, group_i in enumerate(groups.values()):
-        for j, group_j in enumerate(groups.values()):
-            flow = np.sum(transition_matrix[np.ix_(group_i, group_j)])  # Additionner les flux entre les groupes
-            if flow > 0:  # Si un flux existe entre ces deux groupes
-                sources.append(i)
-                targets.append(j)
-                values.append(flow)
-                link_colors.append(node_colors[i])  # Appliquer la couleur du groupe source
-
-    # Organiser les nœuds dans les trois colonnes
-    col1_nodes = [0, 1, 2, 3]  # Nœuds "Industry", "Cereals", "Oleaginous", "Roots"
-    col2_nodes = [
-        4,
-        5,
-        6,
-    ]  # Nœuds "Fruits and vegetables", "Grasslands and forages", "Leguminous"
-    col3_nodes = [
-        7,
-        8,
-        9,
-        10,
-    ]  # Nœuds "Livestock", "Population", "Losses", "Trade", "Atmosphere"
-
-    # Créer le diagramme de Sankey
-    fig = go.Figure(
-        go.Sankey(
-            node=dict(
-                pad=3,
-                thickness=10,
-                line=dict(color="black", width=0.5),
-                label=labels,
-                color=node_colors,
-            ),
-            link=dict(
-                source=sources,
-                target=targets,
-                value=values,
-                color=link_colors,  # Application des couleurs aux flux
-            ),
-        )
-    )
-
-    # Afficher le graphique
-    fig.show()
-
-
 def streamlit_sankey(transition_matrix, main_node, scope=1, index_to_label=None, index_to_color=None):
     """
-    Crée un diagramme de Sankey interactif sous Streamlit, affichant les flux
-    entrants et sortants d'un nœud principal avec un affichage personnalisé au survol.
+    Creates an interactive Sankey diagram in Streamlit, displaying the incoming and outgoing flows of a main node
+    with custom tooltips on hover.
+
+    The Sankey diagram is generated based on a transition matrix that models nitrogen flows between different sectors
+    of the system. The function visualizes these flows, highlights the main node, and allows zooming into the flows within
+    a defined scope.
+
+    Parameters:
+    -----------
+    transition_matrix : np.ndarray
+        A 2D NumPy array representing the transition matrix (flows between nodes in ktN/year).
+
+    main_node : int
+        The index of the node (sector) to be focused on, used as the central node for flow visualization.
+
+    scope : int, optional
+        The scope of the flow display (i.e., the depth of incoming and outgoing flow visualization from the main node).
+        Default is 1, meaning it shows only direct flows.
+
+    index_to_label : dict, optional
+        A dictionary that maps indices of the transition matrix to sector labels for display.
+
+    index_to_color : dict, optional
+        A dictionary that maps indices of the transition matrix to colors for the nodes.
+
+    Returns:
+    --------
+    None
+        The function directly displays the Sankey diagram in the Streamlit interface.
     """
 
     # Vérification des paramètres
@@ -442,20 +153,45 @@ def streamlit_sankey(transition_matrix, main_node, scope=1, index_to_label=None,
 
 def merge_nodes(adjacency_matrix, labels, merges):
     """
-    Fusionne des groupes de nœuds (labels) dans la matrice d'adjacence.
+    Merge groups of nodes (labels) in the adjacency matrix by combining their nitrogen fluxes.
 
-    :param adjacency_matrix: np.array carré de taille (n, n) avec flux de i vers j
-    :param labels: liste des labels d'origine, de longueur n
-    :param merges: dict indiquant les fusions à faire. Exemple :
-                   {
-                       "population": ["urban", "rural"],
-                       "livestock":  ["bovines", "ovines", "equine", "poultry", "porcines", "caprines"],
-                       "industry":   ["haber-bosch", "other sectors"]
-                   }
-    :return:
-      - new_matrix: la matrice d'adjacence après fusion
-      - new_labels: la liste des labels après fusion
-      - old_to_new: dict qui mappe index d'origine -> nouvel index
+    This function allows you to combine multiple nodes (e.g., different sectors) into one, by
+    summing their nitrogen fluxes. It takes a dictionary of node groupings (`merges`), where each
+    key corresponds to a merged label, and the values are the original labels to be merged.
+
+    Parameters:
+    -----------
+    adjacency_matrix : np.ndarray
+        A square matrix of size (n, n) representing nitrogen fluxes, where each entry (i, j)
+        indicates the nitrogen flow from node i to node j (in ktN/year).
+
+    labels : list of str
+        A list of the original labels for the nodes, with length n.
+
+    merges : dict
+        A dictionary defining which nodes to merge. The keys are the new labels for merged groups,
+        and the values are lists of the labels to be merged. For example:
+        {
+            "population": ["urban", "rural"],
+            "livestock": ["bovines", "ovines", "equine", "poultry", "porcines", "caprines"],
+            "industry": ["haber-bosch", "other sectors"]
+        }
+
+    Returns:
+    --------
+    new_matrix : np.ndarray
+        The new adjacency matrix after merging the nodes, where the fluxes between merged nodes are summed.
+
+    new_labels : list of str
+        The list of the new, merged labels.
+
+    old_to_new : dict
+        A dictionary mapping the original node indices to the new merged indices.
+
+    Notes:
+    ------
+    - The function combines nitrogen fluxes between all nodes defined in `merges`, and returns a reduced matrix
+      with fewer nodes, where the original nodes within each merged group are summed together.
     """
     n = len(labels)
 
@@ -508,6 +244,29 @@ def merge_nodes(adjacency_matrix, labels, merges):
 
 
 def streamlit_sankey_app(model, mode_complet):
+    """
+    Creates an interactive Sankey diagram in Streamlit, showing nitrogen flows in a system based on a given model.
+
+    This function allows users to select a main node (sector) and displays its incoming and outgoing nitrogen flows.
+    The function supports two modes:
+    - **Full mode (mode_complet=True)**: Displays all nodes without any merging.
+    - **Simplified mode (mode_complet=False)**: Merges specific nodes (e.g., combining livestock or trade sectors) for a clearer overview.
+
+    In the simplified mode, nodes are merged based on a predefined set of groupings (e.g., merging various livestock categories into one).
+
+    Parameters:
+    -----------
+    model : NitrogenFlowModel
+        The nitrogen flow model containing the adjacency matrix (transition_matrix), labels, and other relevant data.
+
+    mode_complet : bool
+        If `True`, no nodes are merged, and all sectors are shown individually. If `False`, some nodes are merged for simplicity.
+
+    Returns:
+    --------
+    None
+        The function directly displays the Sankey diagram in the Streamlit interface.
+    """
     if mode_complet:
         # A) Mode complet, pas de fusion
         transition = model.adjacency_matrix
@@ -664,10 +423,51 @@ def streamlit_sankey_fertilization(
     THRESHOLD=1e-1,
 ):
     """
-    Crée un diagramme de Sankey montrant la distribution des backward flows
-    pour les cultures, légumineuses et prairies après fusion de certains nœuds
-    (ex: "urban"+"rural" -> "population"), en éliminant les nœuds et flux
-    dont le throughflow/valeur sont inférieurs à THRESHOLD (1e-1).
+    Creates a Sankey diagram showing the distribution of backward flows for crops, legumes, and grasslands,
+    after merging specific nodes (e.g., "urban" + "rural" -> "population"). It filters out nodes and flows
+    with throughflow/values below a given threshold.
+
+    The Sankey diagram visualizes nitrogen flows, helping to understand the system's nutrient balance.
+    In this diagram:
+        - Nodes are merged based on predefined categories (e.g., merging various livestock types into one).
+        - Only significant flows (above the `THRESHOLD`) are kept.
+        - Backward flows (inflowing nitrogen) are shown, with nodes having a higher throughflow prioritized.
+
+    Parameters:
+    -----------
+    model : NitrogenFlowModel
+        The nitrogen flow model used to retrieve the adjacency matrix and labels for sectors.
+
+    cultures : list of str
+        The list of crop labels involved in the Sankey diagram.
+
+    legumineuses : list of str
+        The list of leguminous crop labels involved in the Sankey diagram.
+
+    prairies : list of str
+        The list of grassland or prairie crop labels involved in the Sankey diagram.
+
+    merges : dict, optional
+        A dictionary specifying the node groups to merge. The keys are the new merged labels, and the values
+        are the labels of the nodes to merge. Default merges include:
+            - "Population": ["urban", "rural"]
+            - "Livestock": ["bovines", "ovines", "equine", "poultry", "porcines", "caprines"]
+            - "Industry": ["Haber-Bosch", "other sectors"]
+
+    THRESHOLD : float, optional
+        The minimum value for flows and throughflows to be displayed. Default is `1e-1`, meaning only flows above
+        this threshold are kept in the visualization.
+
+    Returns:
+    --------
+    None
+        This function directly displays the Sankey diagram in the Streamlit interface.
+
+    Notes:
+    ------
+    - The function first merges nodes based on the `merges` dictionary, then constructs the Sankey diagram
+      for backward flows. It uses `THRESHOLD` to filter out insignificant nodes and flows.
+    - The color coding of nodes is customized based on predefined categories (e.g., "Livestock", "Population", etc.).
     """
 
     if model is None:
@@ -864,14 +664,51 @@ def streamlit_sankey_food_flows(
     THRESHOLD=1e-1,
 ):
     """
-    Crée un diagramme de Sankey en séparant chaque nœud de trade en deux :
-       - "(import)" pour les flux entrants dans la région
-       - "(export)" pour les flux sortants de la région
+    Creates a Sankey diagram showing the distribution of food and feed flows (local, imports and exports)
+    for crops, legumes, and grasslands after merging certain nodes (e.g., merging "urban" + "rural" into "population").
+    The diagram filters out nodes and flows with values below a given threshold (`THRESHOLD`).
 
-    Flux considérés :
-      - sources = cultures + légumineuses + prairies + trades
-      - cibles   = population + livestock + trades
-    Les nœuds et flux inférieurs à THRESHOLD sont éliminés.
+    This function separates trade nodes into two categories:
+        - "(import)" for incoming flows into the region,
+        - "(export)" for outgoing flows from the region.
+
+    Parameters:
+    -----------
+    model : NitrogenFlowModel
+        The nitrogen flow model used to retrieve the adjacency matrix and labels for sectors.
+
+    cultures : list of str
+        The list of crop labels involved in the Sankey diagram.
+
+    legumineuses : list of str
+        The list of leguminous crop labels involved in the Sankey diagram.
+
+    prairies : list of str
+        The list of grassland or prairie crop labels involved in the Sankey diagram.
+
+    trades : list of str
+        The list of trade-related labels to be included in the Sankey diagram.
+
+    merges : dict, optional
+        A dictionary specifying the node groups to merge. The keys are the new merged labels, and the values
+        are the labels of the nodes to merge. For example:
+            - "cereals (excluding rice) trade": ["cereals (excluding rice) food trade", "cereals (excluding rice) feed trade"]
+
+    THRESHOLD : float, optional
+        The minimum value for flows to be displayed. Default is `1e-1`, meaning only flows above this threshold
+        will be shown.
+
+    Returns:
+    --------
+    None
+        This function directly displays the Sankey diagram in the Streamlit interface.
+
+    Notes:
+    ------
+    - The function merges specific nodes based on the `merges` dictionary, then constructs the Sankey diagram
+      for food flows.
+    - The diagram distinguishes between trade flows and non-trade flows, showing imports and exports separately.
+    - Nodes and flows with values below the `THRESHOLD` are excluded from the final visualization.
     """
 
     if model is None:
@@ -1205,12 +1042,37 @@ def streamlit_sankey_systemic_flows(
     },
 ):
     """
-    Crée un diagramme de Sankey systémique montrant tous les flux de la matrice d'adjacence du modèle.
-    Les nœuds sont fusionnés selon les règles de `merges`, et les flux inférieurs à `THRESHOLD` sont éliminés.
+    DEPRECATED. Might be removed in futur release.
+    Creates a systemic Sankey diagram displaying all flows from the adjacency matrix of the model.
 
-    :param model: Modèle contenant la matrice d'adjacence (model.adjacency_matrix) et les labels (model.labels).
-    :param merges: Dictionnaire définissant les fusions de nœuds.
-    :param THRESHOLD: Seuil en dessous duquel les flux sont supprimés (par défaut : 1e-1).
+    The Sankey diagram includes all nitrogen flows between sectors and merges certain nodes based on the `merges` dictionary.
+    Any flow with a value lower than the `THRESHOLD` is removed from the visualization.
+
+    Parameters:
+    -----------
+    model : NitrogenFlowModel
+        The nitrogen flow model containing the adjacency matrix and labels for sectors.
+
+    merges : dict, optional
+        A dictionary specifying the nodes to merge. The keys are the new merged labels, and the values
+        are lists of labels to merge. For example:
+            - "cereals (excluding rice)": ["Wheat", "Rye", "Barley", "Oat", "Grain maize", "Rice", "Other cereals"]
+
+    THRESHOLD : float, optional
+        The minimum value for flows to be displayed. Flows below this threshold are excluded from the diagram.
+        The default is `1e-1`, which removes flows with values smaller than 0.1 ktN/yr.
+
+    Returns:
+    --------
+    None
+        This function directly displays the Sankey diagram in the Streamlit interface.
+
+    Notes:
+    ------
+    - The diagram shows the distribution of all nitrogen flows between sectors after merging specific nodes.
+    - The merging of nodes is defined in the `merges` dictionary, which groups multiple original labels into new merged labels.
+    - The diagram includes both "import" and "export" flows for the trade-related nodes, and internal flows are displayed as well.
+    - Any flow below the `THRESHOLD` value is filtered out from the visualization to keep only the significant flows.
     """
     import numpy as np
     import plotly.graph_objects as go

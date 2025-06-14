@@ -23,6 +23,27 @@ _ = _appsi_solvers
 
 
 class scenario:
+    """
+    Loads and prepares scenario input sheets for prospective nitrogen flow modeling.
+
+    This class is used to initialize and manage scenario-specific data, which can be integrated
+    into the `NitrogenFlowModel` to simulate future or alternative configurations of agro-food systems.
+
+    It either takes a pre-initialized `DataLoader` instance or initializes one internally if not provided.
+
+    :param scenario_path: Path to the scenario configuration file or directory.
+    :type scenario_path: str
+    :param dataloader: Optional pre-loaded DataLoader instance. If None, a default one is initialized.
+    :type dataloader: DataLoader, optional
+
+    :ivar scenario_path: Absolute path to the scenario data file.
+    :vartype scenario_path: str
+    :ivar dataloader: Instance of the DataLoader used to retrieve or modify base data.
+    :vartype dataloader: DataLoader
+    :ivar data_path: Path to the general data folder used for model input files.
+    :vartype data_path: str
+    """
+
     def __init__(self, scenario_path, dataloader=None):
         self.data_path = os.path.join(os.getcwd(), "src", "grafs_e", "data")
         if dataloader is None:
@@ -32,6 +53,16 @@ class scenario:
         self.scenario_path = scenario_path
 
     def historic_trend(self, region, excel_line):
+        """
+        Extracts the historical trend of a value for a given region and Excel row in GRAFS_full.xslx.
+
+        :param region: The region of interest.
+        :type region: str
+        :param excel_line: The row identifier (Excel line) to track.
+        :type excel_line: int
+        :return: List of historical values over available years.
+        :rtype: list[float]
+        """
         L = []
         for i in annees_disponibles:
             df = self.dataloader.pre_process_df(i, region)
@@ -40,6 +71,18 @@ class scenario:
 
     @staticmethod
     def LU_excretion(dataloader, region, t=None):
+        """
+        Computes average nitrogen excretion per livestock unit (LU) by species over time.
+
+        :param dataloader: The DataLoader object to use.
+        :type dataloader: DataLoader
+        :param region: Region name.
+        :type region: str
+        :param t: Optional key to extract values at a specific year.
+        :type t: str or int, optional
+        :return: Dictionary (or list) of excretion values by livestock type.
+        :rtype: dict or list
+        """
         L = {}
         livestock = {
             "bovines": [(1150, 1164), (1196, 1210)],
@@ -71,6 +114,18 @@ class scenario:
 
     @staticmethod
     def livestock_LU(dataloader, region, t=None):
+        """
+        Computes the number of livestock units (LU) per species over time.
+
+        :param dataloader: The DataLoader object to use.
+        :type dataloader: DataLoader
+        :param region: Region name.
+        :type region: str
+        :param t: Optional key to extract values at a specific year.
+        :type t: str or int, optional
+        :return: Dictionary (or list) of LU values by species.
+        :rtype: dict or list
+        """
         LU = {}
         livestock = {
             "bovines": [(1150, 1164), (0, 15)],
@@ -94,6 +149,18 @@ class scenario:
 
     @staticmethod
     def LU_prod(dataloader, region, t=None):
+        """
+        Computes productivity (and dairy productivity) per LU for each livestock species.
+
+        :param dataloader: The DataLoader object to use.
+        :type dataloader: DataLoader
+        :param region: Region name.
+        :type region: str
+        :param t: Optional key to extract values at a specific year.
+        :type t: str or int, optional
+        :return: Dictionary (or list) of productivity values.
+        :rtype: dict or list
+        """
         LU_prod = {}
         index = {
             "bovines": [1017, 1024],
@@ -136,21 +203,22 @@ class scenario:
 
     def extrapolate_recent_trend(self, data, future_year, alpha=7.0, seuil_bas=0, seuil_haut=None):
         """
-        Extrapole une courbe historique en donnant plus de poids aux années récentes,
-        sans modèle prédéfini (linéaire/exponentiel/polynôme).
+        Extrapolates a trend into the future using a weighted slope method.
 
-        Paramètres :
-        -----------
-        - future_year : année-cible jusqu'à laquelle prolonger
-        - alpha : coefficient pour l'exponentiel (importance des points récents)
-        - seuil_bas : borne inférieure (optionnel)
-        - seuil_haut : borne supérieure (optionnel)
+        Recent years are given higher weight. No predefined functional form is assumed.
 
-        Retourne :
-        ----------
-        - extended_years : np.array des années depuis la plus récente jusqu'à future_year
-        - extended_values : np.array des valeurs extrapolées
-        - slope : la pente moyenne calculée à la fin de l'historique
+        :param data: List or array of historical values.
+        :type data: list or np.array
+        :param future_year: Year until which to extrapolate.
+        :type future_year: int
+        :param alpha: Slope weighting coefficient for recent years.
+        :type alpha: float
+        :param seuil_bas: Lower bound of extrapolated values.
+        :type seuil_bas: float
+        :param seuil_haut: Upper bound of extrapolated values.
+        :type seuil_haut: float or None
+        :return: (extended_years, extended_values, slope)
+        :rtype: tuple[np.array, np.array, float]
         """
 
         x = np.array([int(i) for i in annees_disponibles])
@@ -209,6 +277,14 @@ class scenario:
         return extended_years, extended_values
 
     def get_import_net(self, region):
+        """
+        Extracts net nitrogen import value for a given region over all years.
+
+        :param region: Region name.
+        :type region: str
+        :return: List of net import values.
+        :rtype: list[float]
+        """
         L = []
         for yr in annees_disponibles:
             df = self.dataloader.sheets_dict["GRAFS" + yr].copy()
@@ -223,6 +299,16 @@ class scenario:
         return L
 
     def logistic_urb_pop(self, region, year):
+        """
+        Estimates the proportion of urban population using a logistic regression on historical data.
+
+        :param region: Region name.
+        :type region: str
+        :param year: Target year for projection.
+        :type year: int
+        :return: Estimated urban population share (%).
+        :rtype: float
+        """
         int_year = [int(i) for i in annees_disponibles]
         prop_urb = np.array(self.historic_trend(region, 6))
         logit = np.log(prop_urb / (100 - prop_urb))
@@ -230,6 +316,18 @@ class scenario:
         return 100.0 / (1.0 + np.exp(-(intercept + slope * int(year))))
 
     def generate_crop_tab(self, region, function_name="Linear"):
+        """
+        Generates a crop area table and fits a yield projection model for each crop.
+
+        Available models: 'linear', 'linear2', 'exp', 'ratio'.
+
+        :param region: Region to generate data for.
+        :type region: str
+        :param function_name: The model type used for yield extrapolation.
+        :type function_name: str
+        :return: DataFrame with crop areas and model fit parameters.
+        :rtype: pandas.DataFrame
+        """
         df = self.dataloader.pre_process_df(annees_disponibles[-1], region)
 
         cultures_df = df.loc[df["index_excel"].isin(range(259, 294)), ("nom", region)]
@@ -326,6 +424,13 @@ class scenario:
         return df_insert
 
     def pre_generate_scenario_excel(self, function_name="Linear"):
+        """
+        Generates pre-filled scenario Excel files for each region based on fitted crop data.
+
+        :param function_name: The model type used for yield extrapolation ('Linear', 'exp', etc.).
+        :type function_name: str
+        :return: None
+        """
         model_sheets = pd.read_excel(os.path.join(self.data_path, "scenario.xlsx"), sheet_name=None)
         for region in tqdm(
             regions, total=len(regions), desc="Régions", position=0
@@ -349,6 +454,27 @@ class scenario:
                     df.to_excel(writer, sheet_name=sheet_name, index=False)
 
     def generate_scenario_excel(self, year, region, name, function_name="Linear"):
+        """
+        Generates a full scenario Excel file for a given region and year.
+
+        This method populates all scenario sheets (documentation, main variables, area distribution, technical parameters)
+        using historical data, regional projections (e.g., population), livestock structure, and crop productivity fits.
+
+        The output file includes default values for "Business as usual" configurations, which serve as a baseline
+        for future simulations in prospective mode.
+
+        :param year: The future year for which to generate the scenario.
+        :type year: int
+        :param region: The region to generate the scenario for.
+        :type region: str
+        :param name: File name (without extension) of the output Excel scenario.
+        :type name: str
+        :param function_name: Name of the yield model used for projection (e.g., 'Linear', 'Exponential').
+        :type function_name: str
+
+        :return: None. The Excel file is saved to the configured scenario path.
+        :rtype: None
+        """
         self.region = region
         self.year = year
         self.last_data_year = annees_disponibles[-1]
@@ -645,6 +771,18 @@ class scenario:
             sheet[f"B{last_row}"] = f'=IF(SUM(B2:B{last_row - 3})=100, "✅ OK", "❌ Erreur")'
 
     def generate_base_scenar(self, prod_func):
+        """
+        Generates baseline scenario Excel files for all regions, containing only the crop area distribution sheet.
+
+        This method is used to create an initial batch of region-specific scenario templates,
+        filled with yield model projections for each crop, but without demand-side or technical assumptions.
+
+        :param prod_func: Name of the crop production function to apply (e.g., 'Linear', 'Exponential').
+        :type prod_func: str
+
+        :return: None. Excel files are saved to the default scenario directory.
+        :rtype: None
+        """
         # Create scenar for all regions with only area filled
         for region in tqdm(regions, desc="Calcul des Ymax et k", unit="region"):
             try:
@@ -674,6 +812,21 @@ class scenario:
 
 
 class Y:
+    """
+    Class for modeling and fitting nitrogen yield response curves based on historical data.
+
+    This class extracts yield and fertilization data from NitrogenFlowModel instances,
+    and provides a suite of theoretical models (e.g., Mitscherlich, exponential, linear) to fit production curves.
+
+    :param dataloader: Optional instance of DataLoader to use. If None, a default one is initialized.
+    :type dataloader: DataLoader, optional
+
+    :ivar dataloader: DataLoader instance used for retrieving regional crop data.
+    :vartype dataloader: DataLoader
+    :ivar int_yr: List of integer years available in the dataset.
+    :vartype int_yr: list[int]
+    """
+
     def __init__(self, dataloader=None):
         if dataloader == None:
             self.dataloader = DataLoader()
@@ -682,6 +835,20 @@ class Y:
         self.int_yr = [int(i) for i in annees_disponibles]
 
     def get_Y(self, culture, region, plot=False):
+        """
+        Extracts historical fertilization and yield data for a given crop and region.
+
+        Optionally displays a scatter plot of the data.
+
+        :param culture: The name of the crop (index in the NitrogenFlowModel).
+        :type culture: str
+        :param region: The name of the region.
+        :type region: str
+        :param plot: Whether to plot the data (default is False).
+        :type plot: bool
+        :return: Tuple of arrays (F, Y), fertilization and yield values.
+        :rtype: tuple[np.ndarray, np.ndarray]
+        """
         F = []
         Y = []
         if region == "Savoie":
@@ -718,49 +885,218 @@ class Y:
 
     @staticmethod
     def Y_th(f, y_max):
+        """
+        Mitscherlich-type yield response: Y = f * y_max / (f + y_max)
+
+        :param f: Fertilization input (kgN/ha).
+        :type f: float or np.ndarray
+        :param y_max: Maximum attainable yield (kgN/ha).
+        :type y_max: float
+        :return: Estimated yield.
+        :rtype: float or np.ndarray
+        """
         if f + y_max == 0:
             return 0
         return f * y_max / (f + y_max)
 
     @staticmethod
     def Y_th_exp(f, y_max, k):
+        """
+        Exponential growth model without cap.
+
+        Computes yield as:
+            Y(f) = y_max * (1 - exp(-f / k))
+
+        :param f: Fertilization input (kgN/ha).
+        :type f: float or np.ndarray
+        :param y_max: Maximum yield asymptote (kgN/ha).
+        :type y_max: float
+        :param k: Growth curvature parameter (kgN/ha).
+        :type k: float
+        :return: Yield response Y(f).
+        :rtype: float or np.ndarray
+        """
         return y_max * (1 - np.exp(-f / k))
 
     @staticmethod
     def Y_th_exp_cap(f, y_max, k):
+        """
+        Exponential response with physical cap at 99% of fertilization.
+
+        Formula:
+            Y(f) = min(y_max * (1 - exp(-f / k)), 0.99 * f)
+
+        :param f: Fertilization input (kgN/ha).
+        :type f: float or np.ndarray
+        :param y_max: Maximum yield asymptote (kgN/ha).
+        :type y_max: float
+        :param k: Growth curvature parameter (kgN/ha).
+        :type k: float
+        :return: Capped yield response Y(f).
+        :rtype: float or np.ndarray
+        """
         return np.minimum(y_max * (1 - np.exp(-f / k)), 0.99 * f)
 
     @staticmethod
     def Y_th_lin(f, a, b):
+        """
+        Simple linear yield response with a saturation cap.
+
+        Formula:
+            Y(f) = min(a * f, b)
+
+        :param f: Fertilization input (kgN/ha).
+        :type f: float or np.ndarray
+        :param a: Linear coefficient.
+        :type a: float
+        :param b: Maximum yield threshold.
+        :type b: float
+        :return: Capped linear yield.
+        :rtype: float or np.ndarray
+        """
         return np.minimum(a * f, b)
 
     @staticmethod
     def Y_th_lin_2(f, a, xb, c):
+        """
+        Piecewise linear yield function with break at `xb`.
+
+        Formula:
+            - If f ≤ xb: Y = a * f
+            - If f > xb: Y = c * (f - xb) + xb * a
+
+        :param f: Fertilization input (kgN/ha).
+        :type f: float or np.ndarray
+        :param a: Initial slope before breakpoint.
+        :type a: float
+        :param xb: Breakpoint fertilization value.
+        :type xb: float
+        :param c: Slope after breakpoint.
+        :type c: float
+        :return: Yield response Y(f).
+        :rtype: float or np.ndarray
+        """
         return np.minimum(a * f, c * (f - xb) + xb * a)
 
     @staticmethod
     def Y_th_poly(f, a, b):
+        """
+        Second-order polynomial yield response.
+
+        Formula:
+            Y(f) = a * f² + b * f
+
+        :param f: Fertilization input.
+        :type f: float or np.ndarray
+        :param a: Quadratic coefficient.
+        :type a: float
+        :param b: Linear coefficient.
+        :type b: float
+        :return: Polynomial yield response.
+        :rtype: float or np.ndarray
+        """
         return a * f**2 + b * f
 
     @staticmethod
     def Y_th_poly_cap(f, a, b):
+        """
+        Polynomial yield response capped at 99% of fertilization.
+
+        Formula:
+            Y(f) = min(a * f² + b * f, 0.99 * f)
+
+        :param f: Fertilization input.
+        :type f: float or np.ndarray
+        :param a: Quadratic coefficient.
+        :type a: float
+        :param b: Linear coefficient.
+        :type b: float
+        :return: Capped polynomial yield response.
+        :rtype: float or np.ndarray
+        """
         return np.minimum(0.99 * f, a * f**2 + b * f)
 
     @staticmethod
     def Y_th_sigmoid(f, Ymax, k, x0):
+        """
+        Sigmoidal yield response function.
+
+        Formula:
+            Y(f) = Ymax / (1 + exp(-k * (f - x0)))
+
+        :param f: Fertilization input.
+        :type f: float or np.ndarray
+        :param Ymax: Maximum yield.
+        :type Ymax: float
+        :param k: Growth steepness.
+        :type k: float
+        :param x0: Midpoint of the sigmoid.
+        :type x0: float
+        :return: Sigmoidal yield response.
+        :rtype: float or np.ndarray
+        """
         return Ymax / (1 + np.exp(-k * (f - x0)))
 
     @staticmethod
     def Y_th_sigmoid_cap(f, Ymax, k, x0):
+        """
+        Sigmoidal yield function with upper cap at 99% of fertilization input.
+
+        Formula:
+            Y(f) = min(Ymax / (1 + exp(-k * (f - x0))), 0.99 * f)
+
+        :param f: Fertilization input.
+        :type f: float or np.ndarray
+        :param Ymax: Maximum yield.
+        :type Ymax: float
+        :param k: Growth steepness.
+        :type k: float
+        :param x0: Inflection point.
+        :type x0: float
+        :return: Capped sigmoidal yield response.
+        :rtype: float or np.ndarray
+        """
         return np.minimum(0.99 * f, Ymax / (1 + np.exp(-k * (f - x0))))
 
     @staticmethod
     def Y_th_lin_2_smooth(f, a, xb, c, s):
+        """
+        Smooth piecewise linear function using logistic blending near the breakpoint.
+
+        Formula:
+            transition = 1 / (1 + exp(-s * (f - xb)))
+            Y(f) = (1 - transition) * a * f + transition * (c * (f - xb) + xb * a)
+
+        :param f: Fertilization input (kgN/ha).
+        :type f: float or np.ndarray
+        :param a: Initial slope.
+        :type a: float
+        :param xb: Breakpoint.
+        :type xb: float
+        :param c: Post-breakpoint slope.
+        :type c: float
+        :param s: Sharpness of transition (higher = sharper).
+        :type s: float
+        :return: Smoothed yield response Y(f).
+        :rtype: float or np.ndarray
+        """
         transition = 1 / (1 + np.exp(-s * (f - xb)))
 
         return a * f * (1 - transition) + (c * (f - xb) + xb * a) * transition
 
     def fit_Y(self, culture, region):
+        """
+        Fits a Mitscherlich-type yield curve (Y_th) to historical fertilization/yield data for a given crop and region.
+
+        Returns the optimal `y_max` value and the fitted curve.
+
+        :param culture: The name of the crop.
+        :type culture: str
+        :param region: The name of the region.
+        :type region: str
+        :return: Tuple of (y_max, fitted_yield_values).
+        :rtype: tuple[float or None, np.ndarray or None]
+        """
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, None
@@ -776,6 +1112,17 @@ class Y:
         return Y_max_opt, Y_th_fitted
 
     def fit_Y_exp(self, culture, region):
+        """
+        Fit an exponential yield curve (Y = Y_max(1-exp(F/k))) to historical data
+        for a given crop (culture) and region using non-linear least squares.
+
+        :param culture: Name of the crop.
+        :type culture: str
+        :param region: Region identifier.
+        :type region: str
+        :return: Tuple containing optimal parameters Y_max and k, and the fitted curve.
+        :rtype: Tuple[float, float, np.ndarray | None]
+        """
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, None
@@ -796,6 +1143,17 @@ class Y:
         return Y_max_opt, k, Y_th_fitted
 
     def fit_Y_exp_2(self, culture, region):
+        """
+        Fit an exponential yield curve using a constrained optimization method (SLSQP).
+        Ensures that k > Y_max for interpretability.
+
+        :param culture: Name of the crop.
+        :type culture: str
+        :param region: Region identifier.
+        :type region: str
+        :return: Tuple with Y_max, k, and the fitted yield curve.
+        :rtype: Tuple[float, float, np.ndarray | None]
+        """
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, None
@@ -829,6 +1187,16 @@ class Y:
             return 0, 0, None
 
     def fit_Y_lin(self, culture, region):
+        """
+        Fit a simple linear model (Y = a * F + b) to yield data.
+
+        :param culture: Name of the crop.
+        :type culture: str
+        :param region: Region identifier.
+        :type region: str
+        :return: Fitted slope and intercept with predicted yield.
+        :rtype: Tuple[float, float, np.ndarray | None]
+        """
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, None
@@ -845,6 +1213,16 @@ class Y:
         return a, b, Y_th_fitted
 
     def fit_Y_lin_2(self, culture, region):
+        """
+        Fit a piecewise linear model with two slopes to capture yield response.
+
+        :param culture: Name of the crop.
+        :type culture: str
+        :param region: Region identifier.
+        :type region: str
+        :return: Parameters a, xb (threshold), c (second slope), and the fitted curve.
+        :rtype: Tuple[float, float, float, np.ndarray | None]
+        """
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, None
@@ -865,6 +1243,16 @@ class Y:
         return a, xb, c, Y_th_fitted
 
     def fit_Y_lin_2_scipy(self, culture, region):
+        """
+        Fit the same piecewise linear model as fit_Y_lin_2 but using SLSQP optimizer.
+
+        :param culture: Name of the crop.
+        :type culture: str
+        :param region: Region identifier.
+        :type region: str
+        :return: Optimized parameters a, xb, c and the yield prediction.
+        :rtype: Tuple[float, float, float, np.ndarray | None]
+        """
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, 0, None
@@ -892,6 +1280,16 @@ class Y:
             return 0, 0, 0, None
 
     def fit_Y_poly(self, culture, region):
+        """
+        Fit a 2nd-degree polynomial (Y = aF^2 + bF + c) to the data without constraints.
+
+        :param culture: Crop name.
+        :type culture: str
+        :param region: Region identifier.
+        :type region: str
+        :return: Parameters a, b, c and the fitted values.
+        :rtype: Tuple[float, float, float, np.ndarray | None]
+        """
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, None
@@ -911,6 +1309,16 @@ class Y:
         return a, b, c, Y_th_fitted
 
     def fit_Y_poly_constrained(self, culture, region):
+        """
+        Fit a constrained 2nd-degree polynomial to ensure concavity and meaningful shape (P(F)<F).
+
+        :param culture: Crop name.
+        :type culture: str
+        :param region: Region identifier.
+        :type region: str
+        :return: Fitted parameters a, b and predicted yield values.
+        :rtype: Tuple[float, float, np.ndarray | None]
+        """
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, 0, None
@@ -952,6 +1360,16 @@ class Y:
             return 0, 0, None
 
     def fit_Y_sigmoid(self, culture, region):
+        """
+        Fit a logistic sigmoid function (Y = Ymax / (1 + exp(-k(x - x0)))) to yield data.
+
+        :param culture: Name of the crop.
+        :type culture: str
+        :param region: Region identifier.
+        :type region: str
+        :return: Parameters Ymax, k, x0 and fitted yield curve.
+        :rtype: Tuple[float, float, float, np.ndarray | None]
+        """
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, 0, None
@@ -979,6 +1397,16 @@ class Y:
             return 0, 0, 0, None
 
     def fit_Y_lin_2_smooth(self, culture, region):
+        """
+        Fit a smoothed two-slope model (sigmoid transition) for yield response.
+
+        :param culture: Crop name.
+        :type culture: str
+        :param region: Region identifier.
+        :type region: str
+        :return: Parameters a, xb, c, s (smoothness), and predicted yield.
+        :rtype: Tuple[float, float, float, float, np.ndarray | None]
+        """
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, 0, 0, None
@@ -1009,6 +1437,17 @@ class Y:
             return 0, 0, 0, 0, None
 
     def plot_Y(self, culture, region):
+        """
+        Plot the fitted Mitscherlich-type yield curve and historical data points
+        for a specific crop and region.
+
+        :param culture: Name of the crop.
+        :type culture: str
+        :param region: Region identifier.
+        :type region: str
+        :return: None. The plot is displayed with matplotlib.
+        :rtype: None
+        """
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             print(f"no {culture} found in {region}")
@@ -1033,6 +1472,16 @@ class Y:
         plt.show()
 
     def plot_Y_lin(self, culture, region):
+        """
+        Plot the fitted linear yield curve (Y = aF + b) and historical data for a crop.
+
+        :param culture: Crop name.
+        :type culture: str
+        :param region: Region identifier.
+        :type region: str
+        :return: None. Displays the matplotlib plot.
+        :rtype: None
+        """
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             print(f"no {culture} found in {region}")
@@ -1058,6 +1507,16 @@ class Y:
         plt.show()
 
     def plot_Y_lin_2(self, culture, region):
+        """
+        Plot the fitted piecewise linear yield curve with two slopes and the historical data.
+
+        :param culture: Crop name.
+        :type culture: str
+        :param region: Region identifier.
+        :type region: str
+        :return: None. The plot is rendered using matplotlib.
+        :rtype: None
+        """
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             print(f"no {culture} found in {region}")
@@ -1089,6 +1548,16 @@ class Y:
         plt.show()
 
     def plot_Y_poly(self, culture, region):
+        """
+        Plot the fitted constrained polynomial yield curve and the actual data.
+
+        :param culture: Crop name.
+        :type culture: str
+        :param region: Region identifier.
+        :type region: str
+        :return: None. Displays the curve and points.
+        :rtype: None
+        """
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             print(f"no {culture} found in {region}")
@@ -1120,6 +1589,16 @@ class Y:
         plt.show()
 
     def plot_Y_exp(self, culture, region):
+        """
+        Plot the fitted exponential yield curve (capped) with the data for the specified crop.
+
+        :param culture: Name of the crop.
+        :type culture: str
+        :param region: Target region.
+        :type region: str
+        :return: None. Plot appears inline.
+        :rtype: None
+        """
         F, Y = self.get_Y(culture, region)
         # F_filtered, Y_filtered = zip(
         #     *[(f, y) for f, y in zip(F, Y) if y <= 0.9 * f]
@@ -1149,6 +1628,16 @@ class Y:
         plt.show()
 
     def plot_Y_sigmoid(self, culture, region):
+        """
+        Plot the fitted sigmoid yield curve and compare with observed fertilization-yield data.
+
+        :param culture: Name of the crop.
+        :type culture: str
+        :param region: Region identifier.
+        :type region: str
+        :return: None. Shows the matplotlib plot.
+        :rtype: None
+        """
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             print(f"no {culture} found in {region}")
@@ -1183,6 +1672,16 @@ class Y:
         plt.show()
 
     def plot_Y_lin_2_smooth(self, culture, region):
+        """
+        Plot the smooth transition linear-2 slope yield model and observed data points.
+
+        :param culture: Name of the crop.
+        :type culture: str
+        :param region: Region code.
+        :type region: str
+        :return: None. Generates a yield vs fertilization curve.
+        :rtype: None
+        """
         F, Y = self.get_Y(culture, region)
         if len(Y) == 0:
             print(f"no {culture} found in {region}")
@@ -1218,10 +1717,22 @@ class Y:
 
     def compare_r2(self, region):
         """
-        Compare les coefficients de détermination (R²) pour chaque culture dans une région donnée
-        entre les deux fonctions d'ajustement : self.Y_th et self.Y_th_exp.
+        Compare fitted yield model results across crop types for a given region.
 
-        Affiche une heatmap des scores R² et ajoute une barre de progression en console.
+        Evaluates and visualizes the yield ceiling (Ymax) or R² for multiple curve-fitting models:
+        - Ratio-based (Mitscherlich)
+        - Exponential
+        - Linear (1 slope)
+        - Linear (2 slopes)
+        - Polynomial
+        - Sigmoid
+
+        Results are displayed in a heatmap per culture for the selected region.
+
+        :param region: Region name or code.
+        :type region: str
+        :return: Tuple of NumPy array with values and dictionary of model outputs.
+        :rtype: Tuple[np.ndarray, dict]
         """
         r2_values = {
             "Ratio": {},
@@ -1332,7 +1843,28 @@ class Y:
 
 
 class CultureData_prospect:
+    """
+    Prepare and structure crop data required for prospective scenarios in the NitrogenFlowModel.
+
+    This class constructs a DataFrame (`df_cultures`) that includes area, fertilization spread ratio,
+    nitrogen content, and yield function parameters (depending on the selected model).
+    """
+
     def __init__(self, main, area, data_path, categories_mapping, func_prod):
+        """
+        Initialize the CultureData_prospect instance.
+
+        :param main: DataFrame containing aggregate area information (e.g. "Arable area", "Permanent grassland area").
+        :type main: pd.DataFrame
+        :param area: DataFrame with crop-specific area and yield function parameters.
+        :type area: pd.DataFrame
+        :param data_path: Path to the Excel file containing additional crop data.
+        :type data_path: str
+        :param categories_mapping: Mapping dictionary for crop categorization (not directly used here).
+        :type categories_mapping: dict
+        :param func_prod: Production function name ("Linear", "Ratio", or "Exponential").
+        :type func_prod: str
+        """
         self.main = main
         self.area = area
         self.data_path = data_path
@@ -1341,6 +1873,15 @@ class CultureData_prospect:
         self.df_cultures = self.create_culture_dataframe()
 
     def create_culture_dataframe(self):
+        """
+        Construct the `df_cultures` DataFrame combining area, fertilization spreading ratio,
+        nitrogen content, and yield function parameters for each crop.
+
+        The structure and included parameters depend on the selected yield function model.
+
+        :return: A pandas DataFrame with all necessary parameters for crop modeling.
+        :rtype: pd.DataFrame
+        """
         crops_index = self.area["Crops"][:-2]
 
         # Extraire les données de surface
@@ -1388,12 +1929,46 @@ class CultureData_prospect:
 
 
 class ElevageData_prospect:
+    """
+    Prepare and structure livestock data required for prospective scenarios in the NitrogenFlowModel.
+
+    This class aggregates technical coefficients and main livestock statistics to compute nitrogen flows,
+    production outputs, and excretion routes by species.
+    """
+
     def __init__(self, main, technical, data_path):
+        """
+        Initialize the ElevageData_prospect instance.
+
+        :param main: DataFrame with general livestock variables (e.g., total LU).
+        :type main: pd.DataFrame
+        :param technical: DataFrame with technical coefficients by animal type.
+        :type technical: pd.DataFrame
+        :param data_path: Path to the Excel file with volatilisation and nitrogen content.
+        :type data_path: str
+        """
         self.main = main
         self.technical = technical
         self.df_elevage = self.create_elevage_dataframe(main, technical, data_path)
 
     def create_elevage_dataframe(self, main, technical, data_path):
+        """
+        Construct the `df_elevage` DataFrame containing:
+        - livestock units (LU) per species
+        - productivity indicators (carcass and dairy)
+        - excretion distributions
+        - volatilisation rates
+        - ingestion and nitrogen partitioning (edible, non-edible, excreted)
+
+        :param main: General livestock statistics.
+        :type main: pd.DataFrame
+        :param technical: Technical coefficients for livestock management.
+        :type technical: pd.DataFrame
+        :param data_path: Path to nitrogen content Excel file.
+        :type data_path: str
+        :return: A pandas DataFrame with livestock nitrogen and productivity balances.
+        :rtype: pd.DataFrame
+        """
         types = ["Bovines", "Ovines", "Caprines", "Equines", "Poultry", "Porcines"]
         LU_tot = main.loc[main["Variable"] == "Total LU", "Business as usual"].item()
 
@@ -1472,6 +2047,24 @@ class ElevageData_prospect:
 
 
 class NitrogenFlowModel_prospect:
+    """
+    Prospective extension of the NitrogenFlowModel for forward-looking nitrogen flow simulations.
+
+    This class initializes and manages all components required for scenario-based nitrogen budgeting.
+    It uses scenario-specific sheets for inputs (land use, livestock, technical parameters), and
+    dynamically computes nitrogen fluxes between labeled system compartments using an adjacency matrix.
+
+    Attributes:
+        scenar_path (str): Path to the Excel file containing scenario sheets.
+        labels (list): List of nitrogen system compartments used to label the adjacency matrix.
+        df_cultures (pd.DataFrame): Crop-related nitrogen flows and parameters.
+        df_elevage (pd.DataFrame): Livestock-related nitrogen flows and parameters.
+        adjacency_matrix (np.ndarray): Matrix of nitrogen fluxes between compartments (in ktN/year).
+        label_to_index (dict): Mapping from compartment labels to matrix indices.
+        year (int): Scenario year (extracted from metadata).
+        region (str): Scenario region (extracted from metadata).
+    """
+
     def __init__(self, scenar_path):
         self.scenar_path = scenar_path
         self.categories_mapping = categories_mapping
@@ -1507,6 +2100,21 @@ class NitrogenFlowModel_prospect:
         self.compute_fluxes()
 
     def plot_heatmap(self):
+        """
+        Plot a static heatmap of the nitrogen flux adjacency matrix.
+
+        The heatmap displays nitrogen transfers (in ktN/year) between system compartments, on a log scale.
+        Axes are labeled with numerical indices, and a legend maps these indices to compartment names.
+
+        Features:
+            - Log-normalized color scale ("plasma_r").
+            - Axis ticks on top (X) and left (Y).
+            - Custom colorbar and visual grid.
+            - Aspect ratio constrained to "equal" for readability.
+            - Compartment label legend placed on the right.
+
+        :return: None
+        """
         plt.figure(figsize=(10, 12), dpi=500)
         ax = plt.gca()
 
@@ -1562,11 +2170,20 @@ class NitrogenFlowModel_prospect:
 
     def plot_heatmap_interactive(self):
         """
-        Génére une heatmap interactive (Plotly) :
-        - Échelle 'log' simulée via log10(z).
-        - Colorbar horizontale en bas.
-        - Légende index -> label à droite sans chevauchement.
-        - Axe X en haut et titre centré.
+        Generate an interactive Plotly heatmap of the nitrogen flux adjacency matrix.
+
+        This interactive version allows detailed inspection of each flux with tooltip information,
+        uses a log10 transformation for the color scale, and supports hover interactivity and zooming.
+
+        Features:
+            - Simulated log-scale using log10.
+            - Horizontal colorbar with real-world units (ktN/year).
+            - Tooltip shows source, target, and value.
+            - Index-to-label legend annotated on the right.
+            - Matrix layout with reversed Y axis and axis ticks from 1 to N.
+
+        :return: Plotly Figure object (can be shown with `fig.show()`).
+        :rtype: plotly.graph_objs.Figure
         """
 
         # 1) Préparation des labels numériques
@@ -1700,6 +2317,18 @@ class NitrogenFlowModel_prospect:
         return fig
 
     def compute_fluxes(self):
+        """
+        Compute nitrogen flows across all compartments for the given scenario.
+
+        This method:
+            - Retrieves key scenario inputs (year, region, crop and livestock data).
+            - Initializes the flux generator using crop and livestock data.
+            - Updates the adjacency matrix accordingly.
+
+        Must be called during initialization to populate model outputs.
+
+        :return: None
+        """
         # Extraire les variables nécessaires
         df_cultures = self.df_cultures
         df_elevage = self.df_elevage
@@ -1872,7 +2501,7 @@ class NitrogenFlowModel_prospect:
 
         # NH3
         # 1 % est volatilisée de manière indirecte sous forme de N2O
-        target = {"NH3 volatilization": 0.99}
+        target = {"NH3 volatilization": 0.99, "N2O emission": 0.01}
         source = (
             df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["% excreted on grassland"]
@@ -1882,24 +2511,24 @@ class NitrogenFlowModel_prospect:
 
         flux_generator.generate_flux(source, target)
 
-        volat_N2O = (
-            0.01
-            * df_elevage["Excreted nitrogen (ktN)"]
-            * df_elevage["% excreted on grassland"]
-            / 100
-            * df_elevage["N-NH3 EM. outdoor"]
-        )
-        # N2O
-        target = {"N2O emission": 1}
-        source = (
-            volat_N2O
-            + df_elevage["Excreted nitrogen (ktN)"]
-            * df_elevage["% excreted on grassland"]
-            / 100
-            * df_elevage["N-N2O EM. outdoor"]
-        ).to_dict()
+        # volat_N2O = (
+        #     0.01
+        #     * df_elevage["Excreted nitrogen (ktN)"]
+        #     * df_elevage["% excreted on grassland"]
+        #     / 100
+        #     * df_elevage["N-NH3 EM. outdoor"]
+        # )
+        # # N2O
+        # target = {"N2O emission": 1}
+        # source = (
+        #     volat_N2O
+        #     + df_elevage["Excreted nitrogen (ktN)"]
+        #     * df_elevage["% excreted on grassland"]
+        #     / 100
+        #     * df_elevage["N-N2O EM. outdoor"]
+        # ).to_dict()
 
-        flux_generator.generate_flux(source, target)
+        # flux_generator.generate_flux(source, target)
 
         ## Epandage sur champs
 
@@ -1948,7 +2577,7 @@ class NitrogenFlowModel_prospect:
 
         # NH3
         # 1 % est volatilisée de manière indirecte sous forme de N2O
-        target = {"NH3 volatilization": 0.99}
+        target = {"NH3 volatilization": 0.99, "N2O emission": 0.01}
         source = (
             df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["% excreted indoors"]
@@ -1961,30 +2590,30 @@ class NitrogenFlowModel_prospect:
 
         flux_generator.generate_flux(source, target)
 
-        volat_N2O = (
-            0.01
-            * df_elevage["Excreted nitrogen (ktN)"]
-            * df_elevage["% excreted indoors"]
-            / 100
-            * (
-                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-NH3 EM. slurry indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-NH3 EM. manure indoor"]
-            )
-        )
-        # N2O
-        target = {"N2O emission": 1}
-        source = (
-            volat_N2O
-            + df_elevage["Excreted nitrogen (ktN)"]
-            * df_elevage["% excreted indoors"]
-            / 100
-            * (
-                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-N2O EM. slurry indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-N2O EM. manure indoor"]
-            )
-        ).to_dict()
+        # volat_N2O = (
+        #     0.01
+        #     * df_elevage["Excreted nitrogen (ktN)"]
+        #     * df_elevage["% excreted indoors"]
+        #     / 100
+        #     * (
+        #         df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-NH3 EM. slurry indoor"]
+        #         + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-NH3 EM. manure indoor"]
+        #     )
+        # )
+        # # N2O
+        # target = {"N2O emission": 1}
+        # source = (
+        #     volat_N2O
+        #     + df_elevage["Excreted nitrogen (ktN)"]
+        #     * df_elevage["% excreted indoors"]
+        #     / 100
+        #     * (
+        #         df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-N2O EM. slurry indoor"]
+        #         + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-N2O EM. manure indoor"]
+        #     )
+        # ).to_dict()
 
-        flux_generator.generate_flux(source, target)
+        # flux_generator.generate_flux(source, target)
 
         # Dépôt atmosphérique : proportionel aux emmission de gaz azoté. A voir après l'élevage !
         target = (
@@ -3399,9 +4028,19 @@ class NitrogenFlowModel_prospect:
         )
 
         # On équilibre Haber-Bosch avec atmospheric N2 pour le faire entrer dans le système
-        target = {"Haber-Bosch": adjacency_matrix[:, label_to_index["Haber-Bosch"]].sum()}
+        target = {"Haber-Bosch": self.adjacency_matrix[label_to_index["Haber-Bosch"], :].sum()}
         source = {"atmospheric N2": 1}
         flux_generator.generate_flux(source, target)
+
+        df_elevage["Conversion factor (%)"] = (
+            df_elevage["Edible Nitrogen (ktN)"] + df_elevage["Non Edible Nitrogen (ktN)"]
+        ) / df_elevage["Ingestion (ktN)"]
+
+        from grafs_e.prospective import scenario
+
+        LU = scenario.livestock_LU(self.data_loader, self.region)[self.year]
+        LU["equine"] = LU.pop("equines")
+        df_elevage["LU"] = LU
 
         # On ajoute une ligne total à df_cultures et df_elevage
         colonnes_a_exclure = [
@@ -3420,7 +4059,7 @@ class NitrogenFlowModel_prospect:
         colonnes_a_sommer = df_cultures.columns.difference(colonnes_a_exclure)
         total = df_cultures[colonnes_a_sommer].sum()
         total.name = "Total"
-        df_cultures = pd.concat([df_cultures, total.to_frame().T])
+        self.df_cultures_display = pd.concat([df_cultures, total.to_frame().T])
 
         colonnes_a_exclure = [
             "% edible",
@@ -3444,22 +4083,51 @@ class NitrogenFlowModel_prospect:
         colonnes_a_sommer = df_elevage.columns.difference(colonnes_a_exclure)
         total = df_elevage[colonnes_a_sommer].sum()
         total.name = "Total"
-        df_elevage = pd.concat([df_elevage, total.to_frame().T])
+        self.df_elevage_display = pd.concat([df_elevage, total.to_frame().T])
 
         self.df_cultures = df_cultures
         self.df_elevage = df_elevage
-        self.adjacency_matrix = adjacency_matrix
+        # self.adjacency_matrix = adjacency_matrix
 
     def get_df_culture(self):
+        """
+        Returns the DataFrame containing crop-related data.
+
+        :return: A pandas DataFrame with crop data used in the nitrogen model.
+        :rtype: pandas.DataFrame
+        """
         return self.df_cultures
 
     def get_df_elevage(self):
+        """
+        Returns the DataFrame containing livestock-related data.
+
+        :return: A pandas DataFrame with livestock data used in the nitrogen model.
+        :rtype: pandas.DataFrame
+        """
         return self.df_elevage
 
     def get_transition_matrix(self):
+        """
+        Returns the full nitrogen transition matrix.
+
+        This matrix represents all nitrogen fluxes between sectors, including core and external processes.
+
+        :return: A 2D NumPy array representing nitrogen fluxes between all sectors.
+        :rtype: numpy.ndarray
+        """
         return self.adjacency_matrix
 
     def get_core_matrix(self):
+        """
+        Extracts and returns the core matrix of nitrogen fluxes between active sectors.
+
+        This method filters out rows and columns with no flows and excludes external sectors.
+        The result isolates the central dynamics of the system.
+
+        :return: A 2D NumPy array of the filtered core matrix.
+        :rtype: numpy.ndarray
+        """
         # Calcul de la taille du noyau
         core_size = len(self.adjacency_matrix) - len(self.ext)
 
@@ -3484,10 +4152,33 @@ class NitrogenFlowModel_prospect:
         return core_matrix_filtered
 
     def get_adjacency_matrix(self):
+        """
+        Returns the binary adjacency matrix of nitrogen fluxes.
+
+        This matrix has the same dimensions as the core matrix and indicates the presence
+        (1) or absence (0) of nitrogen fluxes between sectors.
+
+        :return: A binary adjacency matrix.
+        :rtype: numpy.ndarray
+        """
         _ = self.get_core_matrix()
         return (self.core_matrix != 0).astype(int)
 
     def extract_input_output_matrixs(self, clean=True):
+        """
+        Extracts input and output matrices (C and B blocks) from the full transition matrix.
+
+        These matrices represent the nitrogen flows between core and external sectors:
+        - B: Outputs from core to external sectors.
+        - C: Inputs from external to core sectors.
+
+        If `clean` is True, the method removes rows and columns corresponding to inactive sectors.
+
+        :param clean: Whether to remove zero-flow sectors from the matrices.
+        :type clean: bool
+        :return: A tuple (B, C) of NumPy arrays.
+        :rtype: tuple[numpy.ndarray, numpy.ndarray]
+        """
         # Fonction pour extraire la matrice entrée (C) et la matrice sortie (B) de la matrice complète.
         # Taille de la matrice coeur
         core_size = len(self.adjacency_matrix) - len(self.ext)
@@ -3505,53 +4196,132 @@ class NitrogenFlowModel_prospect:
         return B, C
 
     def imported_nitrogen(self):
+        """
+        Calculates the total amount of nitrogen imported into the system.
+
+        Includes nitrogen in imported food, feed, and excess feed.
+
+        :return: Total imported nitrogen (in ktN).
+        :rtype: float
+        """
         return self.allocation_vege.loc[
             self.allocation_vege["Type"].isin(["Imported Food", "Imported Feed", "Excess feed imports"]),
             "Allocated Nitrogen",
         ].sum()
 
     def net_imported_plant(self):
+        """
+        Computes the net nitrogen imports for plant sectors.
+
+        Calculated as the difference between total nitrogen imports and plant sector availability after local uses (feed and food).
+
+        :return: Net nitrogen import for plant-based products (in ktN).
+        :rtype: float
+        """
         return (
             self.importations_df["Imported Nitrogen (ktN)"].sum()
             - self.df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
         )
 
     def net_imported_animal(self):
+        """
+        Returns the net nitrogen export for animal sectors.
+
+        :return: Total nitrogen exported via animal products (in ktN).
+        :rtype: float
+        """
         return self.df_elevage["Net animal nitrogen exports (ktN)"].sum()
 
     def total_plant_production(self):
+        """
+        Computes the total nitrogen production from all crop categories.
+
+        :return: Total nitrogen produced by crops (in ktN).
+        :rtype: float
+        """
         return self.df_cultures["Nitrogen Production (ktN)"].sum()
 
+    def stacked_plant_production(self):
+        """
+        Returns the vector of nitrogen production by crop category.
+
+        :return: A pandas Series of nitrogen production per crop.
+        :rtype: pandas.Series
+        """
+        return self.df_cultures["Nitrogen Production (ktN)"]
+
     def cereals_production(self):
+        """
+        Returns the nitrogen production from cereal crops.
+
+        :return: Total nitrogen from cereals (in ktN).
+        :rtype: float
+        """
         return self.df_cultures.loc[
             self.df_cultures["Category"].isin(["cereals (excluding rice)", "rice"]), "Nitrogen Production (ktN)"
         ].sum()
 
     def leguminous_production(self):
+        """
+        Returns the nitrogen production from leguminous crops.
+
+        :return: Total nitrogen from leguminous (in ktN).
+        :rtype: float
+        """
         return self.df_cultures.loc[
             self.df_cultures["Category"].isin(["leguminous"]), "Nitrogen Production (ktN)"
         ].sum()
 
     def oleaginous_production(self):
+        """
+        Returns the nitrogen production from oleaginous crops.
+
+        :return: Total nitrogen from oleaginous (in ktN).
+        :rtype: float
+        """
         return self.df_cultures.loc[
             self.df_cultures["Category"].isin(["oleaginous"]), "Nitrogen Production (ktN)"
         ].sum()
 
     def grassland_and_forages_production(self):
+        """
+        Returns the nitrogen production from grassland and forages crops.
+
+        :return: Total nitrogen from grassland and forages (in ktN).
+        :rtype: float
+        """
         return self.df_cultures.loc[
-            self.df_cultures["Category"].isin(["temporary meadows", "natural meadows forages"]),
+            self.df_cultures["Category"].isin(["temporary meadows", "natural meadows ", "forages"]),
             "Nitrogen Production (ktN)",
         ].sum()
 
     def roots_production(self):
+        """
+        Returns the nitrogen production from roots crops.
+
+        :return: Total nitrogen from roots (in ktN).
+        :rtype: float
+        """
         return self.df_cultures.loc[self.df_cultures["Category"].isin(["roots"]), "Nitrogen Production (ktN)"].sum()
 
     def fruits_and_vegetable_production(self):
+        """
+        Returns the nitrogen production from fruits and vegetables crops.
+
+        :return: Total nitrogen from fruits and vegetables (in ktN).
+        :rtype: float
+        """
         return self.df_cultures.loc[
             self.df_cultures["Category"].isin(["fruits and vegetables"]), "Nitrogen Production (ktN)"
         ].sum()
 
     def cereals_production_r(self):
+        """
+        Returns the share of nitrogen production from cereals relative to total plant production.
+
+        :return: Percentage of total plant nitrogen production from cereals.
+        :rtype: float
+        """
         return (
             self.df_cultures.loc[
                 self.df_cultures["Category"].isin(["cereals (excluding rice)", "rice"]), "Nitrogen Production (ktN)"
@@ -3561,6 +4331,12 @@ class NitrogenFlowModel_prospect:
         )
 
     def leguminous_production_r(self):
+        """
+        Returns the share of nitrogen production from leguminous relative to total plant production.
+
+        :return: Percentage of total plant nitrogen production from leguminous.
+        :rtype: float
+        """
         return (
             self.df_cultures.loc[self.df_cultures["Category"].isin(["leguminous"]), "Nitrogen Production (ktN)"].sum()
             * 100
@@ -3568,6 +4344,12 @@ class NitrogenFlowModel_prospect:
         )
 
     def oleaginous_production_r(self):
+        """
+        Returns the share of nitrogen production from oleaginous relative to total plant production.
+
+        :return: Percentage of total plant nitrogen production from oleaginous.
+        :rtype: float
+        """
         return (
             self.df_cultures.loc[self.df_cultures["Category"].isin(["oleaginous"]), "Nitrogen Production (ktN)"].sum()
             * 100
@@ -3575,9 +4357,15 @@ class NitrogenFlowModel_prospect:
         )
 
     def grassland_and_forages_production_r(self):
+        """
+        Returns the share of nitrogen production from forages relative to total plant production.
+
+        :return: Percentage of total plant nitrogen production from forages.
+        :rtype: float
+        """
         return (
             self.df_cultures.loc[
-                self.df_cultures["Category"].isin(["temporary meadows", "natural meadows ", "forages"]),
+                self.df_cultures["Category"].isin(["temporary meadows", "natural meadows", "forages"]),
                 "Nitrogen Production (ktN)",
             ].sum()
             * 100
@@ -3585,6 +4373,12 @@ class NitrogenFlowModel_prospect:
         )
 
     def roots_production_r(self):
+        """
+        Returns the share of nitrogen production from roots relative to total plant production.
+
+        :return: Percentage of total plant nitrogen production from roots.
+        :rtype: float
+        """
         return (
             self.df_cultures.loc[self.df_cultures["Category"].isin(["roots"]), "Nitrogen Production (ktN)"].sum()
             * 100
@@ -3592,6 +4386,12 @@ class NitrogenFlowModel_prospect:
         )
 
     def fruits_and_vegetable_production_r(self):
+        """
+        Returns the share of nitrogen production from fruits and vegetables relative to total plant production.
+
+        :return: Percentage of total plant nitrogen production from fruits and vegetables.
+        :rtype: float
+        """
         return (
             self.df_cultures.loc[
                 self.df_cultures["Category"].isin(["fruits and vegetables"]), "Nitrogen Production (ktN)"
@@ -3601,22 +4401,53 @@ class NitrogenFlowModel_prospect:
         )
 
     def animal_production(self):
+        """
+        Returns the total edible nitrogen produced by livestock sectors.
+
+        :return: Total nitrogen in edible animal products (in ktN).
+        :rtype: float
+        """
         return self.df_elevage["Edible Nitrogen (ktN)"].sum()
 
     def emissions(self):
+        """
+        Computes the total nitrogen emissions from the system.
+
+        Includes N₂O emissions, atmospheric N₂ release, and NH₃ volatilization, with unit conversions.
+
+        :return: A pandas Series with nitrogen emission quantities.
+        :rtype: pandas.Series
+        """
         return pd.Series(
             {
-                "N2O emission": self.adjacency_matrix[:, label_to_index["N2O emission"]].sum()
-                * (14 * 2 + 16)
-                / (14 * 2),
-                "atmospheric N2": self.adjacency_matrix[:, label_to_index["atmospheric N2"]].sum(),
-                "NH3 volatilization": self.adjacency_matrix[:, label_to_index["NH3 volatilization"]].sum() * 17 / 14,
+                "N2O emission": np.round(
+                    self.adjacency_matrix[:, label_to_index["N2O emission"]].sum() * (14 * 2 + 16) / (14 * 2), 2
+                ),
+                "atmospheric N2": np.round(self.adjacency_matrix[:, label_to_index["atmospheric N2"]].sum(), 2),
+                "NH3 volatilization": np.round(
+                    self.adjacency_matrix[:, label_to_index["NH3 volatilization"]].sum() * 17 / 14, 2
+                ),
             },
             name="Emission",
         ).to_frame()["Emission"]
 
     def surfaces(self):
+        """
+        Returns the cultivated area per crop.
+
+        :return: A pandas Series with area per crop (in hectares).
+        :rtype: pandas.Series
+        """
         return self.df_cultures["Area (ha)"]
+
+    def surfaces_tot(self):
+        """
+        Returns the total cultivated area in the model.
+
+        :return: Total area (in hectares).
+        :rtype: float
+        """
+        return self.df_cultures["Area (ha)"].sum()
 
     def N_eff(self):
         return gr.GraphAnalyzer.calculate_Neff(self.adjacency_matrix)
@@ -3629,3 +4460,454 @@ class NitrogenFlowModel_prospect:
 
     def R_eff(self):
         return gr.GraphAnalyzer.calculate_Reff(self.adjacency_matrix)
+
+    def Ftot(self, culture):
+        area = self.df_cultures.loc[self.df_cultures.index == culture, "Area (ha)"].item()
+        if area == 0:  # Vérification pour éviter la division par zéro
+            return 0
+        return self.adjacency_matrix[:, label_to_index[culture]].sum() * 1e6 / area
+
+    def Y(self, culture):
+        """
+        Computes the nitrogen yield of a given crop.
+
+        Yield is calculated as nitrogen production (kgN) per hectare for the specified crop.
+
+        :param culture: The name of the crop (index of `df_cultures`).
+        :type culture: str
+        :return: Nitrogen yield in kgN/ha.
+        :rtype: float
+        """
+        area = self.df_cultures.loc[self.df_cultures.index == culture, "Area (ha)"].item()
+        if area == 0:  # Vérification pour éviter la division par zéro
+            return 0
+        return self.df_cultures.loc[self.df_cultures.index == culture, "Nitrogen Production (ktN)"].item() * 1e6 / area
+
+    def tot_fert(self):
+        """
+        Computes total nitrogen inputs to the system, broken down by origin.
+
+        Categories include animal and human excretion, atmospheric deposition, Haber-Bosch inputs, leguminous enrichment, etc.
+
+        :return: A pandas Series of nitrogen inputs by source (in ktN).
+        :rtype: pandas.Series
+        """
+        return pd.Series(
+            {
+                "Mining": self.adjacency_matrix[label_to_index["soil stock"], :].sum(),
+                "Seeds": self.adjacency_matrix[label_to_index["other sectors"], :].sum(),
+                "Human excretion": self.adjacency_matrix[
+                    label_to_index["urban"] : label_to_index["rural"] + 1,
+                    label_to_index["Wheat"] : label_to_index["Natural meadow "] + 1,
+                ].sum(),
+                "Leguminous soil enrichment": self.adjacency_matrix[
+                    label_to_index["Horse beans and faba beans"] : label_to_index["Alfalfa and clover"] + 1,
+                    label_to_index["Wheat"] : label_to_index["Natural meadow "] + 1,
+                ].sum(),
+                "Haber-Bosch": self.adjacency_matrix[label_to_index["Haber-Bosch"], :].sum(),
+                "Atmospheric deposition": self.adjacency_matrix[
+                    label_to_index["N2O emission"], : label_to_index["Natural meadow "] + 1
+                ].sum()
+                + self.adjacency_matrix[
+                    label_to_index["NH3 volatilization"], : label_to_index["Natural meadow "] + 1
+                ].sum(),
+                "atmospheric N2": self.adjacency_matrix[
+                    label_to_index["atmospheric N2"], label_to_index["Wheat"] : label_to_index["Natural meadow "] + 1
+                ].sum(),
+                "Animal excretion": self.adjacency_matrix[
+                    label_to_index["bovines"] : label_to_index["equine"] + 1,
+                    label_to_index["Wheat"] : label_to_index["Natural meadow "] + 1,
+                ].sum(),
+            }
+        )
+
+    def rel_fert(self):
+        """
+        Computes the relative share (%) of each nitrogen input source.
+
+        :return: A pandas Series with nitrogen input sources as percentage of the total.
+        :rtype: pandas.Series
+        """
+        df = self.tot_fert()
+        return df * 100 / df.sum()
+
+    def primXsec(self):
+        """
+        Calculates the percentage of nitrogen from secondary sources (biological or recycled),
+        compared to the total nitrogen inputs.
+
+        Secondary sources include: human excretion, animal excretion, atmospheric inputs, seeds, and leguminous fixation.
+
+        :return: Share of secondary sources in total nitrogen inputs (%).
+        :rtype: float
+        """
+        df = self.tot_fert()
+        return (
+            (
+                df["Human excretion"].sum()
+                + df["Animal excretion"].sum()
+                + df["atmospheric N2"].sum()
+                + df["Atmospheric deposition"].sum()
+                + df["Seeds"].sum()
+                + df["Leguminous soil enrichment"].sum()
+            )
+            * 100
+            / df.sum()
+        )
+
+    def NUE(self):
+        """
+        Calculates the crop-level nitrogen use efficiency (NUE).
+
+        Defined as the ratio of nitrogen produced by crops over total nitrogen inputs.
+
+        :return: NUE of crop systems (%).
+        :rtype: float
+        """
+        df = self.tot_fert()
+        return self.df_cultures["Nitrogen Production (ktN)"].sum() * 100 / df.sum()
+
+    def NUE_system(self):
+        """
+        Calculates system-wide nitrogen use efficiency, including crop and livestock production.
+
+        Accounts for feed losses and nitrogen consumed via imported feed.
+
+        :return: System-wide NUE (%).
+        :rtype: float
+        """
+        N_NP = (
+            self.df_cultures["Nitrogen Production (ktN)"].sum()
+            - self.df_cultures["Nitrogen For Feed (ktN)"].sum()
+            + self.df_elevage["Edible Nitrogen (ktN)"].sum()
+            + self.df_elevage["Non Edible Nitrogen (ktN)"].sum()
+        )
+        df_fert = self.tot_fert()
+        N_tot = (
+            df_fert["Haber-Bosch"]
+            + df_fert["atmospheric N2"]
+            + df_fert["Atmospheric deposition"]
+            + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
+        )
+        return N_NP / N_tot * 100
+
+    def NUE_system_2(self):
+        """
+        Alternative NUE computation considering livestock conversion factors and feed inputs.
+
+        Includes non-edible nitrogen outputs and imported feed consumption in the calculation.
+
+        :return: Adjusted system-wide NUE (%).
+        :rtype: float
+        """
+        N_NP = (
+            self.df_cultures["Nitrogen Production (ktN)"].sum()
+            + (
+                (self.df_elevage["Edible Nitrogen (ktN)"] + self.df_elevage["Non Edible Nitrogen (ktN)"])
+                * (1 - 1 / self.df_elevage["Conversion factor (%)"])
+            ).sum()
+            + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
+        )
+        df_fert = self.tot_fert()
+        N_tot = (
+            df_fert["Haber-Bosch"]
+            + df_fert["atmospheric N2"]
+            + df_fert["Atmospheric deposition"]
+            + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
+        )
+        return N_NP / N_tot * 100
+
+    def N_self_sufficient(self):
+        """
+        Estimates nitrogen self-sufficiency of the system.
+
+        Defined as the share of atmospheric (biological) nitrogen inputs relative to all external nitrogen sources.
+
+        :return: Self-sufficiency ratio (%).
+        :rtype: float
+        """
+        df_fert = self.tot_fert()
+        return (
+            (df_fert["atmospheric N2"] + df_fert["Atmospheric deposition"])
+            * 100
+            / (
+                df_fert["atmospheric N2"]
+                + df_fert["Atmospheric deposition"]
+                + df_fert["Haber-Bosch"]
+                + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
+            )
+        )
+
+    def env_footprint(self):
+        """
+        Calculates the land footprint (in ha) of nitrogen flows linked to:
+        - local food and feed production,
+        - imported food and feed,
+        - imported and exported livestock nitrogen,
+        - crop exports for feed and food.
+
+        This is expressed as theoretical land areas mobilized by the nitrogen content.
+
+        :return: A pandas Series of land footprint values (in ha), positive for imports and local use, negative for exports.
+        :rtype: pandas.Series
+        """
+        local_surface_food = (
+            self.df_cultures["Nitrogen For Food (ktN)"]
+            / self.df_cultures["Nitrogen Production (ktN)"]
+            * self.df_cultures["Area (ha)"]
+        ).sum()
+        local_surface_feed = (
+            self.df_cultures["Nitrogen For Feed (ktN)"]
+            / self.df_cultures["Nitrogen Production (ktN)"]
+            * self.df_cultures["Area (ha)"]
+        ).sum()
+
+        # Food import
+        # 1. Filtrer les allocations "Imported food"
+        alloc = self.allocation_vege.loc[
+            self.allocation_vege["Type"] == "Imported Food", ["Culture", "Allocated Nitrogen"]
+        ]
+
+        # 2. Grouper par culture au cas où il y aurait plusieurs lignes par culture
+        alloc_grouped = alloc.groupby("Culture")["Allocated Nitrogen"].sum()
+
+        # 3. Créer un DataFrame aligné avec les index de df_cultures
+        alloc_df = pd.DataFrame(index=self.df_cultures.index)
+        alloc_df["Allocated Nitrogen"] = alloc_grouped
+        alloc_df["Allocated Nitrogen"] = alloc_df["Allocated Nitrogen"].fillna(0)
+
+        # 4. Calcul final : ratio * surface
+        # Récupère les valeurs de 'Nitrogen Production (ktN)' et de 'Allocated Nitrogen'
+        nitrogen_production = self.df_cultures["Nitrogen Production (ktN)"]
+        allocated_nitrogen = alloc_df["Allocated Nitrogen"]
+
+        # Si 'Nitrogen Production (ktN)' est nul, se rabattre sur les valeurs du blé
+        # En supposant que "Wheat" soit dans l'index de df_cultures, sinon adapte-le
+        wheat_nitrogen_production = self.df_cultures.loc["Wheat", "Nitrogen Production (ktN)"]
+        wheat_area = self.df_cultures.loc["Wheat", "Area (ha)"]
+
+        # Remplacer les valeurs de 'Nitrogen Production (ktN)' par celles du blé si elles sont nulles
+        adjusted_nitrogen_production = nitrogen_production.replace(0, wheat_nitrogen_production)
+
+        # Utiliser la superficie du blé lorsque la production d'azote est nulle, sans modifier df_cultures
+        adjusted_area = self.df_cultures["Area (ha)"].where(nitrogen_production != 0, wheat_area)
+
+        # Calcul du total des importations alimentaires
+        total_food_import = (allocated_nitrogen / adjusted_nitrogen_production * adjusted_area).sum()
+
+        # Feed import
+        # 1. Filtrer les allocations "Imported food"
+        alloc = self.allocation_vege.loc[
+            self.allocation_vege["Type"] == "Imported Feed", ["Culture", "Allocated Nitrogen"]
+        ]
+
+        # 2. Grouper par culture au cas où il y aurait plusieurs lignes par culture
+        alloc_grouped = alloc.groupby("Culture")["Allocated Nitrogen"].sum()
+
+        # 3. Créer un DataFrame aligné avec les index de df_cultures
+        alloc_df = pd.DataFrame(index=self.df_cultures.index)
+        alloc_df["Allocated Nitrogen"] = alloc_grouped
+        alloc_df["Allocated Nitrogen"] = alloc_df["Allocated Nitrogen"].fillna(0)
+
+        # 4. Calcul final : ratio * surface
+        # Récupère les valeurs de 'Nitrogen Production (ktN)' et de 'Allocated Nitrogen'
+        nitrogen_production = self.df_cultures["Nitrogen Production (ktN)"]
+        allocated_nitrogen = alloc_df["Allocated Nitrogen"]
+
+        # Si 'Nitrogen Production (ktN)' est nul, se rabattre sur les valeurs du blé
+        # En supposant que "Wheat" soit dans l'index de df_cultures, sinon adapte-le
+        wheat_nitrogen_production = self.df_cultures.loc["Wheat", "Nitrogen Production (ktN)"]
+        wheat_area = self.df_cultures.loc["Wheat", "Area (ha)"]
+
+        # Remplacer les valeurs de 'Nitrogen Production (ktN)' par celles du blé si elles sont nulles
+        adjusted_nitrogen_production = nitrogen_production.replace(0, wheat_nitrogen_production)
+
+        # Utiliser la superficie du blé lorsque la production d'azote est nulle, sans modifier df_cultures
+        adjusted_area = self.df_cultures["Area (ha)"].where(nitrogen_production != 0, wheat_area)
+
+        # Calcul du total des importations alimentaires
+        total_feed_import = (allocated_nitrogen / adjusted_nitrogen_production * adjusted_area).sum()
+
+        ## Importation de viande
+        # 1. Sélectionner les animaux importés
+        elevage_importe = self.df_elevage[self.df_elevage["Net animal nitrogen exports (ktN)"] < 0]
+
+        # 2. Pourcentage importé = |export net négatif| / production totale
+        elevage_importe["fraction_importée"] = (
+            -elevage_importe["Net animal nitrogen exports (ktN)"] / elevage_importe["Edible Nitrogen (ktN)"]
+        )
+
+        # 3. Créer un DataFrame vide pour accumuler les contributions par culture
+        surface_par_culture = pd.Series(0.0, index=self.df_cultures.index)
+
+        # 4. Parcourir chaque type d'élevage importé
+        for animal in elevage_importe.index:
+            if animal not in self.allocation_vege["Consumer"].values:
+                continue  # Si l'animal n'est pas dans les allocations, on passe
+
+            # a. Calculer la part importée de l'azote pour cet élevage
+            part_importee = elevage_importe.loc[animal, "fraction_importée"]
+
+            if elevage_importe.loc[elevage_importe.index == animal, "fraction_importée"].item() == np.inf:
+                # Calculer l'azote végétal nécessaire (N_feed=Azote importé/0.12)
+                N_animal_imported = -elevage_importe.loc[animal, "Net animal nitrogen exports (ktN)"]
+                N_feed_total_required = N_animal_imported / 0.12
+                # Aller chercher dans régimes[animal] les cultures consommées et en quelles proportion
+                # Dans chaque catégories, prendre la première culture avec un rendement non nul ou nan de la liste (df_cultures["Nitrogen Production (ktN)"]/df_culture["Area (ha)"])
+                # En déduire la surface théoriquement utilisée pour le nourrir (surface_par_culture[culture] = N_feed/rendement)
+                # Si aucune culture de la catégorie n'a de rendement, passer cette catégorie
+
+                # Parcourir les catégories du régime de l'animal
+                for proportion, culture_list in regimes[animal].items():
+                    N_feed_for_category = N_feed_total_required * proportion
+
+                    # Chercher la *première* culture valide dans la liste de la catégorie
+                    for culture_name in culture_list:
+                        # Vérifier si la culture existe dans df_cultures
+                        if culture_name in self.df_cultures.index:
+                            prod = self.df_cultures.loc[culture_name, "Nitrogen Production (ktN)"]
+                            surface = self.df_cultures.loc[culture_name, "Area (ha)"]
+
+                            # Calculer le rendement si possible (surface > 0 et prod > 0)
+                            if surface > 0 and prod > 0:
+                                rendement = prod / surface
+                                # Calculer la surface nécessaire pour cette catégorie via cette culture
+                                surface_needed = N_feed_for_category / rendement
+                                # Ajouter à la surface totale pour cette culture
+                                surface_par_culture[culture_name] = (
+                                    surface_par_culture.get(culture_name, 0) + surface_needed
+                                )
+                                break  # On a trouvé la première culture valide, on passe à la catégorie suivante du régime
+                            # else: rendement invalide (0 ou NaN), on essaie la culture suivante dans la liste
+                        # else: la culture n'est pas dans df_cultures, on essaie la suivante dans la liste
+            else:
+                # b. Extraire les allocations d'azote de chaque culture pour cet élevage
+                aliments = self.allocation_vege[self.allocation_vege["Consumer"] == animal]
+
+                for _, row in aliments.iterrows():
+                    culture = row["Culture"]
+                    azote = row["Allocated Nitrogen"] * part_importee  # Quantité d'azote importée pour cette culture
+
+                    if culture not in self.df_cultures.index:
+                        culture = "Wheat"  # Si la culture n'est pas dans df_cultures, on remplace par du blé
+
+                    # c. Récupérer la production d'azote et la surface de la culture
+                    prod = self.df_cultures.loc[culture, "Nitrogen Production (ktN)"]
+                    surface = self.df_cultures.loc[culture, "Area (ha)"]
+                    # if prod == 0:
+                    #     culture = "Wheat"
+                    #     prod = self.df_cultures.loc[culture, "Nitrogen Production (ktN)"]
+                    #     surface = self.df_cultures.loc[culture, "Area (ha)"]
+                    # d. Calculer la surface nécessaire pour produire l'azote consommé
+                    if prod > 0:
+                        surface_equivalente = azote / prod * surface
+                        surface_par_culture[culture] += surface_equivalente
+        import_animal = surface_par_culture.sum()
+
+        ## Export animaux
+        # 1. Sélectionner les animaux exportés (ceux qui ont un exportation nette positive)
+        elevage_exporte = self.df_elevage[self.df_elevage["Net animal nitrogen exports (ktN)"] > 0]
+
+        # 2. Calculer la fraction exportée pour chaque animal (en proportion de la production totale)
+        elevage_exporte["fraction_exportée"] = (
+            elevage_exporte["Net animal nitrogen exports (ktN)"] / elevage_exporte["Edible Nitrogen (ktN)"]
+        )
+
+        # 3. Créer un dictionnaire pour accumuler les résultats par culture
+        surface_par_culture_exporte = pd.Series({culture: 0.0 for culture in self.df_cultures.index})
+
+        # 4. Parcourir chaque type d'élevage exporté
+        for animal in elevage_exporte.index:
+            if animal not in self.allocation_vege["Consumer"].values:
+                continue  # Si l'animal n'est pas dans les allocations, on passe
+
+            # a. Calculer la part exportée de l'azote pour cet élevage
+            part_exportee = elevage_exporte.loc[animal, "fraction_exportée"]
+
+            # b. Extraire les allocations d'azote de chaque culture pour cet élevage
+            aliments = self.allocation_vege[self.allocation_vege["Consumer"] == animal]
+
+            for _, row in aliments.iterrows():
+                culture = row["Culture"]
+                azote = row["Allocated Nitrogen"] * part_exportee  # Quantité d'azote exportée pour cette culture
+
+                if culture not in self.df_cultures.index:
+                    culture = "Wheat"  # Si la culture n'est pas dans df_cultures, on remplace par du blé
+
+                # c. Récupérer la production d'azote et la surface de la culture
+                prod = self.df_cultures.loc[culture, "Nitrogen Production (ktN)"]
+                surface = self.df_cultures.loc[culture, "Area (ha)"]
+
+                # d. Calculer la surface nécessaire pour produire l'azote consommé
+                if prod > 0:
+                    surface_equivalente = azote / prod * surface
+                    surface_par_culture_exporte[culture] += surface_equivalente
+        export_animal = surface_par_culture_exporte.sum()
+
+        # Export culture
+        # Feed
+        export_surface_feed = (
+            self.df_cultures["Nitrogen Exported For Feed (ktN)"]
+            / self.df_cultures["Nitrogen Production (ktN)"]
+            * self.df_cultures["Area (ha)"]
+        ).sum()
+        # Food
+        export_surface_food = (
+            self.df_cultures["Available Nitrogen After Feed, Export Feed and Food (ktN)"]
+            / self.df_cultures["Nitrogen Production (ktN)"]
+            * self.df_cultures["Area (ha)"]
+        ).sum()
+        return pd.Series(
+            {
+                "Local Food": int(local_surface_food),
+                "Local Feed": int(local_surface_feed),
+                "Import Food": int(total_food_import),
+                "Import Feed": int(total_feed_import),
+                "Import Livestock": int(import_animal),
+                "Export Livestock": -int(export_animal),
+                "Export Feed": -int(export_surface_feed),
+                "Export Food": -int(export_surface_food),
+            }
+        )
+
+    def net_footprint(self):
+        """
+        Computes the net nitrogen land footprint of the region (in Mha).
+
+        Aggregates all imports and exports to yield a net balance of nitrogen-dependent land use.
+
+        :return: Net land footprint (in million hectares).
+        :rtype: float
+        """
+        df = self.env_footprint()
+        df_total_import = df.loc[["Import Food", "Import Feed", "Import Livestock"]].sum(axis=0)
+        df_total_export = df.loc[["Export Food", "Export Feed", "Export Livestock"]].sum(axis=0)
+        net_import_export = df_total_import + df_total_export
+        return np.round(net_import_export / 1e6, 2)
+
+    def LU_density(self):
+        """
+        Calculates the livestock unit density over the agricultural area.
+
+        :return: Livestock unit per hectare (LU/ha).
+        :rtype: float
+        """
+        return np.round(self.df_elevage["LU"].sum() / self.df_cultures["Area (ha)"].sum(), 2)
+
+    def NH3_vol(self):
+        """
+        Returns the total NH₃ volatilization in the system.
+
+        :return: NH₃ emissions in kt.
+        :rtype: float
+        """
+        return self.emissions()["NH3 volatilization"]
+
+    def N2O_em(self):
+        """
+        Returns the total N₂O emissions in the system.
+
+        :return: N₂O emissions in kt.
+        :rtype: float
+        """
+        return self.emissions()["N2O emission"]

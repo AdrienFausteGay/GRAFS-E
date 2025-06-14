@@ -137,11 +137,32 @@ with tab1:
     st.write(
         """
     <p style='text-align: justify'>
-        The GRAFS-extended model serves as an advanced tool designed to analyze and map the evolution of nitrogen utilization within agricultural systems, with a particular focus on 33 regions of France from 1852 to 2014. This model builds upon the GRAFS framework developed at IEES and integrates graph theory to provide a detailed analysis of nitrogen flows in agriculture, identifying key patterns, transformations, and structural invariants. The model enables researchers to construct robust prospective scenarios and examine the global structure of nitrogen flows in agricultural ecosystems.
+        The GRAFS-extended model serves as an advanced tool designed to analyze and map the evolution of nitrogen utilization within agricultural systems, with a particular focus on 33 regions of France from 1852 to 2014. This model builds upon the GRAFS framework developed at IEES and integrates graph theory to provide a detailed analysis of nitrogen flows in agriculture, identifying key patterns, transformations, and structural invariants. The model enables researchers to construct robust prospective scenarios and examine the global structure of nitrogen flows in agricultural ecosystems. Technical documentation can be accessed here :
     </p>
     """,
         unsafe_allow_html=True,
     )
+
+    import threading
+    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+    # Chemin absolu vers .../docs/_build/html/index.html
+    INDEX_HTML = Path(__file__).parent.parent.parent / "docs" / "source" / ".docs" / "_build" / "html" / "index.html"
+
+    import os
+
+    DOC_DIR = Path(__file__).parent.parent.parent / "docs" / "source" / ".docs" / "_build" / "html"
+    PORT = 8765
+
+    def run_server():
+        os.chdir(DOC_DIR)
+        ThreadingHTTPServer(("0.0.0.0", PORT), SimpleHTTPRequestHandler).serve_forever()
+
+    threading.Thread(target=run_server, daemon=True).start()
+    # ----------------------------------------------------------------------
+
+    DOC_URL = f"http://localhost:{PORT}/index.html"
+    st.link_button("📖  Python Documentation", DOC_URL)
 
     # 🔹 Mise en cache du chargement de l'image
     @st.cache_data
@@ -631,11 +652,11 @@ with tab4:
 
         st.subheader("Cultures data")
 
-        st.dataframe(model.df_cultures)
+        st.dataframe(model.df_cultures_display)
 
         st.subheader("Livestock data")
 
-        st.dataframe(model.df_elevage)
+        st.dataframe(model.df_elevage_display)
 
         st.subheader("Culture allocation to livestock and population")
 
