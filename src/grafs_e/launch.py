@@ -17,7 +17,18 @@ with open(config_path, "w") as config_file:
 
 
 def run():
-    """Lance Streamlit en utilisant le package installé"""
+    """
+    Script used by the 'grafs-e' command to launch the graphical interface.
+
+    This function is executed when the user runs the `grafs-e` command. It:
+        - Finds the path of the `grafs_e` package,
+        - Constructs the full path to the `app.py` script (Streamlit app),
+        - Simulates the execution of the Streamlit CLI command to start the app (`streamlit run app.py`),
+        - Launches the Streamlit server using `streamlit.web.cli.main()`.
+
+    :return: None
+    :rtype: None
+    """
     package_path = os.path.dirname(__file__)  # Trouve le chemin de grafs_e
     app_path = os.path.join(package_path, "app.py")  # Chemin de app.py
     print(f"Launching Streamlit from: {app_path}")  # Debugging

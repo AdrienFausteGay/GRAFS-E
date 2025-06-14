@@ -1375,8 +1375,8 @@ class NitrogenFlowModel:
 
             # Définir un poids élevé pour pénaliser les importations
             if int(year) > 1960:
-                poids_exces_import = 1.0
-                poids_import_food = 1.0
+                poids_exces_import = 1
+                poids_import_food = 1e-2
             else:
                 poids_exces_import = 1000.0  # Ajustez ce poids selon vos préférences
                 poids_import_food = 1000.0
@@ -2272,7 +2272,7 @@ class NitrogenFlowModel:
         colonnes_a_sommer = df_cultures.columns.difference(colonnes_a_exclure)
         total = df_cultures[colonnes_a_sommer].sum()
         total.name = "Total"
-        df_cultures_display = pd.concat([df_cultures, total.to_frame().T])
+        self.df_cultures_display = pd.concat([df_cultures, total.to_frame().T])
 
         colonnes_a_exclure = [
             "% edible",
@@ -2296,7 +2296,7 @@ class NitrogenFlowModel:
         colonnes_a_sommer = df_elevage.columns.difference(colonnes_a_exclure)
         total = df_elevage[colonnes_a_sommer].sum()
         total.name = "Total"
-        df_elevage_display = pd.concat([df_elevage, total.to_frame().T])
+        self.df_elevage_display = pd.concat([df_elevage, total.to_frame().T])
 
         self.df_cultures = df_cultures
         self.df_elevage = df_elevage

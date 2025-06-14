@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="test_plot module" href="test_plot.html" /><link rel="prev" title="src" href="modules.html" />
+<link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="prev" title="GRAFS-E documentation" href="index.html" />
 
     <!-- Generated with Sphinx 8.2.3 and Furo 2024.08.06 -->
         <title>grafs_e package - GRAFS-E 01/02/25 documentation</title>
@@ -200,12 +200,7 @@
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <p class="caption" role="heading"><span class="caption-text">Sommaire</span></p>
 <ul class="current">
-<li class="toctree-l1 current has-children"><a class="reference internal" href="modules.html">src</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of src</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
-<li class="toctree-l2 current"><a class="current reference internal" href="#">grafs_e package</a></li>
-</ul>
-</li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">grafs_e package</a></li>
-<li class="toctree-l1"><a class="reference internal" href="test_plot.html">test_plot module</a></li>
 </ul>
 
 </div>
@@ -1659,6 +1654,11 @@ compared to the total nitrogen inputs.</p>
 <dd></dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="grafs_e.app.run_server">
+<span class="sig-prename descclassname"><span class="pre">grafs_e.app.</span></span><span class="sig-name descname"><span class="pre">run_server</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.app.run_server" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="grafs_e.app.stacked_area_chart">
 <span class="sig-prename descclassname"><span class="pre">grafs_e.app.</span></span><span class="sig-name descname"><span class="pre">stacked_area_chart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_models</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">region</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.app.stacked_area_chart" title="Link to this definition">¶</a></dt>
 <dd><p>Affiche un graphique en courbes empilées pour l’évolution des surfaces cultivées
@@ -2000,7 +2000,24 @@ en tenant compte d’un ordre fixe des nœuds spécifié par node_labels.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="grafs_e.launch.run">
 <span class="sig-prename descclassname"><span class="pre">grafs_e.launch.</span></span><span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.launch.run" title="Link to this definition">¶</a></dt>
-<dd><p>Lance Streamlit en utilisant le package installé</p>
+<dd><p>Script used by the ‘grafs-e’ command to launch the graphical interface.</p>
+<dl class="simple">
+<dt>This function is executed when the user runs the <cite>grafs-e</cite> command. It:</dt><dd><ul class="simple">
+<li><p>Finds the path of the <cite>grafs_e</cite> package,</p></li>
+<li><p>Constructs the full path to the <cite>app.py</cite> script (Streamlit app),</p></li>
+<li><p>Simulates the execution of the Streamlit CLI command to start the app (<cite>streamlit run app.py</cite>),</p></li>
+<li><p>Launches the Streamlit server using <cite>streamlit.web.cli.main()</cite>.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
 </dd></dl>
 
 </section>
@@ -3768,158 +3785,268 @@ for future simulations in prospective mode.</p>
 <section id="module-grafs_e.sankey">
 <span id="grafs-e-sankey-module"></span><h2>grafs_e.sankey module<a class="headerlink" href="#module-grafs_e.sankey" title="Link to this heading">¶</a></h2>
 <dl class="py function">
-<dt class="sig sig-object py" id="grafs_e.sankey.create_sankey_agreg">
-<span class="sig-prename descclassname"><span class="pre">grafs_e.sankey.</span></span><span class="sig-name descname"><span class="pre">create_sankey_agreg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">transition_matrix</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.sankey.create_sankey_agreg" title="Link to this definition">¶</a></dt>
-<dd><p>Crée un diagramme de Sankey simplifié en fusionnant les nœuds par groupe.
-Les groupes sont fusionnés et organisés en trois colonnes :
-1. Première colonne : “Industry”, “Cereals”, “Oleaginous”, “Roots”
-2. Deuxième colonne : “Fruits and vegetables”, “Grasslands and forages”, “Leguminous”
-3. Troisième colonne : “Livestock”, “Population”, “Losses”, “Trade”, “Atmosphere”</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>transition_matrix</strong> – Matrice de transition des flux d’azote (61x61 numpy array)</p></li>
-<li><p><strong>index_to_label</strong> – Dictionnaire associant les indices des nœuds à leurs labels</p></li>
-<li><p><strong>index_to_color</strong> – Dictionnaire associant les indices des nœuds à leurs couleurs</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="grafs_e.sankey.create_sankey_from_transition_matrix">
-<span class="sig-prename descclassname"><span class="pre">grafs_e.sankey.</span></span><span class="sig-name descname"><span class="pre">create_sankey_from_transition_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">transition_matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">main_node</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scope</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.sankey.create_sankey_from_transition_matrix" title="Link to this definition">¶</a></dt>
-<dd><p>Crée un diagramme de Sankey à partir d’une matrice de transition.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>transition_matrix</strong> – Matrice de transition (numpy array) où chaque élément [i, j] est le flux de i vers j.</p></li>
-<li><p><strong>main_node</strong> – Le nœud principal qui servira de base pour le Sankey.</p></li>
-<li><p><strong>scope</strong> – Le nombre de niveaux à inclure dans le Sankey (profils de profondeur de la hiérarchie).</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="grafs_e.sankey.create_sankey_from_transition_matrix_2">
-<span class="sig-prename descclassname"><span class="pre">grafs_e.sankey.</span></span><span class="sig-name descname"><span class="pre">create_sankey_from_transition_matrix_2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">transition_matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">main_node</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scope</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index_to_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{0:</span> <span class="pre">'Wheat',</span> <span class="pre">1:</span> <span class="pre">'Rye',</span> <span class="pre">2:</span> <span class="pre">'Barley',</span> <span class="pre">3:</span> <span class="pre">'Oat',</span> <span class="pre">4:</span> <span class="pre">'Grain</span> <span class="pre">maize',</span> <span class="pre">5:</span> <span class="pre">'Rice',</span> <span class="pre">6:</span> <span class="pre">'Other</span> <span class="pre">cereals',</span> <span class="pre">7:</span> <span class="pre">'Straw',</span> <span class="pre">8:</span> <span class="pre">'Forage</span> <span class="pre">maize',</span> <span class="pre">9:</span> <span class="pre">'Forage</span> <span class="pre">cabbages',</span> <span class="pre">10:</span> <span class="pre">'Rapeseed',</span> <span class="pre">11:</span> <span class="pre">'Sunflower',</span> <span class="pre">12:</span> <span class="pre">'Other</span> <span class="pre">oil</span> <span class="pre">crops',</span> <span class="pre">13:</span> <span class="pre">'Sugar</span> <span class="pre">beet',</span> <span class="pre">14:</span> <span class="pre">'Potatoes',</span> <span class="pre">15:</span> <span class="pre">'Other</span> <span class="pre">roots',</span> <span class="pre">16:</span> <span class="pre">'Dry</span> <span class="pre">vegetables',</span> <span class="pre">17:</span> <span class="pre">'Dry</span> <span class="pre">fruits',</span> <span class="pre">18:</span> <span class="pre">'Squash</span> <span class="pre">and</span> <span class="pre">melons',</span> <span class="pre">19:</span> <span class="pre">'Cabbage',</span> <span class="pre">20:</span> <span class="pre">'Leaves</span> <span class="pre">vegetables',</span> <span class="pre">21:</span> <span class="pre">'Fruits',</span> <span class="pre">22:</span> <span class="pre">'Olives',</span> <span class="pre">23:</span> <span class="pre">'Citrus',</span> <span class="pre">24:</span> <span class="pre">'Hemp',</span> <span class="pre">25:</span> <span class="pre">'Flax',</span> <span class="pre">26:</span> <span class="pre">'Non-legume</span> <span class="pre">temporary</span> <span class="pre">meadow',</span> <span class="pre">27:</span> <span class="pre">'Horse</span> <span class="pre">beans</span> <span class="pre">and</span> <span class="pre">faba</span> <span class="pre">beans',</span> <span class="pre">28:</span> <span class="pre">'Peas',</span> <span class="pre">29:</span> <span class="pre">'Other</span> <span class="pre">protein</span> <span class="pre">crops',</span> <span class="pre">30:</span> <span class="pre">'Green</span> <span class="pre">peas',</span> <span class="pre">31:</span> <span class="pre">'Dry</span> <span class="pre">beans',</span> <span class="pre">32:</span> <span class="pre">'Green</span> <span class="pre">beans',</span> <span class="pre">33:</span> <span class="pre">'Soybean',</span> <span class="pre">34:</span> <span class="pre">'Alfalfa</span> <span class="pre">and</span> <span class="pre">clover',</span> <span class="pre">35:</span> <span class="pre">'Natural</span> <span class="pre">meadow</span> <span class="pre">',</span> <span class="pre">36:</span> <span class="pre">'bovines',</span> <span class="pre">37:</span> <span class="pre">'ovines',</span> <span class="pre">38:</span> <span class="pre">'caprines',</span> <span class="pre">39:</span> <span class="pre">'porcines',</span> <span class="pre">40:</span> <span class="pre">'poultry',</span> <span class="pre">41:</span> <span class="pre">'equine',</span> <span class="pre">42:</span> <span class="pre">'urban',</span> <span class="pre">43:</span> <span class="pre">'rural',</span> <span class="pre">44:</span> <span class="pre">'NH3</span> <span class="pre">volatilization',</span> <span class="pre">45:</span> <span class="pre">'N2O</span> <span class="pre">emission',</span> <span class="pre">46:</span> <span class="pre">'hydro-system',</span> <span class="pre">47:</span> <span class="pre">'other</span> <span class="pre">losses',</span> <span class="pre">48:</span> <span class="pre">'soil</span> <span class="pre">stock',</span> <span class="pre">49:</span> <span class="pre">'atmospheric</span> <span class="pre">N2',</span> <span class="pre">50:</span> <span class="pre">'Haber-Bosch',</span> <span class="pre">51:</span> <span class="pre">'other</span> <span class="pre">sectors',</span> <span class="pre">52:</span> <span class="pre">'animal</span> <span class="pre">trade',</span> <span class="pre">53:</span> <span class="pre">'fishery</span> <span class="pre">products',</span> <span class="pre">54:</span> <span class="pre">'cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">55:</span> <span class="pre">'fruits</span> <span class="pre">and</span> <span class="pre">vegetables</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">56:</span> <span class="pre">'leguminous</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">57:</span> <span class="pre">'oleaginous</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">58:</span> <span class="pre">'roots</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">59:</span> <span class="pre">'rice</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">60:</span> <span class="pre">'cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)</span> <span class="pre">feed</span> <span class="pre">trade',</span> <span class="pre">61:</span> <span class="pre">'leguminous</span> <span class="pre">feed</span> <span class="pre">trade',</span> <span class="pre">62:</span> <span class="pre">'oleaginous</span> <span class="pre">feed</span> <span class="pre">trade',</span> <span class="pre">63:</span> <span class="pre">'forages</span> <span class="pre">feed</span> <span class="pre">trade',</span> <span class="pre">64:</span> <span class="pre">'temporary</span> <span class="pre">meadows</span> <span class="pre">feed</span> <span class="pre">trade'}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index_to_color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{0:</span> <span class="pre">'gold',</span> <span class="pre">1:</span> <span class="pre">'gold',</span> <span class="pre">2:</span> <span class="pre">'gold',</span> <span class="pre">3:</span> <span class="pre">'gold',</span> <span class="pre">4:</span> <span class="pre">'gold',</span> <span class="pre">5:</span> <span class="pre">'gray',</span> <span class="pre">6:</span> <span class="pre">'gold',</span> <span class="pre">7:</span> <span class="pre">'lime',</span> <span class="pre">8:</span> <span class="pre">'lime',</span> <span class="pre">9:</span> <span class="pre">'lime',</span> <span class="pre">10:</span> <span class="pre">'darkkhaki',</span> <span class="pre">11:</span> <span class="pre">'darkkhaki',</span> <span class="pre">12:</span> <span class="pre">'darkgreen',</span> <span class="pre">13:</span> <span class="pre">'orange',</span> <span class="pre">14:</span> <span class="pre">'orange',</span> <span class="pre">15:</span> <span class="pre">'orange',</span> <span class="pre">16:</span> <span class="pre">'lightgreen',</span> <span class="pre">17:</span> <span class="pre">'lightgreen',</span> <span class="pre">18:</span> <span class="pre">'lightgreen',</span> <span class="pre">19:</span> <span class="pre">'lightgreen',</span> <span class="pre">20:</span> <span class="pre">'lightgreen',</span> <span class="pre">21:</span> <span class="pre">'lightgreen',</span> <span class="pre">22:</span> <span class="pre">'lightgreen',</span> <span class="pre">23:</span> <span class="pre">'lightgreen',</span> <span class="pre">24:</span> <span class="pre">'darkkhaki',</span> <span class="pre">25:</span> <span class="pre">'darkkhaki',</span> <span class="pre">26:</span> <span class="pre">'lime',</span> <span class="pre">27:</span> <span class="pre">'darkgreen',</span> <span class="pre">28:</span> <span class="pre">'darkgreen',</span> <span class="pre">29:</span> <span class="pre">'darkgreen',</span> <span class="pre">30:</span> <span class="pre">'darkgreen',</span> <span class="pre">31:</span> <span class="pre">'darkgreen',</span> <span class="pre">32:</span> <span class="pre">'darkgreen',</span> <span class="pre">33:</span> <span class="pre">'darkgreen',</span> <span class="pre">34:</span> <span class="pre">'lime',</span> <span class="pre">35:</span> <span class="pre">'darkgreen',</span> <span class="pre">36:</span> <span class="pre">'lightblue',</span> <span class="pre">37:</span> <span class="pre">'lightblue',</span> <span class="pre">38:</span> <span class="pre">'lightblue',</span> <span class="pre">39:</span> <span class="pre">'lightblue',</span> <span class="pre">40:</span> <span class="pre">'lightblue',</span> <span class="pre">41:</span> <span class="pre">'lightblue',</span> <span class="pre">42:</span> <span class="pre">'darkblue',</span> <span class="pre">43:</span> <span class="pre">'darkblue',</span> <span class="pre">44:</span> <span class="pre">'red',</span> <span class="pre">45:</span> <span class="pre">'red',</span> <span class="pre">46:</span> <span class="pre">'red',</span> <span class="pre">47:</span> <span class="pre">'red',</span> <span class="pre">48:</span> <span class="pre">'sienna',</span> <span class="pre">49:</span> <span class="pre">'seagreen',</span> <span class="pre">50:</span> <span class="pre">'purple',</span> <span class="pre">51:</span> <span class="pre">'purple',</span> <span class="pre">52:</span> <span class="pre">'gray',</span> <span class="pre">53:</span> <span class="pre">'gray',</span> <span class="pre">54:</span> <span class="pre">'gray',</span> <span class="pre">55:</span> <span class="pre">'gray',</span> <span class="pre">56:</span> <span class="pre">'gray',</span> <span class="pre">57:</span> <span class="pre">'gray',</span> <span class="pre">58:</span> <span class="pre">'gray',</span> <span class="pre">59:</span> <span class="pre">'gray',</span> <span class="pre">60:</span> <span class="pre">'gray',</span> <span class="pre">61:</span> <span class="pre">'gray',</span> <span class="pre">62:</span> <span class="pre">'gray',</span> <span class="pre">63:</span> <span class="pre">'gray',</span> <span class="pre">64:</span> <span class="pre">'gray'}</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.sankey.create_sankey_from_transition_matrix_2" title="Link to this definition">¶</a></dt>
-<dd><p>Crée un diagramme de Sankey montrant à la fois les flux entrants (sources) et sortants (cibles) d’un nœud principal.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>transition_matrix</strong> – Matrice de transition (numpy array) où chaque élément [i, j] est le flux de i vers j.</p></li>
-<li><p><strong>main_node</strong> – Le nœud principal qui servira de base pour le Sankey.</p></li>
-<li><p><strong>scope</strong> – Le nombre de niveaux à inclure dans le Sankey (profondeur).</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="grafs_e.sankey.create_sankey_tot">
-<span class="sig-prename descclassname"><span class="pre">grafs_e.sankey.</span></span><span class="sig-name descname"><span class="pre">create_sankey_tot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">transition_matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index_to_label</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index_to_color</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.sankey.create_sankey_tot" title="Link to this definition">¶</a></dt>
-<dd><p>Fonction toute claquée, il y a trop d’infos
-Crée un diagramme de Sankey à partir d’une matrice de transition des flux d’azote.
-Les nœuds sont organisés en trois colonnes :
-1. Nœuds 47 à 50 (première colonne)
-2. Nœuds 0 à 35 (deuxième colonne)
-3. Les autres nœuds (troisième colonne)</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>transition_matrix</strong> – Matrice de transition des flux d’azote (61x61 numpy array)</p></li>
-<li><p><strong>index_to_label</strong> – Dictionnaire associant les indices des nœuds à leurs labels</p></li>
-<li><p><strong>index_to_color</strong> – Dictionnaire associant les indices des nœuds à leurs couleurs</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
 <dt class="sig sig-object py" id="grafs_e.sankey.merge_nodes">
 <span class="sig-prename descclassname"><span class="pre">grafs_e.sankey.</span></span><span class="sig-name descname"><span class="pre">merge_nodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adjacency_matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">merges</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.sankey.merge_nodes" title="Link to this definition">¶</a></dt>
-<dd><p>Fusionne des groupes de nœuds (labels) dans la matrice d’adjacence.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>adjacency_matrix</strong> – np.array carré de taille (n, n) avec flux de i vers j</p></li>
-<li><p><strong>labels</strong> – liste des labels d’origine, de longueur n</p></li>
-<li><p><strong>merges</strong> – <p>dict indiquant les fusions à faire. Exemple :
+<dd><p>Merge groups of nodes (labels) in the adjacency matrix by combining their nitrogen fluxes.</p>
+<p>This function allows you to combine multiple nodes (e.g., different sectors) into one, by
+summing their nitrogen fluxes. It takes a dictionary of node groupings (<cite>merges</cite>), where each
+key corresponds to a merged label, and the values are the original labels to be merged.</p>
+<section id="parameters">
+<h3>Parameters:<a class="headerlink" href="#parameters" title="Link to this heading">¶</a></h3>
+<dl>
+<dt>adjacency_matrix<span class="classifier">np.ndarray</span></dt><dd><p>A square matrix of size (n, n) representing nitrogen fluxes, where each entry (i, j)
+indicates the nitrogen flow from node i to node j (in ktN/year).</p>
+</dd>
+<dt>labels<span class="classifier">list of str</span></dt><dd><p>A list of the original labels for the nodes, with length n.</p>
+</dd>
+<dt>merges<span class="classifier">dict</span></dt><dd><p>A dictionary defining which nodes to merge. The keys are the new labels for merged groups,
+and the values are lists of the labels to be merged. For example:
 {</p>
 <blockquote>
-<div><p>”population”: [“urban”, “rural”],
-“livestock”:  [“bovines”, “ovines”, “equine”, “poultry”, “porcines”, “caprines”],
-“industry”:   [“haber-bosch”, “other sectors”]</p>
+<div><p>“population”: [“urban”, “rural”],
+“livestock”: [“bovines”, “ovines”, “equine”, “poultry”, “porcines”, “caprines”],
+“industry”: [“haber-bosch”, “other sectors”]</p>
 </div></blockquote>
 <p>}</p>
-</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><ul class="simple">
-<li><p>new_matrix: la matrice d’adjacence après fusion</p></li>
-<li><p>new_labels: la liste des labels après fusion</p></li>
-<li><p>old_to_new: dict qui mappe index d’origine -&gt; nouvel index</p></li>
-</ul>
-</p>
 </dd>
 </dl>
+</section>
+<section id="returns">
+<h3>Returns:<a class="headerlink" href="#returns" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>new_matrix<span class="classifier">np.ndarray</span></dt><dd><p>The new adjacency matrix after merging the nodes, where the fluxes between merged nodes are summed.</p>
+</dd>
+<dt>new_labels<span class="classifier">list of str</span></dt><dd><p>The list of the new, merged labels.</p>
+</dd>
+<dt>old_to_new<span class="classifier">dict</span></dt><dd><p>A dictionary mapping the original node indices to the new merged indices.</p>
+</dd>
+</dl>
+</section>
+<section id="notes">
+<h3>Notes:<a class="headerlink" href="#notes" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>The function combines nitrogen fluxes between all nodes defined in <cite>merges</cite>, and returns a reduced matrix
+with fewer nodes, where the original nodes within each merged group are summed together.</p></li>
+</ul>
+</section>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="grafs_e.sankey.streamlit_sankey">
 <span class="sig-prename descclassname"><span class="pre">grafs_e.sankey.</span></span><span class="sig-name descname"><span class="pre">streamlit_sankey</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">transition_matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">main_node</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scope</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index_to_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index_to_color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.sankey.streamlit_sankey" title="Link to this definition">¶</a></dt>
-<dd><p>Crée un diagramme de Sankey interactif sous Streamlit, affichant les flux
-entrants et sortants d’un nœud principal avec un affichage personnalisé au survol.</p>
+<dd><p>Creates an interactive Sankey diagram in Streamlit, displaying the incoming and outgoing flows of a main node
+with custom tooltips on hover.</p>
+<p>The Sankey diagram is generated based on a transition matrix that models nitrogen flows between different sectors
+of the system. The function visualizes these flows, highlights the main node, and allows zooming into the flows within
+a defined scope.</p>
+<section id="id20">
+<h3>Parameters:<a class="headerlink" href="#id20" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>transition_matrix<span class="classifier">np.ndarray</span></dt><dd><p>A 2D NumPy array representing the transition matrix (flows between nodes in ktN/year).</p>
+</dd>
+<dt>main_node<span class="classifier">int</span></dt><dd><p>The index of the node (sector) to be focused on, used as the central node for flow visualization.</p>
+</dd>
+<dt>scope<span class="classifier">int, optional</span></dt><dd><p>The scope of the flow display (i.e., the depth of incoming and outgoing flow visualization from the main node).
+Default is 1, meaning it shows only direct flows.</p>
+</dd>
+<dt>index_to_label<span class="classifier">dict, optional</span></dt><dd><p>A dictionary that maps indices of the transition matrix to sector labels for display.</p>
+</dd>
+<dt>index_to_color<span class="classifier">dict, optional</span></dt><dd><p>A dictionary that maps indices of the transition matrix to colors for the nodes.</p>
+</dd>
+</dl>
+</section>
+<section id="id21">
+<h3>Returns:<a class="headerlink" href="#id21" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>None</dt><dd><p>The function directly displays the Sankey diagram in the Streamlit interface.</p>
+</dd>
+</dl>
+</section>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="grafs_e.sankey.streamlit_sankey_app">
 <span class="sig-prename descclassname"><span class="pre">grafs_e.sankey.</span></span><span class="sig-name descname"><span class="pre">streamlit_sankey_app</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode_complet</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.sankey.streamlit_sankey_app" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Creates an interactive Sankey diagram in Streamlit, showing nitrogen flows in a system based on a given model.</p>
+<p>This function allows users to select a main node (sector) and displays its incoming and outgoing nitrogen flows.
+The function supports two modes:
+- <strong>Full mode (mode_complet=True)</strong>: Displays all nodes without any merging.
+- <strong>Simplified mode (mode_complet=False)</strong>: Merges specific nodes (e.g., combining livestock or trade sectors) for a clearer overview.</p>
+<p>In the simplified mode, nodes are merged based on a predefined set of groupings (e.g., merging various livestock categories into one).</p>
+<section id="id22">
+<h3>Parameters:<a class="headerlink" href="#id22" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>model<span class="classifier">NitrogenFlowModel</span></dt><dd><p>The nitrogen flow model containing the adjacency matrix (transition_matrix), labels, and other relevant data.</p>
+</dd>
+<dt>mode_complet<span class="classifier">bool</span></dt><dd><p>If <cite>True</cite>, no nodes are merged, and all sectors are shown individually. If <cite>False</cite>, some nodes are merged for simplicity.</p>
+</dd>
+</dl>
+</section>
+<section id="id23">
+<h3>Returns:<a class="headerlink" href="#id23" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>None</dt><dd><p>The function directly displays the Sankey diagram in the Streamlit interface.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="grafs_e.sankey.streamlit_sankey_fertilization">
 <span class="sig-prename descclassname"><span class="pre">grafs_e.sankey.</span></span><span class="sig-name descname"><span class="pre">streamlit_sankey_fertilization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cultures</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">legumineuses</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prairies</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">merges</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'Industry':</span> <span class="pre">['Haber-Bosch',</span> <span class="pre">'other</span> <span class="pre">sectors'],</span> <span class="pre">'Livestock':</span> <span class="pre">['bovines',</span> <span class="pre">'ovines',</span> <span class="pre">'equine',</span> <span class="pre">'poultry',</span> <span class="pre">'porcines',</span> <span class="pre">'caprines'],</span> <span class="pre">'Population':</span> <span class="pre">['urban',</span> <span class="pre">'rural']}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">THRESHOLD</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.sankey.streamlit_sankey_fertilization" title="Link to this definition">¶</a></dt>
-<dd><p>Crée un diagramme de Sankey montrant la distribution des backward flows
-pour les cultures, légumineuses et prairies après fusion de certains nœuds
-(ex: “urban”+”rural” -&gt; “population”), en éliminant les nœuds et flux
-dont le throughflow/valeur sont inférieurs à THRESHOLD (1e-1).</p>
+<dd><p>Creates a Sankey diagram showing the distribution of backward flows for crops, legumes, and grasslands,
+after merging specific nodes (e.g., “urban” + “rural” -&gt; “population”). It filters out nodes and flows
+with throughflow/values below a given threshold.</p>
+<p>The Sankey diagram visualizes nitrogen flows, helping to understand the system’s nutrient balance.
+In this diagram:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Nodes are merged based on predefined categories (e.g., merging various livestock types into one).</p></li>
+<li><p>Only significant flows (above the <cite>THRESHOLD</cite>) are kept.</p></li>
+<li><p>Backward flows (inflowing nitrogen) are shown, with nodes having a higher throughflow prioritized.</p></li>
+</ul>
+</div></blockquote>
+<section id="id24">
+<h3>Parameters:<a class="headerlink" href="#id24" title="Link to this heading">¶</a></h3>
+<dl>
+<dt>model<span class="classifier">NitrogenFlowModel</span></dt><dd><p>The nitrogen flow model used to retrieve the adjacency matrix and labels for sectors.</p>
+</dd>
+<dt>cultures<span class="classifier">list of str</span></dt><dd><p>The list of crop labels involved in the Sankey diagram.</p>
+</dd>
+<dt>legumineuses<span class="classifier">list of str</span></dt><dd><p>The list of leguminous crop labels involved in the Sankey diagram.</p>
+</dd>
+<dt>prairies<span class="classifier">list of str</span></dt><dd><p>The list of grassland or prairie crop labels involved in the Sankey diagram.</p>
+</dd>
+<dt>merges<span class="classifier">dict, optional</span></dt><dd><p>A dictionary specifying the node groups to merge. The keys are the new merged labels, and the values
+are the labels of the nodes to merge. Default merges include:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>“Population”: [“urban”, “rural”]</p></li>
+<li><p>“Livestock”: [“bovines”, “ovines”, “equine”, “poultry”, “porcines”, “caprines”]</p></li>
+<li><p>“Industry”: [“Haber-Bosch”, “other sectors”]</p></li>
+</ul>
+</div></blockquote>
+</dd>
+<dt>THRESHOLD<span class="classifier">float, optional</span></dt><dd><p>The minimum value for flows and throughflows to be displayed. Default is <cite>1e-1</cite>, meaning only flows above
+this threshold are kept in the visualization.</p>
+</dd>
+</dl>
+</section>
+<section id="id25">
+<h3>Returns:<a class="headerlink" href="#id25" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>None</dt><dd><p>This function directly displays the Sankey diagram in the Streamlit interface.</p>
+</dd>
+</dl>
+</section>
+<section id="id26">
+<h3>Notes:<a class="headerlink" href="#id26" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>The function first merges nodes based on the <cite>merges</cite> dictionary, then constructs the Sankey diagram
+for backward flows. It uses <cite>THRESHOLD</cite> to filter out insignificant nodes and flows.</p></li>
+<li><p>The color coding of nodes is customized based on predefined categories (e.g., “Livestock”, “Population”, etc.).</p></li>
+</ul>
+</section>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="grafs_e.sankey.streamlit_sankey_food_flows">
 <span class="sig-prename descclassname"><span class="pre">grafs_e.sankey.</span></span><span class="sig-name descname"><span class="pre">streamlit_sankey_food_flows</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cultures</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">legumineuses</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prairies</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trades</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">merges</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)</span> <span class="pre">trade':</span> <span class="pre">['cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)</span> <span class="pre">feed</span> <span class="pre">trade'],</span> <span class="pre">'fruits</span> <span class="pre">and</span> <span class="pre">vegetables</span> <span class="pre">trade':</span> <span class="pre">['fruits</span> <span class="pre">and</span> <span class="pre">vegetables</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'fruits</span> <span class="pre">and</span> <span class="pre">vegetables</span> <span class="pre">feed</span> <span class="pre">trade'],</span> <span class="pre">'leguminous</span> <span class="pre">trade':</span> <span class="pre">['leguminous</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'leguminous</span> <span class="pre">feed</span> <span class="pre">trade'],</span> <span class="pre">'oleaginous</span> <span class="pre">trade':</span> <span class="pre">['oleaginous</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'oleaginous</span> <span class="pre">feed</span> <span class="pre">trade']}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">THRESHOLD</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.sankey.streamlit_sankey_food_flows" title="Link to this definition">¶</a></dt>
-<dd><dl class="simple">
-<dt>Crée un diagramme de Sankey en séparant chaque nœud de trade en deux :</dt><dd><ul class="simple">
-<li><p>“(import)” pour les flux entrants dans la région</p></li>
-<li><p>“(export)” pour les flux sortants de la région</p></li>
-</ul>
-</dd>
-<dt>Flux considérés :</dt><dd><ul class="simple">
-<li><p>sources = cultures + légumineuses + prairies + trades</p></li>
-<li><p>cibles   = population + livestock + trades</p></li>
+<dd><p>Creates a Sankey diagram showing the distribution of food and feed flows (local, imports and exports)
+for crops, legumes, and grasslands after merging certain nodes (e.g., merging “urban” + “rural” into “population”).
+The diagram filters out nodes and flows with values below a given threshold (<cite>THRESHOLD</cite>).</p>
+<dl class="simple">
+<dt>This function separates trade nodes into two categories:</dt><dd><ul class="simple">
+<li><p>“(import)” for incoming flows into the region,</p></li>
+<li><p>“(export)” for outgoing flows from the region.</p></li>
 </ul>
 </dd>
 </dl>
-<p>Les nœuds et flux inférieurs à THRESHOLD sont éliminés.</p>
+<section id="id27">
+<h3>Parameters:<a class="headerlink" href="#id27" title="Link to this heading">¶</a></h3>
+<dl>
+<dt>model<span class="classifier">NitrogenFlowModel</span></dt><dd><p>The nitrogen flow model used to retrieve the adjacency matrix and labels for sectors.</p>
+</dd>
+<dt>cultures<span class="classifier">list of str</span></dt><dd><p>The list of crop labels involved in the Sankey diagram.</p>
+</dd>
+<dt>legumineuses<span class="classifier">list of str</span></dt><dd><p>The list of leguminous crop labels involved in the Sankey diagram.</p>
+</dd>
+<dt>prairies<span class="classifier">list of str</span></dt><dd><p>The list of grassland or prairie crop labels involved in the Sankey diagram.</p>
+</dd>
+<dt>trades<span class="classifier">list of str</span></dt><dd><p>The list of trade-related labels to be included in the Sankey diagram.</p>
+</dd>
+<dt>merges<span class="classifier">dict, optional</span></dt><dd><p>A dictionary specifying the node groups to merge. The keys are the new merged labels, and the values
+are the labels of the nodes to merge. For example:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>“cereals (excluding rice) trade”: [“cereals (excluding rice) food trade”, “cereals (excluding rice) feed trade”]</p></li>
+</ul>
+</div></blockquote>
+</dd>
+<dt>THRESHOLD<span class="classifier">float, optional</span></dt><dd><p>The minimum value for flows to be displayed. Default is <cite>1e-1</cite>, meaning only flows above this threshold
+will be shown.</p>
+</dd>
+</dl>
+</section>
+<section id="id28">
+<h3>Returns:<a class="headerlink" href="#id28" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>None</dt><dd><p>This function directly displays the Sankey diagram in the Streamlit interface.</p>
+</dd>
+</dl>
+</section>
+<section id="id29">
+<h3>Notes:<a class="headerlink" href="#id29" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>The function merges specific nodes based on the <cite>merges</cite> dictionary, then constructs the Sankey diagram
+for food flows.</p></li>
+<li><p>The diagram distinguishes between trade flows and non-trade flows, showing imports and exports separately.</p></li>
+<li><p>Nodes and flows with values below the <cite>THRESHOLD</cite> are excluded from the final visualization.</p></li>
+</ul>
+</section>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="grafs_e.sankey.streamlit_sankey_systemic_flows">
 <span class="sig-prename descclassname"><span class="pre">grafs_e.sankey.</span></span><span class="sig-name descname"><span class="pre">streamlit_sankey_systemic_flows</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">merges</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{'Environment':</span> <span class="pre">['NH3</span> <span class="pre">volatilization',</span> <span class="pre">'N2O</span> <span class="pre">emission',</span> <span class="pre">'hydro-system',</span> <span class="pre">'other</span> <span class="pre">losses',</span> <span class="pre">'atmospheric</span> <span class="pre">N2'],</span> <span class="pre">'cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)':</span> <span class="pre">['Wheat',</span> <span class="pre">'Rye',</span> <span class="pre">'Barley',</span> <span class="pre">'Oat',</span> <span class="pre">'Grain</span> <span class="pre">maize',</span> <span class="pre">'Rice',</span> <span class="pre">'Other</span> <span class="pre">cereals'],</span> <span class="pre">'forages':</span> <span class="pre">['Forage</span> <span class="pre">maize',</span> <span class="pre">'Forage</span> <span class="pre">cabbages',</span> <span class="pre">'Straw'],</span> <span class="pre">'fruits</span> <span class="pre">and</span> <span class="pre">vegetables':</span> <span class="pre">['Dry</span> <span class="pre">vegetables',</span> <span class="pre">'Dry</span> <span class="pre">fruits',</span> <span class="pre">'Squash</span> <span class="pre">and</span> <span class="pre">melons',</span> <span class="pre">'Cabbage',</span> <span class="pre">'Leaves</span> <span class="pre">vegetables',</span> <span class="pre">'Fruits',</span> <span class="pre">'Olives',</span> <span class="pre">'Citrus'],</span> <span class="pre">'leguminous':</span> <span class="pre">['Horse</span> <span class="pre">beans</span> <span class="pre">and</span> <span class="pre">faba</span> <span class="pre">beans',</span> <span class="pre">'Peas',</span> <span class="pre">'Other</span> <span class="pre">protein</span> <span class="pre">crops',</span> <span class="pre">'Green</span> <span class="pre">peas',</span> <span class="pre">'Dry</span> <span class="pre">beans',</span> <span class="pre">'Green</span> <span class="pre">beans',</span> <span class="pre">'Soybean'],</span> <span class="pre">'monogastrics':</span> <span class="pre">['porcines',</span> <span class="pre">'poultry'],</span> <span class="pre">'natural</span> <span class="pre">meadows</span> <span class="pre">':</span> <span class="pre">['Natural</span> <span class="pre">meadows</span> <span class="pre">'],</span> <span class="pre">'oleaginous':</span> <span class="pre">['Rapeseed',</span> <span class="pre">'Sunflower',</span> <span class="pre">'Other</span> <span class="pre">oil</span> <span class="pre">crops'],</span> <span class="pre">'population':</span> <span class="pre">['urban',</span> <span class="pre">'rural'],</span> <span class="pre">'roots':</span> <span class="pre">['Sugar</span> <span class="pre">beet',</span> <span class="pre">'Potatoes',</span> <span class="pre">'Other</span> <span class="pre">roots'],</span> <span class="pre">'ruminants':</span> <span class="pre">['bovines',</span> <span class="pre">'ovines',</span> <span class="pre">'caprines',</span> <span class="pre">'equine'],</span> <span class="pre">'temporary</span> <span class="pre">meadows':</span> <span class="pre">['Non-legume</span> <span class="pre">temporary</span> <span class="pre">meadow',</span> <span class="pre">'Alfalfa</span> <span class="pre">and</span> <span class="pre">clover'],</span> <span class="pre">'trade':</span> <span class="pre">['animal</span> <span class="pre">trade',</span> <span class="pre">'cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'fruits</span> <span class="pre">and</span> <span class="pre">vegetables</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'leguminous</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'oleaginous</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'roots</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'rice</span> <span class="pre">food</span> <span class="pre">trade',</span> <span class="pre">'cereals</span> <span class="pre">(excluding</span> <span class="pre">rice)</span> <span class="pre">feed</span> <span class="pre">trade',</span> <span class="pre">'forages</span> <span class="pre">feed</span> <span class="pre">trade',</span> <span class="pre">'leguminous</span> <span class="pre">feed</span> <span class="pre">trade',</span> <span class="pre">'oleaginous</span> <span class="pre">feed</span> <span class="pre">trade',</span> <span class="pre">'grasslands</span> <span class="pre">feed</span> <span class="pre">trade']}</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#grafs_e.sankey.streamlit_sankey_systemic_flows" title="Link to this definition">¶</a></dt>
-<dd><p>Crée un diagramme de Sankey systémique montrant tous les flux de la matrice d’adjacence du modèle.
-Les nœuds sont fusionnés selon les règles de <cite>merges</cite>, et les flux inférieurs à <cite>THRESHOLD</cite> sont éliminés.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>model</strong> – Modèle contenant la matrice d’adjacence (model.adjacency_matrix) et les labels (model.labels).</p></li>
-<li><p><strong>merges</strong> – Dictionnaire définissant les fusions de nœuds.</p></li>
-<li><p><strong>THRESHOLD</strong> – Seuil en dessous duquel les flux sont supprimés (par défaut : 1e-1).</p></li>
+<dd><p>DEPRECATED. Might be removed in futur release.
+Creates a systemic Sankey diagram displaying all flows from the adjacency matrix of the model.</p>
+<p>The Sankey diagram includes all nitrogen flows between sectors and merges certain nodes based on the <cite>merges</cite> dictionary.
+Any flow with a value lower than the <cite>THRESHOLD</cite> is removed from the visualization.</p>
+<section id="id30">
+<h3>Parameters:<a class="headerlink" href="#id30" title="Link to this heading">¶</a></h3>
+<dl>
+<dt>model<span class="classifier">NitrogenFlowModel</span></dt><dd><p>The nitrogen flow model containing the adjacency matrix and labels for sectors.</p>
+</dd>
+<dt>merges<span class="classifier">dict, optional</span></dt><dd><p>A dictionary specifying the nodes to merge. The keys are the new merged labels, and the values
+are lists of labels to merge. For example:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>“cereals (excluding rice)”: [“Wheat”, “Rye”, “Barley”, “Oat”, “Grain maize”, “Rice”, “Other cereals”]</p></li>
 </ul>
+</div></blockquote>
+</dd>
+<dt>THRESHOLD<span class="classifier">float, optional</span></dt><dd><p>The minimum value for flows to be displayed. Flows below this threshold are excluded from the diagram.
+The default is <cite>1e-1</cite>, which removes flows with values smaller than 0.1 ktN/yr.</p>
 </dd>
 </dl>
+</section>
+<section id="id31">
+<h3>Returns:<a class="headerlink" href="#id31" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>None</dt><dd><p>This function directly displays the Sankey diagram in the Streamlit interface.</p>
+</dd>
+</dl>
+</section>
+<section id="id32">
+<h3>Notes:<a class="headerlink" href="#id32" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>The diagram shows the distribution of all nitrogen flows between sectors after merging specific nodes.</p></li>
+<li><p>The merging of nodes is defined in the <cite>merges</cite> dictionary, which groups multiple original labels into new merged labels.</p></li>
+<li><p>The diagram includes both “import” and “export” flows for the trade-related nodes, and internal flows are displayed as well.</p></li>
+<li><p>Any flow below the <cite>THRESHOLD</cite> value is filtered out from the visualization to keep only the significant flows.</p></li>
+</ul>
+</section>
 </dd></dl>
 
 </section>
@@ -3938,23 +4065,15 @@ Les nœuds sont fusionnés selon les règles de <cite>merges</cite>, et les flux
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="test_plot.html">
-              <div class="page-info">
-                <div class="context">
-                  <span>Next</span>
-                </div>
-                <div class="title">test_plot module</div>
-              </div>
-              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
-            </a>
-          <a class="prev-page" href="modules.html">
+          
+          <a class="prev-page" href="index.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">src</div>
+                <div class="title">Home</div>
                 
               </div>
             </a>
@@ -4128,6 +4247,7 @@ Les nœuds sont fusionnés selon les règles de <cite>merges</cite>, et les flux
 <li><a class="reference internal" href="#grafs_e.app.plot_standard_graph"><code class="docutils literal notranslate"><span class="pre">plot_standard_graph()</span></code></a></li>
 <li><a class="reference internal" href="#grafs_e.app.run_models_for_all_regions"><code class="docutils literal notranslate"><span class="pre">run_models_for_all_regions()</span></code></a></li>
 <li><a class="reference internal" href="#grafs_e.app.run_models_for_all_years"><code class="docutils literal notranslate"><span class="pre">run_models_for_all_years()</span></code></a></li>
+<li><a class="reference internal" href="#grafs_e.app.run_server"><code class="docutils literal notranslate"><span class="pre">run_server()</span></code></a></li>
 <li><a class="reference internal" href="#grafs_e.app.stacked_area_chart"><code class="docutils literal notranslate"><span class="pre">stacked_area_chart()</span></code></a></li>
 <li><a class="reference internal" href="#grafs_e.app.weighted_mean"><code class="docutils literal notranslate"><span class="pre">weighted_mean()</span></code></a></li>
 </ul>
@@ -4300,10 +4420,6 @@ Les nœuds sont fusionnés selon les règles de <cite>merges</cite>, et les flux
 </ul>
 </li>
 <li><a class="reference internal" href="#module-grafs_e.sankey">grafs_e.sankey module</a><ul>
-<li><a class="reference internal" href="#grafs_e.sankey.create_sankey_agreg"><code class="docutils literal notranslate"><span class="pre">create_sankey_agreg()</span></code></a></li>
-<li><a class="reference internal" href="#grafs_e.sankey.create_sankey_from_transition_matrix"><code class="docutils literal notranslate"><span class="pre">create_sankey_from_transition_matrix()</span></code></a></li>
-<li><a class="reference internal" href="#grafs_e.sankey.create_sankey_from_transition_matrix_2"><code class="docutils literal notranslate"><span class="pre">create_sankey_from_transition_matrix_2()</span></code></a></li>
-<li><a class="reference internal" href="#grafs_e.sankey.create_sankey_tot"><code class="docutils literal notranslate"><span class="pre">create_sankey_tot()</span></code></a></li>
 <li><a class="reference internal" href="#grafs_e.sankey.merge_nodes"><code class="docutils literal notranslate"><span class="pre">merge_nodes()</span></code></a></li>
 <li><a class="reference internal" href="#grafs_e.sankey.streamlit_sankey"><code class="docutils literal notranslate"><span class="pre">streamlit_sankey()</span></code></a></li>
 <li><a class="reference internal" href="#grafs_e.sankey.streamlit_sankey_app"><code class="docutils literal notranslate"><span class="pre">streamlit_sankey_app()</span></code></a></li>

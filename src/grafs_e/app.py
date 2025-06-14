@@ -137,7 +137,7 @@ with tab1:
     st.write(
         """
     <p style='text-align: justify'>
-        The GRAFS-extended model serves as an advanced tool designed to analyze and map the evolution of nitrogen utilization within agricultural systems, with a particular focus on 33 regions of France from 1852 to 2014. This model builds upon the GRAFS framework developed at IEES and integrates graph theory to provide a detailed analysis of nitrogen flows in agriculture, identifying key patterns, transformations, and structural invariants. The model enables researchers to construct robust prospective scenarios and examine the global structure of nitrogen flows in agricultural ecosystems.
+        The GRAFS-extended model serves as an advanced tool designed to analyze and map the evolution of nitrogen utilization within agricultural systems, with a particular focus on 33 regions of France from 1852 to 2014. This model builds upon the GRAFS framework developed at IEES and integrates graph theory to provide a detailed analysis of nitrogen flows in agriculture, identifying key patterns, transformations, and structural invariants. The model enables researchers to construct robust prospective scenarios and examine the global structure of nitrogen flows in agricultural ecosystems. Technical documentation can be accessed here :
     </p>
     """,
         unsafe_allow_html=True,
@@ -162,7 +162,7 @@ with tab1:
     # ----------------------------------------------------------------------
 
     DOC_URL = f"http://localhost:{PORT}/index.html"
-    st.link_button("📖  Documentation", DOC_URL)
+    st.link_button("📖  Python Documentation", DOC_URL)
 
     # 🔹 Mise en cache du chargement de l'image
     @st.cache_data

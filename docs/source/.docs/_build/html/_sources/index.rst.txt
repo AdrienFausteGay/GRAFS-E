@@ -15,19 +15,16 @@ This documentation presents the prospective nitrogen flow model used in GRAFS-E,
 including modules for scenario creation, crop and livestock nitrogen budgeting, and
 system-wide flux computation via an adjacency matrix.
 
+All these function can be used with python installation using 'pip install grafs_e'.
+
 Contents:
 ---------
-
-Bienvenue dans la documentation de GRAFS-E
-==========================================
-
-Voici une brève présentation du projet…
 
 .. toctree::
    :maxdepth: 2
    :caption: Sommaire
 
-   modules
+   .. modules
+
    grafs_e
-   test_plot
 
