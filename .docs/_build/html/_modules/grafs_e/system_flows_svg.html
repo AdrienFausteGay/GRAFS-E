@@ -1,0 +1,1211 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>grafs_e.system_flows_svg &#8212; GRAFS-E 01/02/25 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../_static/documentation_options.js?v=390ba95b"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/grafs_e/system_flows_svg';</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">GRAFS-E 01/02/25 documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">Module code</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="../grafs_e.html" class="nav-link">grafs_e</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">grafs_e.system_flows_svg</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for grafs_e.system_flows_svg</h1><div class="highlight"><pre>
+<span></span><span class="c1"># %%</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">streamlit.components.v1</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">components</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">lxml</span><span class="w"> </span><span class="kn">import</span> <span class="n">etree</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">grafs_e.donnees</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">grafs_e.N_class</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">grafs_e.typology</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_mean_matrice</span><span class="p">,</span> <span class="n">get_matrices</span><span class="p">,</span> <span class="n">merge_nodes</span><span class="p">,</span> <span class="n">plot_dendrogram</span>
+
+<span class="c1"># %%</span>
+<span class="c1"># etree.register_namespace(&#39;&#39;, &quot;http://www.w3.org/2000/svg&quot;)</span>
+<span class="n">run</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="k">if</span> <span class="n">run</span> <span class="o">==</span> <span class="kc">True</span><span class="p">:</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">()</span>
+    <span class="n">matrices</span><span class="p">,</span> <span class="n">norm_matrices</span> <span class="o">=</span> <span class="n">get_matrices</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="n">df_plot</span> <span class="o">=</span> <span class="n">plot_dendrogram</span><span class="p">(</span><span class="n">norm_matrices</span><span class="p">)</span>
+    <span class="n">mean_matrices_by_cluster</span><span class="p">,</span> <span class="n">global_mean_matrices</span> <span class="o">=</span> <span class="n">compute_mean_matrice</span><span class="p">(</span><span class="n">norm_matrices</span><span class="p">,</span> <span class="n">df_plot</span><span class="p">)</span>
+<span class="c1"># %%</span>
+<span class="k">if</span> <span class="n">run</span> <span class="o">==</span> <span class="kc">True</span><span class="p">:</span>
+    <span class="n">mean_matrices_by_cluster_merged</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">cluster</span> <span class="ow">in</span> <span class="n">mean_matrices_by_cluster</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">mean_matrices_by_cluster_merged</span><span class="p">[</span><span class="n">cluster</span><span class="p">],</span> <span class="n">new_labels</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">merge_nodes</span><span class="p">(</span>
+            <span class="n">mean_matrices_by_cluster</span><span class="p">[</span><span class="n">cluster</span><span class="p">],</span>
+            <span class="n">labels</span><span class="p">,</span>
+            <span class="n">merges</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;cereals (excluding rice)&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="s2">&quot;Wheat&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Rye&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Barley&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Oat&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Grain maize&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Rice&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Other cereals&quot;</span><span class="p">,</span>
+                <span class="p">],</span>
+                <span class="s2">&quot;fruits and vegetables&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="s2">&quot;Dry vegetables&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Dry fruits&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Squash and melons&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Cabbage&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Leaves vegetables&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Fruits&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Olives&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Citrus&quot;</span><span class="p">,</span>
+                <span class="p">],</span>
+                <span class="s2">&quot;leguminous&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="s2">&quot;Horse beans and faba beans&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Peas&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Other protein crops&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Green peas&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Dry beans&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Green beans&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Soybean&quot;</span><span class="p">,</span>
+                <span class="p">],</span>
+                <span class="s2">&quot;oleaginous&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Rapeseed&quot;</span><span class="p">,</span> <span class="s2">&quot;Sunflower&quot;</span><span class="p">,</span> <span class="s2">&quot;Other oil crops&quot;</span><span class="p">,</span> <span class="s2">&quot;Flax&quot;</span><span class="p">,</span> <span class="s2">&quot;Hemp&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;forages&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="s2">&quot;Forage maize&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Forage cabbages&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Straw&quot;</span><span class="p">,</span>
+                <span class="p">],</span>
+                <span class="s2">&quot;temporary meadows&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Non-legume temporary meadow&quot;</span><span class="p">,</span> <span class="s2">&quot;Alfalfa and clover&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;natural meadows &quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Natural meadow &quot;</span><span class="p">],</span>
+                <span class="s2">&quot;trade&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="s2">&quot;animal trade&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;cereals (excluding rice) food trade&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;fruits and vegetables food trade&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;leguminous food trade&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;oleaginous food trade&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;roots food trade&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;rice food trade&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;cereals (excluding rice) feed trade&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;forages feed trade&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;leguminous feed trade&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;oleaginous feed trade&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;grasslands feed trade&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;temporary meadows feed trade&quot;</span><span class="p">,</span>
+                <span class="p">],</span>
+                <span class="s2">&quot;ruminants&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;bovines&quot;</span><span class="p">,</span> <span class="s2">&quot;ovines&quot;</span><span class="p">,</span> <span class="s2">&quot;caprines&quot;</span><span class="p">,</span> <span class="s2">&quot;equine&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;monogastrics&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;porcines&quot;</span><span class="p">,</span> <span class="s2">&quot;poultry&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;population&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;urban&quot;</span><span class="p">,</span> <span class="s2">&quot;rural&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;Environment&quot;</span><span class="p">:</span> <span class="p">[</span>
+                    <span class="s2">&quot;NH3 volatilization&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;N2O emission&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;hydro-system&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;other losses&quot;</span><span class="p">,</span>
+                <span class="p">],</span>
+                <span class="s2">&quot;roots&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Sugar beet&quot;</span><span class="p">,</span> <span class="s2">&quot;Potatoes&quot;</span><span class="p">,</span> <span class="s2">&quot;Other roots&quot;</span><span class="p">],</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+
+<span class="c1"># %% lire les id</span>
+
+
+<div class="viewcode-block" id="list_svg_paths">
+<a class="viewcode-back" href="../../docs/source/temps/grafs_e.html#grafs_e.system_flows_svg.list_svg_paths">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">list_svg_paths</span><span class="p">(</span><span class="n">svg_path</span><span class="p">):</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">XMLParser</span><span class="p">(</span><span class="n">remove_blank_text</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">tree</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">svg_path</span><span class="p">,</span> <span class="n">parser</span><span class="p">)</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">getroot</span><span class="p">()</span>
+    <span class="n">ns</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">nsmap</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="n">paths</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">xpath</span><span class="p">(</span><span class="s2">&quot;//svg:path&quot;</span><span class="p">,</span> <span class="n">namespaces</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;svg&quot;</span><span class="p">:</span> <span class="n">ns</span><span class="p">})</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Nombre total de paths : </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">paths</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">:</span>
+        <span class="n">path_id</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;id: </span><span class="si">{</span><span class="n">path_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># Exemple d&#39;usage</span>
+<span class="c1"># list_svg_paths(&quot;C:/Users/faustega/Documents/These/Typologie/test schéma/system_flows.svg&quot;)</span>
+<span class="c1"># %% Dictionnaire des correspondances flux et path (svg)</span>
+<span class="n">new_labels</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;Environment&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Haber-Bosch&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;atmospheric N2&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;cereals (excluding rice)&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;fishery products&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;forages&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;fruits and vegetables&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;leguminous&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;monogastrics&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;natural meadows &quot;</span><span class="p">,</span>
+    <span class="s2">&quot;oleaginous&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;other sectors&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;population&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;roots&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ruminants&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;soil stock&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;temporary meadows&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;trade&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+<span class="n">boxes_labels</span> <span class="o">=</span> <span class="p">{</span><span class="n">new_labels</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> <span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">new_labels</span><span class="p">))}</span>
+
+<span class="n">mapping_svg_fluxes</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;path12-2&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">11</span><span class="p">)],</span>
+    <span class="s2">&quot;path15&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span> <span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+    <span class="s2">&quot;path17&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">17</span><span class="p">,</span> <span class="mi">8</span><span class="p">)],</span>
+    <span class="s2">&quot;path23&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span>
+    <span class="s2">&quot;path26&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">15</span><span class="p">)],</span>
+    <span class="s2">&quot;path27&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+    <span class="s2">&quot;path29&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">11</span><span class="p">)],</span>
+    <span class="s2">&quot;path31&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">9</span><span class="p">)],</span>
+    <span class="s2">&quot;path32&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">14</span><span class="p">)],</span>
+    <span class="s2">&quot;path34&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">13</span><span class="p">)],</span>
+    <span class="s2">&quot;path35&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;path36&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+    <span class="s2">&quot;path37&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span>
+    <span class="s2">&quot;path39&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">14</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">14</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">14</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">14</span><span class="p">)],</span>
+    <span class="s2">&quot;path40&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">12</span><span class="p">)],</span>
+    <span class="s2">&quot;path41&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">8</span><span class="p">)],</span>
+    <span class="s2">&quot;path42&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">14</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">)],</span>
+    <span class="s2">&quot;path43&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">14</span><span class="p">)],</span>
+    <span class="s2">&quot;path45&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">14</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path46&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">14</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path47&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path48&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path49&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path50&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path52&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path53&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path54&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path55&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path56&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path57&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path58&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path62&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">14</span><span class="p">)],</span>
+    <span class="s2">&quot;path65&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span>
+    <span class="s2">&quot;path66&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)],</span>
+    <span class="s2">&quot;path68&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">)],</span>
+    <span class="s2">&quot;path69&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">13</span><span class="p">)],</span>
+    <span class="s2">&quot;path70&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">13</span><span class="p">)],</span>
+    <span class="s2">&quot;path71&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)],</span>
+    <span class="s2">&quot;path72&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">13</span><span class="p">)],</span>
+    <span class="s2">&quot;path74&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span>
+    <span class="s2">&quot;path75&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">9</span><span class="p">)],</span>
+    <span class="s2">&quot;path76&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span>
+    <span class="s2">&quot;path77&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">)],</span>
+    <span class="s2">&quot;path78&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+    <span class="s2">&quot;path79&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span>
+    <span class="s2">&quot;path80&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">7</span><span class="p">)],</span>
+    <span class="s2">&quot;path81&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)],</span>
+    <span class="s2">&quot;path83&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">7</span><span class="p">)],</span>
+    <span class="s2">&quot;path123&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;path87&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">9</span><span class="p">)],</span>
+    <span class="s2">&quot;path88&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span>
+    <span class="s2">&quot;path89&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span>
+    <span class="s2">&quot;path91&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">9</span><span class="p">)],</span>
+    <span class="s2">&quot;path92&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span>
+    <span class="s2">&quot;path93&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span>
+    <span class="s2">&quot;path118&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">12</span><span class="p">)],</span>
+    <span class="s2">&quot;path119&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">12</span><span class="p">)],</span>
+    <span class="s2">&quot;path120&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">14</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">8</span><span class="p">)],</span>
+    <span class="s2">&quot;path121&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">8</span><span class="p">)],</span>
+    <span class="s2">&quot;path122&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">12</span><span class="p">)],</span>
+    <span class="s2">&quot;path124&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+    <span class="s2">&quot;path125&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;path126&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">)],</span>
+    <span class="s2">&quot;path127&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;path128&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">10</span><span class="p">)],</span>
+    <span class="s2">&quot;path129&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">13</span><span class="p">)],</span>
+    <span class="s2">&quot;path130&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">)],</span>
+    <span class="s2">&quot;path131&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">13</span><span class="p">)],</span>
+    <span class="s2">&quot;path132&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">7</span><span class="p">)],</span>
+    <span class="s2">&quot;path133&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;path134&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">13</span><span class="p">)],</span>
+    <span class="s2">&quot;path135&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">13</span><span class="p">)],</span>
+    <span class="s2">&quot;path136&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">13</span><span class="p">)],</span>
+    <span class="s2">&quot;path137&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">13</span><span class="p">)],</span>
+    <span class="s2">&quot;path138&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">)],</span>
+    <span class="s2">&quot;path139&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">13</span><span class="p">)],</span>
+    <span class="s2">&quot;path140&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">)],</span>
+    <span class="s2">&quot;path141&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">)],</span>
+    <span class="s2">&quot;path142&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+    <span class="s2">&quot;path143&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+    <span class="s2">&quot;path144&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">3</span><span class="p">)],</span>
+    <span class="s2">&quot;path145&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">10</span><span class="p">)],</span>
+    <span class="s2">&quot;path146&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">13</span><span class="p">)],</span>
+    <span class="s2">&quot;path147&quot;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">6</span><span class="p">)],</span>
+    <span class="s2">&quot;path151&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span>
+    <span class="s2">&quot;path152&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">)],</span>
+    <span class="s2">&quot;path153&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">)],</span>
+    <span class="s2">&quot;path155&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">11</span><span class="p">)],</span>
+    <span class="s2">&quot;path156&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">12</span><span class="p">)],</span>
+    <span class="s2">&quot;path157&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">12</span><span class="p">)],</span>
+    <span class="s2">&quot;path158&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path159&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">14</span><span class="p">)],</span>
+    <span class="s2">&quot;path160&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">14</span><span class="p">)],</span>
+    <span class="s2">&quot;path166&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">)],</span>
+    <span class="s2">&quot;path171&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path172&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">14</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">14</span><span class="p">)],</span>
+    <span class="s2">&quot;path173&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">14</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">14</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">14</span><span class="p">)],</span>
+    <span class="s2">&quot;path174&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">)],</span>
+    <span class="s2">&quot;path175&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">14</span><span class="p">)],</span>
+    <span class="s2">&quot;path176&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">)],</span>
+    <span class="s2">&quot;path177&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">12</span><span class="p">)],</span>
+    <span class="s2">&quot;path178&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">14</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path179&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path180&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path181&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">14</span><span class="p">)],</span>
+    <span class="s2">&quot;path182&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">14</span><span class="p">)],</span>
+    <span class="s2">&quot;path183&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">)],</span>
+    <span class="s2">&quot;path184&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path185&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">14</span><span class="p">)],</span>
+    <span class="s2">&quot;path186&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+    <span class="s2">&quot;path187&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+    <span class="s2">&quot;path188&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">17</span><span class="p">,</span> <span class="mi">14</span><span class="p">),</span> <span class="p">(</span><span class="mi">17</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="p">(</span><span class="mi">17</span><span class="p">,</span> <span class="mi">12</span><span class="p">)],</span>
+    <span class="s2">&quot;path189&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">17</span><span class="p">,</span> <span class="mi">14</span><span class="p">)],</span>
+    <span class="s2">&quot;path190&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">17</span><span class="p">,</span> <span class="mi">12</span><span class="p">)],</span>
+    <span class="s2">&quot;path191&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">9</span><span class="p">)],</span>
+    <span class="s2">&quot;path192&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">13</span><span class="p">)],</span>
+    <span class="s2">&quot;path193&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">6</span><span class="p">)],</span>
+    <span class="s2">&quot;path194&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">13</span><span class="p">)],</span>
+    <span class="s2">&quot;path195&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">13</span><span class="p">)],</span>
+    <span class="s2">&quot;path196&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">)],</span>
+    <span class="s2">&quot;path197&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">)],</span>
+    <span class="s2">&quot;path198&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">3</span><span class="p">)],</span>
+    <span class="s2">&quot;path199&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">7</span><span class="p">)],</span>
+    <span class="s2">&quot;path201&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">)],</span>
+    <span class="s2">&quot;path6&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">12</span><span class="p">)],</span>
+    <span class="s2">&quot;path7&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">17</span><span class="p">,</span> <span class="mi">12</span><span class="p">)],</span>
+    <span class="s2">&quot;path8&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">14</span><span class="p">)],</span>
+    <span class="s2">&quot;path9&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">14</span><span class="p">)],</span>
+    <span class="s2">&quot;path10&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">14</span><span class="p">)],</span>
+    <span class="s2">&quot;path11&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">8</span><span class="p">)],</span>
+    <span class="s2">&quot;path12&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span>
+    <span class="s2">&quot;path13&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;path14&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">2</span><span class="p">)],</span>
+    <span class="s2">&quot;path16&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;path18&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path19&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">17</span><span class="p">)],</span>
+    <span class="s2">&quot;path20&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">11</span><span class="p">)],</span>
+    <span class="s2">&quot;path21&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span>
+    <span class="s2">&quot;path22&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">13</span><span class="p">)],</span>
+    <span class="s2">&quot;path24&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+    <span class="s2">&quot;path25&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+    <span class="s2">&quot;path28&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+    <span class="s2">&quot;path30&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+    <span class="s2">&quot;path33&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+    <span class="s2">&quot;path38&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+    <span class="s2">&quot;path51&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+    <span class="s2">&quot;path59&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+    <span class="s2">&quot;path63&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+    <span class="s2">&quot;path64&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+    <span class="s2">&quot;path67&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+    <span class="s2">&quot;path73&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+    <span class="s2">&quot;path82&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">9</span><span class="p">)],</span>
+    <span class="s2">&quot;path84&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span>
+    <span class="s2">&quot;path148&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+    <span class="s2">&quot;path161&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+    <span class="s2">&quot;path162&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">)],</span>
+    <span class="s2">&quot;path163&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+    <span class="s2">&quot;path164&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+    <span class="s2">&quot;path168&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+    <span class="s2">&quot;path169&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">3</span><span class="p">)],</span>
+    <span class="s2">&quot;path202&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+    <span class="s2">&quot;path203&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+    <span class="s2">&quot;path205&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+    <span class="s2">&quot;path206&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+    <span class="s2">&quot;path44&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span>
+    <span class="s2">&quot;path90&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">9</span><span class="p">)],</span>
+    <span class="s2">&quot;path94&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span>
+    <span class="s2">&quot;path149&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span>
+    <span class="s2">&quot;path150&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">9</span><span class="p">)],</span>
+    <span class="s2">&quot;path165&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">),</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;path1&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+    <span class="s2">&quot;path2&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+    <span class="s2">&quot;path3&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+    <span class="s2">&quot;path5&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+<span class="p">}</span>
+
+<span class="c1"># %%</span>
+
+
+<div class="viewcode-block" id="update_svg_fluxes">
+<a class="viewcode-back" href="../../docs/source/temps/grafs_e.html#grafs_e.system_flows_svg.update_svg_fluxes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">update_svg_fluxes</span><span class="p">(</span>
+    <span class="n">svg_path</span><span class="p">,</span>
+    <span class="n">output_path</span><span class="p">,</span>
+    <span class="n">flux_matrix</span><span class="p">,</span>
+    <span class="n">mapping_svg_fluxes</span><span class="p">,</span>
+    <span class="n">scale</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="n">inkscape_exe</span><span class="o">=</span><span class="s2">&quot;C:/Program Files/Inkscape/bin/inkscape.exe&quot;</span><span class="p">,</span>
+    <span class="n">save</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Met à jour les épaisseurs des flux dans le SVG selon la matrice et le mapping.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        svg_path (str): chemin vers le SVG original.</span>
+<span class="sd">        output_path (str): chemin pour enregistrer le SVG modifié.</span>
+<span class="sd">        flux_matrix (np.array): matrice carrée des flux.</span>
+<span class="sd">        labels (list): liste des noms des nœuds, alignée avec flux_matrix.</span>
+<span class="sd">        mapping_svg_fluxes (dict): dict {id_svg_flux: [(i,j), ...]} où (i,j) sont indices dans flux_matrix.</span>
+<span class="sd">        scale (float): facteur multiplicateur pour l&#39;épaisseur (ajuste selon besoin).</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">XMLParser</span><span class="p">(</span><span class="n">remove_blank_text</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">tree</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">svg_path</span><span class="p">,</span> <span class="n">parser</span><span class="p">)</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">getroot</span><span class="p">()</span>
+    <span class="n">ns</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">nsmap</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">id_svg</span><span class="p">,</span> <span class="n">ij_list</span> <span class="ow">in</span> <span class="n">mapping_svg_fluxes</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">total_flux</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">flux_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">ij_list</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">total_flux</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">width</span> <span class="o">=</span> <span class="n">total_flux</span> <span class="o">*</span> <span class="n">scale</span>  <span class="c1"># Épaisseur minimale à 0.5 pour visibilité</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">width</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">xpath</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;//svg:path[@id=&#39;</span><span class="si">{</span><span class="n">id_svg</span><span class="si">}</span><span class="s2">&#39;]&quot;</span>
+        <span class="n">elems</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">xpath</span><span class="p">(</span><span class="n">xpath</span><span class="p">,</span> <span class="n">namespaces</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;svg&quot;</span><span class="p">:</span> <span class="n">ns</span><span class="p">})</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">elems</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;⚠️ Élément non trouvé dans SVG : </span><span class="si">{</span><span class="n">id_svg</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="n">path</span> <span class="o">=</span> <span class="n">elems</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">style</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;style&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;stroke-width&quot;</span> <span class="ow">in</span> <span class="n">style</span><span class="p">:</span>
+            <span class="n">new_style</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;stroke-width:[^;]+&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;stroke-width:</span><span class="si">{</span><span class="n">width</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">style</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">new_style</span> <span class="o">=</span> <span class="n">style</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;;stroke-width:</span><span class="si">{</span><span class="n">width</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">path</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s2">&quot;style&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_style</span>
+        <span class="c1"># path = elems[0]</span>
+        <span class="c1"># style = path.attrib.get(&quot;style&quot;, &quot;&quot;)</span>
+        <span class="c1"># # Mise à jour du stroke-width dans l&#39;attribut style</span>
+        <span class="c1"># new_style = re.sub(r&quot;stroke-width:[^;]+&quot;, f&quot;stroke-width:{width}&quot;, style)</span>
+        <span class="c1"># path.attrib[&quot;style&quot;] = new_style</span>
+
+    <span class="c1"># if output_path.lower().endswith((&quot;.jpg&quot;, &quot;.jpeg&quot;)):</span>
+    <span class="c1">#     # 2. ⬇️  Écrit un SVG temporaire (même dossier que output)</span>
+    <span class="c1">#     tmp_svg = Path(output_path).with_suffix(&quot;.tmp.svg&quot;)</span>
+    <span class="c1">#     tree.write(tmp_svg, xml_declaration=True, encoding=&quot;UTF-8&quot;, pretty_print=False)</span>
+
+    <span class="c1">#     # 3. ⬇️  Construit la commande Inkscape CLI</span>
+    <span class="c1">#     cmd = [</span>
+    <span class="c1">#         inkscape_exe,</span>
+    <span class="c1">#         str(tmp_svg),</span>
+    <span class="c1">#         f&quot;--export-filename={output_path}&quot;,</span>
+    <span class="c1">#         &quot;--export-background=#ffffff&quot;,</span>
+    <span class="c1">#         &quot;--export-area-drawing&quot;,</span>
+    <span class="c1">#     ]</span>
+    <span class="c1">#     export_width = 2000</span>
+    <span class="c1">#     export_height = None</span>
+    <span class="c1">#     if export_width:</span>
+    <span class="c1">#         cmd.append(f&quot;--export-width={export_width}&quot;)</span>
+    <span class="c1">#     if export_height:</span>
+    <span class="c1">#         cmd.append(f&quot;--export-height={export_height}&quot;)</span>
+
+    <span class="c1">#     # 4. ⬇️  Exécute Inkscape</span>
+    <span class="c1">#     subprocess.run(cmd, check=True)</span>
+    <span class="c1">#     print(f&quot;✅  Image générée via Inkscape : {output_path}&quot;)</span>
+
+    <span class="c1">#     # 5. ⬇️  Si JPG, convertir le PNG temporaire</span>
+    <span class="c1">#     if output_path.lower().endswith((&quot;.jpg&quot;, &quot;.jpeg&quot;)):</span>
+    <span class="c1">#         # Inkscape vient d’exporter un JPG directement; s’il a exporté un PNG,</span>
+    <span class="c1">#         # décocher ce bloc et adapter: convertir PNG -&gt; JPG via Pillow.</span>
+    <span class="c1">#         pass</span>
+
+    <span class="c1">#     # 6. ⬇️  Nettoyage</span>
+    <span class="c1">#     tmp_svg.unlink(missing_ok=True)</span>
+    <span class="k">if</span> <span class="n">save</span> <span class="o">==</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">tree</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">pretty_print</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">xml_declaration</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span>
+            <span class="n">tree</span><span class="p">,</span>
+            <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">,</span>
+            <span class="n">xml_declaration</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># on retire &lt;?xml…&gt; pour l’embed</span>
+            <span class="n">pretty_print</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span></div>
+
+
+
+<span class="c1"># base = Path(__file__).parent.parent  # par exemple, un dossier au-dessus de app.py</span>
+<span class="c1"># # 2) Construire le chemin vers le SVG</span>
+<span class="c1"># svg_template_path = base / &quot;grafs_e&quot; / &quot;data&quot; / &quot;system_flows.svg&quot;</span>
+
+<span class="c1"># for cluster in mean_matrices_by_cluster_merged:</span>
+<span class="c1">#     update_svg_fluxes(</span>
+<span class="c1">#         svg_template_path,</span>
+<span class="c1">#         f&quot;C:/Users/faustega/Documents/These/Typologie/system_flows_clusters/{cluster}.svg&quot;,</span>
+<span class="c1">#         mean_matrices_by_cluster_merged[cluster],</span>
+<span class="c1">#         mapping_svg_fluxes,</span>
+<span class="c1">#         save = True</span>
+<span class="c1">#     )</span>
+
+
+<div class="viewcode-block" id="build_flow_svg">
+<a class="viewcode-back" href="../../docs/source/temps/grafs_e.html#grafs_e.system_flows_svg.build_flow_svg">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_flow_svg</span><span class="p">(</span>
+    <span class="n">svg_template_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">flux_matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">mapping_svg_fluxes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]],</span>
+    <span class="n">scale_max_px</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">25.0</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Charge le template SVG et met à jour les `stroke-width`</span>
+<span class="sd">    en normalisant l’épaisseur maximale à `scale_max_px` pixels.</span>
+<span class="sd">    Retourne le SVG en **chaîne de caractères**.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">XMLParser</span><span class="p">(</span><span class="n">remove_blank_text</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="c1"># try:</span>
+    <span class="c1">#     tree = etree.parse(svg_template_path, parser)</span>
+    <span class="c1"># except Exception as e:</span>
+    <span class="c1">#     print(&quot;❌ Erreur durant le parsing du SVG :&quot;)</span>
+    <span class="c1">#     print(f&quot;   Chemin utilisé  : {svg_template_path}&quot;)</span>
+    <span class="c1">#     print(f&quot;   Exception levée : {repr(e)}&quot;)</span>
+    <span class="c1">#     raise</span>
+    <span class="n">tree</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">svg_template_path</span><span class="p">,</span> <span class="n">parser</span><span class="p">)</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">getroot</span><span class="p">()</span>
+    <span class="c1"># # Force le SVG à être redimensionnable selon son viewBox</span>
+    <span class="c1"># if &quot;width&quot; in root.attrib:</span>
+    <span class="c1">#     del root.attrib[&quot;width&quot;]</span>
+    <span class="c1"># if &quot;height&quot; in root.attrib:</span>
+    <span class="c1">#     del root.attrib[&quot;height&quot;]</span>
+    <span class="c1"># # On s’assure que le viewBox sera pris en compte à 100 %</span>
+    <span class="c1"># root.attrib[&quot;preserveAspectRatio&quot;] = &quot;xMinYMin meet&quot;</span>
+    <span class="n">ns</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;svg&quot;</span><span class="p">:</span> <span class="n">root</span><span class="o">.</span><span class="n">nsmap</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="kc">None</span><span class="p">)}</span>
+
+    <span class="c1"># Valeur max pour la normalisation</span>
+    <span class="n">vmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">flux_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">pairs</span> <span class="ow">in</span> <span class="n">mapping_svg_fluxes</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">pairs</span> <span class="k">if</span> <span class="n">flux_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span>
+        <span class="n">default</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">path_id</span><span class="p">,</span> <span class="n">ij_list</span> <span class="ow">in</span> <span class="n">mapping_svg_fluxes</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">flux_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">ij_list</span><span class="p">)</span>
+        <span class="n">width</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">total</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">total</span> <span class="o">/</span> <span class="n">vmax</span> <span class="o">*</span> <span class="n">scale_max_px</span>
+
+        <span class="n">nodes</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">xpath</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;//svg:path[@id=&#39;</span><span class="si">{</span><span class="n">path_id</span><span class="si">}</span><span class="s2">&#39;]&quot;</span><span class="p">,</span> <span class="n">namespaces</span><span class="o">=</span><span class="n">ns</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">nodes</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">style</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;style&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;stroke-width&quot;</span> <span class="ow">in</span> <span class="n">style</span><span class="p">:</span>
+            <span class="n">style</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;stroke-width:[^;]+&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;stroke-width:</span><span class="si">{</span><span class="n">width</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">style</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">style</span> <span class="o">=</span> <span class="n">style</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;;stroke-width:</span><span class="si">{</span><span class="n">width</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">path</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s2">&quot;style&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">style</span>
+
+    <span class="k">return</span> <span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span>
+        <span class="n">tree</span><span class="p">,</span>
+        <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">,</span>
+        <span class="n">xml_declaration</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># on retire &lt;?xml…&gt; pour l’embed</span>
+        <span class="n">pretty_print</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="build_flow_svg_full">
+<a class="viewcode-back" href="../../docs/source/temps/grafs_e.html#grafs_e.system_flows_svg.build_flow_svg_full">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_flow_svg_full</span><span class="p">(</span>
+    <span class="n">svg_template_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">flux_matrix</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">mapping_svg_fluxes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]],</span>
+    <span class="n">scale_max_px</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">25.0</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    1) Met à jour les `stroke-width` des chemins SVG selon flux_matrix (normalisé).</span>
+<span class="sd">    2) Calcule la bounding‐box de toutes les formes (paths + rects).</span>
+<span class="sd">    3) Réécrit le &lt;svg&gt; pour supprimer width/height, ajouter viewBox et overflow=&quot;visible&quot;.</span>
+<span class="sd">    4) Retourne le SVG complet (chaîne UTF‐8), prêt à être injecté tel quel.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># --- 1) parser le SVG ---</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">XMLParser</span><span class="p">(</span><span class="n">remove_blank_text</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">tree</span> <span class="o">=</span> <span class="n">etree</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">svg_template_path</span><span class="p">,</span> <span class="n">parser</span><span class="p">)</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">getroot</span><span class="p">()</span>
+    <span class="n">ns</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;svg&quot;</span><span class="p">:</span> <span class="n">root</span><span class="o">.</span><span class="n">nsmap</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="kc">None</span><span class="p">)}</span>
+
+    <span class="c1"># --- 2) Traiter les stroke‐width comme avant ---</span>
+    <span class="c1"># 2.1 Calculer vmax pour la normalisation</span>
+    <span class="n">all_flux</span> <span class="o">=</span> <span class="p">[</span><span class="n">flux_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">pairs</span> <span class="ow">in</span> <span class="n">mapping_svg_fluxes</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">pairs</span> <span class="k">if</span> <span class="n">flux_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">vmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">all_flux</span><span class="p">)</span> <span class="k">if</span> <span class="n">all_flux</span> <span class="k">else</span> <span class="mf">1e-9</span>
+
+    <span class="c1"># 2.2 Mettre à jour chaque &lt;path&gt; ciblé</span>
+    <span class="k">for</span> <span class="n">path_id</span><span class="p">,</span> <span class="n">ij_list</span> <span class="ow">in</span> <span class="n">mapping_svg_fluxes</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">flux_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">ij_list</span><span class="p">)</span>
+        <span class="n">width</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">total</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">(</span><span class="n">total</span> <span class="o">/</span> <span class="n">vmax</span><span class="p">)</span> <span class="o">*</span> <span class="n">scale_max_px</span>
+
+        <span class="n">nodes</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">xpath</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;//svg:path[@id=&#39;</span><span class="si">{</span><span class="n">path_id</span><span class="si">}</span><span class="s2">&#39;]&quot;</span><span class="p">,</span> <span class="n">namespaces</span><span class="o">=</span><span class="n">ns</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">nodes</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">style</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;style&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;stroke-width&quot;</span> <span class="ow">in</span> <span class="n">style</span><span class="p">:</span>
+            <span class="n">style</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;stroke-width:[^;]+&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;stroke-width:</span><span class="si">{</span><span class="n">width</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">style</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">style</span> <span class="o">=</span> <span class="n">style</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;;stroke-width:</span><span class="si">{</span><span class="n">width</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">path</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s2">&quot;style&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">style</span>
+
+    <span class="c1"># --- 3) Calculer la bounding‐box de tout le contenu ---</span>
+    <span class="c1"># On cherche minx, miny, maxx, maxy parmi:</span>
+    <span class="c1">#   • Tous les ‘M x,y’, ‘L x,y’, ‘C …’ d’un &lt;path&gt; (on prend TOUTES les coordonnées absolues)</span>
+    <span class="c1">#   • Tous les coins des &lt;rect&gt; (x,y) + (x+width, y+height)</span>
+    <span class="n">minx</span> <span class="o">=</span> <span class="n">miny</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+    <span class="n">maxx</span> <span class="o">=</span> <span class="n">maxy</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">)</span>
+
+    <span class="c1"># 3.1 Pour chaque &lt;path&gt; : extraire tous les nombres de ‘d=’</span>
+    <span class="k">for</span> <span class="n">elem</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">xpath</span><span class="p">(</span><span class="s2">&quot;//svg:path&quot;</span><span class="p">,</span> <span class="n">namespaces</span><span class="o">=</span><span class="n">ns</span><span class="p">):</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">elem</span><span class="o">.</span><span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;d&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="c1"># trouver toutes les valeurs numériques (x1, y1, x2, y2, …)</span>
+        <span class="n">nums</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[-+]?\d*\.?\d+|[-+]?\d+&quot;</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+        <span class="c1"># on convertit en float et on prend paires (0,1), (2,3), …</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">nums</span><span class="p">]</span>
+        <span class="n">xs</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">ys</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">xs</span> <span class="ow">and</span> <span class="n">ys</span><span class="p">:</span>
+            <span class="n">minx</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">minx</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">xs</span><span class="p">))</span>
+            <span class="n">maxx</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">maxx</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">xs</span><span class="p">))</span>
+            <span class="n">miny</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">miny</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">ys</span><span class="p">))</span>
+            <span class="n">maxy</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">maxy</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">ys</span><span class="p">))</span>
+
+    <span class="c1"># 3.2 Pour chaque &lt;rect&gt; : coins (x, y) et (x+width, y+height)</span>
+    <span class="k">for</span> <span class="n">elem</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">xpath</span><span class="p">(</span><span class="s2">&quot;//svg:rect&quot;</span><span class="p">,</span> <span class="n">namespaces</span><span class="o">=</span><span class="n">ns</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">elem</span><span class="o">.</span><span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">elem</span><span class="o">.</span><span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">elem</span><span class="o">.</span><span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;width&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">elem</span><span class="o">.</span><span class="n">attrib</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;height&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="n">minx</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">minx</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="n">maxx</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">maxx</span><span class="p">,</span> <span class="n">x</span> <span class="o">+</span> <span class="n">w</span><span class="p">)</span>
+        <span class="n">miny</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">miny</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="n">maxy</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">maxy</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="n">h</span><span class="p">)</span>
+
+    <span class="c1"># Si on n’a rien trouvé (aucun path ni rect), on reste sur le viewBox existant (ou on quitte)</span>
+    <span class="k">if</span> <span class="n">minx</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
+        <span class="c1"># Rien à calculer, on renvoie le SVG original modifié</span>
+        <span class="k">return</span> <span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">,</span> <span class="n">pretty_print</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+
+    <span class="c1"># --- 4) Réécrire le &lt;svg&gt; pour englober ces bornes ---</span>
+    <span class="c1"># 4.1 Supprimer width/height (pour que le viewBox gouverne l’affichage)</span>
+    <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;width&quot;</span><span class="p">,</span> <span class="s2">&quot;height&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">attrib</span><span class="p">:</span>
+            <span class="k">del</span> <span class="n">root</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="n">attr</span><span class="p">]</span>
+
+    <span class="c1"># 4.2 Ajouter le viewBox = &quot;minx miny width_box height_box&quot;</span>
+    <span class="n">vb_x</span> <span class="o">=</span> <span class="n">minx</span>
+    <span class="n">vb_y</span> <span class="o">=</span> <span class="n">miny</span>
+    <span class="n">vb_width</span> <span class="o">=</span> <span class="n">maxx</span> <span class="o">-</span> <span class="n">minx</span>
+    <span class="n">vb_height</span> <span class="o">=</span> <span class="n">maxy</span> <span class="o">-</span> <span class="n">miny</span>
+    <span class="n">root</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s2">&quot;viewBox&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">vb_x</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">vb_y</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">vb_width</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">vb_height</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="c1"># 4.3 S’assurer que rien n’est masqué : overflow=&quot;visible&quot;</span>
+    <span class="n">root</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s2">&quot;overflow&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;visible&quot;</span>
+
+    <span class="n">tree</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">svg_template_path</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">&quot;test.svg&quot;</span><span class="p">,</span> <span class="n">pretty_print</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">xml_declaration</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span>
+
+    <span class="c1"># --- 5) Renvoyer le SVG final (sans &lt;?xml …&gt;) ---</span>
+    <span class="k">return</span> <span class="n">etree</span><span class="o">.</span><span class="n">tostring</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">,</span> <span class="n">xml_declaration</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">pretty_print</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span></div>
+
+
+
+<span class="c1"># ──────────────────────────────────────────────</span>
+<span class="c1"># 2)  Fonction Streamlit qui affiche le SVG + légende</span>
+<span class="c1"># ──────────────────────────────────────────────</span>
+<span class="c1"># def streamlit_sankey_systemic_flows_svg(</span>
+<span class="c1">#     flux_matrix: np.ndarray,</span>
+<span class="c1">#     mapping_svg_fluxes: dict,</span>
+<span class="c1">#     svg_template_path: str,</span>
+<span class="c1">#     n_legend_steps: int = 4,</span>
+<span class="c1">#     scale_max_px: float = 25.0,</span>
+<span class="c1"># ):</span>
+<span class="c1">#     # 2.1  produire le SVG final (string)</span>
+<span class="c1">#     svg_str = build_flow_svg(svg_template_path, flux_matrix, mapping_svg_fluxes, scale_max_px)</span>
+
+<span class="c1">#     # 2.2  injection directe dans la page</span>
+<span class="c1">#     st.markdown(f&#39;&lt;div style=&quot;text-align:center&quot;&gt;{svg_str}&lt;/div&gt;&#39;, unsafe_allow_html=True)</span>
+
+<span class="c1">#     # 2.3  légende dynamique</span>
+<span class="c1">#     vmax = max(</span>
+<span class="c1">#         (flux_matrix[i, j] for pairs in mapping_svg_fluxes.values() for i, j in pairs if flux_matrix[i, j] &gt; 0),</span>
+<span class="c1">#         default=1e-9,</span>
+<span class="c1">#     )</span>
+<span class="c1">#     step_vals = np.linspace(0, vmax, n_legend_steps + 1)[1:]</span>
+
+<span class="c1">#     legend_svg = [</span>
+<span class="c1">#         &#39;&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;160&quot; height=&quot;{}&quot;&gt;&#39;.format(</span>
+<span class="c1">#             int((scale_max_px + 6) * len(step_vals))</span>
+<span class="c1">#         )</span>
+<span class="c1">#     ]</span>
+<span class="c1">#     y_cursor = 0</span>
+<span class="c1">#     for v in step_vals:</span>
+<span class="c1">#         w = int(v / vmax * scale_max_px)</span>
+<span class="c1">#         legend_svg.append(</span>
+<span class="c1">#             f&#39;&lt;path d=&quot;M 10 {y_cursor + w / 2 + 3} L 150 {y_cursor + w / 2 + 3}&quot; stroke=&quot;black&quot; stroke-width=&quot;{w}&quot; /&gt;&#39;</span>
+<span class="c1">#         )</span>
+<span class="c1">#         legend_svg.append(</span>
+<span class="c1">#             f&#39;&lt;text x=&quot;80&quot; y=&quot;{y_cursor + w + 6}&quot; font-size=&quot;9&quot; text-anchor=&quot;middle&quot;&gt;{v:.2f} kt N / an&lt;/text&gt;&#39;</span>
+<span class="c1">#         )</span>
+<span class="c1">#         y_cursor += w + 10</span>
+<span class="c1">#     legend_svg.append(&quot;&lt;/svg&gt;&quot;)</span>
+
+<span class="c1">#     st.markdown(&quot;&lt;br/&gt;&lt;b&gt;Légende – Intensité des flux&lt;/b&gt;&quot;, unsafe_allow_html=True)</span>
+<span class="c1">#     st.markdown(&quot;&quot;.join(legend_svg), unsafe_allow_html=True)</span>
+
+
+<div class="viewcode-block" id="streamlit_sankey_systemic_flows_svg">
+<a class="viewcode-back" href="../../docs/source/temps/grafs_e.html#grafs_e.system_flows_svg.streamlit_sankey_systemic_flows_svg">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">streamlit_sankey_systemic_flows_svg</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">mapping_svg_fluxes</span><span class="p">,</span> <span class="n">svg_template_path</span><span class="p">):</span>
+    <span class="c1"># 1. on génère le SVG string (avec build_flow_svg déjà modifié)</span>
+    <span class="c1"># svg_str = build_flow_svg_full(svg_template_path, flux_matrix, mapping_svg_fluxes, scale_max_px=25.0)</span>
+    <span class="n">merged_matrix</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">merge_nodes</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">get_transition_matrix</span><span class="p">(),</span>
+        <span class="n">labels_init</span><span class="p">,</span>
+        <span class="n">merges</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">&quot;cereals (excluding rice)&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;Wheat&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Rye&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Barley&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Oat&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Grain maize&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Rice&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Other cereals&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;fruits and vegetables&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;Dry vegetables&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Dry fruits&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Squash and melons&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Cabbage&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Leaves vegetables&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Fruits&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Olives&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Citrus&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;leguminous&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;Horse beans and faba beans&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Peas&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Other protein crops&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Green peas&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Dry beans&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Green beans&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Soybean&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;oleaginous&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Rapeseed&quot;</span><span class="p">,</span> <span class="s2">&quot;Sunflower&quot;</span><span class="p">,</span> <span class="s2">&quot;Other oil crops&quot;</span><span class="p">,</span> <span class="s2">&quot;Flax&quot;</span><span class="p">,</span> <span class="s2">&quot;Hemp&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;forages&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;Forage maize&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Forage cabbages&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Straw&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;temporary meadows&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Non-legume temporary meadow&quot;</span><span class="p">,</span> <span class="s2">&quot;Alfalfa and clover&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;natural meadows &quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Natural meadow &quot;</span><span class="p">],</span>
+            <span class="s2">&quot;trade&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;animal trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;cereals (excluding rice) food trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;fruits and vegetables food trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;leguminous food trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;oleaginous food trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;roots food trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;rice food trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;cereals (excluding rice) feed trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;forages feed trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;leguminous feed trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;oleaginous feed trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;grasslands feed trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;temporary meadows feed trade&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;ruminants&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;bovines&quot;</span><span class="p">,</span> <span class="s2">&quot;ovines&quot;</span><span class="p">,</span> <span class="s2">&quot;caprines&quot;</span><span class="p">,</span> <span class="s2">&quot;equine&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;monogastrics&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;porcines&quot;</span><span class="p">,</span> <span class="s2">&quot;poultry&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;population&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;urban&quot;</span><span class="p">,</span> <span class="s2">&quot;rural&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;Environment&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;NH3 volatilization&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;N2O emission&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;hydro-system&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;other losses&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;roots&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Sugar beet&quot;</span><span class="p">,</span> <span class="s2">&quot;Potatoes&quot;</span><span class="p">,</span> <span class="s2">&quot;Other roots&quot;</span><span class="p">],</span>
+        <span class="p">},</span>
+    <span class="p">)</span>
+    <span class="n">normed_matrix</span> <span class="o">=</span> <span class="n">merged_matrix</span> <span class="o">/</span> <span class="n">merged_matrix</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">svg_str</span> <span class="o">=</span> <span class="n">update_svg_fluxes</span><span class="p">(</span>
+        <span class="n">svg_template_path</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">svg_template_path</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">&quot;test.svg&quot;</span><span class="p">,</span> <span class="n">normed_matrix</span><span class="p">,</span> <span class="n">mapping_svg_fluxes</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+    <span class="c1"># 2. on l’affiche dans un composant HTML dédié, en précisant largeur et hauteur ou en laissant défiler</span>
+    <span class="n">components</span><span class="o">.</span><span class="n">html</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s1">&#39;&lt;div style=&quot;transform: scale(0.3); transform-origin: 0 0;&quot;&gt;</span><span class="si">{</span><span class="n">svg_str</span><span class="si">}</span><span class="s1">&lt;/div&gt;&#39;</span><span class="p">,</span>
+        <span class="c1"># svg_str,</span>
+        <span class="n">width</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span>  <span class="c1"># ou None pour full-width</span>
+        <span class="n">height</span><span class="o">=</span><span class="mi">550</span><span class="p">,</span>  <span class="c1"># adapter si besoin</span>
+        <span class="n">scrolling</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+
+<span class="c1"># %%</span>
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, Adrien Fauste-Gay.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

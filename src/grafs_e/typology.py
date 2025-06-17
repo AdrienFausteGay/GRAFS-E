@@ -98,6 +98,164 @@ def plot_dendrogram(norm_matrices, seuil=0.22):
 
 if run:
     df_plot = plot_dendrogram(norm_matrices)
+
+# %% Affichage de la frise
+
+
+# ────────────────────────────────────────────────────────────────
+#  utilitaire : ordonnée automatique « par colonne »
+# ────────────────────────────────────────────────────────────────
+def _compute_column_y(nodes: pd.DataFrame) -> pd.Series:
+    for yr, sub in nodes.groupby("Year"):
+        ordered = sub.sort_values(["ClusterName", "Node"])
+        k = len(ordered)
+        # on ne touche pas aux bords : marge haute & basse = 5 %
+        ys = np.linspace(0.05, 0.15, k + 2)[1:-1]
+        nodes.loc[ordered.index, "_y"] = ys
+    return nodes["_y"]
+
+
+# ────────────────────────────────────────────────────────────────
+#  fonction principale
+# ────────────────────────────────────────────────────────────────
+def sankey_clusters_aggregate(df_plot: pd.DataFrame, highlight: list[str] | None = None) -> go.Figure:
+    """
+    Frise Sankey : un lien = nombre de régions qui passent
+    d’un cluster à un autre entre deux années successives.
+
+    Parameters
+    ----------
+    df_plot : DataFrame
+        colonnes requises : 'Region_year' (« Nom_YYYY »), 'ClusterName'.
+    highlight : list[str] | None
+        Liste de régions à surligner ; chaque région reçoit sa propre
+        couleur.  Si `None` (défaut) : colorisation par cluster d’arrivée.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+    """
+
+    # ── 1. Préparation des nœuds ────────────────────────────────────────
+    df = df_plot.copy()
+    df[["Region", "Year"]] = df["Region_year"].str.rsplit("_", n=1, expand=True)
+    df["Year"] = df["Year"].astype(int)
+    df["Node"] = df["Year"].astype(str) + " – " + df["ClusterName"]
+
+    years = sorted(df["Year"].unique())
+    y_min, y_max, span = years[0], years[-1], (years[-1] - years[0] or 1)
+
+    nodes = (
+        df[["Node", "Year", "ClusterName"]]
+        .drop_duplicates()
+        .sort_values(["Year", "ClusterName"])
+        .reset_index(drop=True)
+    )
+    nodes["x"] = 0.05 + 0.90 * (nodes["Year"] - y_min) / span
+    nodes["y"] = _compute_column_y(nodes)
+
+    node_id = {n: i for i, n in nodes["Node"].items()}
+
+    # ── 2. Transitions + liste exacte des régions ───────────────────────
+    transitions = []
+    for reg, g in df.groupby("Region"):
+        g = g.sort_values("Year")
+        for (_, r0), (_, r1) in zip(g.iloc[:-1].iterrows(), g.iloc[1:].iterrows()):
+            transitions.append(
+                dict(
+                    src=node_id[r0["Node"]],
+                    dst=node_id[r1["Node"]],
+                    src_clu=r0["ClusterName"],
+                    dst_clu=r1["ClusterName"],
+                    region=reg,
+                )
+            )
+
+    links = (
+        pd.DataFrame(transitions)
+        .groupby(["src", "dst", "src_clu", "dst_clu"])
+        .agg(regions=("region", lambda r: ", ".join(sorted(r))))
+        .reset_index()
+    )
+    links["value"] = links["regions"].str.count(",") + 1  # nb de régions
+
+    # ── 3. Couleurs ────────────────────────────────────────────────────
+    if highlight:
+        # palette distincte pour les régions mises en avant
+        col_pal = dict(zip(highlight, sns.color_palette("husl", len(highlight)).as_hex()))
+
+        def _link_color(row):
+            for hreg in highlight:
+                if hreg in row["regions"].split(", "):
+                    return col_pal[hreg]  # couleur de la 1re région highlight trouvée
+            return "#DDDDDD"  # gris clair pour le reste
+
+        links["color"] = links.apply(_link_color, axis=1)
+
+        # nœuds : on garde la palette par cluster, mais on peut opacifier
+        clusters = nodes["ClusterName"].unique()
+        node_palette = dict(zip(clusters, sns.color_palette("husl", len(clusters)).as_hex()))
+        nodes["n_color"] = nodes["ClusterName"].map(node_palette)
+
+    else:
+        # colorisation « classique » par cluster d’arrivée
+        clusters = nodes["ClusterName"].unique()
+        node_palette = dict(zip(clusters, sns.color_palette("husl", len(clusters)).as_hex()))
+        nodes["n_color"] = nodes["ClusterName"].map(node_palette)
+        links["color"] = links["dst_clu"].map(node_palette)
+
+    # ── 4. Figure Sankey ────────────────────────────────────────────────
+    fig = go.Figure(
+        go.Sankey(
+            arrangement="snap",
+            domain=dict(x=[0, 1], y=[0.06, 1]),
+            node=dict(
+                x=nodes["x"].to_numpy(),
+                y=nodes["y"].to_numpy(),
+                # label=nodes["ClusterName"],
+                color=nodes["n_color"],
+                pad=6,
+                thickness=4,
+                line=dict(width=0.5, color="black"),
+            ),
+            link=dict(
+                source=links["src"],
+                target=links["dst"],
+                value=links["value"],
+                color=links["color"],
+                customdata=np.stack([links["regions"], links["src_clu"], links["dst_clu"]], axis=-1),
+                hovertemplate=(
+                    "<b>%{customdata[1]}</b> → <b>%{customdata[2]}</b><br>Régions : %{customdata[0]}<extra></extra>"
+                ),
+            ),
+        )
+    )
+
+    fig.update_layout(
+        template="plotly_white",
+        # title="Trajectoires agrégées des régions entre clusters",
+        width=1900,
+        height=1200,
+        margin=dict(l=10, r=10, t=20, b=20),
+        font_size=12,
+    )
+
+    # Annotations verticales des années
+    for yr in years:
+        fig.add_annotation(
+            x=0.05 + 0.90 * (yr - y_min) / span,
+            y=-0.0,
+            xref="paper",
+            yref="paper",
+            text=str(yr),
+            textangle=-90,
+            showarrow=False,
+            font=dict(size=13),
+        )
+
+    return fig
+
+
 # %%
 if run:
     # ──────────────────────────────────────────────────────────────────────────
@@ -189,7 +347,7 @@ if run:
     fig.update_layout(
         title="Transitions des régions entre clusters (1852-2014)",
         font_size=12,
-        height=1080,
+        height=180,
         width=1900,
         template="plotly_white",
     )
