@@ -1,8 +1,3 @@
-.. GRAFS-E documentation master file, created by
-   sphinx-quickstart on Mon May 19 14:17:34 2025.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 GRAFS-E documentation
 =====================
 
@@ -15,13 +10,19 @@ This documentation presents the prospective nitrogen flow model used in GRAFS-E,
 including modules for scenario creation, crop and livestock nitrogen budgeting, and
 system-wide flux computation via an adjacency matrix.
 
+All these function can be used with python installation using 'pip install grafs_e'.
+Once grafs-e installed, you can run 'grafs-e' command in terminal to lauch graphical interface on local.
+
+Graphical interface is accessible online at grafs-e.streamlit.app
+
 Contents:
 ---------
 
 .. toctree::
    :maxdepth: 2
-   docs/source/modules
-   :caption: API:
+   :caption: Sommaire
 
-   modules
+   .. modules
+
+   grafs_e
 
