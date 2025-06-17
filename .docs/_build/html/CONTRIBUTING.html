@@ -1,0 +1,598 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Contributing to Mater &#8212; GRAFS-E 01/02/25 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=390ba95b"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'CONTRIBUTING';</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">GRAFS-E 01/02/25 documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="grafs_e.html">
+    grafs_e package
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="grafs_e.html">
+    grafs_e package
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Contributing to Mater</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="contributing-to-mater">
+<h1>Contributing to Mater<a class="headerlink" href="#contributing-to-mater" title="Link to this heading">#</a></h1>
+<p>[TOC]</p>
+<section id="workflow-overview">
+<h2>✨ Workflow Overview<a class="headerlink" href="#workflow-overview" title="Link to this heading">#</a></h2>
+<p>This project follows a <strong>GitFlow</strong> branching model on GitLab. Below is the standard process:</p>
+<ol class="arabic simple">
+<li><p>All tasks require an <strong>issue</strong> to be created on GitLab. This includes feature development, bug fixes, and documentation updates.</p></li>
+<li><p>Assign the issue to a relevant <strong>milestone</strong> to indicate its purpose and timeline when possible.</p></li>
+<li><p>Create a branch from the issue (from the <code class="docutils literal notranslate"><span class="pre">dev</span></code> branch for features or from the <code class="docutils literal notranslate"><span class="pre">main</span></code> branch for hotfixes).</p></li>
+<li><p>Submit a <strong>Merge Request (MR)</strong> targeting the appropriate branch (<code class="docutils literal notranslate"><span class="pre">dev</span></code> for features, <code class="docutils literal notranslate"><span class="pre">main</span></code> for hotfixes).</p></li>
+<li><p>Ensure your code passes all checks (e.g., linting, tests) and includes sufficient documentation.</p></li>
+</ol>
+</section>
+<section id="getting-started">
+<h2>🔧 Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading">#</a></h2>
+<section id="report-an-issue">
+<h3>🐛 Report an Issue<a class="headerlink" href="#report-an-issue" title="Link to this heading">#</a></h3>
+<ol class="arabic simple">
+<li><p>Check for <a class="reference external" href="https://gricad-gitlab.univ-grenoble-alpes.fr/isterre-dynamic-modeling/mater-project/mater/-/issues">existing issues</a> and add a reaction or a comment to it.</p></li>
+<li><p>If the issue does not exist, you can create a <a class="reference external" href="https://gricad-gitlab.univ-grenoble-alpes.fr/isterre-dynamic-modeling/mater-project/mater/-/issues/new">new issue</a>:</p>
+<ul class="simple">
+<li><p>Add a meaningful title.</p></li>
+<li><p>Add a description for the developers to understand the issue.</p></li>
+<li><p>Assign a developer to the task, if applicable.</p></li>
+<li><p>Assign the issue to the most appropriate <strong>milestone</strong> based on the task priority and timeline.</p></li>
+<li><p>Use labels to categorize the issue (e.g., <code class="docutils literal notranslate"><span class="pre">bug</span></code>, <code class="docutils literal notranslate"><span class="pre">documentation</span></code>, <code class="docutils literal notranslate"><span class="pre">feature</span></code>).</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="contribute-as-a-developer">
+<h3>🛠️ Contribute as a Developer<a class="headerlink" href="#contribute-as-a-developer" title="Link to this heading">#</a></h3>
+<p>We welcome contributions from everyone ! Feel free to help on any issue.</p>
+<section id="first-time-contributor">
+<h4>💁 First-Time Contributor<a class="headerlink" href="#first-time-contributor" title="Link to this heading">#</a></h4>
+<p>If you are new to this project or open source in general, don’t worry! We’ve outlined everything you need to get started. If you get stuck, feel free to ask for help by commenting on an issue or opening a discussion.</p>
+<section id="set-up-your-environment">
+<h5>Set Up Your Environment<a class="headerlink" href="#set-up-your-environment" title="Link to this heading">#</a></h5>
+<p>The recommended IDE is <a class="reference external" href="https://code.visualstudio.com/">Visual Studio Code</a> (VSCode). Add the VSCode extension “Ruff”.</p>
+<p>You can configure your <code class="docutils literal notranslate"><span class="pre">settings.json</span></code> file to enable Ruff linting fixes and formatting when saving your script. Open <code class="docutils literal notranslate"><span class="pre">settings.json</span></code> by pressing <code class="docutils literal notranslate"><span class="pre">CTRL+SHIFT+P</span></code>, typing <code class="docutils literal notranslate"><span class="pre">settings</span></code>, and selecting <code class="docutils literal notranslate"><span class="pre">Preferences:</span> <span class="pre">Open</span> <span class="pre">User</span> <span class="pre">Settings</span> <span class="pre">(JSON)</span></code>.</p>
+<p>Add the following to configure Ruff on save:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;git.autofetch&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;editor.formatOnSave&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;[python]&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;editor.codeActionsOnSave&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;source.fixAll&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;source.organizeImports&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;editor.defaultFormatter&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;charliermarsh.ruff&quot;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<section id="linux">
+<h6>Linux<a class="headerlink" href="#linux" title="Link to this heading">#</a></h6>
+<p>Install necessary dependencies:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>apt<span class="w"> </span>update
+sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>curl<span class="w"> </span>git
+</pre></div>
+</div>
+<p>Install the package manager <a class="reference external" href="https://docs.astral.sh/uv/">uv</a>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
+</pre></div>
+</div>
+<p>Install Python 3.12 or higher:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>python<span class="w"> </span>install<span class="w"> </span><span class="m">3</span>.12
+</pre></div>
+</div>
+</section>
+<section id="windows">
+<h6>Windows<a class="headerlink" href="#windows" title="Link to this heading">#</a></h6>
+<p>Install <a class="reference external" href="https://git-scm.com/">Git</a>.</p>
+<p>Install the package manager <a class="reference external" href="https://docs.astral.sh/uv/">uv</a>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>powershell<span class="w"> </span>-ExecutionPolicy<span class="w"> </span>ByPass<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;irm https://astral.sh/uv/install.ps1 | iex&quot;</span>
+</pre></div>
+</div>
+<p>Install Python 3.12 or higher:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>python<span class="w"> </span>install<span class="w"> </span><span class="m">3</span>.12
+</pre></div>
+</div>
+<p>Make sure Python is added to your system PATH during installation. If not, follow the <a class="reference external" href="https://docs.astral.sh/uv/guides/install-python/#getting-started">uv documentation</a> to add it manually.</p>
+</section>
+</section>
+<section id="clone-the-project">
+<h5>Clone the Project<a class="headerlink" href="#clone-the-project" title="Link to this heading">#</a></h5>
+<p>Clone the project to your local machine:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://gricad-gitlab.univ-grenoble-alpes.fr/isterre-dynamic-modeling/mater-project/mater.git
+</pre></div>
+</div>
+</section>
+</section>
+<section id="keep-your-branch-up-to-date">
+<h4>🔄 Keep Your Branch Up-to-Date<a class="headerlink" href="#keep-your-branch-up-to-date" title="Link to this heading">#</a></h4>
+<p>Regularly update your branch with the latest changes from <code class="docutils literal notranslate"><span class="pre">dev</span></code> to avoid conflicts:</p>
+<ol class="arabic simple">
+<li><p>Fetch the latest changes for all branches:</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>fetch<span class="w"> </span>--all
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p>Rebase your branch on top of <code class="docutils literal notranslate"><span class="pre">dev</span></code>:</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>rebase<span class="w"> </span>origin/dev
+</pre></div>
+</div>
+<blockquote>
+<div><p><strong><em>TIPS</em></strong></p>
+<p>Resolve conflicts (if any):</p>
+<ul class="simple">
+<li><p>Git will pause and indicate conflicts. Open the conflicted files, resolve the issues, and stage the resolved changes:</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>add<span class="w"> </span>&lt;file&gt;
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Continue the rebase after resolving conflicts:</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>rebase<span class="w"> </span>--continue
+</pre></div>
+</div>
+</div></blockquote>
+<ol class="arabic simple" start="3">
+<li><p>Push your rebased branch:</p></li>
+</ol>
+<p>After rebasing, force push your branch to update the remote branch:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>push<span class="w"> </span>--force-with-lease
+</pre></div>
+</div>
+</section>
+<section id="tests-coming-soon">
+<h4>🧪 Tests (Coming Soon)<a class="headerlink" href="#tests-coming-soon" title="Link to this heading">#</a></h4>
+<p>Currently, this project does not have automated tests. However, we are actively working on introducing a comprehensive testing framework in future versions. Once implemented, contributors will be expected to write and run tests for their changes. Stay tuned for updates!</p>
+</section>
+<section id="submitting-your-work">
+<h4>📤 Submitting Your Work<a class="headerlink" href="#submitting-your-work" title="Link to this heading">#</a></h4>
+<ol class="arabic">
+<li><p>Open a Merge Request:</p>
+<ul class="simple">
+<li><p>Go to Merge Requests in the Code tab of the repository.</p></li>
+<li><p>Click “New Merge Request” and select your branch as the source and <code class="docutils literal notranslate"><span class="pre">dev</span></code> as the target branch.</p></li>
+<li><p>Provide a clear description of your changes and link any related issues (this is automatic if the branch was created from an existing issue).</p></li>
+</ul>
+<p class="rubric" id="example-merge-request-description">Example Merge Request Description</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Title: feat(issue-123): Add seismic analysis feature
+
+Description:
+- Implements a new seismic analysis feature.
+- Adds `seismic_analysis.py` and updates documentation.
+- Addresses issue #123.
+
+Checklist:
+- [x] Code adheres to style guidelines (`ruff check`).
+- [x] Documentation updated.
+</pre></div>
+</div>
+</li>
+<li><p>Address Feedback:</p>
+<ul class="simple">
+<li><p>Be prepared to revise your changes based on feedback from reviewers.</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="branch-cleanup">
+<h4>🧹 Branch Cleanup<a class="headerlink" href="#branch-cleanup" title="Link to this heading">#</a></h4>
+<p>After your branch has been merged, delete it to keep the repository tidy:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>remote<span class="w"> </span>prune<span class="w"> </span>origin
+git<span class="w"> </span>branch<span class="w"> </span>-D<span class="w"> </span>&lt;YOUR_BRANCH_NAME&gt;
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="online-documentation">
+<h2>📚 Online Documentation<a class="headerlink" href="#online-documentation" title="Link to this heading">#</a></h2>
+<p><strong>See the official <a class="reference external" href="https://isterre-dynamic-modeling.gricad-pages.univ-grenoble-alpes.fr/mater-project/mater/contributing/index.html#contributing">documentation</a></strong>.</p>
+</section>
+<section id="code-of-conduct">
+<h2>📜 Code of Conduct<a class="headerlink" href="#code-of-conduct" title="Link to this heading">#</a></h2>
+<p>Please adhere to our <a class="reference internal" href="#CODE_OF_CONDUCT.md"><span class="xref myst">Code of Conduct</span></a>.</p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#workflow-overview">✨ Workflow Overview</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#getting-started">🔧 Getting Started</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#report-an-issue">🐛 Report an Issue</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#contribute-as-a-developer">🛠️ Contribute as a Developer</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#first-time-contributor">💁 First-Time Contributor</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#set-up-your-environment">Set Up Your Environment</a><ul class="nav section-nav flex-column">
+<li class="toc-h6 nav-item toc-entry"><a class="reference internal nav-link" href="#linux">Linux</a></li>
+<li class="toc-h6 nav-item toc-entry"><a class="reference internal nav-link" href="#windows">Windows</a></li>
+</ul>
+</li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#clone-the-project">Clone the Project</a></li>
+</ul>
+</li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#keep-your-branch-up-to-date">🔄 Keep Your Branch Up-to-Date</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#tests-coming-soon">🧪 Tests (Coming Soon)</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#submitting-your-work">📤 Submitting Your Work</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#branch-cleanup">🧹 Branch Cleanup</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#online-documentation">📚 Online Documentation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#code-of-conduct">📜 Code of Conduct</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/CONTRIBUTING.md.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, Adrien Fauste-Gay.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

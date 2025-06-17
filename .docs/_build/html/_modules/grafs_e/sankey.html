@@ -1,0 +1,1581 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>grafs_e.sankey &#8212; GRAFS-E 01/02/25 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../_static/documentation_options.js?v=390ba95b"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/grafs_e/sankey';</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">GRAFS-E 01/02/25 documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">Module code</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="../grafs_e.html" class="nav-link">grafs_e</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">grafs_e.sankey</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for grafs_e.sankey</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">plotly.graph_objects</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">go</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">streamlit</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">st</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">grafs_e.donnees</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">grafs_e.N_class</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+
+
+<div class="viewcode-block" id="streamlit_sankey">
+<a class="viewcode-back" href="../../docs/source/temps/grafs_e.html#grafs_e.sankey.streamlit_sankey">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">streamlit_sankey</span><span class="p">(</span><span class="n">transition_matrix</span><span class="p">,</span> <span class="n">main_node</span><span class="p">,</span> <span class="n">scope</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">index_to_label</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index_to_color</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates an interactive Sankey diagram in Streamlit, displaying the incoming and outgoing flows of a main node</span>
+<span class="sd">    with custom tooltips on hover.</span>
+
+<span class="sd">    The Sankey diagram is generated based on a transition matrix that models nitrogen flows between different sectors</span>
+<span class="sd">    of the system. The function visualizes these flows, highlights the main node, and allows zooming into the flows within</span>
+<span class="sd">    a defined scope.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    transition_matrix : np.ndarray</span>
+<span class="sd">        A 2D NumPy array representing the transition matrix (flows between nodes in ktN/year).</span>
+
+<span class="sd">    main_node : int</span>
+<span class="sd">        The index of the node (sector) to be focused on, used as the central node for flow visualization.</span>
+
+<span class="sd">    scope : int, optional</span>
+<span class="sd">        The scope of the flow display (i.e., the depth of incoming and outgoing flow visualization from the main node).</span>
+<span class="sd">        Default is 1, meaning it shows only direct flows.</span>
+
+<span class="sd">    index_to_label : dict, optional</span>
+<span class="sd">        A dictionary that maps indices of the transition matrix to sector labels for display.</span>
+
+<span class="sd">    index_to_color : dict, optional</span>
+<span class="sd">        A dictionary that maps indices of the transition matrix to colors for the nodes.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    --------</span>
+<span class="sd">    None</span>
+<span class="sd">        The function directly displays the Sankey diagram in the Streamlit interface.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Vérification des paramètres</span>
+    <span class="k">if</span> <span class="n">index_to_label</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">index_to_color</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">st</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Les mappings de labels et couleurs ne sont pas fournis.&quot;</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="n">n_nodes</span> <span class="o">=</span> <span class="n">transition_matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">labels</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">sources</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">node_colors</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">link_colors</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">node_hover_texts</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># Liste pour stocker les tooltips des nœuds</span>
+    <span class="n">link_hover_texts</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># Liste pour stocker les tooltips des flux</span>
+
+    <span class="c1"># Fonction pour formater les valeurs en notation scientifique</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_scientific</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">value</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> ktN/yr&quot;</span>
+
+    <span class="c1"># Calculer le Throughflow pour chaque nœud</span>
+    <span class="n">throughflows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_nodes</span><span class="p">)</span>  <span class="c1"># Initialiser le tableau des throughflows</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_nodes</span><span class="p">):</span>
+        <span class="c1"># Somme des flux sortants si backward flow ou main node</span>
+        <span class="c1"># Somme des flux entrants si forward flow</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">main_node</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">transition_matrix</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="n">throughflows</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">transition_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:])</span>  <span class="c1"># Sortants</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">throughflows</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">transition_matrix</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span>  <span class="c1"># Entrants</span>
+
+    <span class="c1"># Génération des labels et couleurs des nœuds</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_nodes</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">index_to_label</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;cereals (excluding rice) food nitrogen import-export&quot;</span><span class="p">:</span>
+            <span class="n">labels</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;cereals food export&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">index_to_label</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;cereals (excluding rice) feed nitrogen import-export&quot;</span><span class="p">:</span>
+            <span class="n">labels</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;cereals feed export&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">labels</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">index_to_label</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+        <span class="n">node_colors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">index_to_color</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+        <span class="c1"># Ajout des tooltips des nœuds avec Throughflow</span>
+        <span class="n">node_hover_texts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Node: </span><span class="si">{</span><span class="n">labels</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s2">&lt;br&gt;Throughflow: </span><span class="si">{</span><span class="n">format_scientific</span><span class="p">(</span><span class="n">throughflows</span><span class="p">[</span><span class="n">i</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Ajout des flux sortants (cibles)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_forward_flows</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">depth</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">depth</span> <span class="o">&gt;</span> <span class="n">scope</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">for</span> <span class="n">target_node</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_nodes</span><span class="p">):</span>
+            <span class="n">flow</span> <span class="o">=</span> <span class="n">transition_matrix</span><span class="p">[</span><span class="n">node</span><span class="p">,</span> <span class="n">target_node</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">flow</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">sources</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+                <span class="n">targets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">target_node</span><span class="p">)</span>
+                <span class="n">values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">flow</span><span class="p">)</span>
+                <span class="n">link_colors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">index_to_color</span><span class="p">[</span><span class="n">target_node</span><span class="p">])</span>
+                <span class="n">link_hover_texts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Source: </span><span class="si">{</span><span class="n">labels</span><span class="p">[</span><span class="n">node</span><span class="p">]</span><span class="si">}</span><span class="s2">&lt;br&gt;Target: </span><span class="si">{</span><span class="n">labels</span><span class="p">[</span><span class="n">target_node</span><span class="p">]</span><span class="si">}</span><span class="s2">&lt;br&gt;Value: </span><span class="si">{</span><span class="n">format_scientific</span><span class="p">(</span><span class="n">flow</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+                <span class="n">add_forward_flows</span><span class="p">(</span><span class="n">target_node</span><span class="p">,</span> <span class="n">depth</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># Ajout des flux entrants (sources)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_backward_flows</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">depth</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">depth</span> <span class="o">&gt;</span> <span class="n">scope</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">for</span> <span class="n">source_node</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_nodes</span><span class="p">):</span>
+            <span class="n">flow</span> <span class="o">=</span> <span class="n">transition_matrix</span><span class="p">[</span><span class="n">source_node</span><span class="p">,</span> <span class="n">node</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">flow</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">sources</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">source_node</span><span class="p">)</span>
+                <span class="n">targets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+                <span class="n">values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">flow</span><span class="p">)</span>
+                <span class="n">link_colors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">index_to_color</span><span class="p">[</span><span class="n">source_node</span><span class="p">])</span>
+                <span class="n">link_hover_texts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Source: </span><span class="si">{</span><span class="n">labels</span><span class="p">[</span><span class="n">source_node</span><span class="p">]</span><span class="si">}</span><span class="s2">&lt;br&gt;Target: </span><span class="si">{</span><span class="n">labels</span><span class="p">[</span><span class="n">node</span><span class="p">]</span><span class="si">}</span><span class="s2">&lt;br&gt;Value: </span><span class="si">{</span><span class="n">format_scientific</span><span class="p">(</span><span class="n">flow</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+                <span class="n">add_backward_flows</span><span class="p">(</span><span class="n">source_node</span><span class="p">,</span> <span class="n">depth</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">add_forward_flows</span><span class="p">(</span><span class="n">main_node</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">add_backward_flows</span><span class="p">(</span><span class="n">main_node</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># Création du Sankey avec hovertemplate pour les nœuds et les liens</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">(</span>
+        <span class="n">go</span><span class="o">.</span><span class="n">Sankey</span><span class="p">(</span>
+            <span class="n">node</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+                <span class="n">pad</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span>
+                <span class="n">thickness</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+                <span class="n">line</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.5</span><span class="p">),</span>
+                <span class="n">label</span><span class="o">=</span><span class="n">labels</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="n">node_colors</span><span class="p">,</span>
+                <span class="n">customdata</span><span class="o">=</span><span class="n">node_hover_texts</span><span class="p">,</span>  <span class="c1"># Données pour le survol des nœuds</span>
+                <span class="n">hovertemplate</span><span class="o">=</span><span class="s2">&quot;%</span><span class="si">{customdata}</span><span class="s2">&lt;extra&gt;&lt;/extra&gt;&quot;</span><span class="p">,</span>  <span class="c1"># Affichage des tooltips personnalisés des nœuds</span>
+            <span class="p">),</span>
+            <span class="n">link</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+                <span class="n">source</span><span class="o">=</span><span class="n">sources</span><span class="p">,</span>
+                <span class="n">target</span><span class="o">=</span><span class="n">targets</span><span class="p">,</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">values</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="n">link_colors</span><span class="p">,</span>
+                <span class="n">customdata</span><span class="o">=</span><span class="n">link_hover_texts</span><span class="p">,</span>  <span class="c1"># Données pour le survol des flux</span>
+                <span class="n">hovertemplate</span><span class="o">=</span><span class="s2">&quot;%</span><span class="si">{customdata}</span><span class="s2">&lt;extra&gt;&lt;/extra&gt;&quot;</span><span class="p">,</span>  <span class="c1"># Affichage des tooltips personnalisés des flux</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">fig</span><span class="o">.</span><span class="n">update_layout</span><span class="p">(</span>
+        <span class="n">template</span><span class="o">=</span><span class="s2">&quot;plotly_dark&quot;</span><span class="p">,</span>  <span class="c1"># Thème sombre de Plotly</span>
+        <span class="n">font_color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span>  <span class="c1"># Couleur générale du texte (titres, axes, etc.)</span>
+        <span class="n">font_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># Affichage du Sankey dans Streamlit</span>
+    <span class="n">st</span><span class="o">.</span><span class="n">plotly_chart</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">use_container_width</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="merge_nodes">
+<a class="viewcode-back" href="../../docs/source/temps/grafs_e.html#grafs_e.sankey.merge_nodes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">merge_nodes</span><span class="p">(</span><span class="n">adjacency_matrix</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">merges</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Merge groups of nodes (labels) in the adjacency matrix by combining their nitrogen fluxes.</span>
+
+<span class="sd">    This function allows you to combine multiple nodes (e.g., different sectors) into one, by</span>
+<span class="sd">    summing their nitrogen fluxes. It takes a dictionary of node groupings (`merges`), where each</span>
+<span class="sd">    key corresponds to a merged label, and the values are the original labels to be merged.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    adjacency_matrix : np.ndarray</span>
+<span class="sd">        A square matrix of size (n, n) representing nitrogen fluxes, where each entry (i, j)</span>
+<span class="sd">        indicates the nitrogen flow from node i to node j (in ktN/year).</span>
+
+<span class="sd">    labels : list of str</span>
+<span class="sd">        A list of the original labels for the nodes, with length n.</span>
+
+<span class="sd">    merges : dict</span>
+<span class="sd">        A dictionary defining which nodes to merge. The keys are the new labels for merged groups,</span>
+<span class="sd">        and the values are lists of the labels to be merged. For example:</span>
+<span class="sd">        {</span>
+<span class="sd">            &quot;population&quot;: [&quot;urban&quot;, &quot;rural&quot;],</span>
+<span class="sd">            &quot;livestock&quot;: [&quot;bovines&quot;, &quot;ovines&quot;, &quot;equine&quot;, &quot;poultry&quot;, &quot;porcines&quot;, &quot;caprines&quot;],</span>
+<span class="sd">            &quot;industry&quot;: [&quot;haber-bosch&quot;, &quot;other sectors&quot;]</span>
+<span class="sd">        }</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    --------</span>
+<span class="sd">    new_matrix : np.ndarray</span>
+<span class="sd">        The new adjacency matrix after merging the nodes, where the fluxes between merged nodes are summed.</span>
+
+<span class="sd">    new_labels : list of str</span>
+<span class="sd">        The list of the new, merged labels.</span>
+
+<span class="sd">    old_to_new : dict</span>
+<span class="sd">        A dictionary mapping the original node indices to the new merged indices.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">    ------</span>
+<span class="sd">    - The function combines nitrogen fluxes between all nodes defined in `merges`, and returns a reduced matrix</span>
+<span class="sd">      with fewer nodes, where the original nodes within each merged group are summed together.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span>
+
+    <span class="c1"># 1) Construire un mapping &quot;label d&#39;origine&quot; -&gt; &quot;label fusionné&quot;</span>
+    <span class="c1">#    s&#39;il est mentionné dans merges; sinon, il reste tel quel</span>
+    <span class="n">merged_label_map</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">group_label</span><span class="p">,</span> <span class="n">group_list</span> <span class="ow">in</span> <span class="n">merges</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">lbl</span> <span class="ow">in</span> <span class="n">group_list</span><span class="p">:</span>
+            <span class="n">merged_label_map</span><span class="p">[</span><span class="n">lbl</span><span class="p">]</span> <span class="o">=</span> <span class="n">group_label</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_merged_label</span><span class="p">(</span><span class="n">lbl</span><span class="p">):</span>
+        <span class="c1"># Si le label apparaît dans merges, on retourne le label fusionné</span>
+        <span class="c1"># Sinon on le laisse tel quel</span>
+        <span class="k">return</span> <span class="n">merged_label_map</span><span class="p">[</span><span class="n">lbl</span><span class="p">]</span> <span class="k">if</span> <span class="n">lbl</span> <span class="ow">in</span> <span class="n">merged_label_map</span> <span class="k">else</span> <span class="n">lbl</span>
+
+    <span class="c1"># 2) Construire la liste de tous les &quot;nouveaux&quot; labels</span>
+    <span class="c1">#    On peut d&#39;abord faire un set, puis trier pour stabilité</span>
+    <span class="n">new_label_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">lbl</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">:</span>
+        <span class="n">new_label_set</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">get_merged_label</span><span class="p">(</span><span class="n">lbl</span><span class="p">))</span>
+    <span class="n">new_labels</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">new_label_set</span><span class="p">))</span>
+
+    <span class="c1"># 3) Créer un mapping &quot;new_label&quot; -&gt; &quot;nouvel index&quot;</span>
+    <span class="n">new_label_to_index</span> <span class="o">=</span> <span class="p">{</span><span class="n">lbl</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">lbl</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">new_labels</span><span class="p">)}</span>
+
+    <span class="c1"># 4) Construire la nouvelle matrice</span>
+    <span class="c1">#    On fait une somme des flux entre les groupes</span>
+    <span class="n">new_n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_labels</span><span class="p">)</span>
+    <span class="n">new_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">new_n</span><span class="p">,</span> <span class="n">new_n</span><span class="p">))</span>
+
+    <span class="c1"># 5) Construire un dict old_to_new : index d&#39;origine -&gt; index fusionné</span>
+    <span class="n">old_to_new</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">for</span> <span class="n">old_i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="n">old_label</span> <span class="o">=</span> <span class="n">labels</span><span class="p">[</span><span class="n">old_i</span><span class="p">]</span>
+        <span class="n">merged_i_label</span> <span class="o">=</span> <span class="n">get_merged_label</span><span class="p">(</span><span class="n">old_label</span><span class="p">)</span>
+        <span class="n">i_new</span> <span class="o">=</span> <span class="n">new_label_to_index</span><span class="p">[</span><span class="n">merged_i_label</span><span class="p">]</span>
+        <span class="n">old_to_new</span><span class="p">[</span><span class="n">old_i</span><span class="p">]</span> <span class="o">=</span> <span class="n">i_new</span>
+
+    <span class="c1"># 6) Parcourir la matrice d&#39;origine pour agréger les flux</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+            <span class="n">flow</span> <span class="o">=</span> <span class="n">adjacency_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">flow</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">i_new</span> <span class="o">=</span> <span class="n">old_to_new</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">j_new</span> <span class="o">=</span> <span class="n">old_to_new</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="n">new_matrix</span><span class="p">[</span><span class="n">i_new</span><span class="p">,</span> <span class="n">j_new</span><span class="p">]</span> <span class="o">+=</span> <span class="n">flow</span>
+
+    <span class="k">return</span> <span class="n">new_matrix</span><span class="p">,</span> <span class="n">new_labels</span><span class="p">,</span> <span class="n">old_to_new</span></div>
+
+
+
+<div class="viewcode-block" id="streamlit_sankey_app">
+<a class="viewcode-back" href="../../docs/source/temps/grafs_e.html#grafs_e.sankey.streamlit_sankey_app">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">streamlit_sankey_app</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">mode_complet</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates an interactive Sankey diagram in Streamlit, showing nitrogen flows in a system based on a given model.</span>
+
+<span class="sd">    This function allows users to select a main node (sector) and displays its incoming and outgoing nitrogen flows.</span>
+<span class="sd">    The function supports two modes:</span>
+<span class="sd">    - **Full mode (mode_complet=True)**: Displays all nodes without any merging.</span>
+<span class="sd">    - **Simplified mode (mode_complet=False)**: Merges specific nodes (e.g., combining livestock or trade sectors) for a clearer overview.</span>
+
+<span class="sd">    In the simplified mode, nodes are merged based on a predefined set of groupings (e.g., merging various livestock categories into one).</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    model : NitrogenFlowModel</span>
+<span class="sd">        The nitrogen flow model containing the adjacency matrix (transition_matrix), labels, and other relevant data.</span>
+
+<span class="sd">    mode_complet : bool</span>
+<span class="sd">        If `True`, no nodes are merged, and all sectors are shown individually. If `False`, some nodes are merged for simplicity.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    --------</span>
+<span class="sd">    None</span>
+<span class="sd">        The function directly displays the Sankey diagram in the Streamlit interface.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">mode_complet</span><span class="p">:</span>
+        <span class="c1"># A) Mode complet, pas de fusion</span>
+        <span class="n">transition</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">adjacency_matrix</span>
+        <span class="n">new_labels</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">labels</span>  <span class="c1"># on ne change rien</span>
+        <span class="n">old_to_new</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">new_labels</span><span class="p">))}</span>  <span class="c1"># mapping trivial</span>
+
+        <span class="c1"># Sélectionner un objet parmi les labels originaux du modèle</span>
+        <span class="n">main_node_label</span> <span class="o">=</span> <span class="n">st</span><span class="o">.</span><span class="n">selectbox</span><span class="p">(</span><span class="s2">&quot;Select an object&quot;</span><span class="p">,</span> <span class="n">new_labels</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># B) Mode simplifié, avec merges</span>
+        <span class="n">merges</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;Livestock&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;bovines&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;ovines&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;equine&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;poultry&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;porcines&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;caprines&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;Population&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;urban&quot;</span><span class="p">,</span> <span class="s2">&quot;rural&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;Industry&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Haber-Bosch&quot;</span><span class="p">,</span> <span class="s2">&quot;other sectors&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;Cereals&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;Wheat&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Oat&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Barley&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Grain maize&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Rye&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Other cereals&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Rice&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;Forages&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;Straw&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Forage maize&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Forage cabbages&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;Temporary meadows&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Non-legume temporary meadow&quot;</span><span class="p">,</span> <span class="s2">&quot;Alfalfa and clover&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;Oleaginous&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Rapeseed&quot;</span><span class="p">,</span> <span class="s2">&quot;Sunflower&quot;</span><span class="p">,</span> <span class="s2">&quot;Hemp&quot;</span><span class="p">,</span> <span class="s2">&quot;Flax&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;Leguminous&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;Soybean&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Other oil crops&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Horse beans and faba beans&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Peas&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Other protein crops&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Green peas&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Dry beans&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Green beans&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;Fruits and vegetables&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;Dry vegetables&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Dry fruits&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Squash and melons&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Cabbage&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Leaves vegetables&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Fruits&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Olives&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Citrus&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;Roots&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Sugar beet&quot;</span><span class="p">,</span> <span class="s2">&quot;Potatoes&quot;</span><span class="p">,</span> <span class="s2">&quot;Other roots&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;Environment&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;atmospheric N2&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Atmospheric deposition&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;NH3 volatilization&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;N2O emission&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;hydro-system&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;other losses&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;soil stock&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;Trade&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;animal trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;cereals (excluding rice) food trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;fruits and vegetables food trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;leguminous food trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;oleaginous food trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;roots food trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;rice food trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;cereals (excluding rice) feed trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;forages feed trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;leguminous feed trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;oleaginous feed trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;grasslands feed trade&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;fishery products&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;temporary meadows feed trade&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+        <span class="p">}</span>
+
+        <span class="c1"># Fusion</span>
+        <span class="n">transition</span><span class="p">,</span> <span class="n">new_labels</span><span class="p">,</span> <span class="n">old_to_new</span> <span class="o">=</span> <span class="n">merge_nodes</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">adjacency_matrix</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">labels</span><span class="p">,</span> <span class="n">merges</span><span class="o">=</span><span class="n">merges</span><span class="p">)</span>
+
+        <span class="c1"># Sélectionner un objet parmi les *nouveaux* labels (ceux du merge)</span>
+        <span class="n">main_node_label</span> <span class="o">=</span> <span class="n">st</span><span class="o">.</span><span class="n">selectbox</span><span class="p">(</span><span class="s2">&quot;Select an object&quot;</span><span class="p">,</span> <span class="n">new_labels</span><span class="p">)</span>
+
+    <span class="c1"># Récupérer l&#39;index du &quot;main_node_label&quot; dans la liste new_labels</span>
+    <span class="n">main_node_index</span> <span class="o">=</span> <span class="n">new_labels</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">main_node_label</span><span class="p">)</span>
+
+    <span class="c1"># =======================================================================</span>
+    <span class="c1"># GÉNÉRER index-&gt;label et index-&gt;color pour la nouvelle matrice</span>
+    <span class="c1"># =======================================================================</span>
+    <span class="n">new_index_to_label</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="n">new_labels</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">new_labels</span><span class="p">))}</span>
+    <span class="n">new_label_to_index</span> <span class="o">=</span> <span class="p">{</span><span class="n">new_labels</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">new_labels</span><span class="p">))}</span>
+
+    <span class="c1"># Par exemple, si node_color est un dict label -&gt; couleur :</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">color_for_label</span><span class="p">(</span><span class="n">lbl</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">lbl</span> <span class="o">==</span> <span class="s2">&quot;Livestock&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;lightblue&quot;</span>
+        <span class="k">if</span> <span class="n">lbl</span> <span class="o">==</span> <span class="s2">&quot;Population&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;darkblue&quot;</span>
+        <span class="k">if</span> <span class="n">lbl</span> <span class="o">==</span> <span class="s2">&quot;Environment&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;crimson&quot;</span>
+        <span class="k">if</span> <span class="n">lbl</span> <span class="o">==</span> <span class="s2">&quot;Leguminous&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;lightgreen&quot;</span>
+        <span class="k">if</span> <span class="n">lbl</span> <span class="o">==</span> <span class="s2">&quot;Forages&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;limegreen&quot;</span>
+        <span class="k">if</span> <span class="n">lbl</span> <span class="o">==</span> <span class="s2">&quot;Temporary meadows&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;darkgreen&quot;</span>
+        <span class="k">if</span> <span class="n">lbl</span> <span class="o">==</span> <span class="s2">&quot;Cereals&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;gold&quot;</span>
+        <span class="k">if</span> <span class="n">lbl</span> <span class="o">==</span> <span class="s2">&quot;Roots&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;orange&quot;</span>
+        <span class="k">if</span> <span class="n">lbl</span> <span class="o">==</span> <span class="s2">&quot;Oleaginous&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;darkkhaki&quot;</span>
+        <span class="k">if</span> <span class="n">lbl</span> <span class="o">==</span> <span class="s2">&quot;Fruits and vegetables&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;limegreen&quot;</span>
+        <span class="k">if</span> <span class="n">lbl</span> <span class="o">==</span> <span class="s2">&quot;Industry&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;purple&quot;</span>
+        <span class="k">if</span> <span class="n">lbl</span> <span class="o">==</span> <span class="s2">&quot;Trade&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;silver&quot;</span>
+        <span class="k">return</span> <span class="n">node_color</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">new_label_to_index</span><span class="p">[</span><span class="n">lbl</span><span class="p">],</span> <span class="s2">&quot;gray&quot;</span><span class="p">)</span>
+
+    <span class="n">new_index_to_color</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="n">color_for_label</span><span class="p">(</span><span class="n">new_labels</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">new_labels</span><span class="p">))}</span>
+
+    <span class="c1"># =======================================================================</span>
+    <span class="c1"># On peut maintenant appeler ta fonction streamlit_sankey</span>
+    <span class="c1"># =======================================================================</span>
+    <span class="n">streamlit_sankey</span><span class="p">(</span>
+        <span class="n">transition_matrix</span><span class="o">=</span><span class="n">transition</span><span class="p">,</span>
+        <span class="n">main_node</span><span class="o">=</span><span class="n">main_node_index</span><span class="p">,</span>
+        <span class="n">scope</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">index_to_label</span><span class="o">=</span><span class="n">new_index_to_label</span><span class="p">,</span>  <span class="c1"># &lt;--- on passe le nouveau mapping</span>
+        <span class="n">index_to_color</span><span class="o">=</span><span class="n">new_index_to_color</span><span class="p">,</span>  <span class="c1"># &lt;--- idem</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="streamlit_sankey_fertilization">
+<a class="viewcode-back" href="../../docs/source/temps/grafs_e.html#grafs_e.sankey.streamlit_sankey_fertilization">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">streamlit_sankey_fertilization</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">,</span>
+    <span class="n">cultures</span><span class="p">,</span>
+    <span class="n">legumineuses</span><span class="p">,</span>
+    <span class="n">prairies</span><span class="p">,</span>
+    <span class="n">merges</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;Population&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;urban&quot;</span><span class="p">,</span> <span class="s2">&quot;rural&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;Livestock&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;bovines&quot;</span><span class="p">,</span> <span class="s2">&quot;ovines&quot;</span><span class="p">,</span> <span class="s2">&quot;equine&quot;</span><span class="p">,</span> <span class="s2">&quot;poultry&quot;</span><span class="p">,</span> <span class="s2">&quot;porcines&quot;</span><span class="p">,</span> <span class="s2">&quot;caprines&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;Industry&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Haber-Bosch&quot;</span><span class="p">,</span> <span class="s2">&quot;other sectors&quot;</span><span class="p">],</span>
+    <span class="p">},</span>
+    <span class="n">THRESHOLD</span><span class="o">=</span><span class="mf">1e-1</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates a Sankey diagram showing the distribution of backward flows for crops, legumes, and grasslands,</span>
+<span class="sd">    after merging specific nodes (e.g., &quot;urban&quot; + &quot;rural&quot; -&gt; &quot;population&quot;). It filters out nodes and flows</span>
+<span class="sd">    with throughflow/values below a given threshold.</span>
+
+<span class="sd">    The Sankey diagram visualizes nitrogen flows, helping to understand the system&#39;s nutrient balance.</span>
+<span class="sd">    In this diagram:</span>
+<span class="sd">        - Nodes are merged based on predefined categories (e.g., merging various livestock types into one).</span>
+<span class="sd">        - Only significant flows (above the `THRESHOLD`) are kept.</span>
+<span class="sd">        - Backward flows (inflowing nitrogen) are shown, with nodes having a higher throughflow prioritized.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    model : NitrogenFlowModel</span>
+<span class="sd">        The nitrogen flow model used to retrieve the adjacency matrix and labels for sectors.</span>
+
+<span class="sd">    cultures : list of str</span>
+<span class="sd">        The list of crop labels involved in the Sankey diagram.</span>
+
+<span class="sd">    legumineuses : list of str</span>
+<span class="sd">        The list of leguminous crop labels involved in the Sankey diagram.</span>
+
+<span class="sd">    prairies : list of str</span>
+<span class="sd">        The list of grassland or prairie crop labels involved in the Sankey diagram.</span>
+
+<span class="sd">    merges : dict, optional</span>
+<span class="sd">        A dictionary specifying the node groups to merge. The keys are the new merged labels, and the values</span>
+<span class="sd">        are the labels of the nodes to merge. Default merges include:</span>
+<span class="sd">            - &quot;Population&quot;: [&quot;urban&quot;, &quot;rural&quot;]</span>
+<span class="sd">            - &quot;Livestock&quot;: [&quot;bovines&quot;, &quot;ovines&quot;, &quot;equine&quot;, &quot;poultry&quot;, &quot;porcines&quot;, &quot;caprines&quot;]</span>
+<span class="sd">            - &quot;Industry&quot;: [&quot;Haber-Bosch&quot;, &quot;other sectors&quot;]</span>
+
+<span class="sd">    THRESHOLD : float, optional</span>
+<span class="sd">        The minimum value for flows and throughflows to be displayed. Default is `1e-1`, meaning only flows above</span>
+<span class="sd">        this threshold are kept in the visualization.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    --------</span>
+<span class="sd">    None</span>
+<span class="sd">        This function directly displays the Sankey diagram in the Streamlit interface.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">    ------</span>
+<span class="sd">    - The function first merges nodes based on the `merges` dictionary, then constructs the Sankey diagram</span>
+<span class="sd">      for backward flows. It uses `THRESHOLD` to filter out insignificant nodes and flows.</span>
+<span class="sd">    - The color coding of nodes is customized based on predefined categories (e.g., &quot;Livestock&quot;, &quot;Population&quot;, etc.).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">st</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;❌ The model has not run yet. Please use the run tab.&quot;</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="c1"># -- 1) Fusion des nœuds -----------------------------------</span>
+    <span class="n">adjacency_matrix</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">adjacency_matrix</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">labels</span>
+    <span class="n">new_matrix</span><span class="p">,</span> <span class="n">new_labels</span><span class="p">,</span> <span class="n">old_to_new</span> <span class="o">=</span> <span class="n">merge_nodes</span><span class="p">(</span><span class="n">adjacency_matrix</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">merges</span><span class="p">)</span>
+
+    <span class="n">new_label_to_index</span> <span class="o">=</span> <span class="p">{</span><span class="n">lbl</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">lbl</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">new_labels</span><span class="p">)}</span>
+    <span class="n">n_new</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_labels</span><span class="p">)</span>
+
+    <span class="c1"># -- 2) Identifier les cibles &quot;target_categories&quot; (backward flows) ---</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">old_label_to_new_index</span><span class="p">(</span><span class="n">old_label</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">old_label</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">old_idx</span> <span class="o">=</span> <span class="n">labels</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">old_label</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">old_to_new</span><span class="p">[</span><span class="n">old_idx</span><span class="p">]</span>
+
+    <span class="c1"># On fusionne les indices d&#39;origine =&gt; on obtient set(...) d&#39;index fusionnés</span>
+    <span class="n">all_targets_merged</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">lbl</span> <span class="ow">in</span> <span class="n">cultures</span> <span class="o">+</span> <span class="n">legumineuses</span> <span class="o">+</span> <span class="n">prairies</span><span class="p">:</span>
+        <span class="n">new_i</span> <span class="o">=</span> <span class="n">old_label_to_new_index</span><span class="p">(</span><span class="n">lbl</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">new_i</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">all_targets_merged</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">new_i</span><span class="p">)</span>
+
+    <span class="n">target_categories</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">all_targets_merged</span><span class="p">)</span>
+
+    <span class="c1"># -- 3) Couleur des nœuds fusionnés (ex. palette simple + couleurs d&#39;origine) ---</span>
+    <span class="n">color_dict</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;Population&quot;</span><span class="p">:</span> <span class="s2">&quot;darkblue&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Livestock&quot;</span><span class="p">:</span> <span class="s2">&quot;lightblue&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Industry&quot;</span><span class="p">:</span> <span class="s2">&quot;purple&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Leguminous&quot;</span><span class="p">:</span> <span class="s2">&quot;lightgreen&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Roots&quot;</span><span class="p">:</span> <span class="s2">&quot;orange&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Fruits and vegetables&quot;</span><span class="p">:</span> <span class="s2">&quot;limegreen&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Grassland and forages&quot;</span><span class="p">:</span> <span class="s2">&quot;darkgreen&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Cereals&quot;</span><span class="p">:</span> <span class="s2">&quot;gold&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Oleaginous&quot;</span><span class="p">:</span> <span class="s2">&quot;darkkhaki&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Livestock and human&quot;</span><span class="p">:</span> <span class="s2">&quot;lightblue&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Temporary meadows&quot;</span><span class="p">:</span> <span class="s2">&quot;forestgreen&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Forages&quot;</span><span class="p">:</span> <span class="s2">&quot;limegreen&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="c1"># On récupère éventuellement certaines couleurs d&#39;origine</span>
+    <span class="c1"># On suppose model.node_color: dict(index-&gt;couleur) ou dict(label-&gt;couleur)</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">node_color</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">index_to_label</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">:</span>  <span class="c1"># k est un label ?</span>
+            <span class="n">color_dict</span><span class="p">[</span><span class="n">index_to_label</span><span class="p">[</span><span class="n">k</span><span class="p">]]</span> <span class="o">=</span> <span class="n">v</span>
+    <span class="n">default_color</span> <span class="o">=</span> <span class="s2">&quot;black&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_color_for_label</span><span class="p">(</span><span class="n">lbl</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">color_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">lbl</span><span class="p">,</span> <span class="n">default_color</span><span class="p">)</span>
+
+    <span class="c1"># Re-créer un &quot;new_node_colors&quot; =&gt; couleur de chaque new_label</span>
+    <span class="n">new_node_colors</span> <span class="o">=</span> <span class="p">[</span><span class="n">get_color_for_label</span><span class="p">(</span><span class="n">lbl</span><span class="p">)</span> <span class="k">for</span> <span class="n">lbl</span> <span class="ow">in</span> <span class="n">new_labels</span><span class="p">]</span>
+
+    <span class="c1"># -- 4) Récupérer tous les flux backward vers target_categories ---</span>
+    <span class="n">sources_raw</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">targets_raw</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">link_hover_texts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">link_colors</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_scientific</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">value</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> ktN/yr&quot;</span>
+
+    <span class="k">for</span> <span class="n">target_new_idx</span> <span class="ow">in</span> <span class="n">target_categories</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">source_new_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_new</span><span class="p">):</span>
+            <span class="n">flow</span> <span class="o">=</span> <span class="n">new_matrix</span><span class="p">[</span><span class="n">source_new_idx</span><span class="p">,</span> <span class="n">target_new_idx</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">flow</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">sources_raw</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">source_new_idx</span><span class="p">)</span>
+                <span class="n">targets_raw</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">target_new_idx</span><span class="p">)</span>
+                <span class="n">values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">flow</span><span class="p">)</span>
+
+                <span class="n">link_color</span> <span class="o">=</span> <span class="n">new_node_colors</span><span class="p">[</span><span class="n">source_new_idx</span><span class="p">]</span>  <span class="c1"># couleur du lien = couleur source</span>
+                <span class="n">link_colors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">link_color</span><span class="p">)</span>
+
+                <span class="n">link_hover_texts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Source: </span><span class="si">{</span><span class="n">new_labels</span><span class="p">[</span><span class="n">source_new_idx</span><span class="p">]</span><span class="si">}</span><span class="s2">&lt;br&gt;&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Target: </span><span class="si">{</span><span class="n">new_labels</span><span class="p">[</span><span class="n">target_new_idx</span><span class="p">]</span><span class="si">}</span><span class="s2">&lt;br&gt;&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Value: </span><span class="si">{</span><span class="n">format_scientific</span><span class="p">(</span><span class="n">flow</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+    <span class="c1"># -- 5) Calcul du throughflow pour filtrer les nœuds trop petits ---</span>
+    <span class="c1"># Si un nœud est dans target_categories, on calcule la somme des flux entrants,</span>
+    <span class="c1"># sinon la somme des flux sortants, par exemple.</span>
+    <span class="n">throughflows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_new</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_new</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">target_categories</span><span class="p">:</span>
+            <span class="n">throughflows</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">new_matrix</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span>  <span class="c1"># flux entrants</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">throughflows</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">new_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:])</span>  <span class="c1"># flux sortants</span>
+
+    <span class="c1"># -- 6) Filtrage des flux trop faibles --</span>
+    <span class="c1"># On garde seulement ceux dont la value &gt;= THRESHOLD</span>
+    <span class="n">kept_links</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">values</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">val</span> <span class="o">&gt;=</span> <span class="n">THRESHOLD</span><span class="p">:</span>
+            <span class="n">kept_links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+
+    <span class="n">sources_raw</span> <span class="o">=</span> <span class="p">[</span><span class="n">sources_raw</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">kept_links</span><span class="p">]</span>
+    <span class="n">targets_raw</span> <span class="o">=</span> <span class="p">[</span><span class="n">targets_raw</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">kept_links</span><span class="p">]</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">kept_links</span><span class="p">]</span>
+    <span class="n">link_hover_texts</span> <span class="o">=</span> <span class="p">[</span><span class="n">link_hover_texts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">kept_links</span><span class="p">]</span>
+    <span class="n">link_colors</span> <span class="o">=</span> <span class="p">[</span><span class="n">link_colors</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">kept_links</span><span class="p">]</span>
+
+    <span class="c1"># -- 7) Filtrage des nœuds trop faibles (throughflow &lt; THRESHOLD) --</span>
+    <span class="n">kept_nodes</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_new</span><span class="p">)</span> <span class="k">if</span> <span class="n">throughflows</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">THRESHOLD</span><span class="p">]</span>
+
+    <span class="c1"># Filtrer les liens qui impliquent des nœuds non conservés</span>
+    <span class="n">final_links</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sources_raw</span><span class="p">)):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">sources_raw</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">targets_raw</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">s</span> <span class="ow">in</span> <span class="n">kept_nodes</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">t</span> <span class="ow">in</span> <span class="n">kept_nodes</span><span class="p">):</span>
+            <span class="n">final_links</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+
+    <span class="n">sources_raw</span> <span class="o">=</span> <span class="p">[</span><span class="n">sources_raw</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">final_links</span><span class="p">]</span>
+    <span class="n">targets_raw</span> <span class="o">=</span> <span class="p">[</span><span class="n">targets_raw</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">final_links</span><span class="p">]</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">final_links</span><span class="p">]</span>
+    <span class="n">link_hover_texts</span> <span class="o">=</span> <span class="p">[</span><span class="n">link_hover_texts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">final_links</span><span class="p">]</span>
+    <span class="n">link_colors</span> <span class="o">=</span> <span class="p">[</span><span class="n">link_colors</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">final_links</span><span class="p">]</span>
+
+    <span class="c1"># -- 8) Re-map pour le Sankey final --</span>
+    <span class="n">all_nodes</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">sources_raw</span> <span class="o">+</span> <span class="n">targets_raw</span><span class="p">))</span>
+    <span class="n">node_map</span> <span class="o">=</span> <span class="p">{</span><span class="n">old_i</span><span class="p">:</span> <span class="n">new_i</span> <span class="k">for</span> <span class="n">new_i</span><span class="p">,</span> <span class="n">old_i</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">all_nodes</span><span class="p">)}</span>
+
+    <span class="n">sankey_sources</span> <span class="o">=</span> <span class="p">[</span><span class="n">node_map</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">sources_raw</span><span class="p">]</span>
+    <span class="n">sankey_targets</span> <span class="o">=</span> <span class="p">[</span><span class="n">node_map</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">targets_raw</span><span class="p">]</span>
+
+    <span class="n">node_labels</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">node_colors_final</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">node_hover_data</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">old_idx</span> <span class="ow">in</span> <span class="n">all_nodes</span><span class="p">:</span>
+        <span class="n">lbl</span> <span class="o">=</span> <span class="n">new_labels</span><span class="p">[</span><span class="n">old_idx</span><span class="p">]</span>
+        <span class="n">node_labels</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lbl</span><span class="p">)</span>
+        <span class="n">node_colors_final</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_node_colors</span><span class="p">[</span><span class="n">old_idx</span><span class="p">])</span>
+        <span class="n">node_hover_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Node: </span><span class="si">{</span><span class="n">lbl</span><span class="si">}</span><span class="s2">&lt;br&gt;Throughflow: </span><span class="si">{</span><span class="n">format_scientific</span><span class="p">(</span><span class="n">throughflows</span><span class="p">[</span><span class="n">old_idx</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># -- 9) Construction du Sankey final --</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">(</span>
+        <span class="n">go</span><span class="o">.</span><span class="n">Sankey</span><span class="p">(</span>
+            <span class="n">node</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+                <span class="n">pad</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+                <span class="n">thickness</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+                <span class="n">line</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.5</span><span class="p">),</span>
+                <span class="n">label</span><span class="o">=</span><span class="n">node_labels</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="n">node_colors_final</span><span class="p">,</span>
+                <span class="n">customdata</span><span class="o">=</span><span class="n">node_hover_data</span><span class="p">,</span>
+                <span class="n">hovertemplate</span><span class="o">=</span><span class="s2">&quot;%</span><span class="si">{customdata}</span><span class="s2">&lt;extra&gt;&lt;/extra&gt;&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">link</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+                <span class="n">source</span><span class="o">=</span><span class="n">sankey_sources</span><span class="p">,</span>
+                <span class="n">target</span><span class="o">=</span><span class="n">sankey_targets</span><span class="p">,</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">values</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="n">link_colors</span><span class="p">,</span>
+                <span class="n">customdata</span><span class="o">=</span><span class="n">link_hover_texts</span><span class="p">,</span>
+                <span class="n">hovertemplate</span><span class="o">=</span><span class="s2">&quot;%</span><span class="si">{customdata}</span><span class="s2">&lt;extra&gt;&lt;/extra&gt;&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">arrangement</span><span class="o">=</span><span class="s2">&quot;snap&quot;</span><span class="p">,</span>  <span class="c1"># pour respecter potentiellement un placement x,y si besoin</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">fig</span><span class="o">.</span><span class="n">update_layout</span><span class="p">(</span>
+        <span class="n">template</span><span class="o">=</span><span class="s2">&quot;plotly_dark&quot;</span><span class="p">,</span>  <span class="c1"># Thème sombre de Plotly</span>
+        <span class="n">font_color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span>  <span class="c1"># Couleur générale du texte (titres, axes, etc.)</span>
+        <span class="n">width</span><span class="o">=</span><span class="mi">1200</span><span class="p">,</span>
+        <span class="n">height</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">st</span><span class="o">.</span><span class="n">plotly_chart</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">use_container_width</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="streamlit_sankey_food_flows">
+<a class="viewcode-back" href="../../docs/source/temps/grafs_e.html#grafs_e.sankey.streamlit_sankey_food_flows">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">streamlit_sankey_food_flows</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">,</span>
+    <span class="n">cultures</span><span class="p">,</span>
+    <span class="n">legumineuses</span><span class="p">,</span>
+    <span class="n">prairies</span><span class="p">,</span>
+    <span class="n">trades</span><span class="p">,</span>
+    <span class="n">merges</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;cereals (excluding rice) trade&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;cereals (excluding rice) food trade&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;cereals (excluding rice) feed trade&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;fruits and vegetables trade&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;fruits and vegetables food trade&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;fruits and vegetables feed trade&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;leguminous trade&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;leguminous food trade&quot;</span><span class="p">,</span> <span class="s2">&quot;leguminous feed trade&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;oleaginous trade&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;oleaginous food trade&quot;</span><span class="p">,</span> <span class="s2">&quot;oleaginous feed trade&quot;</span><span class="p">],</span>
+    <span class="p">},</span>
+    <span class="n">THRESHOLD</span><span class="o">=</span><span class="mf">1e-1</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates a Sankey diagram showing the distribution of food and feed flows (local, imports and exports)</span>
+<span class="sd">    for crops, legumes, and grasslands after merging certain nodes (e.g., merging &quot;urban&quot; + &quot;rural&quot; into &quot;population&quot;).</span>
+<span class="sd">    The diagram filters out nodes and flows with values below a given threshold (`THRESHOLD`).</span>
+
+<span class="sd">    This function separates trade nodes into two categories:</span>
+<span class="sd">        - &quot;(import)&quot; for incoming flows into the region,</span>
+<span class="sd">        - &quot;(export)&quot; for outgoing flows from the region.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    model : NitrogenFlowModel</span>
+<span class="sd">        The nitrogen flow model used to retrieve the adjacency matrix and labels for sectors.</span>
+
+<span class="sd">    cultures : list of str</span>
+<span class="sd">        The list of crop labels involved in the Sankey diagram.</span>
+
+<span class="sd">    legumineuses : list of str</span>
+<span class="sd">        The list of leguminous crop labels involved in the Sankey diagram.</span>
+
+<span class="sd">    prairies : list of str</span>
+<span class="sd">        The list of grassland or prairie crop labels involved in the Sankey diagram.</span>
+
+<span class="sd">    trades : list of str</span>
+<span class="sd">        The list of trade-related labels to be included in the Sankey diagram.</span>
+
+<span class="sd">    merges : dict, optional</span>
+<span class="sd">        A dictionary specifying the node groups to merge. The keys are the new merged labels, and the values</span>
+<span class="sd">        are the labels of the nodes to merge. For example:</span>
+<span class="sd">            - &quot;cereals (excluding rice) trade&quot;: [&quot;cereals (excluding rice) food trade&quot;, &quot;cereals (excluding rice) feed trade&quot;]</span>
+
+<span class="sd">    THRESHOLD : float, optional</span>
+<span class="sd">        The minimum value for flows to be displayed. Default is `1e-1`, meaning only flows above this threshold</span>
+<span class="sd">        will be shown.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    --------</span>
+<span class="sd">    None</span>
+<span class="sd">        This function directly displays the Sankey diagram in the Streamlit interface.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">    ------</span>
+<span class="sd">    - The function merges specific nodes based on the `merges` dictionary, then constructs the Sankey diagram</span>
+<span class="sd">      for food flows.</span>
+<span class="sd">    - The diagram distinguishes between trade flows and non-trade flows, showing imports and exports separately.</span>
+<span class="sd">    - Nodes and flows with values below the `THRESHOLD` are excluded from the final visualization.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">st</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;❌ Le modèle n&#39;est pas encore exécuté. Lancez d&#39;abord le modèle.&quot;</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="n">adjacency_matrix</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">adjacency_matrix</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">labels</span>
+
+    <span class="c1"># 1) Fusion des nœuds via merges</span>
+    <span class="n">new_matrix</span><span class="p">,</span> <span class="n">new_labels</span><span class="p">,</span> <span class="n">old_to_new</span> <span class="o">=</span> <span class="n">merge_nodes</span><span class="p">(</span><span class="n">adjacency_matrix</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">merges</span><span class="p">)</span>
+    <span class="n">n_new</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_labels</span><span class="p">)</span>
+
+    <span class="c1"># Petit helper pour retrouver l&#39;index fusionné d&#39;un ancien label :</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">old_label_to_new_index</span><span class="p">(</span><span class="n">old_label</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">old_label</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">old_idx</span> <span class="o">=</span> <span class="n">labels</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">old_label</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">old_to_new</span><span class="p">[</span><span class="n">old_idx</span><span class="p">]</span>
+
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="c1"># 2) Construire des ensembles de nœuds &quot;sources&quot; et &quot;cibles&quot; (fusionnés)</span>
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="n">sources_merged</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">lbl</span> <span class="ow">in</span> <span class="n">cultures</span> <span class="o">+</span> <span class="n">legumineuses</span> <span class="o">+</span> <span class="n">prairies</span> <span class="o">+</span> <span class="n">trades</span><span class="p">:</span>
+        <span class="n">idx_merged</span> <span class="o">=</span> <span class="n">old_label_to_new_index</span><span class="p">(</span><span class="n">lbl</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">idx_merged</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sources_merged</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">idx_merged</span><span class="p">)</span>
+
+    <span class="n">targets_merged</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">lbl</span> <span class="ow">in</span> <span class="n">betail</span> <span class="o">+</span> <span class="n">Pop</span> <span class="o">+</span> <span class="n">trades</span><span class="p">:</span>
+        <span class="n">idx_merged</span> <span class="o">=</span> <span class="n">old_label_to_new_index</span><span class="p">(</span><span class="n">lbl</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">idx_merged</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">targets_merged</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">idx_merged</span><span class="p">)</span>
+
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="c1"># 3) Identifier les nœuds &quot;trade&quot; dans la nouvelle matrice</span>
+    <span class="c1">#    =&gt; On cherche ceux dont le label contient &quot;trade&quot; OU ceux issus</span>
+    <span class="c1">#       du merges si l&#39;on veut être plus explicite</span>
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="n">trade_merged</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">lbl_fused</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">new_labels</span><span class="p">)</span> <span class="k">if</span> <span class="s2">&quot;trade&quot;</span> <span class="ow">in</span> <span class="n">lbl_fused</span><span class="o">.</span><span class="n">lower</span><span class="p">()}</span>
+
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="c1"># 4) On va construire un nouveau &quot;réseau&quot; pour Sankey,</span>
+    <span class="c1">#    où chaque nœud &quot;trade&quot; est dupliqué en 2 : import / export</span>
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="c1">#    =&gt; On crée une liste &quot;all_sankey_nodes&quot; = labels finaux dans Sankey</span>
+    <span class="c1">#    =&gt; On crée des mappings pour chaque nœud original i</span>
+    <span class="c1">#       - node_map_import[i]  pour la partie import</span>
+    <span class="c1">#       - node_map_export[i]  pour la partie export</span>
+    <span class="c1">#       - ou un node_map_normal[i] pour ceux qui ne sont pas trade</span>
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="n">all_sankey_nodes</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">node_map_import</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">node_map_export</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">node_map_normal</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_new</span><span class="p">):</span>
+        <span class="n">label_i</span> <span class="o">=</span> <span class="n">new_labels</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">trade_merged</span><span class="p">:</span>
+            <span class="c1"># Créer 2 nœuds : (import) et (export)</span>
+            <span class="n">idx_import</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_sankey_nodes</span><span class="p">)</span>
+            <span class="n">all_sankey_nodes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">label_i</span><span class="p">[:</span><span class="o">-</span><span class="mi">6</span><span class="p">]</span><span class="si">}</span><span class="s2"> import&quot;</span><span class="p">)</span>
+            <span class="n">node_map_import</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">idx_import</span>
+
+            <span class="n">idx_export</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_sankey_nodes</span><span class="p">)</span>
+            <span class="n">all_sankey_nodes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">label_i</span><span class="p">[:</span><span class="o">-</span><span class="mi">6</span><span class="p">]</span><span class="si">}</span><span class="s2"> export&quot;</span><span class="p">)</span>
+            <span class="n">node_map_export</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">idx_export</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Nœud normal : un seul nœud</span>
+            <span class="n">idx_norm</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_sankey_nodes</span><span class="p">)</span>
+            <span class="n">all_sankey_nodes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">label_i</span><span class="p">)</span>
+            <span class="n">node_map_normal</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">idx_norm</span>
+
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="c1"># 5) Pour construire la liste finale des flux (links) du Sankey,</span>
+    <span class="c1">#    on balaye l&#39;ancienne matrice new_matrix.</span>
+    <span class="c1">#    Sauf qu&#39;on ne veut pas TOUT, seulement :</span>
+    <span class="c1">#      - s ∈ sources_merged</span>
+    <span class="c1">#      - t ∈ targets_merged</span>
+    <span class="c1">#    Et on scinde le flux en &quot;import&quot; ou &quot;export&quot; selon le côté trade.</span>
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="n">final_sources</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">final_targets</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">final_values</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">final_hover_texts</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_scientific</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">value</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> ktN/yr&quot;</span>
+
+    <span class="k">for</span> <span class="n">s_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_new</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">s_idx</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sources_merged</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">for</span> <span class="n">t_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_new</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">t_idx</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">targets_merged</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">flow</span> <span class="o">=</span> <span class="n">new_matrix</span><span class="p">[</span><span class="n">s_idx</span><span class="p">,</span> <span class="n">t_idx</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">flow</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># Cas 1) s_idx ∈ trade, t_idx ∉ trade =&gt; flux import</span>
+            <span class="k">if</span> <span class="n">s_idx</span> <span class="ow">in</span> <span class="n">trade_merged</span> <span class="ow">and</span> <span class="n">t_idx</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">trade_merged</span><span class="p">:</span>
+                <span class="n">sankey_s</span> <span class="o">=</span> <span class="n">node_map_import</span><span class="p">[</span><span class="n">s_idx</span><span class="p">]</span>  <span class="c1"># (import)</span>
+                <span class="n">sankey_t</span> <span class="o">=</span> <span class="n">node_map_normal</span><span class="p">[</span><span class="n">t_idx</span><span class="p">]</span>  <span class="c1"># normal</span>
+                <span class="n">flow_type</span> <span class="o">=</span> <span class="s2">&quot;Import&quot;</span>
+
+            <span class="c1"># Cas 2) s_idx ∉ trade, t_idx ∈ trade =&gt; flux export</span>
+            <span class="k">elif</span> <span class="n">s_idx</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">trade_merged</span> <span class="ow">and</span> <span class="n">t_idx</span> <span class="ow">in</span> <span class="n">trade_merged</span><span class="p">:</span>
+                <span class="n">sankey_s</span> <span class="o">=</span> <span class="n">node_map_normal</span><span class="p">[</span><span class="n">s_idx</span><span class="p">]</span>
+                <span class="n">sankey_t</span> <span class="o">=</span> <span class="n">node_map_export</span><span class="p">[</span><span class="n">t_idx</span><span class="p">]</span>  <span class="c1"># (export)</span>
+                <span class="n">flow_type</span> <span class="o">=</span> <span class="s2">&quot;Export&quot;</span>
+
+            <span class="c1"># Cas 3) ni s_idx ni t_idx n’est trade =&gt; flux interne</span>
+            <span class="k">elif</span> <span class="n">s_idx</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">trade_merged</span> <span class="ow">and</span> <span class="n">t_idx</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">trade_merged</span><span class="p">:</span>
+                <span class="n">sankey_s</span> <span class="o">=</span> <span class="n">node_map_normal</span><span class="p">[</span><span class="n">s_idx</span><span class="p">]</span>
+                <span class="n">sankey_t</span> <span class="o">=</span> <span class="n">node_map_normal</span><span class="p">[</span><span class="n">t_idx</span><span class="p">]</span>
+                <span class="n">flow_type</span> <span class="o">=</span> <span class="s2">&quot;Interne&quot;</span>
+
+            <span class="c1"># Cas 4) s_idx ∈ trade, t_idx ∈ trade</span>
+            <span class="c1">#        =&gt; flux trade-&gt;trade (rare?). On peut l’ignorer ou décider d’une convention</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Soit on l&#39;ignore :</span>
+                <span class="c1"># continue</span>
+                <span class="c1"># Soit on le met en import-&gt;export, par ex.:</span>
+                <span class="n">sankey_s</span> <span class="o">=</span> <span class="n">node_map_import</span><span class="p">[</span><span class="n">s_idx</span><span class="p">]</span>
+                <span class="n">sankey_t</span> <span class="o">=</span> <span class="n">node_map_export</span><span class="p">[</span><span class="n">t_idx</span><span class="p">]</span>
+                <span class="n">flow_type</span> <span class="o">=</span> <span class="s2">&quot;Trade-&gt;Trade&quot;</span>
+
+            <span class="n">final_sources</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sankey_s</span><span class="p">)</span>
+            <span class="n">final_targets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sankey_t</span><span class="p">)</span>
+            <span class="n">final_values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">flow</span><span class="p">)</span>
+            <span class="n">final_hover_texts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Source: </span><span class="si">{</span><span class="n">all_sankey_nodes</span><span class="p">[</span><span class="n">sankey_s</span><span class="p">]</span><span class="si">}</span><span class="s2">&lt;br&gt;&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Target: </span><span class="si">{</span><span class="n">all_sankey_nodes</span><span class="p">[</span><span class="n">sankey_t</span><span class="p">]</span><span class="si">}</span><span class="s2">&lt;br&gt;&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Type: </span><span class="si">{</span><span class="n">flow_type</span><span class="si">}</span><span class="s2">&lt;br&gt;&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Value: </span><span class="si">{</span><span class="n">format_scientific</span><span class="p">(</span><span class="n">flow</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="c1"># 6) Filtrer par THRESHOLD sur final_values</span>
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="n">kept_indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">final_values</span><span class="p">)</span> <span class="k">if</span> <span class="n">v</span> <span class="o">&gt;=</span> <span class="n">THRESHOLD</span><span class="p">]</span>
+
+    <span class="n">final_sources</span> <span class="o">=</span> <span class="p">[</span><span class="n">final_sources</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">kept_indices</span><span class="p">]</span>
+    <span class="n">final_targets</span> <span class="o">=</span> <span class="p">[</span><span class="n">final_targets</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">kept_indices</span><span class="p">]</span>
+    <span class="n">final_values</span> <span class="o">=</span> <span class="p">[</span><span class="n">final_values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">kept_indices</span><span class="p">]</span>
+    <span class="n">final_hover_texts</span> <span class="o">=</span> <span class="p">[</span><span class="n">final_hover_texts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">kept_indices</span><span class="p">]</span>
+
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="c1"># 7) Calcul du throughflow pour chaque nœud (dans la nouvelle liste)</span>
+    <span class="c1">#    Puis on supprime les nœuds trop faibles</span>
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="n">nb_sankey_nodes</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_sankey_nodes</span><span class="p">)</span>
+    <span class="n">flow_in</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span> <span class="o">*</span> <span class="n">nb_sankey_nodes</span>
+    <span class="n">flow_out</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span> <span class="o">*</span> <span class="n">nb_sankey_nodes</span>
+
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">final_values</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">final_sources</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">final_targets</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">flow_out</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">+=</span> <span class="n">val</span>
+        <span class="n">flow_in</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">+=</span> <span class="n">val</span>
+
+    <span class="c1"># on peut définir le &quot;throughflow&quot; comme entrée+sortie ou max(entrée,sortie)</span>
+    <span class="c1"># Ici, prenons la somme totale</span>
+    <span class="n">throughflow</span> <span class="o">=</span> <span class="p">[</span><span class="n">flow_in</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">flow_out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nb_sankey_nodes</span><span class="p">)]</span>
+
+    <span class="n">kept_nodes</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">thr</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">throughflow</span><span class="p">)</span> <span class="k">if</span> <span class="n">thr</span> <span class="o">&gt;=</span> <span class="n">THRESHOLD</span><span class="p">}</span>
+
+    <span class="c1"># Filtrage des liens pour garder ceux dont source ET target sont conservés</span>
+    <span class="n">new_links_idx</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">final_sources</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">final_sources</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">in</span> <span class="n">kept_nodes</span> <span class="ow">and</span> <span class="n">final_targets</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">in</span> <span class="n">kept_nodes</span><span class="p">:</span>
+            <span class="n">new_links_idx</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+
+    <span class="n">final_sources</span> <span class="o">=</span> <span class="p">[</span><span class="n">final_sources</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">new_links_idx</span><span class="p">]</span>
+    <span class="n">final_targets</span> <span class="o">=</span> <span class="p">[</span><span class="n">final_targets</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">new_links_idx</span><span class="p">]</span>
+    <span class="n">final_values</span> <span class="o">=</span> <span class="p">[</span><span class="n">final_values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">new_links_idx</span><span class="p">]</span>
+    <span class="n">final_hover_texts</span> <span class="o">=</span> <span class="p">[</span><span class="n">final_hover_texts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">new_links_idx</span><span class="p">]</span>
+
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="c1"># 8) Re-map les indices de nœuds pour le Sankey final</span>
+    <span class="c1"># -------------------------------------------------------------------------</span>
+    <span class="n">sorted_kept</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">kept_nodes</span><span class="p">)</span>
+    <span class="n">node_map_sankey</span> <span class="o">=</span> <span class="p">{</span><span class="n">old_i</span><span class="p">:</span> <span class="n">new_i</span> <span class="k">for</span> <span class="n">new_i</span><span class="p">,</span> <span class="n">old_i</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sorted_kept</span><span class="p">)}</span>
+
+    <span class="n">sankey_sources</span> <span class="o">=</span> <span class="p">[</span><span class="n">node_map_sankey</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">final_sources</span><span class="p">]</span>
+    <span class="n">sankey_targets</span> <span class="o">=</span> <span class="p">[</span><span class="n">node_map_sankey</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">final_targets</span><span class="p">]</span>
+
+    <span class="c1"># 9) Constructions des labels finaux et couleurs</span>
+    <span class="n">sankey_labels</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">sankey_colors</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">color_dict</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;Cereals&quot;</span><span class="p">:</span> <span class="s2">&quot;gold&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Fruits and vegetables&quot;</span><span class="p">:</span> <span class="s2">&quot;lightgreen&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Leguminous&quot;</span><span class="p">:</span> <span class="s2">&quot;darkgreen&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Oleaginous&quot;</span><span class="p">:</span> <span class="s2">&quot;lightgreen&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Grassland and forages&quot;</span><span class="p">:</span> <span class="s2">&quot;green&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;monogastrics&quot;</span><span class="p">:</span> <span class="s2">&quot;lightblue&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Livestock&quot;</span><span class="p">:</span> <span class="s2">&quot;lightblue&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Population&quot;</span><span class="p">:</span> <span class="s2">&quot;darkblue&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Roots&quot;</span><span class="p">:</span> <span class="s2">&quot;orange&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Temporary meadows&quot;</span><span class="p">:</span> <span class="s2">&quot;forestgreen&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Forages&quot;</span><span class="p">:</span> <span class="s2">&quot;limegreen&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">for</span> <span class="n">old_i</span> <span class="ow">in</span> <span class="n">sorted_kept</span><span class="p">:</span>
+        <span class="n">lbl</span> <span class="o">=</span> <span class="n">all_sankey_nodes</span><span class="p">[</span><span class="n">old_i</span><span class="p">]</span>
+        <span class="n">sankey_labels</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lbl</span><span class="p">)</span>
+
+        <span class="c1"># Couleur simple : import en vert, export en rouge</span>
+        <span class="k">if</span> <span class="s2">&quot;import&quot;</span> <span class="ow">in</span> <span class="n">lbl</span><span class="p">:</span>
+            <span class="n">sankey_colors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;slategray&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="s2">&quot;export&quot;</span> <span class="ow">in</span> <span class="n">lbl</span><span class="p">:</span>
+            <span class="n">sankey_colors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;silver&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">lbl</span> <span class="ow">in</span> <span class="n">color_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="c1"># Sinon on utilise ta palette custom ou gris par défaut</span>
+            <span class="c1"># On peut essayer de retrouver l&#39;index &quot;i&quot; d&#39;origine</span>
+            <span class="c1"># Cf. ci-dessous ou on applique juste un gris</span>
+            <span class="n">sankey_colors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">color_dict</span><span class="p">[</span><span class="n">lbl</span><span class="p">])</span>
+        <span class="k">elif</span> <span class="n">lbl</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">:</span>
+            <span class="n">sankey_colors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">node_color</span><span class="p">[</span><span class="n">label_to_index</span><span class="p">[</span><span class="n">lbl</span><span class="p">]])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sankey_colors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;gray&quot;</span><span class="p">)</span>
+
+    <span class="c1"># 10) Construction du Sankey</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">(</span>
+        <span class="n">go</span><span class="o">.</span><span class="n">Sankey</span><span class="p">(</span>
+            <span class="n">node</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+                <span class="n">pad</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+                <span class="n">thickness</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+                <span class="n">line</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.5</span><span class="p">),</span>
+                <span class="n">label</span><span class="o">=</span><span class="n">sankey_labels</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="n">sankey_colors</span><span class="p">,</span>
+                <span class="n">customdata</span><span class="o">=</span><span class="p">[</span>
+                    <span class="sa">f</span><span class="s2">&quot;Node: </span><span class="si">{</span><span class="n">lbl</span><span class="si">}</span><span class="s2">&lt;br&gt;Throughflow: </span><span class="si">{</span><span class="n">format_scientific</span><span class="p">(</span><span class="n">throughflow</span><span class="p">[</span><span class="n">old_i</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">old_i</span> <span class="ow">in</span> <span class="n">sorted_kept</span>
+                <span class="p">],</span>
+                <span class="n">hovertemplate</span><span class="o">=</span><span class="s2">&quot;%</span><span class="si">{customdata}</span><span class="s2">&lt;extra&gt;&lt;/extra&gt;&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">link</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+                <span class="n">source</span><span class="o">=</span><span class="n">sankey_sources</span><span class="p">,</span>
+                <span class="n">target</span><span class="o">=</span><span class="n">sankey_targets</span><span class="p">,</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">final_values</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">sankey_colors</span><span class="p">[</span><span class="n">s</span><span class="p">]</span>  <span class="c1"># Couleur = couleur du noeud source, par ex</span>
+                    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">sankey_sources</span>
+                <span class="p">],</span>
+                <span class="n">customdata</span><span class="o">=</span><span class="n">final_hover_texts</span><span class="p">,</span>
+                <span class="n">hovertemplate</span><span class="o">=</span><span class="s2">&quot;%</span><span class="si">{customdata}</span><span class="s2">&lt;extra&gt;&lt;/extra&gt;&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">arrangement</span><span class="o">=</span><span class="s2">&quot;snap&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">fig</span><span class="o">.</span><span class="n">update_layout</span><span class="p">(</span>
+        <span class="n">template</span><span class="o">=</span><span class="s2">&quot;plotly_dark&quot;</span><span class="p">,</span>  <span class="c1"># Thème sombre de Plotly</span>
+        <span class="n">font_color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span>  <span class="c1"># Couleur générale du texte (titres, axes, etc.)</span>
+        <span class="n">width</span><span class="o">=</span><span class="mi">1200</span><span class="p">,</span>
+        <span class="n">height</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">st</span><span class="o">.</span><span class="n">plotly_chart</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">use_container_width</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="streamlit_sankey_systemic_flows">
+<a class="viewcode-back" href="../../docs/source/temps/grafs_e.html#grafs_e.sankey.streamlit_sankey_systemic_flows">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">streamlit_sankey_systemic_flows</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">,</span>
+    <span class="n">merges</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;cereals (excluding rice)&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Wheat&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Rye&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Barley&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Oat&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Grain maize&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Rice&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Other cereals&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;fruits and vegetables&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Dry vegetables&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Dry fruits&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Squash and melons&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Cabbage&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Leaves vegetables&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Fruits&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Olives&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Citrus&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;leguminous&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Horse beans and faba beans&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Peas&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Other protein crops&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Green peas&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Dry beans&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Green beans&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Soybean&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;oleaginous&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Rapeseed&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Sunflower&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Other oil crops&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;forages&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Forage maize&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Forage cabbages&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Straw&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;temporary meadows&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Non-legume temporary meadow&quot;</span><span class="p">,</span> <span class="s2">&quot;Alfalfa and clover&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;natural meadows &quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Natural meadows &quot;</span><span class="p">],</span>
+        <span class="s2">&quot;trade&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;animal trade&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;cereals (excluding rice) food trade&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;fruits and vegetables food trade&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;leguminous food trade&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;oleaginous food trade&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;roots food trade&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;rice food trade&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;cereals (excluding rice) feed trade&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;forages feed trade&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;leguminous feed trade&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;oleaginous feed trade&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;grasslands feed trade&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;ruminants&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;bovines&quot;</span><span class="p">,</span> <span class="s2">&quot;ovines&quot;</span><span class="p">,</span> <span class="s2">&quot;caprines&quot;</span><span class="p">,</span> <span class="s2">&quot;equine&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;monogastrics&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;porcines&quot;</span><span class="p">,</span> <span class="s2">&quot;poultry&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;population&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;urban&quot;</span><span class="p">,</span> <span class="s2">&quot;rural&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;Environment&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;NH3 volatilization&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;N2O emission&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hydro-system&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;other losses&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;atmospheric N2&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;roots&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Sugar beet&quot;</span><span class="p">,</span> <span class="s2">&quot;Potatoes&quot;</span><span class="p">,</span> <span class="s2">&quot;Other roots&quot;</span><span class="p">],</span>
+    <span class="p">},</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    DEPRECATED. Might be removed in futur release.</span>
+<span class="sd">    Creates a systemic Sankey diagram displaying all flows from the adjacency matrix of the model.</span>
+
+<span class="sd">    The Sankey diagram includes all nitrogen flows between sectors and merges certain nodes based on the `merges` dictionary.</span>
+<span class="sd">    Any flow with a value lower than the `THRESHOLD` is removed from the visualization.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    model : NitrogenFlowModel</span>
+<span class="sd">        The nitrogen flow model containing the adjacency matrix and labels for sectors.</span>
+
+<span class="sd">    merges : dict, optional</span>
+<span class="sd">        A dictionary specifying the nodes to merge. The keys are the new merged labels, and the values</span>
+<span class="sd">        are lists of labels to merge. For example:</span>
+<span class="sd">            - &quot;cereals (excluding rice)&quot;: [&quot;Wheat&quot;, &quot;Rye&quot;, &quot;Barley&quot;, &quot;Oat&quot;, &quot;Grain maize&quot;, &quot;Rice&quot;, &quot;Other cereals&quot;]</span>
+
+<span class="sd">    THRESHOLD : float, optional</span>
+<span class="sd">        The minimum value for flows to be displayed. Flows below this threshold are excluded from the diagram.</span>
+<span class="sd">        The default is `1e-1`, which removes flows with values smaller than 0.1 ktN/yr.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    --------</span>
+<span class="sd">    None</span>
+<span class="sd">        This function directly displays the Sankey diagram in the Streamlit interface.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">    ------</span>
+<span class="sd">    - The diagram shows the distribution of all nitrogen flows between sectors after merging specific nodes.</span>
+<span class="sd">    - The merging of nodes is defined in the `merges` dictionary, which groups multiple original labels into new merged labels.</span>
+<span class="sd">    - The diagram includes both &quot;import&quot; and &quot;export&quot; flows for the trade-related nodes, and internal flows are displayed as well.</span>
+<span class="sd">    - Any flow below the `THRESHOLD` value is filtered out from the visualization to keep only the significant flows.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">plotly.graph_objects</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">go</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">streamlit</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">st</span>
+
+    <span class="k">if</span> <span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">st</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;❌ Le modèle n&#39;est pas encore exécuté. Lancez d&#39;abord le modèle.&quot;</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="c1"># 1) Fusion des nœuds</span>
+    <span class="n">adjacency_matrix</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">adjacency_matrix</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">labels</span>
+    <span class="n">new_matrix</span><span class="p">,</span> <span class="n">new_labels</span><span class="p">,</span> <span class="n">old_to_new</span> <span class="o">=</span> <span class="n">merge_nodes</span><span class="p">(</span><span class="n">adjacency_matrix</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">merges</span><span class="p">)</span>
+    <span class="n">THRESHOLD</span> <span class="o">=</span> <span class="p">(</span><span class="n">adjacency_matrix</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="mi">100</span><span class="p">,)</span>
+    <span class="n">n_new</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_labels</span><span class="p">)</span>
+
+    <span class="c1"># 2) Définir les couleurs des nœuds fusionnés</span>
+    <span class="n">color_dict</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;cereals (excluding rice)&quot;</span><span class="p">:</span> <span class="s2">&quot;gold&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fruits and vegetables&quot;</span><span class="p">:</span> <span class="s2">&quot;lightgreen&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;leguminous&quot;</span><span class="p">:</span> <span class="s2">&quot;lime&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;oleaginous&quot;</span><span class="p">:</span> <span class="s2">&quot;lightgreen&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;meadow and forage&quot;</span><span class="p">:</span> <span class="s2">&quot;green&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;trade&quot;</span><span class="p">:</span> <span class="s2">&quot;gray&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;monogastrics&quot;</span><span class="p">:</span> <span class="s2">&quot;lightblue&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ruminants&quot;</span><span class="p">:</span> <span class="s2">&quot;lightblue&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;population&quot;</span><span class="p">:</span> <span class="s2">&quot;darkblue&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;losses&quot;</span><span class="p">:</span> <span class="s2">&quot;crimson&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;roots&quot;</span><span class="p">:</span> <span class="s2">&quot;orange&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;forages&quot;</span><span class="p">:</span> <span class="s2">&quot;limegreen&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Environment&quot;</span><span class="p">:</span> <span class="s2">&quot;crimson&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;temporary meadows&quot;</span><span class="p">:</span> <span class="s2">&quot;forestgreen&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="c1"># Ajouter les couleurs des labels d&#39;origine si disponibles</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">node_color</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">index_to_label</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">:</span>
+            <span class="n">color_dict</span><span class="p">[</span><span class="n">index_to_label</span><span class="p">[</span><span class="n">k</span><span class="p">]]</span> <span class="o">=</span> <span class="n">v</span>
+    <span class="n">default_color</span> <span class="o">=</span> <span class="s2">&quot;gray&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_color_for_label</span><span class="p">(</span><span class="n">lbl</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">color_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">lbl</span><span class="p">,</span> <span class="n">default_color</span><span class="p">)</span>
+
+    <span class="n">new_node_colors</span> <span class="o">=</span> <span class="p">[</span><span class="n">get_color_for_label</span><span class="p">(</span><span class="n">lbl</span><span class="p">)</span> <span class="k">for</span> <span class="n">lbl</span> <span class="ow">in</span> <span class="n">new_labels</span><span class="p">]</span>
+
+    <span class="c1"># 3) Collecter tous les flux de la matrice fusionnée</span>
+    <span class="n">sources_raw</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">targets_raw</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">link_colors</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">link_hover_texts</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_scientific</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">value</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> ktN/yr&quot;</span>
+
+    <span class="k">for</span> <span class="n">s_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_new</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">t_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_new</span><span class="p">):</span>
+            <span class="n">flow</span> <span class="o">=</span> <span class="n">new_matrix</span><span class="p">[</span><span class="n">s_idx</span><span class="p">,</span> <span class="n">t_idx</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">flow</span> <span class="o">&gt;</span> <span class="n">THRESHOLD</span><span class="p">:</span>  <span class="c1"># Seuil pour éliminer les petits flux</span>
+                <span class="n">sources_raw</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">s_idx</span><span class="p">)</span>
+                <span class="n">targets_raw</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t_idx</span><span class="p">)</span>
+                <span class="n">values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">flow</span><span class="p">)</span>
+                <span class="n">link_colors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_node_colors</span><span class="p">[</span><span class="n">s_idx</span><span class="p">])</span>  <span class="c1"># Couleur des liens selon la source</span>
+                <span class="n">link_hover_texts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Source: </span><span class="si">{</span><span class="n">new_labels</span><span class="p">[</span><span class="n">s_idx</span><span class="p">]</span><span class="si">}</span><span class="s2">&lt;br&gt;Target: </span><span class="si">{</span><span class="n">new_labels</span><span class="p">[</span><span class="n">t_idx</span><span class="p">]</span><span class="si">}</span><span class="s2">&lt;br&gt;Value: </span><span class="si">{</span><span class="n">format_scientific</span><span class="p">(</span><span class="n">flow</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+    <span class="c1"># 4) Calcul du throughflow pour chaque nœud (flux entrants + sortants)</span>
+    <span class="n">throughflows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">new_matrix</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">new_matrix</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># 5) Filtrage des nœuds avec throughflow &lt; THRESHOLD</span>
+    <span class="n">kept_nodes</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_new</span><span class="p">)</span> <span class="k">if</span> <span class="n">throughflows</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">THRESHOLD</span><span class="p">]</span>
+
+    <span class="c1"># Filtrer les flux qui impliquent des nœuds supprimés</span>
+    <span class="n">final_links</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">idx</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sources_raw</span><span class="p">))</span> <span class="k">if</span> <span class="n">sources_raw</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="ow">in</span> <span class="n">kept_nodes</span> <span class="ow">and</span> <span class="n">targets_raw</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="ow">in</span> <span class="n">kept_nodes</span>
+    <span class="p">]</span>
+
+    <span class="n">sources_raw</span> <span class="o">=</span> <span class="p">[</span><span class="n">sources_raw</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">final_links</span><span class="p">]</span>
+    <span class="n">targets_raw</span> <span class="o">=</span> <span class="p">[</span><span class="n">targets_raw</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">final_links</span><span class="p">]</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">final_links</span><span class="p">]</span>
+    <span class="n">link_colors</span> <span class="o">=</span> <span class="p">[</span><span class="n">link_colors</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">final_links</span><span class="p">]</span>
+    <span class="n">link_hover_texts</span> <span class="o">=</span> <span class="p">[</span><span class="n">link_hover_texts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">final_links</span><span class="p">]</span>
+
+    <span class="c1"># 6) Re-mappage des indices pour le Sankey</span>
+    <span class="n">unique_final_nodes</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">sources_raw</span> <span class="o">+</span> <span class="n">targets_raw</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">idx</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">unique_final_nodes</span><span class="p">:</span>
+            <span class="n">unique_final_nodes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+
+    <span class="n">node_map</span> <span class="o">=</span> <span class="p">{</span><span class="n">old_i</span><span class="p">:</span> <span class="n">new_i</span> <span class="k">for</span> <span class="n">new_i</span><span class="p">,</span> <span class="n">old_i</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">unique_final_nodes</span><span class="p">)}</span>
+
+    <span class="n">sankey_sources</span> <span class="o">=</span> <span class="p">[</span><span class="n">node_map</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">sources_raw</span><span class="p">]</span>
+    <span class="n">sankey_targets</span> <span class="o">=</span> <span class="p">[</span><span class="n">node_map</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">targets_raw</span><span class="p">]</span>
+
+    <span class="c1"># 7) Création des labels et couleurs finaux pour les nœuds</span>
+    <span class="n">node_labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">new_labels</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">unique_final_nodes</span><span class="p">]</span>
+    <span class="n">node_final_colors</span> <span class="o">=</span> <span class="p">[</span><span class="n">new_node_colors</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">unique_final_nodes</span><span class="p">]</span>
+    <span class="n">node_hover_data</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="sa">f</span><span class="s2">&quot;Node: </span><span class="si">{</span><span class="n">new_labels</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="si">}</span><span class="s2">&lt;br&gt;Throughflow: </span><span class="si">{</span><span class="n">format_scientific</span><span class="p">(</span><span class="n">throughflows</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">unique_final_nodes</span>
+    <span class="p">]</span>
+
+    <span class="c1"># 8) Création du Sankey final</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">go</span><span class="o">.</span><span class="n">Figure</span><span class="p">(</span>
+        <span class="n">go</span><span class="o">.</span><span class="n">Sankey</span><span class="p">(</span>
+            <span class="n">node</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+                <span class="n">pad</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+                <span class="n">thickness</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+                <span class="n">line</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.5</span><span class="p">),</span>
+                <span class="n">label</span><span class="o">=</span><span class="n">node_labels</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="n">node_final_colors</span><span class="p">,</span>
+                <span class="n">customdata</span><span class="o">=</span><span class="n">node_hover_data</span><span class="p">,</span>
+                <span class="n">hovertemplate</span><span class="o">=</span><span class="s2">&quot;%</span><span class="si">{customdata}</span><span class="s2">&lt;extra&gt;&lt;/extra&gt;&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">link</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+                <span class="n">source</span><span class="o">=</span><span class="n">sankey_sources</span><span class="p">,</span>
+                <span class="n">target</span><span class="o">=</span><span class="n">sankey_targets</span><span class="p">,</span>
+                <span class="n">value</span><span class="o">=</span><span class="n">values</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="n">link_colors</span><span class="p">,</span>
+                <span class="n">customdata</span><span class="o">=</span><span class="n">link_hover_texts</span><span class="p">,</span>
+                <span class="n">hovertemplate</span><span class="o">=</span><span class="s2">&quot;%</span><span class="si">{customdata}</span><span class="s2">&lt;extra&gt;&lt;/extra&gt;&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">arrangement</span><span class="o">=</span><span class="s2">&quot;freeform&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">fig</span><span class="o">.</span><span class="n">update_layout</span><span class="p">(</span>
+        <span class="n">template</span><span class="o">=</span><span class="s2">&quot;plotly_dark&quot;</span><span class="p">,</span>  <span class="c1"># Thème sombre de Plotly</span>
+        <span class="n">font_color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span>  <span class="c1"># Couleur générale du texte (titres, axes, etc.)</span>
+        <span class="c1"># title=&quot;Systemic Sankey Diagram: All Flows&quot;,</span>
+        <span class="n">width</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span>
+        <span class="n">height</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">st</span><span class="o">.</span><span class="n">plotly_chart</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">use_container_width</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, Adrien Fauste-Gay.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

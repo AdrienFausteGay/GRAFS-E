@@ -1,0 +1,658 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>src &#8212; GRAFS-E 01/02/25 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=390ba95b"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'modules';</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">GRAFS-E 01/02/25 documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="grafs_e.html">
+    grafs_e package
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="grafs_e.html">
+    grafs_e package
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">src</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="src">
+<h1>src<a class="headerlink" href="#src" title="Link to this heading">#</a></h1>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="grafs_e.html">grafs_e package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="grafs_e.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grafs_e.html#module-grafs_e.N_class">grafs_e.N_class module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.CultureData"><code class="docutils literal notranslate"><span class="pre">CultureData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.CultureData.create_culture_dataframe"><code class="docutils literal notranslate"><span class="pre">create_culture_dataframe()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.DataLoader"><code class="docutils literal notranslate"><span class="pre">DataLoader</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.DataLoader.get_import_feed"><code class="docutils literal notranslate"><span class="pre">get_import_feed()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.DataLoader.pre_process_df"><code class="docutils literal notranslate"><span class="pre">pre_process_df()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.ElevageData"><code class="docutils literal notranslate"><span class="pre">ElevageData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.ElevageData.create_elevage_dataframe"><code class="docutils literal notranslate"><span class="pre">create_elevage_dataframe()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.FluxGenerator"><code class="docutils literal notranslate"><span class="pre">FluxGenerator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.FluxGenerator.generate_flux"><code class="docutils literal notranslate"><span class="pre">generate_flux()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.FluxGenerator.get_coef"><code class="docutils literal notranslate"><span class="pre">get_coef()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel"><code class="docutils literal notranslate"><span class="pre">NitrogenFlowModel</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.C_eff"><code class="docutils literal notranslate"><span class="pre">C_eff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.F_eff"><code class="docutils literal notranslate"><span class="pre">F_eff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.Ftot"><code class="docutils literal notranslate"><span class="pre">Ftot()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.LU_density"><code class="docutils literal notranslate"><span class="pre">LU_density()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.N2O_em"><code class="docutils literal notranslate"><span class="pre">N2O_em()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.NH3_vol"><code class="docutils literal notranslate"><span class="pre">NH3_vol()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.NUE"><code class="docutils literal notranslate"><span class="pre">NUE()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.NUE_system"><code class="docutils literal notranslate"><span class="pre">NUE_system()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.NUE_system_2"><code class="docutils literal notranslate"><span class="pre">NUE_system_2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.N_eff"><code class="docutils literal notranslate"><span class="pre">N_eff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.N_self_sufficient"><code class="docutils literal notranslate"><span class="pre">N_self_sufficient()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.R_eff"><code class="docutils literal notranslate"><span class="pre">R_eff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.Y"><code class="docutils literal notranslate"><span class="pre">Y()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.animal_production"><code class="docutils literal notranslate"><span class="pre">animal_production()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.cereals_production"><code class="docutils literal notranslate"><span class="pre">cereals_production()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.cereals_production_r"><code class="docutils literal notranslate"><span class="pre">cereals_production_r()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.compute_fluxes"><code class="docutils literal notranslate"><span class="pre">compute_fluxes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.emissions"><code class="docutils literal notranslate"><span class="pre">emissions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.env_footprint"><code class="docutils literal notranslate"><span class="pre">env_footprint()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.extract_input_output_matrixs"><code class="docutils literal notranslate"><span class="pre">extract_input_output_matrixs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.fruits_and_vegetable_production"><code class="docutils literal notranslate"><span class="pre">fruits_and_vegetable_production()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.fruits_and_vegetable_production_r"><code class="docutils literal notranslate"><span class="pre">fruits_and_vegetable_production_r()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.get_adjacency_matrix"><code class="docutils literal notranslate"><span class="pre">get_adjacency_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.get_core_matrix"><code class="docutils literal notranslate"><span class="pre">get_core_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.get_df_culture"><code class="docutils literal notranslate"><span class="pre">get_df_culture()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.get_df_elevage"><code class="docutils literal notranslate"><span class="pre">get_df_elevage()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.get_transition_matrix"><code class="docutils literal notranslate"><span class="pre">get_transition_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.grassland_and_forages_production"><code class="docutils literal notranslate"><span class="pre">grassland_and_forages_production()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.grassland_and_forages_production_r"><code class="docutils literal notranslate"><span class="pre">grassland_and_forages_production_r()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.imported_nitrogen"><code class="docutils literal notranslate"><span class="pre">imported_nitrogen()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.leguminous_production"><code class="docutils literal notranslate"><span class="pre">leguminous_production()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.leguminous_production_r"><code class="docutils literal notranslate"><span class="pre">leguminous_production_r()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.net_footprint"><code class="docutils literal notranslate"><span class="pre">net_footprint()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.net_imported_animal"><code class="docutils literal notranslate"><span class="pre">net_imported_animal()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.net_imported_plant"><code class="docutils literal notranslate"><span class="pre">net_imported_plant()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.oleaginous_production"><code class="docutils literal notranslate"><span class="pre">oleaginous_production()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.oleaginous_production_r"><code class="docutils literal notranslate"><span class="pre">oleaginous_production_r()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.plot_heatmap_interactive"><code class="docutils literal notranslate"><span class="pre">plot_heatmap_interactive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.primXsec"><code class="docutils literal notranslate"><span class="pre">primXsec()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.rel_fert"><code class="docutils literal notranslate"><span class="pre">rel_fert()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.roots_production"><code class="docutils literal notranslate"><span class="pre">roots_production()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.roots_production_r"><code class="docutils literal notranslate"><span class="pre">roots_production_r()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.stacked_plant_production"><code class="docutils literal notranslate"><span class="pre">stacked_plant_production()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.surfaces"><code class="docutils literal notranslate"><span class="pre">surfaces()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.surfaces_tot"><code class="docutils literal notranslate"><span class="pre">surfaces_tot()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.tot_fert"><code class="docutils literal notranslate"><span class="pre">tot_fert()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.N_class.NitrogenFlowModel.total_plant_production"><code class="docutils literal notranslate"><span class="pre">total_plant_production()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="grafs_e.html#module-grafs_e.app">grafs_e.app module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.add_color_legend"><code class="docutils literal notranslate"><span class="pre">add_color_legend()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.add_france_rectangle"><code class="docutils literal notranslate"><span class="pre">add_france_rectangle()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.create_image_map"><code class="docutils literal notranslate"><span class="pre">create_image_map()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.create_map"><code class="docutils literal notranslate"><span class="pre">create_map()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.create_map_with_metrics"><code class="docutils literal notranslate"><span class="pre">create_map_with_metrics()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.excel_uploaded"><code class="docutils literal notranslate"><span class="pre">excel_uploaded()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.generate_heatmap"><code class="docutils literal notranslate"><span class="pre">generate_heatmap()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.generate_scenario"><code class="docutils literal notranslate"><span class="pre">generate_scenario()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.get_metric_range"><code class="docutils literal notranslate"><span class="pre">get_metric_range()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.get_metrics_for_all_regions"><code class="docutils literal notranslate"><span class="pre">get_metrics_for_all_regions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.get_metrics_for_all_years"><code class="docutils literal notranslate"><span class="pre">get_metrics_for_all_years()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.is_online"><code class="docutils literal notranslate"><span class="pre">is_online()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.load_data"><code class="docutils literal notranslate"><span class="pre">load_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.load_geojson"><code class="docutils literal notranslate"><span class="pre">load_geojson()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.load_image"><code class="docutils literal notranslate"><span class="pre">load_image()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.load_pkl"><code class="docutils literal notranslate"><span class="pre">load_pkl()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.plot_standard_graph"><code class="docutils literal notranslate"><span class="pre">plot_standard_graph()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.run_models_for_all_regions"><code class="docutils literal notranslate"><span class="pre">run_models_for_all_regions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.run_models_for_all_years"><code class="docutils literal notranslate"><span class="pre">run_models_for_all_years()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.stacked_area_chart"><code class="docutils literal notranslate"><span class="pre">stacked_area_chart()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.app.weighted_mean"><code class="docutils literal notranslate"><span class="pre">weighted_mean()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="grafs_e.html#module-grafs_e.donnees">grafs_e.donnees module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="grafs_e.html#module-grafs_e.graphes_objet">grafs_e.graphes_objet module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer"><code class="docutils literal notranslate"><span class="pre">GraphAnalyzer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer.calculate_Ceff"><code class="docutils literal notranslate"><span class="pre">calculate_Ceff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer.calculate_Feff"><code class="docutils literal notranslate"><span class="pre">calculate_Feff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer.calculate_Neff"><code class="docutils literal notranslate"><span class="pre">calculate_Neff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer.calculate_Reff"><code class="docutils literal notranslate"><span class="pre">calculate_Reff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer.calculer_et_tracer_distribution_distances"><code class="docutils literal notranslate"><span class="pre">calculer_et_tracer_distribution_distances()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer.calculer_et_tracer_distribution_distances_V2"><code class="docutils literal notranslate"><span class="pre">calculer_et_tracer_distribution_distances_V2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer.calculer_longueur_moyenne_chemins"><code class="docutils literal notranslate"><span class="pre">calculer_longueur_moyenne_chemins()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer.dijkstra_exclusion"><code class="docutils literal notranslate"><span class="pre">dijkstra_exclusion()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer.in_centrality"><code class="docutils literal notranslate"><span class="pre">in_centrality()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer.obtenir_n_plus_courts_chemins"><code class="docutils literal notranslate"><span class="pre">obtenir_n_plus_courts_chemins()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer.out_centrality"><code class="docutils literal notranslate"><span class="pre">out_centrality()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer.plot_degree_distribution_power_law"><code class="docutils literal notranslate"><span class="pre">plot_degree_distribution_power_law()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer.plot_flux_distribution_log"><code class="docutils literal notranslate"><span class="pre">plot_flux_distribution_log()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer.plot_flux_distribution_log_x"><code class="docutils literal notranslate"><span class="pre">plot_flux_distribution_log_x()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer.plot_flux_distribution_semilog"><code class="docutils literal notranslate"><span class="pre">plot_flux_distribution_semilog()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer.plot_weight_probability_distribution"><code class="docutils literal notranslate"><span class="pre">plot_weight_probability_distribution()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphAnalyzer.weighted_assortativity"><code class="docutils literal notranslate"><span class="pre">weighted_assortativity()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphVisualizer"><code class="docutils literal notranslate"><span class="pre">GraphVisualizer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphVisualizer.afficher_chemins_graphiquement"><code class="docutils literal notranslate"><span class="pre">afficher_chemins_graphiquement()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphVisualizer.afficher_chemins_graphiquement_sous_graph"><code class="docutils literal notranslate"><span class="pre">afficher_chemins_graphiquement_sous_graph()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphVisualizer.afficher_chemins_graphiquement_tot"><code class="docutils literal notranslate"><span class="pre">afficher_chemins_graphiquement_tot()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphVisualizer.afficher_et_visualiser_10_noeuds_plus_proches"><code class="docutils literal notranslate"><span class="pre">afficher_et_visualiser_10_noeuds_plus_proches()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphVisualizer.afficher_et_visualiser_10_noeuds_plus_proches_2"><code class="docutils literal notranslate"><span class="pre">afficher_et_visualiser_10_noeuds_plus_proches_2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphVisualizer.ajouter_retour_ligne_si_long"><code class="docutils literal notranslate"><span class="pre">ajouter_retour_ligne_si_long()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphVisualizer.color_nodes"><code class="docutils literal notranslate"><span class="pre">color_nodes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphVisualizer.draw_curved_edges"><code class="docutils literal notranslate"><span class="pre">draw_curved_edges()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphVisualizer.draw_curved_edges_fancy"><code class="docutils literal notranslate"><span class="pre">draw_curved_edges_fancy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphVisualizer.draw_curved_edges_log"><code class="docutils literal notranslate"><span class="pre">draw_curved_edges_log()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphVisualizer.draw_custom_networkx_edges"><code class="docutils literal notranslate"><span class="pre">draw_custom_networkx_edges()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphVisualizer.draw_hexagonal_graph"><code class="docutils literal notranslate"><span class="pre">draw_hexagonal_graph()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphVisualizer.draw_nodes_with_patches"><code class="docutils literal notranslate"><span class="pre">draw_nodes_with_patches()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphVisualizer.plot_graph_base"><code class="docutils literal notranslate"><span class="pre">plot_graph_base()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.GraphVisualizer.regroup_nodes_layout"><code class="docutils literal notranslate"><span class="pre">regroup_nodes_layout()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.Graphs_maker"><code class="docutils literal notranslate"><span class="pre">Graphs_maker</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.Graphs_maker.get_graph"><code class="docutils literal notranslate"><span class="pre">get_graph()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.graphes_objet.Graphs_maker.get_matrix"><code class="docutils literal notranslate"><span class="pre">get_matrix()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="grafs_e.html#module-grafs_e.launch">grafs_e.launch module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.launch.run"><code class="docutils literal notranslate"><span class="pre">run()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="grafs_e.html#module-grafs_e.prospective">grafs_e.prospective module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.CultureData_prospect"><code class="docutils literal notranslate"><span class="pre">CultureData_prospect</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.CultureData_prospect.create_culture_dataframe"><code class="docutils literal notranslate"><span class="pre">create_culture_dataframe()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.ElevageData_prospect"><code class="docutils literal notranslate"><span class="pre">ElevageData_prospect</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.ElevageData_prospect.create_elevage_dataframe"><code class="docutils literal notranslate"><span class="pre">create_elevage_dataframe()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect"><code class="docutils literal notranslate"><span class="pre">NitrogenFlowModel_prospect</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.C_eff"><code class="docutils literal notranslate"><span class="pre">C_eff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.F_eff"><code class="docutils literal notranslate"><span class="pre">F_eff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.Ftot"><code class="docutils literal notranslate"><span class="pre">Ftot()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.LU_density"><code class="docutils literal notranslate"><span class="pre">LU_density()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.N2O_em"><code class="docutils literal notranslate"><span class="pre">N2O_em()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.NH3_vol"><code class="docutils literal notranslate"><span class="pre">NH3_vol()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.NUE"><code class="docutils literal notranslate"><span class="pre">NUE()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.NUE_system"><code class="docutils literal notranslate"><span class="pre">NUE_system()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.NUE_system_2"><code class="docutils literal notranslate"><span class="pre">NUE_system_2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.N_eff"><code class="docutils literal notranslate"><span class="pre">N_eff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.N_self_sufficient"><code class="docutils literal notranslate"><span class="pre">N_self_sufficient()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.R_eff"><code class="docutils literal notranslate"><span class="pre">R_eff()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.Y"><code class="docutils literal notranslate"><span class="pre">Y()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.animal_production"><code class="docutils literal notranslate"><span class="pre">animal_production()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.cereals_production"><code class="docutils literal notranslate"><span class="pre">cereals_production()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.cereals_production_r"><code class="docutils literal notranslate"><span class="pre">cereals_production_r()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.compute_fluxes"><code class="docutils literal notranslate"><span class="pre">compute_fluxes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.emissions"><code class="docutils literal notranslate"><span class="pre">emissions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.env_footprint"><code class="docutils literal notranslate"><span class="pre">env_footprint()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.extract_input_output_matrixs"><code class="docutils literal notranslate"><span class="pre">extract_input_output_matrixs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.fruits_and_vegetable_production"><code class="docutils literal notranslate"><span class="pre">fruits_and_vegetable_production()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.fruits_and_vegetable_production_r"><code class="docutils literal notranslate"><span class="pre">fruits_and_vegetable_production_r()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.get_adjacency_matrix"><code class="docutils literal notranslate"><span class="pre">get_adjacency_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.get_core_matrix"><code class="docutils literal notranslate"><span class="pre">get_core_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.get_df_culture"><code class="docutils literal notranslate"><span class="pre">get_df_culture()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.get_df_elevage"><code class="docutils literal notranslate"><span class="pre">get_df_elevage()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.get_transition_matrix"><code class="docutils literal notranslate"><span class="pre">get_transition_matrix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.grassland_and_forages_production"><code class="docutils literal notranslate"><span class="pre">grassland_and_forages_production()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.grassland_and_forages_production_r"><code class="docutils literal notranslate"><span class="pre">grassland_and_forages_production_r()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.imported_nitrogen"><code class="docutils literal notranslate"><span class="pre">imported_nitrogen()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.leguminous_production"><code class="docutils literal notranslate"><span class="pre">leguminous_production()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.leguminous_production_r"><code class="docutils literal notranslate"><span class="pre">leguminous_production_r()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.net_footprint"><code class="docutils literal notranslate"><span class="pre">net_footprint()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.net_imported_animal"><code class="docutils literal notranslate"><span class="pre">net_imported_animal()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.net_imported_plant"><code class="docutils literal notranslate"><span class="pre">net_imported_plant()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.oleaginous_production"><code class="docutils literal notranslate"><span class="pre">oleaginous_production()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.oleaginous_production_r"><code class="docutils literal notranslate"><span class="pre">oleaginous_production_r()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.plot_heatmap_interactive"><code class="docutils literal notranslate"><span class="pre">plot_heatmap_interactive()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.primXsec"><code class="docutils literal notranslate"><span class="pre">primXsec()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.rel_fert"><code class="docutils literal notranslate"><span class="pre">rel_fert()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.roots_production"><code class="docutils literal notranslate"><span class="pre">roots_production()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.roots_production_r"><code class="docutils literal notranslate"><span class="pre">roots_production_r()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.stacked_plant_production"><code class="docutils literal notranslate"><span class="pre">stacked_plant_production()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.surfaces"><code class="docutils literal notranslate"><span class="pre">surfaces()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.surfaces_tot"><code class="docutils literal notranslate"><span class="pre">surfaces_tot()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.tot_fert"><code class="docutils literal notranslate"><span class="pre">tot_fert()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.NitrogenFlowModel_prospect.total_plant_production"><code class="docutils literal notranslate"><span class="pre">total_plant_production()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y"><code class="docutils literal notranslate"><span class="pre">Y</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.Y_th"><code class="docutils literal notranslate"><span class="pre">Y_th()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.Y_th_exp"><code class="docutils literal notranslate"><span class="pre">Y_th_exp()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.Y_th_exp_cap"><code class="docutils literal notranslate"><span class="pre">Y_th_exp_cap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.Y_th_lin"><code class="docutils literal notranslate"><span class="pre">Y_th_lin()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.Y_th_lin_2"><code class="docutils literal notranslate"><span class="pre">Y_th_lin_2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.Y_th_lin_2_smooth"><code class="docutils literal notranslate"><span class="pre">Y_th_lin_2_smooth()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.Y_th_poly"><code class="docutils literal notranslate"><span class="pre">Y_th_poly()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.Y_th_poly_cap"><code class="docutils literal notranslate"><span class="pre">Y_th_poly_cap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.Y_th_sigmoid"><code class="docutils literal notranslate"><span class="pre">Y_th_sigmoid()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.Y_th_sigmoid_cap"><code class="docutils literal notranslate"><span class="pre">Y_th_sigmoid_cap()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.compare_r2"><code class="docutils literal notranslate"><span class="pre">compare_r2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.fit_Y"><code class="docutils literal notranslate"><span class="pre">fit_Y()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.fit_Y_exp"><code class="docutils literal notranslate"><span class="pre">fit_Y_exp()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.fit_Y_exp_2"><code class="docutils literal notranslate"><span class="pre">fit_Y_exp_2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.fit_Y_lin"><code class="docutils literal notranslate"><span class="pre">fit_Y_lin()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.fit_Y_lin_2"><code class="docutils literal notranslate"><span class="pre">fit_Y_lin_2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.fit_Y_lin_2_scipy"><code class="docutils literal notranslate"><span class="pre">fit_Y_lin_2_scipy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.fit_Y_lin_2_smooth"><code class="docutils literal notranslate"><span class="pre">fit_Y_lin_2_smooth()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.fit_Y_poly"><code class="docutils literal notranslate"><span class="pre">fit_Y_poly()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.fit_Y_poly_constrained"><code class="docutils literal notranslate"><span class="pre">fit_Y_poly_constrained()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.fit_Y_sigmoid"><code class="docutils literal notranslate"><span class="pre">fit_Y_sigmoid()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.get_Y"><code class="docutils literal notranslate"><span class="pre">get_Y()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.plot_Y"><code class="docutils literal notranslate"><span class="pre">plot_Y()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.plot_Y_exp"><code class="docutils literal notranslate"><span class="pre">plot_Y_exp()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.plot_Y_lin"><code class="docutils literal notranslate"><span class="pre">plot_Y_lin()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.plot_Y_lin_2"><code class="docutils literal notranslate"><span class="pre">plot_Y_lin_2()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.plot_Y_lin_2_smooth"><code class="docutils literal notranslate"><span class="pre">plot_Y_lin_2_smooth()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.plot_Y_poly"><code class="docutils literal notranslate"><span class="pre">plot_Y_poly()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.Y.plot_Y_sigmoid"><code class="docutils literal notranslate"><span class="pre">plot_Y_sigmoid()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.scenario"><code class="docutils literal notranslate"><span class="pre">scenario</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.scenario.LU_excretion"><code class="docutils literal notranslate"><span class="pre">LU_excretion()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.scenario.LU_prod"><code class="docutils literal notranslate"><span class="pre">LU_prod()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.scenario.extrapolate_recent_trend"><code class="docutils literal notranslate"><span class="pre">extrapolate_recent_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.scenario.generate_base_scenar"><code class="docutils literal notranslate"><span class="pre">generate_base_scenar()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.scenario.generate_crop_tab"><code class="docutils literal notranslate"><span class="pre">generate_crop_tab()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.scenario.generate_scenario_excel"><code class="docutils literal notranslate"><span class="pre">generate_scenario_excel()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.scenario.get_import_net"><code class="docutils literal notranslate"><span class="pre">get_import_net()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.scenario.historic_trend"><code class="docutils literal notranslate"><span class="pre">historic_trend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.scenario.livestock_LU"><code class="docutils literal notranslate"><span class="pre">livestock_LU()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.scenario.logistic_urb_pop"><code class="docutils literal notranslate"><span class="pre">logistic_urb_pop()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="grafs_e.html#grafs_e.prospective.scenario.pre_generate_scenario_excel"><code class="docutils literal notranslate"><span class="pre">pre_generate_scenario_excel()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="grafs_e.html#module-grafs_e.sankey">grafs_e.sankey module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.sankey.merge_nodes"><code class="docutils literal notranslate"><span class="pre">merge_nodes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.sankey.streamlit_sankey"><code class="docutils literal notranslate"><span class="pre">streamlit_sankey()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.sankey.streamlit_sankey_app"><code class="docutils literal notranslate"><span class="pre">streamlit_sankey_app()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.sankey.streamlit_sankey_fertilization"><code class="docutils literal notranslate"><span class="pre">streamlit_sankey_fertilization()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.sankey.streamlit_sankey_food_flows"><code class="docutils literal notranslate"><span class="pre">streamlit_sankey_food_flows()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.sankey.streamlit_sankey_systemic_flows"><code class="docutils literal notranslate"><span class="pre">streamlit_sankey_systemic_flows()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="grafs_e.html#module-grafs_e">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="grafs_e.html#grafs_e.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/modules.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025, Adrien Fauste-Gay.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
