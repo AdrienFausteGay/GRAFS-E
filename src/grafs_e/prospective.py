@@ -4111,12 +4111,6 @@ class NitrogenFlowModel_prospect:
             df_elevage["Edible Nitrogen (ktN)"] + df_elevage["Non Edible Nitrogen (ktN)"]
         ) / df_elevage["Ingestion (ktN)"]
 
-        from grafs_e.prospective import scenario
-
-        LU = scenario.livestock_LU(self.data_loader, self.region)[self.year]
-        LU["equine"] = LU.pop("equines")
-        df_elevage["LU"] = LU
-
         # On ajoute une ligne total à df_cultures et df_elevage
         colonnes_a_exclure = [
             "Spreading Rate (%)",
