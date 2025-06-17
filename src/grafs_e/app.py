@@ -420,7 +420,8 @@ with tab2:
 
     # 🔹 Indépendance de l'affichage de la heatmap 🔹
     if "heatmap_fig" in st.session_state:
-        st.text(f"Total Throughflow : {np.round(st.session_state.model.get_transition_matrix().sum(), 1)} ktN/yr.")
+        if st.session_state.model:
+            st.text(f"Total Throughflow : {np.round(st.session_state.model.get_transition_matrix().sum(), 1)} ktN/yr.")
         st.subheader(f"Heatmap of the nitrogen flows for {st.session_state.selected_region} in {st.session_state.year}")
         st.plotly_chart(st.session_state.heatmap_fig, use_container_width=True)
 
@@ -1754,8 +1755,9 @@ with tab6:
                 st.rerun()
 
             if st.session_state.heatmap_fig_pros:
-                st.text(
-                    f"Total Throughflow : {np.round(st.session_state.model.get_transition_matrix().sum(), 1)} ktN/yr."
-                )
+                if st.session_state.model:
+                    st.text(
+                        f"Total Throughflow : {np.round(st.session_state.model.get_transition_matrix().sum(), 1)} ktN/yr."
+                    )
                 st.subheader(f"Heatmap – {st.session_state.selected_region_pros} / {st.session_state.year_pros}")
                 st.plotly_chart(st.session_state.heatmap_fig_pros, use_container_width=True)
