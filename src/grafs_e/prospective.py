@@ -851,6 +851,7 @@ class Y:
         """
         F = []
         Y = []
+        YR = []
         if region == "Savoie":
             years = annees_disponibles[1:]
         else:
@@ -872,6 +873,7 @@ class Y:
             ):
                 F.append(f)
                 Y.append(y)
+                YR.append(int(yr))
         if plot:
             plt.figure(figsize=(8, 6))
             plt.plot(F, Y, "o-", color="tab:blue", markersize=6, label="Historic Data")  # Points et ligne
@@ -881,7 +883,7 @@ class Y:
             plt.grid(True, linestyle="--", alpha=0.4)  # Grille discrète
             plt.legend()
             plt.show()
-        return np.array(F), np.array(Y)
+        return np.array(F), np.array(Y), np.array(YR)
 
     @staticmethod
     def Y_th(f, y_max):
@@ -895,7 +897,7 @@ class Y:
         :return: Estimated yield.
         :rtype: float or np.ndarray
         """
-        if f + y_max == 0:
+        if np.any(f + y_max == 0):
             return 0
         return f * y_max / (f + y_max)
 
@@ -1097,7 +1099,7 @@ class Y:
         :return: Tuple of (y_max, fitted_yield_values).
         :rtype: tuple[float or None, np.ndarray or None]
         """
-        F, Y = self.get_Y(culture, region)
+        F, Y, _ = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, None
         Y_max_init = max(Y)
@@ -1123,7 +1125,7 @@ class Y:
         :return: Tuple containing optimal parameters Y_max and k, and the fitted curve.
         :rtype: Tuple[float, float, np.ndarray | None]
         """
-        F, Y = self.get_Y(culture, region)
+        F, Y, _ = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, None
         Y_max_init = max(Y)
@@ -1154,7 +1156,7 @@ class Y:
         :return: Tuple with Y_max, k, and the fitted yield curve.
         :rtype: Tuple[float, float, np.ndarray | None]
         """
-        F, Y = self.get_Y(culture, region)
+        F, Y, _ = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, None
 
@@ -1197,7 +1199,7 @@ class Y:
         :return: Fitted slope and intercept with predicted yield.
         :rtype: Tuple[float, float, np.ndarray | None]
         """
-        F, Y = self.get_Y(culture, region)
+        F, Y, _ = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, None
         try:
@@ -1223,7 +1225,7 @@ class Y:
         :return: Parameters a, xb (threshold), c (second slope), and the fitted curve.
         :rtype: Tuple[float, float, float, np.ndarray | None]
         """
-        F, Y = self.get_Y(culture, region)
+        F, Y, _ = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, None
         try:
@@ -1253,7 +1255,7 @@ class Y:
         :return: Optimized parameters a, xb, c and the yield prediction.
         :rtype: Tuple[float, float, float, np.ndarray | None]
         """
-        F, Y = self.get_Y(culture, region)
+        F, Y, _ = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, 0, None
 
@@ -1290,7 +1292,7 @@ class Y:
         :return: Parameters a, b, c and the fitted values.
         :rtype: Tuple[float, float, float, np.ndarray | None]
         """
-        F, Y = self.get_Y(culture, region)
+        F, Y, _ = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, None
 
@@ -1319,7 +1321,7 @@ class Y:
         :return: Fitted parameters a, b and predicted yield values.
         :rtype: Tuple[float, float, np.ndarray | None]
         """
-        F, Y = self.get_Y(culture, region)
+        F, Y, _ = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, 0, None
 
@@ -1370,7 +1372,7 @@ class Y:
         :return: Parameters Ymax, k, x0 and fitted yield curve.
         :rtype: Tuple[float, float, float, np.ndarray | None]
         """
-        F, Y = self.get_Y(culture, region)
+        F, Y, _ = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, 0, None
 
@@ -1407,7 +1409,7 @@ class Y:
         :return: Parameters a, xb, c, s (smoothness), and predicted yield.
         :rtype: Tuple[float, float, float, float, np.ndarray | None]
         """
-        F, Y = self.get_Y(culture, region)
+        F, Y, _ = self.get_Y(culture, region)
         if len(Y) == 0:
             return 0, 0, 0, 0, None
 
@@ -1448,7 +1450,8 @@ class Y:
         :return: None. The plot is displayed with matplotlib.
         :rtype: None
         """
-        F, Y = self.get_Y(culture, region)
+        F, Y, int_yr = self.get_Y(culture, region)
+
         if len(Y) == 0:
             print(f"no {culture} found in {region}")
             return None
@@ -1456,18 +1459,35 @@ class Y:
         F_th = np.linspace(0, 1.05 * max(F), 100)
         Y_th = self.Y_th(F_th, Y_max)
         r2 = np.round(r2_score(Y, self.Y_th(F, Y_max)), 2)
-        plt.figure(figsize=(8, 6))
-        plt.plot(F, Y, "o", color="tab:blue", markersize=8, label=f"Historic Data, r2 = {r2}")  # Points et ligne
-        plt.plot(Y, Y, "--")
-        plt.plot(F_th, Y_th, label=f"Theoric curve, Y_max = {int(Y_max)}", color="orange", linewidth=4)
-        plt.xlim(0, max(F_th) * 1.1)  # Départ de l'axe X à 0
-        plt.ylim(0, max(Y) * 1.1)  # Départ de l'axe Y à 0
-        plt.gca().set_aspect("equal")  # Échelle identique en ajustant les limites
+        plt.figure(figsize=(10, 6))
+        # 1. Utiliser plt.scatter pour permettre la coloration par point
+        # c=int_yr mappe les couleurs aux valeurs de la liste d'années
+        # cmap='viridis' est une palette de couleurs, vous pouvez en choisir d'autres ('plasma', 'coolwarm', etc.)
+        scatter = plt.scatter(F, Y, c=int_yr, cmap="viridis", s=64, zorder=3, label="Historical data")
+
+        # 2. Ajouter une barre de couleur pour servir de légende pour les années
+        cbar = plt.colorbar(scatter)
+        cbar.set_label("Year", fontsize=12)
+        # --- Fin des modifications ---
+
+        plt.plot(Y, Y, "--", color="gray", label="Ligne 1:1")
+        plt.plot(
+            F_th,
+            Y_th,
+            label=f"Theoric curve, Y_max = {int(Y_max)}, $r^2$ = {np.round(r2, 2)}",
+            color="orange",
+            linewidth=4,
+            zorder=2,
+        )
+
+        plt.xlim(0, max(F_th) * 1.1)
+        plt.ylim(0, max(Y) * 1.1)
+        # plt.gca().set_aspect("equal") # Peut déformer le graphique, à utiliser avec précaution
 
         plt.xlabel("Fertilization (kgN/ha/yr)", fontsize=12)
         plt.ylabel("Yield (kgN/ha/yr)", fontsize=12)
-        # plt.title("Relation entre Fertilisation et Rendement", fontsize=14, fontweight='bold')
-        plt.grid(True, linestyle="--", alpha=0.4)  # Grille discrète
+        # plt.title(f"Relation Fertilisation-Rendement\n($r^2$ = {r2})", fontsize=14, fontweight='bold')
+        plt.grid(True, linestyle="--", alpha=0.4)
         plt.legend()
         plt.show()
 
@@ -1482,7 +1502,7 @@ class Y:
         :return: None. Displays the matplotlib plot.
         :rtype: None
         """
-        F, Y = self.get_Y(culture, region)
+        F, Y, int_yr = self.get_Y(culture, region)
         if len(Y) == 0:
             print(f"no {culture} found in {region}")
             return None
@@ -1491,18 +1511,32 @@ class Y:
         F_th = np.linspace(0, 1.05 * max(F), 100)
         Y_th = self.Y_th_lin(F_th, a, b)
         r2 = np.round(r2_score(Y, self.Y_th_lin(F, a, b)), 2)
-        plt.figure(figsize=(8, 6))
-        plt.plot(F, Y, "o", color="tab:blue", markersize=8, label=f"Historic Data, r2 = {r2}")  # Points et ligne
-        plt.plot(Y, Y, "--")
-        plt.plot(F_th, Y_th, label=f"Theoric curve, a = {np.round(a, 2)}, b = {int(b)}", color="orange", linewidth=4)
-        plt.xlim(0, max(F_th) * 1.1)  # Départ de l'axe X à 0
-        plt.ylim(0, max(Y) * 1.1)  # Départ de l'axe Y à 0
-        plt.gca().set_aspect("equal")  # Échelle identique en ajustant les limites
+        plt.figure(figsize=(10, 6))
+        scatter = plt.scatter(F, Y, c=int_yr, cmap="viridis", s=64, zorder=3, label="Historical data")
+
+        # 2. Ajouter une barre de couleur pour servir de légende pour les années
+        cbar = plt.colorbar(scatter)
+        cbar.set_label("Year", fontsize=12)
+        # --- Fin des modifications ---
+
+        plt.plot(Y, Y, "--", color="gray", label="Ligne 1:1")
+        plt.plot(
+            F_th,
+            Y_th,
+            label=f"Theoric curve, Y_max = {int(b)}, $r^2$ = {np.round(r2, 2)}",
+            color="orange",
+            linewidth=4,
+            zorder=2,
+        )
+
+        plt.xlim(0, max(F_th) * 1.1)
+        plt.ylim(0, max(Y) * 1.1)
+        # plt.gca().set_aspect("equal") # Peut déformer le graphique, à utiliser avec précaution
 
         plt.xlabel("Fertilization (kgN/ha/yr)", fontsize=12)
         plt.ylabel("Yield (kgN/ha/yr)", fontsize=12)
-        # plt.title("Relation entre Fertilisation et Rendement", fontsize=14, fontweight='bold')
-        plt.grid(True, linestyle="--", alpha=0.4)  # Grille discrète
+        # plt.title(f"Relation Fertilisation-Rendement\n($r^2$ = {r2})", fontsize=14, fontweight='bold')
+        plt.grid(True, linestyle="--", alpha=0.4)
         plt.legend()
         plt.show()
 
@@ -1517,7 +1551,7 @@ class Y:
         :return: None. The plot is rendered using matplotlib.
         :rtype: None
         """
-        F, Y = self.get_Y(culture, region)
+        F, Y, int_yr = self.get_Y(culture, region)
         if len(Y) == 0:
             print(f"no {culture} found in {region}")
             return None
@@ -1526,24 +1560,32 @@ class Y:
         F_th = np.linspace(0, 1.05 * max(F), 100)
         Y_th = self.Y_th_lin_2(F_th, a, xb, c)
         r2 = np.round(r2_score(Y, self.Y_th_lin_2(F, a, xb, c)), 2)
-        plt.figure(figsize=(8, 6))
-        plt.plot(F, Y, "o", color="tab:blue", markersize=8, label=f"Historic Data, r2 = {r2}")  # Points et ligne
-        plt.plot(Y, Y, "--")
+        plt.figure(figsize=(10, 6))
+        scatter = plt.scatter(F, Y, c=int_yr, cmap="viridis", s=64, zorder=3, label="Historical data")
+
+        # 2. Ajouter une barre de couleur pour servir de légende pour les années
+        cbar = plt.colorbar(scatter)
+        cbar.set_label("Year", fontsize=12)
+        # --- Fin des modifications ---
+
+        plt.plot(Y, Y, "--", color="gray", label="Ligne 1:1")
         plt.plot(
             F_th,
             Y_th,
-            label=f"Theoric curve, a = {np.round(a, 2)}, b = {int(xb)}, c = {np.round(c, 2)}",
+            label=f"Theoric curve, $r^2$ = {np.round(r2, 2)}",
             color="orange",
             linewidth=4,
+            zorder=2,
         )
-        plt.xlim(0, max(F_th) * 1.1)  # Départ de l'axe X à 0
-        plt.ylim(0, max(Y) * 1.1)  # Départ de l'axe Y à 0
-        plt.gca().set_aspect("equal")  # Échelle identique en ajustant les limites
+
+        plt.xlim(0, max(F_th) * 1.1)
+        plt.ylim(0, max(Y) * 1.1)
+        # plt.gca().set_aspect("equal") # Peut déformer le graphique, à utiliser avec précaution
 
         plt.xlabel("Fertilization (kgN/ha/yr)", fontsize=12)
         plt.ylabel("Yield (kgN/ha/yr)", fontsize=12)
-        # plt.title("Relation entre Fertilisation et Rendement", fontsize=14, fontweight='bold')
-        plt.grid(True, linestyle="--", alpha=0.4)  # Grille discrète
+        # plt.title(f"Relation Fertilisation-Rendement\n($r^2$ = {r2})", fontsize=14, fontweight='bold')
+        plt.grid(True, linestyle="--", alpha=0.4)
         plt.legend()
         plt.show()
 
@@ -1558,7 +1600,7 @@ class Y:
         :return: None. Displays the curve and points.
         :rtype: None
         """
-        F, Y = self.get_Y(culture, region)
+        F, Y, int_yr = self.get_Y(culture, region)
         if len(Y) == 0:
             print(f"no {culture} found in {region}")
             return None
@@ -1567,24 +1609,32 @@ class Y:
         F_th = np.linspace(0, 1.05 * max(F), 100)
         Y_th = self.Y_th_poly_cap(F_th, a, b)
         r2 = np.round(r2_score(Y, self.Y_th_poly_cap(F, a, b)), 2)
-        plt.figure(figsize=(8, 6))
-        plt.plot(F, Y, "o", color="tab:blue", markersize=8, label=f"Historic Data, r2 = {r2}")  # Points et ligne
-        plt.plot(Y, Y, "--")
+        plt.figure(figsize=(10, 6))
+        scatter = plt.scatter(F, Y, c=int_yr, cmap="viridis", s=64, zorder=3, label="Historical data")
+
+        # 2. Ajouter une barre de couleur pour servir de légende pour les années
+        cbar = plt.colorbar(scatter)
+        cbar.set_label("Year", fontsize=12)
+        # --- Fin des modifications ---
+
+        plt.plot(Y, Y, "--", color="gray", label="Ligne 1:1")
         plt.plot(
             F_th,
             Y_th,
-            label=f"Theoric curve, a = {np.round(a, 2)}, b = {np.round(b, 2)}",
+            label=f"Theoric curve, Y_max = {np.round(-b / (2 * a))}, $r^2$ = {np.round(r2, 2)}",
             color="orange",
             linewidth=4,
+            zorder=2,
         )
-        plt.xlim(0, max(F_th) * 1.1)  # Départ de l'axe X à 0
-        plt.ylim(0, max(Y) * 1.1)  # Départ de l'axe Y à 0
-        plt.gca().set_aspect("equal")  # Échelle identique en ajustant les limites
+
+        plt.xlim(0, max(F_th) * 1.1)
+        plt.ylim(0, max(Y) * 1.1)
+        # plt.gca().set_aspect("equal") # Peut déformer le graphique, à utiliser avec précaution
 
         plt.xlabel("Fertilization (kgN/ha/yr)", fontsize=12)
         plt.ylabel("Yield (kgN/ha/yr)", fontsize=12)
-        # plt.title("Relation entre Fertilisation et Rendement", fontsize=14, fontweight='bold')
-        plt.grid(True, linestyle="--", alpha=0.4)  # Grille discrète
+        # plt.title(f"Relation Fertilisation-Rendement\n($r^2$ = {r2})", fontsize=14, fontweight='bold')
+        plt.grid(True, linestyle="--", alpha=0.4)
         plt.legend()
         plt.show()
 
@@ -1599,12 +1649,7 @@ class Y:
         :return: None. Plot appears inline.
         :rtype: None
         """
-        F, Y = self.get_Y(culture, region)
-        # F_filtered, Y_filtered = zip(
-        #     *[(f, y) for f, y in zip(F, Y) if y <= 0.9 * f]
-        # )  # Delete points for which NUE = Y/F > 0.9
-        # F = np.array(F_filtered)
-        # Y = np.array(Y_filtered)
+        F, Y, int_yr = self.get_Y(culture, region)
         if len(Y) == 0:
             print(f"no {culture} found in {region}")
             return None
@@ -1612,18 +1657,32 @@ class Y:
         F_th = np.linspace(0, 1.05 * max(F), 100)
         Y_th = self.Y_th_exp_cap(F_th, Y_max, k)
         r2 = np.round(r2_score(Y, self.Y_th_exp_cap(F, Y_max, k)), 2)
-        plt.figure(figsize=(8, 6))
-        plt.plot(F, Y, "o", color="tab:blue", markersize=8, label=f"Historic Data, r2 = {r2}")  # Points et ligne
-        plt.plot(Y, Y, "--")
-        plt.plot(F_th, Y_th, label=f"Theoric curve, Y_max = {int(Y_max)}, k = {int(k)}", color="orange", linewidth=4)
-        plt.xlim(0, max(F_th))  # Départ de l'axe X à 0
-        plt.ylim(0, max(Y))  # Départ de l'axe Y à 0
-        plt.gca().set_aspect("equal")  # Échelle identique en ajustant les limites
+        plt.figure(figsize=(10, 6))
+        scatter = plt.scatter(F, Y, c=int_yr, cmap="viridis", s=64, zorder=3, label="Historical data")
+
+        # 2. Ajouter une barre de couleur pour servir de légende pour les années
+        cbar = plt.colorbar(scatter)
+        cbar.set_label("Year", fontsize=12)
+        # --- Fin des modifications ---
+
+        plt.plot(Y, Y, "--", color="gray", label="Ligne 1:1")
+        plt.plot(
+            F_th,
+            Y_th,
+            label=f"Theoric curve, Y_max = {np.round(Y_max)}, $r^2$ = {np.round(r2, 2)}",
+            color="orange",
+            linewidth=4,
+            zorder=2,
+        )
+
+        plt.xlim(0, max(F_th) * 1.1)
+        plt.ylim(0, max(Y) * 1.1)
+        # plt.gca().set_aspect("equal") # Peut déformer le graphique, à utiliser avec précaution
 
         plt.xlabel("Fertilization (kgN/ha/yr)", fontsize=12)
         plt.ylabel("Yield (kgN/ha/yr)", fontsize=12)
-        # plt.title("Relation entre Fertilisation et Rendement", fontsize=14, fontweight='bold')
-        plt.grid(True, linestyle="--", alpha=0.4)  # Grille discrète
+        # plt.title(f"Relation Fertilisation-Rendement\n($r^2$ = {r2})", fontsize=14, fontweight='bold')
+        plt.grid(True, linestyle="--", alpha=0.4)
         plt.legend()
         plt.show()
 
@@ -1638,7 +1697,7 @@ class Y:
         :return: None. Shows the matplotlib plot.
         :rtype: None
         """
-        F, Y = self.get_Y(culture, region)
+        F, Y, int_yr = self.get_Y(culture, region)
         if len(Y) == 0:
             print(f"no {culture} found in {region}")
             return None
@@ -1650,23 +1709,31 @@ class Y:
 
         r2 = np.round(r2_score(Y, self.Y_th_sigmoid_cap(F, Ymax, k_opt, x0_opt)), 2)
 
-        plt.figure(figsize=(8, 6))
-        plt.plot(F, Y, "o", color="tab:blue", markersize=8, label=f"Historic Data, r² = {r2}")
-        plt.plot(Y, Y, "--", color="gray", label="y = x")
+        plt.figure(figsize=(10, 6))
+        scatter = plt.scatter(F, Y, c=int_yr, cmap="viridis", s=64, zorder=3, label="Historical data")
+
+        # 2. Ajouter une barre de couleur pour servir de légende pour les années
+        cbar = plt.colorbar(scatter)
+        cbar.set_label("Year", fontsize=12)
+        # --- Fin des modifications ---
+
+        plt.plot(Y, Y, "--", color="gray", label="Ligne 1:1")
         plt.plot(
             F_th,
             Y_th,
-            label=f"Sigmoid fit (Ymax={int(Ymax)}, x₀={int(x0_opt)}, k={k_opt:.2e})",
+            label=f"Theoric curve, Y_max = {np.round(Ymax)}, $r^2$ = {np.round(r2, 2)}",
             color="orange",
-            linewidth=3,
+            linewidth=4,
+            zorder=2,
         )
 
         plt.xlim(0, max(F_th) * 1.1)
         plt.ylim(0, max(Y) * 1.1)
-        plt.gca().set_aspect("equal")
+        # plt.gca().set_aspect("equal") # Peut déformer le graphique, à utiliser avec précaution
 
         plt.xlabel("Fertilization (kgN/ha/yr)", fontsize=12)
         plt.ylabel("Yield (kgN/ha/yr)", fontsize=12)
+        # plt.title(f"Relation Fertilisation-Rendement\n($r^2$ = {r2})", fontsize=14, fontweight='bold')
         plt.grid(True, linestyle="--", alpha=0.4)
         plt.legend()
         plt.show()
@@ -1682,7 +1749,7 @@ class Y:
         :return: None. Generates a yield vs fertilization curve.
         :rtype: None
         """
-        F, Y = self.get_Y(culture, region)
+        F, Y, int_yr = self.get_Y(culture, region)
         if len(Y) == 0:
             print(f"no {culture} found in {region}")
             return None
@@ -1695,22 +1762,30 @@ class Y:
         r2 = np.round(r2_score(Y, self.Y_th_lin_2_smooth(F, a, xb, c, s)), 2)
 
         plt.figure(figsize=(8, 6))
-        plt.plot(F, Y, "o", color="tab:blue", markersize=8, label=f"Historic Data, r² = {r2}")
-        plt.plot(Y, Y, "--", color="gray", label="y = x")
+        scatter = plt.scatter(F, Y, c=int_yr, cmap="viridis", s=64, zorder=3, label="Historical data")
+
+        # 2. Ajouter une barre de couleur pour servir de légende pour les années
+        cbar = plt.colorbar(scatter)
+        cbar.set_label("Year", fontsize=12)
+        # --- Fin des modifications ---
+
+        plt.plot(Y, Y, "--", color="gray", label="Ligne 1:1")
         plt.plot(
             F_th,
             Y_th,
-            label=f"a={np.round(a, 2)}, xb={int(xb)}, s={s:.2e}, c={np.round(c, 2)}",
+            label=f"Theoric curve, $r^2$ = {np.round(r2, 2)}",
             color="orange",
-            linewidth=3,
+            linewidth=4,
+            zorder=2,
         )
 
         plt.xlim(0, max(F_th) * 1.1)
         plt.ylim(0, max(Y) * 1.1)
-        plt.gca().set_aspect("equal")
+        # plt.gca().set_aspect("equal") # Peut déformer le graphique, à utiliser avec précaution
 
         plt.xlabel("Fertilization (kgN/ha/yr)", fontsize=12)
         plt.ylabel("Yield (kgN/ha/yr)", fontsize=12)
+        # plt.title(f"Relation Fertilisation-Rendement\n($r^2$ = {r2})", fontsize=14, fontweight='bold')
         plt.grid(True, linestyle="--", alpha=0.4)
         plt.legend()
         plt.show()
@@ -1771,7 +1846,7 @@ class Y:
 
                 # Ajustement avec la troisieme fonction (Y_th_lin)
                 a, b, _ = self.fit_Y_lin(culture, region)
-                if Y_max_exp is not None:
+                if a is not None:
                     r2_values["Linear 1 slope"][culture] = np.round(b)
                     # r2_values["Linear 1 slope"][culture] = np.round(r2_score(Y, self.Y_th_lin(F, a, b)), 2)
                 else:

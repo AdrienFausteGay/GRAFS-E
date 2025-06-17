@@ -143,68 +143,12 @@ with tab1:
         unsafe_allow_html=True,
     )
 
-    import functools
-    import threading
-    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-
-    # Chemin absolu vers .../docs/_build/html/index.html
-    INDEX_HTML = Path(__file__).parent.parent.parent / "docs" / "source" / ".docs" / "_build" / "html" / "index.html"
-
-    import os
-
-    DOC_DIR = Path(__file__).parent.parent.parent / "docs" / "source" / ".docs" / "_build" / "html"
-    PORT = 8765
-
-    # --- HTTP Server Setup ---
-    def run_server(server_class=ThreadingHTTPServer, handler_class=SimpleHTTPRequestHandler, port=PORT, directory=None):
-        """
-        Starts a simple HTTP server in a background thread to serve files from a specific directory.
-        """
-        if directory is None:
-            # Fallback to the current directory if no specific directory is provided
-            directory = os.getcwd()
-
-        # Use functools.partial to create a handler that serves files from the specified directory.
-        # This is the key change: we avoid using os.chdir().
-        handler = functools.partial(handler_class, directory=str(directory))
-
-        server_address = ("0.0.0.0", port)
-
-        try:
-            httpd = server_class(server_address, handler)
-            # Inform the user that the server is running
-            print(f"Serving documentation from '{directory}' on http://localhost:{port}")
-            # Start the server. It will run forever in its thread until the main app stops.
-            httpd.serve_forever()
-        except Exception as e:
-            # Log any errors that occur during server startup
-            print(f"Error starting server: {e}")
-
-    # Start the documentation server in a background thread.
-    # The 'daemon=True' flag ensures the thread will close when the main Streamlit app terminates.
-    # We pass the DOC_DIR to the server so it knows where to find the HTML files.
-    server_thread = threading.Thread(target=run_server, kwargs={"directory": DOC_DIR, "port": PORT}, daemon=True)
-    if not getattr(st, "server_started", False):
-        server_thread.start()
-        st.server_started = True  # Use session state to ensure the server is only started once.
-
-    # The URL for the link button points to the localhost server we started.
-    DOC_URL = f"http://localhost:{PORT}/index.html"
-
     # Create a link button to the documentation
     st.link_button(
-        "📖  Python Documentation", DOC_URL, help="Opens the project's technical documentation in a new tab."
+        "📖  Python Documentation",
+        "https://adrienfaustegay.github.io/grafs-e-docs/",
+        help="Opens the project's technical documentation in a new tab.",
     )
-
-    # def run_server():
-    #     os.chdir(DOC_DIR)
-    #     ThreadingHTTPServer(("0.0.0.0", PORT), SimpleHTTPRequestHandler).serve_forever()
-
-    # threading.Thread(target=run_server, daemon=True).start()
-    # ----------------------------------------------------------------------
-
-    # DOC_URL = f"http://localhost:{PORT}/index.html"
-    # st.link_button("📖  Python Documentation", DOC_URL)
 
     # 🔹 Mise en cache du chargement de l'image
     @st.cache_data
@@ -476,6 +420,7 @@ with tab2:
 
     # 🔹 Indépendance de l'affichage de la heatmap 🔹
     if "heatmap_fig" in st.session_state:
+        st.text(f"Total Throughflow : {np.round(st.session_state.model.get_transition_matrix().sum(), 1)} ktN/yr.")
         st.subheader(f"Heatmap of the nitrogen flows for {st.session_state.selected_region} in {st.session_state.year}")
         st.plotly_chart(st.session_state.heatmap_fig, use_container_width=True)
 
@@ -1809,5 +1754,8 @@ with tab6:
                 st.rerun()
 
             if st.session_state.heatmap_fig_pros:
+                st.text(
+                    f"Total Throughflow : {np.round(st.session_state.model.get_transition_matrix().sum(), 1)} ktN/yr."
+                )
                 st.subheader(f"Heatmap – {st.session_state.selected_region_pros} / {st.session_state.year_pros}")
                 st.plotly_chart(st.session_state.heatmap_fig_pros, use_container_width=True)
