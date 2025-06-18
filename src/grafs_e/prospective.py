@@ -1,6 +1,7 @@
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -45,7 +46,10 @@ class scenario:
     """
 
     def __init__(self, scenario_path, dataloader=None):
-        self.data_path = os.path.join(os.getcwd(), "src", "grafs_e", "data")
+        # self.data_path = os.path.join(os.getcwd(), "src", "grafs_e", "data")
+        _PACKAGE_DIR = Path(__file__).resolve().parent
+        DATA_DIR = _PACKAGE_DIR / "data"
+        self.data_path = DATA_DIR
         if dataloader is None:
             self.dataloader = DataLoader()
         else:
@@ -606,6 +610,16 @@ class scenario:
         sheets["main"].loc[sheets["main"]["Variable"] == "Population", "Business as usual"] = (
             proj / 1000
         )  # to be in thousands, not in millions !
+
+        trade_data = pd.read_excel(os.path.join(self.data_path, "import_export.xlsx"))
+
+        sheets["main"].loc[sheets["main"]["Variable"] == "Export of vegetal pdcts", "Business as usual"] = np.round(
+            trade_data.loc[trade_data["Type"] == "Export", region].item(), 0
+        )
+
+        sheets["main"].loc[sheets["main"]["Variable"] == "Import of vegetal pdcts", "Business as usual"] = np.round(
+            trade_data.loc[trade_data["Type"] == "Import", region].item(), 0
+        )
 
         if self.data is not None:
             sheets["main"].loc[
@@ -2586,25 +2600,6 @@ class NitrogenFlowModel_prospect:
 
         flux_generator.generate_flux(source, target)
 
-        # volat_N2O = (
-        #     0.01
-        #     * df_elevage["Excreted nitrogen (ktN)"]
-        #     * df_elevage["% excreted on grassland"]
-        #     / 100
-        #     * df_elevage["N-NH3 EM. outdoor"]
-        # )
-        # # N2O
-        # target = {"N2O emission": 1}
-        # source = (
-        #     volat_N2O
-        #     + df_elevage["Excreted nitrogen (ktN)"]
-        #     * df_elevage["% excreted on grassland"]
-        #     / 100
-        #     * df_elevage["N-N2O EM. outdoor"]
-        # ).to_dict()
-
-        # flux_generator.generate_flux(source, target)
-
         ## Epandage sur champs
 
         source = (
@@ -2664,31 +2659,6 @@ class NitrogenFlowModel_prospect:
         ).to_dict()
 
         flux_generator.generate_flux(source, target)
-
-        # volat_N2O = (
-        #     0.01
-        #     * df_elevage["Excreted nitrogen (ktN)"]
-        #     * df_elevage["% excreted indoors"]
-        #     / 100
-        #     * (
-        #         df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-NH3 EM. slurry indoor"]
-        #         + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-NH3 EM. manure indoor"]
-        #     )
-        # )
-        # # N2O
-        # target = {"N2O emission": 1}
-        # source = (
-        #     volat_N2O
-        #     + df_elevage["Excreted nitrogen (ktN)"]
-        #     * df_elevage["% excreted indoors"]
-        #     / 100
-        #     * (
-        #         df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-N2O EM. slurry indoor"]
-        #         + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-N2O EM. manure indoor"]
-        #     )
-        # ).to_dict()
-
-        # flux_generator.generate_flux(source, target)
 
         # Dépôt atmosphérique : proportionel aux emmission de gaz azoté. A voir après l'élevage !
         target = (
@@ -2799,8 +2769,10 @@ class NitrogenFlowModel_prospect:
         target_leg = df_cultures["Leguminous heritage (ktN)"].to_dict()
         flux_generator.generate_flux(source_leg, target_leg)
 
-        net_import = main.loc[main["Variable"] == "Net import of vegetal pdcts", "Business as usual"].item()
-        Import = max(0, net_import)
+        # net_import = main.loc[main["Variable"] == "Net import of vegetal pdcts", "Business as usual"].item()
+        # Import = max(0, net_import)
+        import_vege = main.loc[main["Variable"] == "Import of vegetal pdcts", "Business as usual"].item()
+        export_vege = main.loc[main["Variable"] == "Export of vegetal pdcts", "Business as usual"].item()
 
         N_synth_crop = (
             main.loc[main["Variable"] == "Synth N fertilizer application to cropland", "Business as usual"].item()
@@ -2816,7 +2788,8 @@ class NitrogenFlowModel_prospect:
 
         w_diet = technical.loc[technical["Variable"] == "Weight diet", "Business as usual"].item()
         w_Nsyn = technical.loc[technical["Variable"] == "Weight synthetic fertilizer use", "Business as usual"].item()
-        w_imp = technical.loc[technical["Variable"] == "Weight import/export balance", "Business as usual"].item()
+        w_imp = technical.loc[technical["Variable"] == "Weight import", "Business as usual"].item()
+        w_exp = technical.loc[technical["Variable"] == "Weight export", "Business as usual"].item()
 
         df_elevage_comp = df_elevage.copy()
         df_cons_vege = df_elevage.loc[df_elevage["Ingestion (ktN)"] > 10**-8, "Ingestion (ktN)"]
@@ -3011,13 +2984,23 @@ class NitrogenFlowModel_prospect:
                     leftover_c = production_c - allocated_c
                     export_total += leftover_c
 
-                # Net import du modèle
-                net_import_model = sum_imp - export_total
+                # # Net import du modèle
+                # net_import_model = sum_imp - export_total
 
-                if abs(net_import) < 1:
-                    imp_dev = (net_import_model - net_import) ** 2
+                # if abs(net_import) < 1:
+                #     imp_dev = (net_import_model - net_import) ** 2
+                # else:
+                #     imp_dev = ((net_import_model - net_import) / (net_import + 1e-6)) ** 2
+
+                if abs(import_vege) < 1:
+                    imp_dev = (sum_imp - import_vege) ** 2
                 else:
-                    imp_dev = ((net_import_model - net_import) / (net_import + 1e-6)) ** 2
+                    imp_dev = ((sum_imp - import_vege) / import_vege) ** 2
+
+                if abs(export_vege) < 1:
+                    exp_dev = (export_total - export_vege) ** 2
+                else:
+                    exp_dev = ((export_total - export_vege) / export_vege) ** 2
 
                 # --- NEW: Allocation Spread Penalty based on Fixed Proportions ---
                 spread_penalty_fixed = 0.0
@@ -3067,7 +3050,13 @@ class NitrogenFlowModel_prospect:
                             # if deviation < 0: # i.e., alloc_ck < target_alloc_c
                             #     spread_penalty_fixed += deviation**2
 
-                return w_diet * total_dev + w_Nsyn * fert_dev + w_imp * imp_dev + w_spread_fixed * spread_penalty_fixed
+                return (
+                    w_diet * total_dev
+                    + w_Nsyn * fert_dev
+                    + w_imp * imp_dev
+                    + w_exp * exp_dev
+                    + w_spread_fixed * spread_penalty_fixed
+                )
 
             def objective_gradient(x):
                 """
@@ -3278,22 +3267,32 @@ class NitrogenFlowModel_prospect:
                     leftover_c = production_c - allocated_c
                     export_total += leftover_c
 
-                # Net import du modèle
-                net_import_model = sum_imp - export_total
+                # # Net import du modèle
+                # net_import_model = sum_imp - export_total
 
-                if abs(net_import) < 1:
-                    imp_dev = (net_import_model - net_import) ** 2
+                # if abs(net_import) < 1:
+                #     imp_dev = (net_import_model - net_import) ** 2
+                # else:
+                #     imp_dev = ((net_import_model - net_import) / (net_import + 1e-6)) ** 2
+
+                if abs(import_vege) < 1:
+                    imp_dev = (sum_imp - import_vege) ** 2
                 else:
-                    imp_dev = ((net_import_model - net_import) / (net_import + 1e-6)) ** 2
+                    imp_dev = ((sum_imp - import_vege) / import_vege) ** 2
 
-                return total_dev, fert_dev, imp_dev, net_import, net_import_model, sum_imp, export_total
+                if abs(export_vege) < 1:
+                    exp_dev = (export_total - export_vege) ** 2
+                else:
+                    exp_dev = ((export_total - export_vege) / export_vege) ** 2
+
+                return total_dev, fert_dev, imp_dev, exp_dev, import_vege, export_vege, sum_imp, export_total
 
             def my_callback(xk):
                 # xk is the current solution vector at iteration k
                 # Evaluate any terms you want here, e.g.:
                 f_val = objective(xk)
                 # Possibly store separate sub-terms:
-                diet_dev_term, fertilizer_term, imp_term, net_imp, net_import_model, sum_imp, export_total = (
+                diet_dev_term, fertilizer_term, imp_term, exp_dev, import_vege, export_vege, sum_imp, export_total = (
                     compute_objective_terms(xk)
                 )
                 # Append them to some global or nonlocal list
@@ -3304,10 +3303,11 @@ class NitrogenFlowModel_prospect:
                         "diet_dev": diet_dev_term,
                         "fert_dev": fertilizer_term,
                         "import term": imp_term,
-                        "net import target": net_imp,
-                        "net import model": net_import_model,
-                        "Import model": sum_imp,
-                        "Export model": export_total,
+                        "export term": exp_dev,
+                        "import target": import_vege,
+                        "import model": sum_imp,
+                        "export target": export_vege,
+                        "export model": export_total,
                     }
                 )
 
@@ -3810,9 +3810,7 @@ class NitrogenFlowModel_prospect:
                     flux_generator.generate_flux(source, target)
 
             # Génération des flux pour les importations
-            allocations_imports = allocations_df[
-                allocations_df["Type"].isin(["Imported Feed", "Imported Food", "Excess feed imports"])
-            ]
+            allocations_imports = allocations_df[allocations_df["Type"].isin(["Imported Feed", "Imported Food"])]
 
             for cons in df_cons_vege.index:
                 target = {cons: 1}
@@ -3959,8 +3957,6 @@ class NitrogenFlowModel_prospect:
                     ].item()
                 }
                 target = {f"{categorie} feed trade": 1}
-                print(culture)
-                print(categorie)
             else:
                 source = {
                     culture: df_cultures.loc[
@@ -4266,17 +4262,26 @@ class NitrogenFlowModel_prospect:
 
     def imported_nitrogen(self):
         """
-        Calculates the total amount of nitrogen imported into the system.
+        Calculates the total amount of vegetal nitrogen imported into the system.
 
-        Includes nitrogen in imported food, feed, and excess feed.
+        Includes vegetal nitrogen in imported food, feed.
 
-        :return: Total imported nitrogen (in ktN).
+        :return: Total vegetal imported nitrogen (in ktN).
         :rtype: float
         """
         return self.allocation_vege.loc[
-            self.allocation_vege["Type"].isin(["Imported Food", "Imported Feed", "Excess feed imports"]),
+            self.allocation_vege["Type"].isin(["Imported Food", "Imported Feed"]),
             "Allocated Nitrogen",
         ].sum()
+
+    def exported_nitrogen_vege(self):
+        """
+        Calculates the total amount of vegetal nitrogen exported into the system.
+
+        :return: Total vegetal exported nitrogen (in ktN).
+        :rtype: float
+        """
+        return self.df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
 
     def net_imported_plant(self):
         """

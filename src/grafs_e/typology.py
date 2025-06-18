@@ -15,7 +15,7 @@ from grafs_e.donnees import *
 from grafs_e.N_class import DataLoader, NitrogenFlowModel
 
 # %%
-run = False
+run = True
 if run:
     data = DataLoader()
 
@@ -80,7 +80,7 @@ def plot_dendrogram(norm_matrices, seuil=0.22):
     Zc = linkage(D, method="average")
     plt.figure(figsize=(80, 4), dpi=500)
     dendrogram(Zc, labels=regions_order, leaf_rotation=90, color_threshold=seuil)
-    plt.ylabel("Dissimilarity")
+    plt.ylabel("Distance")
     plt.tight_layout()
     plt.show()
 
