@@ -2957,12 +2957,8 @@ class NitrogenFlowModel_prospect:
                 else:
                     scale_g = N_synth_grass
                 fert_dev = (
-                    np.maximum(
-                        0,
-                        (total_synth_crops_kt - N_synth_crop) / scale_c
-                        + (total_synth_grasslands_kt - N_synth_grass) / scale_g,
-                    )
-                    ** 2
+                    np.maximum(0, (total_synth_crops_kt - N_synth_crop) / scale_c) ** 2
+                    + np.maximum(0, (total_synth_grasslands_kt - N_synth_grass) / scale_g) ** 2
                 )
 
                 # 3.c) import_export_deviation
