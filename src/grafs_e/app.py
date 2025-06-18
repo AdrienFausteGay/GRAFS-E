@@ -1756,6 +1756,125 @@ with tab6:
 
             if st.session_state.heatmap_fig_pros:
                 if st.session_state.model:
+                    st.subheader("Solver Analytics")
+                    # ----------------------------
+                    # 1. Préparer les données
+                    # ----------------------------
+
+                    final = st.session_state.model.log[-1]
+
+                    weights = {
+                        "diet_dev": st.session_state.model.w_diet,
+                        "fert_dev": st.session_state.model.w_Nsyn,
+                        "imp_dev": st.session_state.model.w_imp,
+                        "exp_dev": st.session_state.model.w_exp,
+                    }
+
+                    # --- table contraintes "cible vs réalisé" ---
+                    rows = [
+                        ("Synthetic N (crops)", final["Nsyn crop target"], final["Nsyn crop model"]),
+                        ("Synthetic N (grass)", final["Nsyn grasslands target"], final["Nsyn grasslands model"]),
+                        ("Imports", final["import target"], final["import model"]),
+                        ("Exports", final["export target"], final["export model"]),
+                    ]
+                    df = pd.DataFrame(rows, columns=["Constraint", "Target", "Model"])
+
+                    EPS = 1  # ← tolérance (ktN/an)
+                    # CAP = 400  # ← % maxi affiché
+
+                    df["%"] = 100 * (df["Model"] + EPS) / (df["Target"] + EPS)
+                    # df["%"] = df["%"].clip(upper=CAP)  # on limite à 400 %
+
+                    max_pct = df["%"].max()
+                    CAP = 400 if 1.1 * max_pct >= 400 else 1.1 * max_pct
+
+                    # --- radar normalisé -------------------------------------------------
+                    theta = df["Constraint"].tolist()
+                    theta_closed = theta + [theta[0]]  # boucle fermée
+
+                    r_target = [100] * len(theta) + [100]
+                    r_model = df["%"].tolist() + [df["%"].iloc[0]]
+
+                    # 1) ligne 100 %
+                    fig = go.Figure()
+                    fig.add_trace(
+                        go.Scatterpolar(
+                            r=r_target,
+                            theta=theta_closed,
+                            mode="lines",
+                            line=dict(color="grey", dash="dot"),
+                            name="Target (100 %)",
+                        )
+                    )
+
+                    # 2) surface modèle
+                    fig.add_trace(
+                        go.Scatterpolar(
+                            r=r_model, theta=theta_closed, fill="toself", line=dict(color="dodgerblue"), name="Model"
+                        )
+                    )
+
+                    # 3) mise à l’échelle radiale
+                    max_pct = df["%"].max()
+                    CAP = 400 if 1.1 * max_pct >= 400 else 1.1 * max_pct  # 400 % ou 1.1×max
+                    ticks = [0, 50, 100, 200, 400] if CAP >= 400 else [0, 50, 100, 200]
+
+                    fig.update_layout(
+                        title="Model vs Target (normalised)",
+                        polar=dict(
+                            radialaxis=dict(
+                                range=[0, CAP], tickvals=[v for v in ticks if v <= CAP], ticksuffix="%", color="black"
+                            )
+                        ),
+                        legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5),
+                        height=450,
+                    )
+
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    def color_diff(model, target):
+                        if target == 0:
+                            return "" if model == 0 else "background-color:red"  # rouge si mod>0 alors que cible 0
+                        ratio = model / target
+                        diff = abs(model - target)
+                        if 0.8 <= ratio <= 1.25 or diff < 5:
+                            return "background-color:green"  # vert (±10 %)
+                        if 0.4 <= ratio <= 2.5 or diff < 10:
+                            return "background-color:orange"  # orange
+                        return "background-color:red"  # rouge
+
+                    styled = df.style.apply(
+                        lambda row: [color_diff(row.Model, row.Target) if col == "Model" else "" for col in row.index],
+                        axis=1,
+                    ).format({"Target": "{:.2f}", "Model": "{:.2f}"})
+
+                    st.dataframe(styled)
+
+                    objective = final["objective"]
+                    good = 0.5  # à adapter : zone « OK »
+                    warn = 1.5  # au-delà = rouge
+                    end = 2
+
+                    fig_g = go.Figure(
+                        go.Indicator(
+                            mode="gauge+number",
+                            value=objective
+                            / sum(
+                                list(weights.values())
+                            ),  # On s'intéresse à une moyenne pondérée des termes de la fonctions objectif
+                            title={"text": "Objective function"},
+                            gauge={
+                                "axis": {"range": [0, end]},
+                                "steps": [
+                                    {"range": [0, good], "color": "#c9f7d4"},
+                                    {"range": [good, warn], "color": "#fff3b0"},
+                                    {"range": [warn, end], "color": "#f9c0c0"},
+                                ],
+                            },
+                        )
+                    )
+                    st.plotly_chart(fig_g, use_container_width=True)
+
                     st.text(
                         f"Total Throughflow : {np.round(st.session_state.model.get_transition_matrix().sum(), 1)} ktN/yr."
                     )
