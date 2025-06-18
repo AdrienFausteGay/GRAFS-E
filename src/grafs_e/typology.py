@@ -12,13 +12,13 @@ from scipy.spatial.distance import pdist
 from sklearn.preprocessing import MaxAbsScaler, StandardScaler, normalize
 
 from grafs_e.donnees import *
-from grafs_e.N_class import NitrogenFlowModel
+from grafs_e.N_class import DataLoader, NitrogenFlowModel
 
 # %%
+run = True
+if run:
+    data = DataLoader()
 
-# data = DataLoader()
-# matrices, norm_matrices = get_matrices(data)
-# df_plot = plot_dendrogram(norm_matrices)
 # %%
 
 
@@ -47,6 +47,19 @@ def get_matrices(data):
         norm_matrices[reg] = M / s if s else M
     return matrices, norm_matrices
 
+
+# %%
+if run:
+    matrices, norm_matrices = get_matrices(data)
+# %%
+# Leontieff-like normalization: divide each column by its total
+# norm_matrices = {}
+# for reg, M in matrices.items():
+#     col_sums = M.sum(axis=0)
+#     with np.errstate(divide="ignore", invalid="ignore"):
+#         norm_M = np.divide(M, col_sums, where=col_sums != 0)  # avoid division by 0
+#         norm_M[np.isnan(norm_M)] = 0  # replace NaNs from division by zero
+#     norm_matrices[reg] = norm_M
 
 # %%
 
@@ -82,6 +95,9 @@ def plot_dendrogram(norm_matrices, seuil=0.22):
     ).sort_values("Cluster")
     return df_plot
 
+
+if run:
+    df_plot = plot_dendrogram(norm_matrices)
 
 # %% Affichage de la frise
 
@@ -241,7 +257,6 @@ def sankey_clusters_aggregate(df_plot: pd.DataFrame, highlight: list[str] | None
 
 
 # %%
-run = False
 if run:
     # ──────────────────────────────────────────────────────────────────────────
     # 0)  Données : df_numeric    (index = Region_Year)      ───────────
