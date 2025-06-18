@@ -2791,6 +2791,11 @@ class NitrogenFlowModel_prospect:
         w_imp = technical.loc[technical["Variable"] == "Weight import", "Business as usual"].item()
         w_exp = technical.loc[technical["Variable"] == "Weight export", "Business as usual"].item()
 
+        self.w_diet = w_diet
+        self.w_Nsyn = w_Nsyn
+        self.w_imp = w_imp
+        self.w_exp = w_exp
+
         df_elevage_comp = df_elevage.copy()
         df_cons_vege = df_elevage.loc[df_elevage["Ingestion (ktN)"] > 10**-8, "Ingestion (ktN)"]
 
@@ -2929,20 +2934,37 @@ class NitrogenFlowModel_prospect:
 
                 # 3.b) fertilizer_deviation
                 # sum of synthetic fertilizers in ktN
-                total_synth = 0.0
+                total_synth_crops = 0.0
+                total_synth_grasslands = 0.0
                 for c in CROPS:
                     # x[idx_synth[c]] is in kgN/ha
                     fert_per_ha = x[idx_synth[c]] + nonSynthFert[c]
-                    total_synth += x[idx_synth[c]] * area[c]  # only the synthetic part
+                    if c == "Natural meadow ":
+                        total_synth_grasslands += x[idx_synth[c]] * area[c]  # only the synthetic part
+                    else:
+                        total_synth_crops += x[idx_synth[c]] * area[c]
                 # Convert from kgN to ktN
-                total_synth_kt = total_synth / 1e6
-                # desired total = (N_synth_crop + N_synth_grass)
-                if N_synth_crop + N_synth_grass < 1:
-                    scale = 1
+                total_synth_crops_kt = total_synth_crops / 1e6
+                total_synth_grasslands_kt = total_synth_grasslands / 1e6
+
+                if N_synth_crop < 1:
+                    scale_c = 1
                 else:
-                    scale = N_synth_crop + N_synth_grass
-                fert_dev = np.maximum(0, (total_synth_kt - (N_synth_crop + N_synth_grass)) / scale) ** 2
-                # fert_dev = ((total_synth_kt - (N_synth_crop + N_synth_grass)) / scale) ** 2
+                    scale_c = N_synth_crop
+
+                if N_synth_grass < 1:
+                    scale_g = 1
+                else:
+                    scale_g = N_synth_grass
+                fert_dev = (
+                    np.maximum(
+                        0,
+                        (total_synth_crops_kt - N_synth_crop) / scale_c
+                        + (total_synth_grasslands_kt - N_synth_grass) / scale_g,
+                    )
+                    ** 2
+                )
+
                 # 3.c) import_export_deviation
                 # sum import
                 sum_imp = 0.0
@@ -3212,20 +3234,32 @@ class NitrogenFlowModel_prospect:
 
                 # 3.b) fertilizer_deviation
                 # sum of synthetic fertilizers in ktN
-                total_synth = 0.0
+                total_synth_crops = 0.0
+                total_synth_grasslands = 0.0
                 for c in CROPS:
                     # x[idx_synth[c]] is in kgN/ha
                     fert_per_ha = x[idx_synth[c]] + nonSynthFert[c]
-                    total_synth += x[idx_synth[c]] * area[c]  # only the synthetic part
+                    if c == "Natural meadow ":
+                        total_synth_grasslands += x[idx_synth[c]] * area[c]  # only the synthetic part
+                    else:
+                        total_synth_crops += x[idx_synth[c]] * area[c]
                 # Convert from kgN to ktN
-                total_synth_kt = total_synth / 1e6
-                # desired total = (N_synth_crop + N_synth_grass)
-                if N_synth_crop + N_synth_grass < 1:
-                    scale = 1
+                total_synth_crops_kt = total_synth_crops / 1e6
+                total_synth_grasslands_kt = total_synth_grasslands / 1e6
+
+                if N_synth_crop < 1:
+                    scale_c = 1
                 else:
-                    scale = N_synth_crop + N_synth_grass
-                fert_dev = np.maximum(0, (total_synth_kt - (N_synth_crop + N_synth_grass)) / scale) ** 2
-                # fert_dev = ((total_synth_kt - (N_synth_crop + N_synth_grass)) / scale) ** 2
+                    scale_c = N_synth_crop
+
+                if N_synth_grass < 1:
+                    scale_g = 1
+                else:
+                    scale_g = N_synth_grass
+                fert_dev = (
+                    np.maximum(0, (total_synth_crops_kt - N_synth_crop) / scale_c) ** 2
+                    + np.maximum(0, (total_synth_grasslands_kt - N_synth_grass) / scale_g) ** 2
+                )
                 # 3.c) import_export_deviation
                 # sum import
                 sum_imp = 0.0
@@ -3285,16 +3319,40 @@ class NitrogenFlowModel_prospect:
                 else:
                     exp_dev = ((export_total - export_vege) / export_vege) ** 2
 
-                return total_dev, fert_dev, imp_dev, exp_dev, import_vege, export_vege, sum_imp, export_total
+                return (
+                    total_dev,
+                    fert_dev,
+                    N_synth_crop,
+                    N_synth_grass,
+                    total_synth_crops_kt,
+                    total_synth_grasslands_kt,
+                    imp_dev,
+                    exp_dev,
+                    import_vege,
+                    export_vege,
+                    sum_imp,
+                    export_total,
+                )
 
             def my_callback(xk):
                 # xk is the current solution vector at iteration k
                 # Evaluate any terms you want here, e.g.:
                 f_val = objective(xk)
                 # Possibly store separate sub-terms:
-                diet_dev_term, fertilizer_term, imp_term, exp_dev, import_vege, export_vege, sum_imp, export_total = (
-                    compute_objective_terms(xk)
-                )
+                (
+                    diet_dev_term,
+                    fertilizer_term,
+                    N_synth_crop,
+                    N_synth_grass,
+                    total_synth_crops_kt,
+                    total_synth_grasslands_kt,
+                    imp_dev,
+                    exp_dev,
+                    import_vege,
+                    export_vege,
+                    sum_imp,
+                    export_total,
+                ) = compute_objective_terms(xk)
                 # Append them to some global or nonlocal list
                 iteration_log.append(
                     {
@@ -3302,7 +3360,11 @@ class NitrogenFlowModel_prospect:
                         "objective": f_val,
                         "diet_dev": diet_dev_term,
                         "fert_dev": fertilizer_term,
-                        "import term": imp_term,
+                        "Nsyn crop target": N_synth_crop,
+                        "Nsyn crop model": total_synth_crops_kt,
+                        "Nsyn grasslands target": N_synth_grass,
+                        "Nsyn grasslands model": total_synth_grasslands_kt,
+                        "import term": imp_dev,
                         "export term": exp_dev,
                         "import target": import_vege,
                         "import model": sum_imp,
