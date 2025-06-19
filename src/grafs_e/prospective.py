@@ -55,6 +55,7 @@ class scenario:
         else:
             self.dataloader = dataloader
         self.scenario_path = scenario_path
+        self.last_data_year = annees_disponibles[-1]
 
     def historic_trend(self, region, excel_line):
         """
@@ -354,7 +355,7 @@ class scenario:
             Ne renvoie que les paramètres utiles à ce modèle,
             plus le R² et le nom de la culture.
             """
-            F, Yr = Y_pros.get_Y(culture, region)
+            F, Yr, _ = Y_pros.get_Y(culture, region)
 
             # --- Cas sans données ---
             empty_data = len(F) == 0 or len(Yr) == 0
@@ -481,7 +482,6 @@ class scenario:
         """
         self.region = region
         self.year = year
-        self.last_data_year = annees_disponibles[-1]
         try:
             self.data = self.dataloader.pre_process_df(self.last_data_year, region)
         except:
@@ -784,7 +784,7 @@ class scenario:
             sheet[f"A{last_row}"] = "Proportion area sum correct ?"
             sheet[f"B{last_row}"] = f'=IF(SUM(B2:B{last_row - 3})=100, "✅ OK", "❌ Erreur")'
 
-    def generate_base_scenar(self, prod_func):
+    def generate_base_scenar(self, prod_func, select_regions=None):
         """
         Generates baseline scenario Excel files for all regions, containing only the crop area distribution sheet.
 
@@ -797,8 +797,12 @@ class scenario:
         :return: None. Excel files are saved to the default scenario directory.
         :rtype: None
         """
+        if select_regions == None:
+            regions_2_do = regions
+        else:
+            regions_2_do = select_regions
         # Create scenar for all regions with only area filled
-        for region in tqdm(regions, desc="Calcul des Ymax et k", unit="region"):
+        for region in tqdm(regions_2_do, desc="Calcul des Ymax et k", unit="region"):
             try:
                 self.data = self.dataloader.pre_process_df(self.last_data_year, region)
             except:
