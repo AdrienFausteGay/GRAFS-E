@@ -611,7 +611,9 @@ class scenario:
             proj / 1000
         )  # to be in thousands, not in millions !
 
-        trade_data = pd.read_excel(os.path.join(self.data_path, "import_export.xlsx"))
+        trade_data = pd.read_excel(
+            os.path.join(self.data_path, "GRAFS_data.xlsx"), sheet_name="import_export"
+        )  # .set_index("Elevage")
 
         sheets["main"].loc[sheets["main"]["Variable"] == "Export of vegetal pdcts", "Business as usual"] = np.round(
             trade_data.loc[trade_data["Type"] == "Export", region].item(), 0
@@ -619,6 +621,14 @@ class scenario:
 
         sheets["main"].loc[sheets["main"]["Variable"] == "Import of vegetal pdcts", "Business as usual"] = np.round(
             trade_data.loc[trade_data["Type"] == "Import", region].item(), 0
+        )
+
+        meth_data = pd.read_excel(
+            os.path.join(self.data_path, "GRAFS_data.xlsx"), sheet_name="Energy_prod"
+        )  # .set_index("Elevage")
+
+        sheets["main"].loc[sheets["main"]["Variable"] == "", "Business as usual"] = np.round(
+            meth_data.loc[meth_data["Type"] == "Methaniser production", region].item(), 0
         )
 
         if self.data is not None:

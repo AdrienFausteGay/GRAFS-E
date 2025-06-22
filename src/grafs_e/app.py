@@ -749,60 +749,68 @@ def create_map_with_metrics(geojson_data, metrics, metric_name, year):
     map_center = [46.6034, 1.8883]  # Centre approximatif de la France
     m = folium.Map(location=map_center, zoom_start=6, tiles="OpenStreetMap")
 
+    min_val, max_val = get_metric_range(metrics)
+
+    if "net" in metric_name or "Footprint" in metric_name:
+        cmap = cm.get_cmap("bwr")
+        min_val = min(min_val, -abs(max_val))
+        max_val = max(abs(min_val), max_val)
+    else:
+        cmap = cm.get_cmap("plasma")  # Utilisation de la colormap "plasma"
+
+    norm = mcolors.Normalize(vmin=min_val, vmax=max_val)
+
+    if "Relative" in metric_name or "NUE" in metric_name:
+        unit = "%"
+    elif "Eff" in metric_name:
+        unit = ""
+    elif "Footprint" in metric_name:
+        unit = "Mha"
+    elif "Livestock density" == metric_name:
+        unit = "LU/ha"
+    else:
+        unit = "ktN/yr"
+
+    # 📊 Nouveau : créer le tableau des valeurs régionales
+    table_data = []
+
     for feature in geojson_data["features"]:
         region_name = feature["properties"]["nom"]
-        metric_value = metrics.get(region_name, None)
+        metric_value = metrics.get(region_name, np.nan)
 
-        if metric_value is not None:
-            # 📌 Obtenir min et max du metric sélectionné
-            min_val, max_val = get_metric_range(metrics)
+        if np.isnan(metric_value):
+            color = "#CCCCCC"
+        else:
+            rgba = cmap(norm(metric_value))
+            color = mcolors.to_hex(rgba)
 
-            if "net" in metric_name or "Footprint" in metric_name:
-                cmap = cm.get_cmap("bwr")
-                min_val = min(min_val, -abs(max_val))
-                max_val = max(abs(min_val), max_val)
-            else:
-                cmap = cm.get_cmap("plasma")  # Utilisation de la colormap "plasma"
+        def style_function(x, fill_color=color):
+            return {
+                "fillColor": fill_color,
+                "color": "black",
+                "weight": 1,
+                "fillOpacity": 0.6,
+            }
 
-            # 📌 Normaliser et mapper les couleurs
-            norm = mcolors.Normalize(vmin=min_val, vmax=max_val)
+        folium.GeoJson(
+            feature,
+            style_function=style_function,
+            tooltip=folium.Tooltip(f"{region_name}: {metric_value:.2f} {unit}"),
+        ).add_to(m)
 
-            if "Relative" in metric_name or "NUE" in metric_name:
-                unit = "%"
-            elif "Eff" in metric_name:
-                unit = ""
-            elif "Footprint" in metric_name:
-                unit = "Mha"
-            elif "Livestock density" == metric_name:
-                unit = "LU/ha"
-            else:
-                unit = "ktN/yr"
-
-            for feature in geojson_data["features"]:
-                region_name = feature["properties"]["nom"]
-                metric_value = metrics.get(region_name, np.nan)  # Valeur de l'indicateur
-                if np.isnan(metric_value):  # Si pas de donnée, couleur grise
-                    color = "#CCCCCC"
-                else:
-                    rgba = cmap(norm(metric_value))  # Convertir en RGBA
-                    color = mcolors.to_hex(rgba)  # Convertir en HEX
-
-                def style_function(x, fill_color=color):
-                    return {
-                        "fillColor": fill_color,  # ✅ Corrected: capture current `color`
-                        "color": "black",
-                        "weight": 1,
-                        "fillOpacity": 0.6,
-                    }
-
-                folium.GeoJson(
-                    feature,
-                    style_function=style_function,
-                    tooltip=folium.Tooltip(f"{region_name}: {metric_value:.2f} {unit}"),
-                ).add_to(m)
+        table_data.append(
+            {
+                "Région": region_name,
+                "Valeur": round(metric_value, 2) if not np.isnan(metric_value) else None,
+                # "Unité": unit,
+            }
+        )
 
     add_color_legend(m, min_val, max_val, cmap, metric_name)
-    return m
+
+    df = pd.DataFrame(table_data)
+
+    return m, df
 
 
 def weighted_mean(metrics, area):
@@ -873,7 +881,7 @@ with tab5:
             # 📌 Charger le GeoJSON et créer la carte
             geojson_data = load_geojson()
 
-            map_obj = get_cached_map(geojson_data, metrics, st.session_state.metric, st.session_state.map_year)
+            map_obj, table = get_cached_map(geojson_data, metrics, st.session_state.metric, st.session_state.map_year)
 
             # 📌 Convertir la carte en HTML pour éviter la disparition
             st.session_state.map_html = map_obj._repr_html_()
@@ -904,6 +912,8 @@ with tab5:
 
         if st.session_state.map_html:
             st.components.v1.html(st.session_state.map_html, height=800, scrolling=True)
+            st.dataframe(table)
+            st.download_button("Download Data", table.to_csv(index=False), file_name="data.csv")
         else:
             st.warning("Please run the model to generate the map.")
 
