@@ -627,8 +627,8 @@ class scenario:
             os.path.join(self.data_path, "GRAFS_data.xlsx"), sheet_name="Energy_prod"
         )  # .set_index("Elevage")
 
-        sheets["main"].loc[sheets["main"]["Variable"] == "", "Business as usual"] = np.round(
-            meth_data.loc[meth_data["Type"] == "Methaniser production", region].item(), 0
+        sheets["main"].loc[sheets["main"]["Variable"] == "Methaniser production", "Business as usual"] = np.round(
+            meth_data.loc[meth_data["Type"] == "Méthaniseur", region].item(), 0
         )
 
         if self.data is not None:
