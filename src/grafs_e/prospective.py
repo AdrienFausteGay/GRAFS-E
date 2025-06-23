@@ -2612,31 +2612,59 @@ class NitrogenFlowModel_prospect:
 
         ## Epandage sur champs
 
-        source = (
+        # source = (
+        #     df_elevage["Excreted nitrogen (ktN)"]
+        #     * df_elevage["% excreted indoors"]
+        #     / 100
+        #     * (
+        #         df_elevage["% excreted indoors as manure"]
+        #         / 100
+        #         * (
+        #             1
+        #             - df_elevage["N-NH3 EM. manure indoor"]
+        #             - df_elevage["N-N2O EM. manure indoor"]
+        #             - df_elevage["N-N2 EM. manure indoor"]
+        #         )
+        #         + df_elevage["% excreted indoors as slurry"]
+        #         / 100
+        #         * (
+        #             1
+        #             - df_elevage["N-NH3 EM. slurry indoor"]
+        #             - df_elevage["N-N2O EM. slurry indoor"]
+        #             - df_elevage["N-N2 EM. slurry indoor"]
+        #         )
+        #     )
+        # ).to_dict()
+
+        # flux_generator.generate_flux(source, target_ependage)
+
+        df_elevage["Available manure after volatilization (ktN)"] = (
             df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["% excreted indoors"]
             / 100
+            * df_elevage["% excreted indoors as manure"]
+            / 100
             * (
-                df_elevage["% excreted indoors as manure"]
-                / 100
-                * (
-                    1
-                    - df_elevage["N-NH3 EM. manure indoor"]
-                    - df_elevage["N-N2O EM. manure indoor"]
-                    - df_elevage["N-N2 EM. manure indoor"]
-                )
-                + df_elevage["% excreted indoors as slurry"]
-                / 100
-                * (
-                    1
-                    - df_elevage["N-NH3 EM. slurry indoor"]
-                    - df_elevage["N-N2O EM. slurry indoor"]
-                    - df_elevage["N-N2 EM. slurry indoor"]
-                )
+                1
+                - df_elevage["N-NH3 EM. manure indoor"]
+                - df_elevage["N-N2O EM. manure indoor"]
+                - df_elevage["N-N2 EM. manure indoor"]
             )
-        ).to_dict()
+        )
 
-        flux_generator.generate_flux(source, target_ependage)
+        df_elevage["Available slurry after volatilization (ktN)"] = (
+            df_elevage["Excreted nitrogen (ktN)"]
+            * df_elevage["% excreted indoors"]
+            / 100
+            * df_elevage["% excreted indoors as slurry"]
+            / 100
+            * (
+                1
+                - df_elevage["N-NH3 EM. slurry indoor"]
+                - df_elevage["N-N2O EM. slurry indoor"]
+                - df_elevage["N-N2 EM. slurry indoor"]
+            )
+        )
 
         # Le reste part dans l'atmosphere
 
@@ -2687,9 +2715,14 @@ class NitrogenFlowModel_prospect:
 
         # Calcul de l'azote épendu par hectare
         def calculer_azote_ependu(culture):
-            sources = self.betail + self.Pop + ["atmospheric N2", "other sectors", "NH3 volatilization", "N2O emission"]
+            sources = self.Pop + ["atmospheric N2", "other sectors", "NH3 volatilization", "N2O emission"] + self.betail
             adj_matrix_df = pd.DataFrame(adjacency_matrix, index=self.labels, columns=self.labels)
-            return adj_matrix_df.loc[sources, culture].sum()
+            sum_effluents = (
+                df_elevage["Available manure after volatilization (ktN)"]
+                + df_elevage["Available slurry after volatilization (ktN)"]
+            ).sum()
+            effluents = target_ependage[culture] * sum_effluents
+            return adj_matrix_df.loc[sources, culture].sum() + effluents
 
         df_cultures["Total Non Synthetic Fertilizer Use (ktN)"] = df_cultures.index.map(calculer_azote_ependu)
         df_cultures["Surface Non Synthetic Fertilizer Use (kgN/ha)"] = df_cultures.apply(
@@ -2837,9 +2870,44 @@ class NitrogenFlowModel_prospect:
             ].item(),
         }
 
+        power_MB = dict(zip(meth_productivity["Item"], meth_productivity["Methanization power (GWh/tMB)"]))
+        cat_of = dict(zip(meth_productivity["Item"], meth_productivity["Category"]))
+
+        # b) coefficient ktN ➜ tMB pour chaque intrant méthanisable
+        coeff_N_to_MB = {}  # [tMB / ktN]
+
+        coeff_N_to_MB["green waste"] = 1 / (0.01 * 1e3)
+
+        # — Cultures (résidus & dédiées) —
+        for c in ["maize forage", "straw"]:  # + autres si besoin
+            N_pct = df_cultures.at[c, "Nitrogen Content (%)"] / 100  # kg N / kg DM
+            DM_pct = df_cultures.at[c, "DM content (% of gross matter)"] / 100
+            coeff_N_to_MB[c] = 1 / (N_pct * DM_pct * 1e3)  # ktN ➜ tMB
+
+        # — Effluents : slurry / manure —
+        for animal in df_elevage.index:
+            # Slurry
+            N_pct = df_elevage.at[animal, "Slurry nitrogen Content (%)"] / 100
+            coeff_N_to_MB[f"{animal} slurry"] = 1 / (N_pct * 1e3)
+            # Manure
+            N_pct = df_elevage.at[animal, "Manure nitrogen Content (%)"] / 100
+            coeff_N_to_MB[f"{animal} manure"] = 1 / (N_pct * 1e3)
+
+            pct_non_edible = df_elevage.at[animal, "% non edible"] / 100  # fraction N
+            coeff_N_to_MB[f"{animal} waste"] = 1 / (pct_non_edible * 1e3)
+
+        # Regrouper les indices idx_methan par catégorie
+        items_by_cat = {}
+        for item in idx_methan:
+            cat = cat_of[item]
+            items_by_cat.setdefault(cat, []).append(item)
+
         if len(df_cons_vege) > 0:
             CROPS = list(df_cultures.index)  # par exemple
             CONSUMERS = list(df_cons_vege.index)
+            EFFLUENTS = [eff for animal in df_elevage.index for eff in (f"{animal} slurry", f"{animal} manure")]
+
+            WASTE = ["animal waste"]
 
             # --------------------------------------------------------------------------
             # 1) Collect data from your DataFrames (example placeholders)
@@ -2899,8 +2967,9 @@ class NitrogenFlowModel_prospect:
                 idx_methan[e] = offset
                 offset += 1
 
-            for w in WASTE:  # ex. graisses d’abattoir
-                idx_methan[w] = offset
+            for animal in df_elevage.index:
+                # et on ajoute cet item dans l’index de décision méthaniseur
+                idx_methan[f"{animal} waste"] = offset
                 offset += 1
 
             n_vars = offset  # total number of decision variables
@@ -2943,7 +3012,9 @@ class NitrogenFlowModel_prospect:
                 Return the scalar value of the objective:
                 w_diet * diet_deviation
                 + w_Nsyn * fertilizer_deviation
-                + w_imp * import_export_deviation
+                + w_imp * import_deviation
+                + w_exp * export_deviation
+                + w_energy * energy_prod_deviation
                 """
 
                 # 3.a) diet_deviation
@@ -3114,11 +3185,54 @@ class NitrogenFlowModel_prospect:
                             # if deviation < 0: # i.e., alloc_ck < target_alloc_c
                             #     spread_penalty_fixed += deviation**2
 
+                # 4) Energy production deviation
+
+                # Use x_methan to compute energy_production as
+                # E = sum(x_methan[i]*Gross_mater_ktN*meth_productivity[i])
+
+                # The share of each category input is strictly forced and should be meth_regime
+
+                # The Gross_mater_ktN is the coefficient linking Nitrogen flow to gross mater flow. For plants products as Crop residues and Dedicated culture, use "Nitrogen Content (%)" and "DM content (% of gross matter)" in df_cultures to get the coefficient (Gross_mater_ktN = x_methan[i]*df_cultures["Nitrogen Content (%)", i]/100*df_cultures["DM content (% of gross matter)", i]/100)
+                # For effluents, use df_elevage["Manure nitrogen Content (%)"] and df_elevage["Slurry nitrogen Content (%)"] columns to get gross mater input.
+                # For Non edible animal use df_elevage["% non edible"]
+                # For green waste use 1% for Nitrogen content in Gross mater
+
+                # Then ene_dev = (E - meth_prod)**2
+
+                energy_prod_GWh = 0.0
+                cat_mass = {cat: 0.0 for cat in meth_regime}  # tMB par catégorie
+
+                for item, idx in idx_methan.items():
+                    # Quantité d'azote envoyée au méthaniseur (variable x) en ktN
+                    N_kt = x[idx]
+                    # Conversion ktN ➜ tMB
+                    mb = N_kt * coeff_N_to_MB[item]  # tonnes de matière brute
+                    # Productivité en GWh
+                    energy_prod_GWh += mb * power_MB[item]
+                    # Cumuler par catégorie
+                    cat_mass[cat_of[item]] += mb
+
+                if meth_prod < 1:
+                    scale = 1
+                else:
+                    scale = meth_prod
+                ene_dev = ((energy_prod_GWh - meth_prod) / scale) ** 2
+
+                # b) Soft-constrain : respecter les parts d’intrants par catégorie
+                w_share_energy = 10
+                share_penalty = 0.0
+                total_mb = sum(cat_mass.values()) + 1e-9
+                for cat, share_tgt in meth_regime.items():
+                    share_real = cat_mass[cat] / total_mb
+                    share_penalty += (share_real - share_tgt) ** 2  # quadratique
+
                 return (
                     w_diet * total_dev
                     + w_Nsyn * fert_dev
                     + w_imp * imp_dev
                     + w_exp * exp_dev
+                    + w_energy * ene_dev
+                    + w_share_energy * share_penalty
                     + w_spread_fixed * spread_penalty_fixed
                 )
 
