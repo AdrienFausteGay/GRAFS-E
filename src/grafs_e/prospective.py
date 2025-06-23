@@ -2834,12 +2834,14 @@ class NitrogenFlowModel_prospect:
         w_imp = technical.loc[technical["Variable"] == "Weight import", "Business as usual"].item()
         w_exp = technical.loc[technical["Variable"] == "Weight export", "Business as usual"].item()
         w_energy = technical.loc[technical["Variable"] == "Weight energy", "Business as usual"].item()
+        w_share_energy = technical.loc[technical["Variable"] == "Weight methaniser input", "Business as usual"].item()
 
         self.w_diet = w_diet
         self.w_Nsyn = w_Nsyn
         self.w_imp = w_imp
         self.w_exp = w_exp
         self.w_energy = w_energy
+        self.w_share_energy = w_share_energy
 
         df_elevage_comp = df_elevage.copy()
         df_cons_vege = df_elevage.loc[df_elevage["Ingestion (ktN)"] > 10**-8, "Ingestion (ktN)"]
@@ -2853,19 +2855,19 @@ class NitrogenFlowModel_prospect:
         meth_prod = main.loc[main["Variable"] == "Methaniser production", "Business as usual"].item()
         meth_productivity = pd.read_excel(os.path.join(self.data_path, "GRAFS_data.xlsx"), sheet_name="Energy_power")
         meth_regime = {
-            "crop_residues": technical.loc[
+            "Crop residues": technical.loc[
                 technical["Variable"] == "Share of crop residues in methaniser", "Business as usual"
             ].item(),
-            "green_waste": technical.loc[
+            "Green waste": technical.loc[
                 technical["Variable"] == "Share of green waste in methaniser", "Business as usual"
             ].item(),
-            "dedicated_culture": technical.loc[
+            "Dedicated culture": technical.loc[
                 technical["Variable"] == "Share of dedicated culture in methaniser", "Business as usual"
             ].item(),
-            "animal_food_industry": technical.loc[
+            "Non edible animal": technical.loc[
                 technical["Variable"] == "Share of animal food industry in methaniser", "Business as usual"
             ].item(),
-            "livestock_effluent": technical.loc[
+            "Livestock effluent": technical.loc[
                 technical["Variable"] == "Share of livestock effluent in methaniser", "Business as usual"
             ].item(),
         }
@@ -2879,7 +2881,7 @@ class NitrogenFlowModel_prospect:
         coeff_N_to_MB["green waste"] = 1 / (0.01 * 1e3)
 
         # — Cultures (résidus & dédiées) —
-        for c in ["maize forage", "straw"]:  # + autres si besoin
+        for c in ["Forage maize", "Straw"]:  # + autres si besoin
             N_pct = df_cultures.at[c, "Nitrogen Content (%)"] / 100  # kg N / kg DM
             DM_pct = df_cultures.at[c, "DM content (% of gross matter)"] / 100
             coeff_N_to_MB[c] = 1 / (N_pct * DM_pct * 1e3)  # ktN ➜ tMB
@@ -2896,18 +2898,10 @@ class NitrogenFlowModel_prospect:
             pct_non_edible = df_elevage.at[animal, "% non edible"] / 100  # fraction N
             coeff_N_to_MB[f"{animal} waste"] = 1 / (pct_non_edible * 1e3)
 
-        # Regrouper les indices idx_methan par catégorie
-        items_by_cat = {}
-        for item in idx_methan:
-            cat = cat_of[item]
-            items_by_cat.setdefault(cat, []).append(item)
-
         if len(df_cons_vege) > 0:
             CROPS = list(df_cultures.index)  # par exemple
             CONSUMERS = list(df_cons_vege.index)
             EFFLUENTS = [eff for animal in df_elevage.index for eff in (f"{animal} slurry", f"{animal} manure")]
-
-            WASTE = ["animal waste"]
 
             # --------------------------------------------------------------------------
             # 1) Collect data from your DataFrames (example placeholders)
@@ -2934,7 +2928,7 @@ class NitrogenFlowModel_prospect:
             avail_manure = {
                 f"{a} manure": df_elevage.at[a, "Available manure after volatilization (ktN)"] for a in df_elevage.index
             }
-            avail_waste = {f"{a} waste": df_elevage.at[a, "Non edible Nitrogen (ktN)"] for a in df_elevage.index}
+            avail_waste = {f"{a} waste": df_elevage.at[a, "Non Edible Nitrogen (ktN)"] for a in df_elevage.index}
 
             # Filter out any (c,k) pairs not in the diet. We'll build an "allowed" pair list:
             allowed_ck = []
@@ -2970,7 +2964,7 @@ class NitrogenFlowModel_prospect:
 
             idx_methan = {}
             for c in CROPS:
-                if c in ["maize forage", "straw"]:  # Ajouter ici toutes les cultures éligibles
+                if c in ["Forage maize", "Straw"]:  # Ajouter ici toutes les cultures éligibles
                     idx_methan[c] = offset
                     offset += 1
 
@@ -2982,6 +2976,12 @@ class NitrogenFlowModel_prospect:
                 # et on ajoute cet item dans l’index de décision méthaniseur
                 idx_methan[f"{animal} waste"] = offset
                 offset += 1
+
+            # Regrouper les indices idx_methan par catégorie
+            items_by_cat = {}
+            for item in idx_methan:
+                cat = cat_of[item]
+                items_by_cat.setdefault(cat, []).append(item)
 
             n_vars = offset  # total number of decision variables
 
@@ -3230,7 +3230,6 @@ class NitrogenFlowModel_prospect:
                 ene_dev = ((energy_prod_GWh - meth_prod) / scale) ** 2
 
                 # b) Soft-constrain : respecter les parts d’intrants par catégorie
-                w_share_energy = 10
                 share_penalty = 0.0
                 total_mb = sum(cat_mass.values()) + 1e-9
                 for cat, share_tgt in meth_regime.items():
@@ -4282,6 +4281,15 @@ class NitrogenFlowModel_prospect:
                     source = {row["Input"]: row["Allocated Nitrogen (ktN)"]}
                     target = {"methaniser": 1}
                     flux_generator.generate_flux(source, target)
+
+            # Ajout du flux de Green waste vers Methaniser
+            source = {"Green waste": 1}
+            target = {
+                "methaniser": allocation_energy_df.loc[
+                    allocation_energy_df["Category"] == "green_waste", "Allocated Nitrogen (ktN)"
+                ].item()
+            }
+            flux_generator.generate_flux(source, target)
 
             # On redonne à df_elevage sa forme d'origine et à import_feed_net sa vraie valeur
             # Utiliser `infer_objects(copy=False)` pour éviter l'avertissement sur le downcasting
