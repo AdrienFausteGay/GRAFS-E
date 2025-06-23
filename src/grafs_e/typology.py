@@ -15,7 +15,7 @@ from grafs_e.donnees import *
 from grafs_e.N_class import DataLoader, NitrogenFlowModel
 
 # %%
-run = True
+run = False
 if run:
     data = DataLoader()
 

@@ -611,7 +611,7 @@ class scenario:
             proj / 1000
         )  # to be in thousands, not in millions !
 
-        trade_data = pd.read_excel(os.path.join(self.data_path, "import_export.xlsx"))
+        trade_data = pd.read_excel(os.path.join(self.data_path, "import_export.xlsx"), sheet_name="Feuil1")
 
         sheets["main"].loc[sheets["main"]["Variable"] == "Export of vegetal pdcts", "Business as usual"] = np.round(
             trade_data.loc[trade_data["Type"] == "Export", region].item(), 0
