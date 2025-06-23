@@ -2800,11 +2800,13 @@ class NitrogenFlowModel_prospect:
         w_Nsyn = technical.loc[technical["Variable"] == "Weight synthetic fertilizer use", "Business as usual"].item()
         w_imp = technical.loc[technical["Variable"] == "Weight import", "Business as usual"].item()
         w_exp = technical.loc[technical["Variable"] == "Weight export", "Business as usual"].item()
+        w_energy = technical.loc[technical["Variable"] == "Weight energy", "Business as usual"].item()
 
         self.w_diet = w_diet
         self.w_Nsyn = w_Nsyn
         self.w_imp = w_imp
         self.w_exp = w_exp
+        self.w_energy = w_energy
 
         df_elevage_comp = df_elevage.copy()
         df_cons_vege = df_elevage.loc[df_elevage["Ingestion (ktN)"] > 10**-8, "Ingestion (ktN)"]
@@ -2814,6 +2816,26 @@ class NitrogenFlowModel_prospect:
 
         df_cons_vege.loc["urban"] = N_vege * prop_urb
         df_cons_vege.loc["rural"] = N_vege * (1 - prop_urb)
+
+        meth_prod = main.loc[main["Variable"] == "Methaniser production", "Business as usual"].item()
+        meth_productivity = pd.read_excel(os.path.join(self.data_path, "GRAFS_data.xlsx"), sheet_name="Energy_power")
+        meth_regime = {
+            "crop_residues": technical.loc[
+                technical["Variable"] == "Share of crop residues in methaniser", "Business as usual"
+            ].item(),
+            "green_waste": technical.loc[
+                technical["Variable"] == "Share of green waste in methaniser", "Business as usual"
+            ].item(),
+            "dedicated_culture": technical.loc[
+                technical["Variable"] == "Share of dedicated culture in methaniser", "Business as usual"
+            ].item(),
+            "animal_food_industry": technical.loc[
+                technical["Variable"] == "Share of animal food industry in methaniser", "Business as usual"
+            ].item(),
+            "livestock_effluent": technical.loc[
+                technical["Variable"] == "Share of livestock effluent in methaniser", "Business as usual"
+            ].item(),
+        }
 
         if len(df_cons_vege) > 0:
             CROPS = list(df_cultures.index)  # par exemple
@@ -2865,6 +2887,20 @@ class NitrogenFlowModel_prospect:
             idx_import = {}
             for c, k in allowed_ck:
                 idx_import[(c, k)] = offset
+                offset += 1
+
+            idx_methan = {}
+            for c in CROPS:
+                if c in ["maize forage", "straw"]:  # Ajouter ici toutes les cultures éligibles
+                    idx_methan[c] = offset
+                    offset += 1
+
+            for e in EFFLUENTS:  # Définis la liste des effluents concernés
+                idx_methan[e] = offset
+                offset += 1
+
+            for w in WASTE:  # ex. graisses d’abattoir
+                idx_methan[w] = offset
                 offset += 1
 
             n_vars = offset  # total number of decision variables

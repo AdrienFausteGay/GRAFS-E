@@ -157,6 +157,7 @@ ext = [
     "atmospheric N2",
     "Haber-Bosch",
     "Methanisation",
+    "Green waste",
     "other sectors",
     "animal trade",
     "fishery products",
