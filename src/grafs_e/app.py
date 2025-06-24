@@ -654,7 +654,7 @@ with tab4:
 
         st.dataframe(model.deviations_df)
 
-        if st.session_state.year_pros:
+        if int(st.session_state.year) > 2024:
             st.subheader("Energy from biomass")
             st.text("Methaniser allocation")
             st.dataframe(model.allocation_energy_df)

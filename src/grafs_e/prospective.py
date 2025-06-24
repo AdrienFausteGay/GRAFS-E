@@ -4100,7 +4100,7 @@ class NitrogenFlowModel_prospect:
                         "Destination": "methaniser",
                     }
                 )
-            allocation_energy_df = pd.DataFrame(allocation_energy).sort_values("Share", ascending=False)
+            allocation_energy_df = pd.DataFrame(allocation_energy).sort_values("Share (%)", ascending=False)
             allocation_energy_df["Allocated MB (t)"] = allocation_energy_df.apply(
                 lambda row: row["Allocated Nitrogen (ktN)"] * coeff_N_to_MB[row["Input"]], axis=1
             )
