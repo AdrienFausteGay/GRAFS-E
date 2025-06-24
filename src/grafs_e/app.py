@@ -435,6 +435,21 @@ with tab3:
         # Récupérer l'objet model
         model = st.session_state["model"]
 
+        st.subheader("Territorial Systemic Overview")
+        st.write(
+            f"This Sankey diagram presents nitrogen flows in the agricultural system organized by key categories (10% = {np.round(model.adjacency_matrix.sum() / 10, 0)} ktN/yr)."
+        )
+        # st.write("For optimal visualization, please switch to full screen mode.")
+
+        # streamlit_sankey_systemic_flows(model)
+        # os.path.join(os.getcwd(), "data/system_flows.svg")
+        # 1) Point de départ : le dossier racine du projet
+        base = Path(__file__).parent.parent  # par exemple, un dossier au-dessus de app.py
+        # 2) Construire le chemin vers le SVG
+        svg_template_path = base / "grafs_e" / "data" / "system_flows.svg"
+
+        streamlit_sankey_systemic_flows_svg(model, mapping_svg_fluxes, svg_template_path)
+
         # 🔹 Ajouter un bouton de mode
         mode_complet = st.toggle("Detailed view", value=False, key="first")
 
@@ -615,21 +630,6 @@ with tab3:
 
         streamlit_sankey_food_flows(model, cultures, legumineuses, prairies, trades, merges=merge)
 
-        st.subheader("Territorial Systemic Overview")
-        st.write(
-            f"This Sankey diagram presents nitrogen flows in the agricultural system organized by key categories (10% = {np.round(model.adjacency_matrix.sum() / 10, 0)} ktN/yr)."
-        )
-        # st.write("For optimal visualization, please switch to full screen mode.")
-
-        # streamlit_sankey_systemic_flows(model)
-        # os.path.join(os.getcwd(), "data/system_flows.svg")
-        # 1) Point de départ : le dossier racine du projet
-        base = Path(__file__).parent.parent  # par exemple, un dossier au-dessus de app.py
-        # 2) Construire le chemin vers le SVG
-        svg_template_path = base / "grafs_e" / "data" / "system_flows.svg"
-
-        streamlit_sankey_systemic_flows_svg(model, mapping_svg_fluxes, svg_template_path)
-
 with tab4:
     st.title("Detailed data")
 
@@ -653,6 +653,14 @@ with tab4:
         st.subheader("Diet deviations from defined diet")
 
         st.dataframe(model.deviations_df)
+
+        if st.session_state.year_pros:
+            st.subheader("Energy from biomass")
+            st.text("Methaniser allocation")
+            st.dataframe(model.allocation_energy_df)
+
+            st.text("Input deviation for methanizer")
+            st.dataframe(model.meth_deviation_df)
 
 
 # 📌 Stocker et récupérer les modèles pour chaque région en cache
@@ -1780,6 +1788,8 @@ with tab6:
                             "fert_dev": st.session_state.model.w_Nsyn,
                             "imp_dev": st.session_state.model.w_imp,
                             "exp_dev": st.session_state.model.w_exp,
+                            "energy_dev": st.session_state.model.w_energy,
+                            "energy_prod": st.session_state.model.w_share_energy,
                         }
 
                         # --- table contraintes "cible vs réalisé" ---
@@ -1788,6 +1798,7 @@ with tab6:
                             ("Synthetic N (grass)", final["Nsyn grasslands target"], final["Nsyn grasslands model"]),
                             ("Imports", final["import target"], final["import model"]),
                             ("Exports", final["export target"], final["export model"]),
+                            ("Energy Production", final["methanisation target"], final["methanisation model"]),
                         ]
                         df = pd.DataFrame(rows, columns=["Constraint", "Target", "Model"])
 
