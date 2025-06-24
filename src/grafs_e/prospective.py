@@ -2612,32 +2612,6 @@ class NitrogenFlowModel_prospect:
 
         ## Epandage sur champs
 
-        # source = (
-        #     df_elevage["Excreted nitrogen (ktN)"]
-        #     * df_elevage["% excreted indoors"]
-        #     / 100
-        #     * (
-        #         df_elevage["% excreted indoors as manure"]
-        #         / 100
-        #         * (
-        #             1
-        #             - df_elevage["N-NH3 EM. manure indoor"]
-        #             - df_elevage["N-N2O EM. manure indoor"]
-        #             - df_elevage["N-N2 EM. manure indoor"]
-        #         )
-        #         + df_elevage["% excreted indoors as slurry"]
-        #         / 100
-        #         * (
-        #             1
-        #             - df_elevage["N-NH3 EM. slurry indoor"]
-        #             - df_elevage["N-N2O EM. slurry indoor"]
-        #             - df_elevage["N-N2 EM. slurry indoor"]
-        #         )
-        #     )
-        # ).to_dict()
-
-        # flux_generator.generate_flux(source, target_ependage)
-
         df_elevage["Available manure after volatilization (ktN)"] = (
             df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["% excreted indoors"]
@@ -4348,6 +4322,49 @@ class NitrogenFlowModel_prospect:
                 ].item()
             }
             flux_generator.generate_flux(source, target)
+
+            ## Epandage sur champs
+
+            # source = (
+            #     df_elevage["Excreted nitrogen (ktN)"]
+            #     * df_elevage["% excreted indoors"]
+            #     / 100
+            #     * (
+            #         df_elevage["% excreted indoors as manure"]
+            #         / 100
+            #         * (
+            #             1
+            #             - df_elevage["N-NH3 EM. manure indoor"]
+            #             - df_elevage["N-N2O EM. manure indoor"]
+            #             - df_elevage["N-N2 EM. manure indoor"]
+            #         )
+            #         + df_elevage["% excreted indoors as slurry"]
+            #         / 100
+            #         * (
+            #             1
+            #             - df_elevage["N-NH3 EM. slurry indoor"]
+            #             - df_elevage["N-N2O EM. slurry indoor"]
+            #             - df_elevage["N-N2 EM. slurry indoor"]
+            #         )
+            #     )
+            # ).to_dict()
+
+            source = (
+                df_elevage["Available slurry after volatilization (ktN)"]
+                - df_elevage["Slurry to methaniser (ktN)"]
+                + df_elevage["Available manure after volatilization (ktN)"]
+                - df_elevage["Manure to methaniser (ktN)"]
+            ).to_dict()
+            flux_generator.generate_flux(source, target_ependage)
+
+            source = {
+                "methaniser": allocation_energy_df.loc[
+                    allocation_energy_df["Destination"] == "methaniser", "Allocated Nitrogen (ktN)"
+                ].sum()
+            }
+            flux_generator.generate_flux(source, target_ependage)
+
+            # flux_generator.generate_flux(source, target_ependage)
 
             # # Azote issu de la partie non comestible des carcasses vers autres secteurs
             source_non_comestible = (
