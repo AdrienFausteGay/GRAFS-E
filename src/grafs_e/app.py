@@ -1915,5 +1915,5 @@ with tab6:
                     st.text(
                         f"Total Throughflow : {np.round(st.session_state.model.get_transition_matrix().sum(), 1)} ktN/yr."
                     )
-                st.subheader(f"Heatmap – {st.session_state.selected_region_pros} / {st.session_state.year_pros}")
+                st.subheader(f"Heatmap – {st.session_state.selected_region_pros} in {st.session_state.year_pros}")
                 st.plotly_chart(st.session_state.heatmap_fig_pros, use_container_width=True)

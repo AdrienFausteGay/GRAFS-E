@@ -2521,13 +2521,6 @@ class NitrogenFlowModel_prospect:
             culture: row["Area (ha)"] * row["Spreading Rate (%)"] / Norm for culture, row in df_cultures.iterrows()
         }
 
-        source_boue = {
-            "urban": prop_urb * N_boue * prop_recy_urb,
-            "rural": (1 - prop_urb) * prop_recy_rur * N_boue,
-        }
-
-        flux_generator.generate_flux(source_boue, target_ependage)
-
         # Le reste est perdu dans l'environnement
         # Ajouter les fuites de N2O
         source = {
@@ -2610,13 +2603,24 @@ class NitrogenFlowModel_prospect:
 
         flux_generator.generate_flux(source, target)
 
+        # N20
+        target = {"N2O emission": 1}
+        source = (
+            df_elevage["Excreted nitrogen (ktN)"]
+            * df_elevage["% excreted on grassland"]
+            / 100
+            * df_elevage["N-N2O EM. outdoor"]
+        ).to_dict()
+
+        flux_generator.generate_flux(source, target)
+
         ## Epandage sur champs
 
         df_elevage["Available manure after volatilization (ktN)"] = (
             df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["% excreted indoors"]
             / 100
-            * df_elevage["% excreted indoors as manure"]
+            * (df_elevage["% excreted indoors as manure"] + df_elevage["% excreted indoors as other manure"])
             / 100
             * (
                 1
@@ -2650,7 +2654,9 @@ class NitrogenFlowModel_prospect:
             / 100
             * (
                 df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-N2 EM. slurry indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-N2 EM. manure indoor"]
+                + (df_elevage["% excreted indoors as manure"] + df_elevage["% excreted indoors as other manure"])
+                / 100
+                * df_elevage["N-N2 EM. manure indoor"]
                 # + other manure emission ?? TODO
             )
         ).to_dict()
@@ -2666,7 +2672,25 @@ class NitrogenFlowModel_prospect:
             / 100
             * (
                 df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-NH3 EM. slurry indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-NH3 EM. manure indoor"]
+                + (df_elevage["% excreted indoors as manure"] + df_elevage["% excreted indoors as other manure"])
+                / 100
+                * df_elevage["N-NH3 EM. manure indoor"]
+            )
+        ).to_dict()
+
+        flux_generator.generate_flux(source, target)
+
+        # N2O
+        target = {"N2O emission": 1}
+        source = (
+            df_elevage["Excreted nitrogen (ktN)"]
+            * df_elevage["% excreted indoors"]
+            / 100
+            * (
+                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-N2O EM. slurry indoor"]
+                + (df_elevage["% excreted indoors as manure"] + df_elevage["% excreted indoors as other manure"])
+                / 100
+                * df_elevage["N-N2O EM. manure indoor"]
             )
         ).to_dict()
 
@@ -2681,22 +2705,29 @@ class NitrogenFlowModel_prospect:
             "NH3 volatilization": 0.1 * adjacency_matrix[:, label_to_index["NH3 volatilization"]].sum(),
         }
         # TODO réfléchir à comment intégrer les retombées de la volatilisation des engrais synthétiques
-        adjacency_matrix[:, label_to_index["N2O emission"]] *= 0.99
-        adjacency_matrix[:, label_to_index["NH3 volatilization"]] *= 0.9
+        # adjacency_matrix[:, label_to_index["N2O emission"]] *= 0.99
+        # adjacency_matrix[:, label_to_index["NH3 volatilization"]] *= 0.9
         flux_generator.generate_flux(source, target)
 
         df_cultures = df_cultures.fillna(0)
 
         # Calcul de l'azote épendu par hectare
         def calculer_azote_ependu(culture):
-            sources = self.Pop + ["atmospheric N2", "other sectors", "NH3 volatilization", "N2O emission"] + self.betail
+            if df_cultures["Area (ha)"][culture] <= 0:
+                return 0
+            sources = ["atmospheric N2", "other sectors", "NH3 volatilization", "N2O emission"]
             adj_matrix_df = pd.DataFrame(adjacency_matrix, index=self.labels, columns=self.labels)
             sum_effluents = (
                 df_elevage["Available manure after volatilization (ktN)"]
                 + df_elevage["Available slurry after volatilization (ktN)"]
             ).sum()
             effluents = target_ependage[culture] * sum_effluents
-            return adj_matrix_df.loc[sources, culture].sum() + effluents
+            boues = target_ependage[culture] * N_boue * (prop_urb * prop_recy_urb + (1 - prop_urb) * prop_recy_rur)
+            if (effluents + boues) * 1e6 / df_cultures["Area (ha)"][culture] > 170 and int(self.year) > 2990:
+                supp = 170 * df_cultures["Area (ha)"][culture] / 1e6
+            else:
+                supp = boues + effluents
+            return adj_matrix_df.loc[sources, culture].sum() + supp
 
         df_cultures["Total Non Synthetic Fertilizer Use (ktN)"] = df_cultures.index.map(calculer_azote_ependu)
         df_cultures["Surface Non Synthetic Fertilizer Use (kgN/ha)"] = df_cultures.apply(
@@ -2871,6 +2902,10 @@ class NitrogenFlowModel_prospect:
 
             pct_non_edible = df_elevage.at[animal, "% non edible"] / 100  # fraction N
             coeff_N_to_MB[f"{animal} waste"] = 1e3 / (pct_non_edible * 1e3)
+
+        from IPython import embed
+
+        embed()
 
         if len(df_cons_vege) > 0:
             CROPS = list(df_cultures.index)  # par exemple
@@ -3810,7 +3845,10 @@ class NitrogenFlowModel_prospect:
 
             for c, k_ in allowed_ck:
                 i = idx_import[(c, k_)]
-                bounds[i] = (0.0, None)  # nonnegative
+                if c != "Natural meadow ":
+                    bounds[i] = (0.0, None)  # nonnegative
+                else:
+                    bounds[i] = (0.0, 0.0)  # Pas d'importation de Prairie Naturelle
 
             # --------------------------------------------------------------------------
             # 6) Initial guess
@@ -3858,6 +3896,7 @@ class NitrogenFlowModel_prospect:
             self.log = iteration_log
 
             x_opt = res.x
+            self.x_opt = x_opt
 
             # return (
             #     x_opt,
@@ -4349,22 +4388,221 @@ class NitrogenFlowModel_prospect:
             #     )
             # ).to_dict()
 
-            source = (
-                df_elevage["Available slurry after volatilization (ktN)"]
-                - df_elevage["Slurry to methaniser (ktN)"]
-                + df_elevage["Available manure after volatilization (ktN)"]
-                - df_elevage["Manure to methaniser (ktN)"]
-            ).to_dict()
-            flux_generator.generate_flux(source, target_ependage)
+            # On applique ici les directives nitrates pour ne pas dépasser un certain niveau d'épandage de matière organique
+            # if int(self.year) < 1990:
+            #     source_boue = {
+            #         "urban": prop_urb * N_boue * prop_recy_urb,
+            #         "rural": (1 - prop_urb) * prop_recy_rur * N_boue,
+            #     }
 
-            source = {
+            #     flux_generator.generate_flux(source_boue, target_ependage)
+            #     source = (
+            #         df_elevage["Available slurry after volatilization (ktN)"]
+            #         - df_elevage["Slurry to methaniser (ktN)"]
+            #         + df_elevage["Available manure after volatilization (ktN)"]
+            #         - df_elevage["Manure to methaniser (ktN)"]
+            #     ).to_dict()
+            #     flux_generator.generate_flux(source, target_ependage)
+
+            #     source = {
+            #         "methaniser": allocation_energy_df.loc[
+            #             allocation_energy_df["Destination"] == "methaniser", "Allocated Nitrogen (ktN)"
+            #         ].sum()
+            #     }
+            #     flux_generator.generate_flux(source, target_ependage)
+
+            # flux_generator.generate_flux(source, target_ependage)
+
+            # ---------------------------------------------------------------
+            # Préparation des sources globales (kt N)
+            # ---------------------------------------------------------------
+            # effluent_src = (
+            #     df_elevage["Available slurry after volatilization (ktN)"]
+            #     - df_elevage["Slurry to methaniser (ktN)"]
+            #     + df_elevage["Available manure after volatilization (ktN)"]
+            #     - df_elevage["Manure to methaniser (ktN)"]
+            # ).to_dict()  # ex. {'bovine slurry': 32, 'bovine manure': 18, ...}
+
+            effluent_src = {}
+
+            for animal in df_elevage.index:
+                # Slurry résiduel
+                qty_slurry = (
+                    df_elevage.at[animal, "Available slurry after volatilization (ktN)"]
+                    - df_elevage.at[animal, "Slurry to methaniser (ktN)"]
+                )
+                if qty_slurry > 1e-6:
+                    effluent_src[f"{animal} slurry"] = qty_slurry
+
+                # Manure résiduel
+                qty_manure = (
+                    df_elevage.at[animal, "Available manure after volatilization (ktN)"]
+                    - df_elevage.at[animal, "Manure to methaniser (ktN)"]
+                )
+                if qty_manure > 1e-6:
+                    effluent_src[f"{animal} manure"] = qty_manure
+
+            digestat_src = {
                 "methaniser": allocation_energy_df.loc[
                     allocation_energy_df["Destination"] == "methaniser", "Allocated Nitrogen (ktN)"
                 ].sum()
             }
-            flux_generator.generate_flux(source, target_ependage)
 
-            # flux_generator.generate_flux(source, target_ependage)
+            boues_src = {
+                "urban": prop_urb * N_boue * prop_recy_urb,
+                "rural": (1 - prop_urb) * N_boue * prop_recy_rur,
+            }
+
+            tot_eff = sum(effluent_src.values())
+            tot_dig = digestat_src["methaniser"]
+            tot_boues = sum(boues_src.values())
+
+            # ------------------------------------------------------------------
+            # 0) Initialisation des nouvelles colonnes
+            # ------------------------------------------------------------------
+            df_elevage["Manure to crops (ktN)"] = 0.0
+            df_elevage["Slurry to crops (ktN)"] = 0.0
+
+            for col in [
+                "Effluent Fertilization (ktN)",
+                "Sludges Fertilization (ktN)",
+                "Digestat Fertilization (ktN)",
+                "Other non Synthetic Fertilization (ktN)",
+            ]:
+                df_cultures[col] = 0.0
+
+            # ------------------------------------------------------------------
+            # 1) Fonction utilitaire pour ajouter les quantités aux DataFrames
+            # ------------------------------------------------------------------
+            def add_to_elevage(item_name, qty_kt):
+                if qty_kt <= 1e-6:
+                    return
+                # Séparer par le dernier espace pour éviter un crash si le nom animal contient un espace
+                animal, form = item_name.rsplit(" ", 1)  # ex. "bovine slurry" → ("bovine", "slurry")
+                if animal in df_elevage.index:
+                    if form == "slurry":
+                        df_elevage.at[animal, "Slurry to crops (ktN)"] += qty_kt
+                    elif form == "manure":
+                        df_elevage.at[animal, "Manure to crops (ktN)"] += qty_kt
+
+            def add_to_culture(cult, effluents=0.0, boues=0.0, digestat=0.0, other=0.0):
+                df_cultures.at[cult, "Effluent Fertilization (ktN)"] += effluents
+                df_cultures.at[cult, "Sludges Fertilization (ktN)"] += boues
+                df_cultures.at[cult, "Digestat Fertilization (ktN)"] += digestat
+                df_cultures.at[cult, "Other non Synthetic Fertilization (ktN)"] += other
+
+            # ------------------------------------------------------------------
+            # 2) BOUCLE D’EPANDAGE  (reprend la logique précédente)
+            # ------------------------------------------------------------------
+            adj_matrix_df = pd.DataFrame(adjacency_matrix, index=self.labels, columns=self.labels)
+            if int(self.year) < 2990:
+                # ---------- Ancienne logique (pas de plafond) ----------
+                for cult, prop in target_ependage.items():
+                    if prop <= 0.0:
+                        continue
+
+                    # a) fraction par culture de chaque source
+                    eff_c = {k: v * prop for k, v in effluent_src.items()}
+                    boues_c = {k: v * prop for k, v in boues_src.items()}
+                    dig_c = {"methaniser": tot_dig * prop}
+
+                    # Regroupper les aniamux dans eff_c
+                    new_eff_c = {}
+
+                    for key, value in eff_c.items():
+                        # Extraire le nom de l'animal (le premier mot de la clé)
+                        animal_name = key.split(" ")[0]
+
+                        # Ajouter la valeur à l'animal correspondant
+                        # Si l'animal n'existe pas encore comme clé, il est initialisé à 0 avant d'ajouter la valeur
+                        new_eff_c[animal_name] = new_eff_c.get(animal_name, 0.0) + value
+
+                    other_N = adj_matrix_df.loc[
+                        ["atmospheric N2", "other sectors", "NH3 volatilization", "N2O emission"], cult
+                    ].sum()
+
+                    # b) Mise à jour DataFrames
+                    add_to_culture(
+                        cult,
+                        effluents=sum(new_eff_c.values()),
+                        boues=sum(boues_c.values()),
+                        digestat=dig_c["methaniser"],
+                        other=other_N,
+                    )
+                    for itm, qty in eff_c.items():
+                        add_to_elevage(itm, qty)
+
+                    # c) Flux vers ‘flux_generator’ (inchangé)
+                    flux_generator.generate_flux(boues_c, {cult: 1})
+                    flux_generator.generate_flux(new_eff_c, {cult: 1})
+                    flux_generator.generate_flux(dig_c, {cult: 1})
+
+            else:
+                # ---------- Version plafonnée 170 kg N/ha ----------
+                for cult, prop in target_ependage.items():
+                    if prop <= 0.0:
+                        continue
+
+                    area_ha = df_cultures.at[cult, "Area (ha)"]
+                    limit_kt = 170 * area_ha / 1e6
+
+                    # -- répartition brute par culture --
+                    eff_c = {k: v * prop for k, v in effluent_src.items()}
+                    boues_c = {k: v * prop for k, v in boues_src.items()}
+                    dig_c = {"methaniser": tot_dig * prop}
+
+                    N_eff, N_boues, N_dig = map(sum, (eff_c.values(), boues_c.values(), [dig_c["methaniser"]]))
+                    total_N = N_eff + N_boues + N_dig
+                    over = max(0.0, total_N - limit_kt)
+
+                    # --------- réductions successives ----------
+                    # 1) boues
+                    if over > 0 and N_boues > 0:
+                        rem = min(over, N_boues)
+                        ratio = (N_boues - rem) / N_boues
+                        boues_c = {k: v * ratio for k, v in boues_c.items()}
+                        over -= rem
+                    # 2) digestat
+                    if over > 0 and N_dig > 0:
+                        rem = min(over, N_dig)
+                        dig_c["methaniser"] -= rem
+                        over -= rem
+                    # 3) effluents
+                    if over > 0 and N_eff > 0:
+                        ratio = (N_eff - over) / N_eff
+                        eff_c = {k: v * ratio for k, v in eff_c.items()}
+                        over = 0.0
+
+                    # --------- Comptabilisation pour les DataFrames ----------
+                    other_N = adj_matrix_df.loc[
+                        ["atmospheric N2", "other sectors", "NH3 volatilization", "N2O emission"], cult
+                    ].sum()
+
+                    add_to_culture(
+                        cult,
+                        effluents=sum(eff_c.values()),
+                        boues=sum(boues_c.values()),
+                        digestat=dig_c["methaniser"],
+                        other=other_N,
+                    )
+                    for itm, qty in eff_c.items():
+                        add_to_elevage(itm, qty)
+
+                    # --------- Flux matière (vers culture & hydro) ----------
+                    flux_generator.generate_flux(boues_c, {cult: 1})
+                    flux_generator.generate_flux(eff_c, {cult: 1})
+                    flux_generator.generate_flux(dig_c, {cult: 1})
+
+                    # Surplus (boues/dig/effluents) envoyé à l’hydro-system
+                    surplus_src = {}
+                    for d in (boues_c, dig_c, eff_c):
+                        for k, v in d.items():
+                            if v < 1e-6:  # ce qui a été retranché
+                                surplus_src[k] = surplus_src.get(k, 0.0) + (
+                                    boues_src.get(k, 0) + dig_c.get(k, 0) + eff_c.get(k, 0) - v
+                                )
+                    if surplus_src:
+                        flux_generator.generate_flux(surplus_src, {"hydro-system": 1})
 
             # # Azote issu de la partie non comestible des carcasses vers autres secteurs
             source_non_comestible = (
@@ -4382,6 +4620,10 @@ class NitrogenFlowModel_prospect:
 
             # Inférer les types pour éviter le warning sur les colonnes object
             df_elevage = df_elevage.infer_objects(copy=False)
+
+            from IPython import embed
+
+            embed()
 
             # feed_export = import_feed - import_feed_net
 

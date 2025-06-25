@@ -1027,7 +1027,7 @@ class NitrogenFlowModel:
             * df_elevage["% excreted indoors"]
             / 100
             * (
-                df_elevage["% excreted indoors as manure"]
+                (df_elevage["% excreted indoors as manure"] + df_elevage["% excreted indoors as other manure"])
                 / 100
                 * (
                     1
@@ -1058,7 +1058,9 @@ class NitrogenFlowModel:
             / 100
             * (
                 df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-N2 EM. slurry indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-N2 EM. manure indoor"]
+                + (df_elevage["% excreted indoors as manure"] + df_elevage["% excreted indoors as other manure"])
+                / 100
+                * df_elevage["N-N2 EM. manure indoor"]
             )
         ).to_dict()
 
@@ -1073,7 +1075,9 @@ class NitrogenFlowModel:
             / 100
             * (
                 df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-NH3 EM. slurry indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-NH3 EM. manure indoor"]
+                + (df_elevage["% excreted indoors as manure"] + df_elevage["% excreted indoors as other manure"])
+                / 100
+                * df_elevage["N-NH3 EM. manure indoor"]
             )
         ).to_dict()
 
@@ -1097,7 +1101,9 @@ class NitrogenFlowModel:
             / 100
             * (
                 df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-N2O EM. slurry indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-N2O EM. manure indoor"]
+                + (df_elevage["% excreted indoors as manure"] + df_elevage["% excreted indoors as other manure"])
+                / 100
+                * df_elevage["N-N2O EM. manure indoor"]
             )
         ).to_dict()
 
