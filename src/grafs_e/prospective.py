@@ -2729,7 +2729,23 @@ class NitrogenFlowModel_prospect:
                 supp = boues + effluents
             return adj_matrix_df.loc[sources, culture].sum() + supp
 
-        df_cultures["Total Non Synthetic Fertilizer Use (ktN)"] = df_cultures.index.map(calculer_azote_ependu)
+        # def calculer_azote_ependu(culture):
+        #     """
+        #     Azote incorporé sans action humaine (seeds, dépôt atmosphérique)
+        #     C'est la fertilisation naturelle des légumineuse
+        #     Pour les autres il faut ajouter manure, slurry, methaniser, boue, N_synth
+        #     Fait dans le model d'optim
+        #     Ajout aussi de l'héritage des légumineuses
+        #     """
+        #     if df_cultures["Area (ha)"][culture] <= 0:
+        #         return 0
+        #     sources = ["atmospheric N2", "other sectors", "NH3 volatilization", "N2O emission"]
+        #     adj_matrix_df = pd.DataFrame(adjacency_matrix, index=self.labels, columns=self.labels)
+        #     return adj_matrix_df.loc[sources, culture].sum()
+
+        df_cultures["Total Non Synthetic Fertilizer Use (ktN)"] = df_cultures.index.map(
+            calculer_azote_ependu
+        )  # df_cultures.index.map(calculer_azote_ependu)
         df_cultures["Surface Non Synthetic Fertilizer Use (kgN/ha)"] = df_cultures.apply(
             lambda row: row["Total Non Synthetic Fertilizer Use (ktN)"] / row["Area (ha)"] * 10**6
             if row["Area (ha)"] > 0 and row["Total Non Synthetic Fertilizer Use (ktN)"] > 0
@@ -2903,9 +2919,9 @@ class NitrogenFlowModel_prospect:
             pct_non_edible = df_elevage.at[animal, "% non edible"] / 100  # fraction N
             coeff_N_to_MB[f"{animal} waste"] = 1e3 / (pct_non_edible * 1e3)
 
-        from IPython import embed
+        # from IPython import embed
 
-        embed()
+        # embed()
 
         if len(df_cons_vege) > 0:
             CROPS = list(df_cultures.index)  # par exemple
@@ -2972,21 +2988,27 @@ class NitrogenFlowModel_prospect:
                 offset += 1
 
             idx_methan = {}
+            Non_effluents_idx = []
             for c in CROPS:
                 if c in ["Forage maize", "Straw"]:  # Ajouter ici toutes les cultures éligibles
                     idx_methan[c] = offset
+                    Non_effluents_idx.append(c)
                     offset += 1
 
+            effluents_idx = []
             for e in EFFLUENTS:  # Définis la liste des effluents concernés
                 idx_methan[e] = offset
+                effluents_idx.append(e)
                 offset += 1
 
             for animal in df_elevage.index:
                 # et on ajoute cet item dans l’index de décision méthaniseur
                 idx_methan[f"{animal} waste"] = offset
+                Non_effluents_idx.append(f"{animal} waste")
                 offset += 1
 
             idx_methan["Green waste"] = offset
+            Non_effluents_idx.append("Green waste")
             offset += 1
 
             # Regrouper les indices idx_methan par catégorie
@@ -3078,7 +3100,11 @@ class NitrogenFlowModel_prospect:
                 total_synth_grasslands = 0.0
                 for c in CROPS:
                     # x[idx_synth[c]] is in kgN/ha
-                    fert_per_ha = x[idx_synth[c]] + nonSynthFert[c]
+                    fert_per_ha = (
+                        x[idx_synth[c]]
+                        + nonSynthFert[c]
+                        + sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c]
+                    )
                     if c == "Natural meadow ":
                         total_synth_grasslands += x[idx_synth[c]] * area[c]  # only the synthetic part
                     else:
@@ -3113,19 +3139,36 @@ class NitrogenFlowModel_prospect:
                     # Production locale (ktN) ; on suppose qu'elle est déjà correcte/à jour :
                     if self.prod_func == "Ratio":
                         production_c = (
-                            Y_th_ratio(x[idx_synth[c]] + nonSynthFert[c], Ymax[c])
+                            Y_th_ratio(
+                                x[idx_synth[c]]
+                                + nonSynthFert[c]
+                                + sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c],
+                                Ymax[c],
+                            )
                             * df_cultures.at[c, "Area (ha)"]
                             / 1e6
                         )
                     if self.prod_func == "Linear":
                         production_c = (
-                            Y_th_lin(x[idx_synth[c]] + nonSynthFert[c], a[c], b[c])
+                            Y_th_lin(
+                                x[idx_synth[c]]
+                                + nonSynthFert[c]
+                                + sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c],
+                                a[c],
+                                b[c],
+                            )
                             * df_cultures.at[c, "Area (ha)"]
                             / 1e6
                         )
                     if self.prod_func == "Exponential":
                         production_c = (
-                            Y.Y_th_exp_cap(x[idx_synth[c]] + nonSynthFert[c], Ymax[c], k_param[c])
+                            Y.Y_th_exp_cap(
+                                x[idx_synth[c]]
+                                + nonSynthFert[c]
+                                + sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c],
+                                Ymax[c],
+                                k_param[c],
+                            )
                             * df_cultures.at[c, "Area (ha)"]
                             / 1e6
                         )
@@ -3416,7 +3459,11 @@ class NitrogenFlowModel_prospect:
                 total_synth_grasslands = 0.0
                 for c in CROPS:
                     # x[idx_synth[c]] is in kgN/ha
-                    fert_per_ha = x[idx_synth[c]] + nonSynthFert[c]
+                    fert_per_ha = (
+                        x[idx_synth[c]]
+                        + nonSynthFert[c]
+                        + sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c]
+                    )
                     if c == "Natural meadow ":
                         total_synth_grasslands += x[idx_synth[c]] * area[c]  # only the synthetic part
                     else:
@@ -3450,19 +3497,36 @@ class NitrogenFlowModel_prospect:
                     # Production locale (ktN) ; on suppose qu'elle est déjà correcte/à jour :
                     if self.prod_func == "Ratio":
                         production_c = (
-                            Y_th_ratio(x[idx_synth[c]] + nonSynthFert[c], Ymax[c])
+                            Y_th_ratio(
+                                x[idx_synth[c]]
+                                + nonSynthFert[c]
+                                + sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c],
+                                Ymax[c],
+                            )
                             * df_cultures.at[c, "Area (ha)"]
                             / 1e6
                         )
                     if self.prod_func == "Linear":
                         production_c = (
-                            Y_th_lin(x[idx_synth[c]] + nonSynthFert[c], a[c], b[c])
+                            Y_th_lin(
+                                x[idx_synth[c]]
+                                + nonSynthFert[c]
+                                + sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c],
+                                a[c],
+                                b[c],
+                            )
                             * df_cultures.at[c, "Area (ha)"]
                             / 1e6
                         )
                     if self.prod_func == "Exponential":
                         production_c = (
-                            Y.Y_th_exp_cap(x[idx_synth[c]] + nonSynthFert[c], Ymax[c], k_param[c])
+                            Y.Y_th_exp_cap(
+                                x[idx_synth[c]]
+                                + nonSynthFert[c]
+                                + sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c],
+                                Ymax[c],
+                                k_param[c],
+                            )
                             * df_cultures.at[c, "Area (ha)"]
                             / 1e6
                         )
@@ -3619,9 +3683,9 @@ class NitrogenFlowModel_prospect:
                 # --- Helper function to calculate production ---
                 # (Avoid recalculating this repeatedly inside the constraint function if possible,
                 # but here we need it dependent on x_synth which changes)
-                def calculate_production(x_synth_val, c):
+                def calculate_production(x_synth_val, c, x_meth_val):
                     # Make sure idx_synth[c] exists if you use it here, or adjust logic
-                    fert_tot = x_synth_val + nonSynthFert[c]  # Assuming x_ maps directly for synth
+                    fert_tot = x_synth_val + nonSynthFert[c] + x_meth_val  # Assuming x_ maps directly for synth
                     if self.prod_func == "Ratio":
                         y_ha = Y_th_ratio(fert_tot, df_cultures.loc[c, "Ymax (kgN/ha)"])
                     if self.prod_func == "Linear":
@@ -3670,7 +3734,12 @@ class NitrogenFlowModel_prospect:
                             if c2 not in calculated_productions:
                                 # Ensure c2 is a valid crop index/name
                                 if c2 in idx_synth:
-                                    prod_c2_val = calculate_production(x_[idx_synth[c2]], c2)
+                                    prod_c2_val = calculate_production(
+                                        x_[idx_synth[c2]],
+                                        c2,
+                                        nonSynthFert[c]
+                                        + sum(x_[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c],
+                                    )
                                     calculated_productions[c2] = prod_c2_val
                                 else:
                                     # Handle case where crop might be in regimes but not synthesizable (maybe fixed production?)
@@ -3758,7 +3827,11 @@ class NitrogenFlowModel_prospect:
                     sum_local += x_[idx_methan[c]]
 
                 # c) production potentielle en kt N
-                fert_tot = x_[idx_synth[c]] + nonSynthFert[c]
+                fert_tot = (
+                    x_[idx_synth[c]]
+                    + nonSynthFert[c]
+                    + sum(x_[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c]
+                )
                 if self.prod_func == "Ratio":
                     y = Y_th_ratio(fert_tot, Ymax[c])
                 elif self.prod_func == "Linear":
@@ -3913,113 +3986,9 @@ class NitrogenFlowModel_prospect:
             #     iteration_log,
             # )
 
-            # On crée les nouvelles colonnes à zéro par défaut
-            df_cultures["Surface Synthetic Fertilizer Use (kgN/ha)"] = 0.0
-            df_cultures["Synthetic Fertilizer Use (ktN)"] = 0.0
+            # from IPython import embed
 
-            # Parcours de toutes les cultures
-            for c in df_cultures.index:
-                if df_cultures.at[c, "Category"] != "leguminous":
-                    # 1) Récupérer la fertilisation synthétique du solveur, en kgN/ha
-                    #    -> synth_fert_sol[c] = variable du solveur
-                    if c in idx_synth and x_opt[idx_synth[c]] > 1e-1:
-                        fert_synth = x_opt[idx_synth[c]]
-                    else:
-                        fert_synth = 0.0
-
-                    # On met à jour la colonne "Surface Synthetic Fertilizer Use (kgN/ha)"
-                    fert_synth_with_volat = (
-                        fert_synth * 1 / (0.99 - 0.01 * 0.01)
-                    )  # Pour prendre en compte l'azote synthétique volatilizé et non consommé par la plante
-                    df_cultures.at[c, "Surface Synthetic Fertilizer Use (kgN/ha)"] = fert_synth_with_volat
-
-                    # 2) Calculer la fertilisation synthétique totale en ktN
-                    area_ha = df_cultures.at[c, "Area (ha)"]
-                    total_synth_ktN = (fert_synth_with_volat * area_ha) / 1e6  # (kgN/ha * ha) / 1e6 = ktN
-                    df_cultures.at[c, "Synthetic Fertilizer Use (ktN)"] = total_synth_ktN
-
-                    # 3) Mettre à jour rendement et production
-                    # On calcule la fertilisation totale (synthétique + éventuel non-synthétique)
-                    non_synth_fert = df_cultures.at[c, "Surface Non Synthetic Fertilizer Use (kgN/ha)"]
-                    fert_tot = fert_synth + non_synth_fert
-
-                    if self.prod_func == "Ratio":
-                        y_max = df_cultures.at[c, "Ymax (kgN/ha)"]
-
-                        new_yield = Y_th_ratio(fert_tot, y_max)
-                    if self.prod_func == "Linear":
-                        a = df_cultures.at[c, "a"]
-                        b = df_cultures.at[c, "b"]
-                        new_yield = Y_th_lin(fert_tot, a, b)
-                    if self.prod_func == "Exponential":
-                        y_max = df_cultures.at[c, "Ymax (kgN/ha)"]
-                        k_param = df_cultures.at[c, "k (kgN/ha)"]
-
-                        new_yield = Y.Y_th_exp_cap(fert_tot, y_max, k_param)
-                    df_cultures.at[c, "Yield (kgN/ha)"] = new_yield
-                    # Production en ktN
-                    nitro_prod_ktN = (new_yield * area_ha) / 1e6
-                    df_cultures.at[c, "Nitrogen Production (ktN)"] = nitro_prod_ktN
-
-                else:
-                    # Pour les légumineuses, on ne touche pas Yield ni Nitrogen Production
-                    pass
-
-            ## Azote synthétique volatilisé par les terres
-            # Est ce qu'il n'y a que l'azote synthétique qui est volatilisé ?
-            coef_volat_NH3 = (
-                technical.loc[
-                    technical["Variable"] == "NH3 volatilization coefficient for synthetic nitrogen",
-                    "Business as usual",
-                ].item()
-                / 100
-            )
-            coef_volat_N2O = 0.01
-
-            # 1 % des emissions de NH3 du aux fert. synth sont volatilisées sous forme de N2O
-            df_cultures["Volatilized Nitrogen N-NH3 (ktN)"] = (
-                df_cultures["Synthetic Fertilizer Use (ktN)"] * 0.99 * coef_volat_NH3
-            )
-            df_cultures["Volatilized Nitrogen N-N2O (ktN)"] = df_cultures["Synthetic Fertilizer Use (ktN)"] * (
-                coef_volat_N2O + 0.01 * coef_volat_NH3
-            )
-            df_cultures["Synthetic Fertilizer Use (ktN)"] = df_cultures["Synthetic Fertilizer Use (ktN)"] * (
-                1 - coef_volat_NH3 - coef_volat_N2O
-            )
-
-            source = {"Haber-Bosch": 1}
-            target = df_cultures["Synthetic Fertilizer Use (ktN)"].to_dict()
-
-            flux_generator.generate_flux(source, target)
-
-            source = df_cultures["Volatilized Nitrogen N-NH3 (ktN)"].to_dict()
-            target = {"NH3 volatilization": 1}
-
-            flux_generator.generate_flux(source, target)
-
-            source = df_cultures["Volatilized Nitrogen N-N2O (ktN)"].to_dict()
-            target = {"N2O emission": 1}
-
-            flux_generator.generate_flux(source, target)
-
-            # A cela on ajoute les emissions indirectes de N2O lors de la fabrication des engrais
-            # epend_tot_synt = (
-            #     df_cultures["Volatilized Nitrogen N-NH3 (ktN)"]
-            #     + df_cultures["Volatilized Nitrogen N-N2O (ktN)"]
-            #     + df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"]
-            # ).sum()
-            epend_tot_synt = df_cultures["Synthetic Fertilizer Use (ktN)"].sum()
-            coef_emis_N_N2O = (
-                technical.loc[
-                    technical["Variable"] == "Indirect N2O volatilization coefficient for synthetic nitrogen",
-                    "Business as usual",
-                ].item()
-                / 100
-            )
-            target = {"N2O emission": 1}
-            source = {"Haber-Bosch": epend_tot_synt * coef_emis_N_N2O}
-
-            flux_generator.generate_flux(source, target)
+            # embed()
 
             allocations = []
 
@@ -4127,6 +4096,124 @@ class NitrogenFlowModel_prospect:
             allocation_energy_df["Energy produced (GWh)"] = allocation_energy_df.apply(energy_from_row, axis=1)
 
             self.allocation_energy_df = allocation_energy_df
+
+            # Mise à jour de df_cultures
+            # On crée les nouvelles colonnes à zéro par défaut
+            df_cultures["Surface Synthetic Fertilizer Use (kgN/ha)"] = 0.0
+            df_cultures["Synthetic Fertilizer Use (ktN)"] = 0.0
+
+            coef_volat_NH3 = (
+                technical.loc[
+                    technical["Variable"] == "NH3 volatilization coefficient for synthetic nitrogen",
+                    "Business as usual",
+                ].item()
+                / 100
+            )
+            coef_volat_N2O = 0.01
+
+            # Parcours de toutes les cultures
+            for c in df_cultures.index:
+                if df_cultures.at[c, "Category"] != "leguminous":
+                    # 1) Récupérer la fertilisation synthétique du solveur, en kgN/ha
+                    #    -> synth_fert_sol[c] = variable du solveur
+                    if c in idx_synth and x_opt[idx_synth[c]] > 1e-6:
+                        fert_synth = x_opt[idx_synth[c]]
+                    else:
+                        fert_synth = 0.0
+
+                    # On met à jour la colonne "Surface Synthetic Fertilizer Use (kgN/ha)"
+                    fert_synth_with_volat = fert_synth / (
+                        1 - (0.99 * coef_volat_NH3 + coef_volat_N2O + 0.01 * coef_volat_NH3)
+                    )  # Pour prendre en compte l'azote synthétique volatilizé et non consommé par la plante
+                    df_cultures.at[c, "Surface Synthetic Fertilizer Use (kgN/ha)"] = fert_synth_with_volat
+
+                    # 2) Calculer la fertilisation synthétique totale en ktN
+                    area_ha = df_cultures.at[c, "Area (ha)"]
+                    total_synth_ktN = (fert_synth_with_volat * area_ha) / 1e6  # (kgN/ha * ha) / 1e6 = ktN
+                    df_cultures.at[c, "Synthetic Fertilizer Use (ktN)"] = total_synth_ktN
+
+                    # 3) Mettre à jour rendement et production
+                    # On calcule la fertilisation totale (synthétique + éventuel non-synthétique)
+                    non_synth_fert = (
+                        nonSynthFert[c] + sum(x_opt[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c]
+                    )  # df_cultures.at[c, "Surface Non Synthetic Fertilizer Use (kgN/ha)"]
+                    # On met à jour la fertilisation non synthétique avec l'apport des méthaniseurs
+                    df_cultures.at[c, "Surface Non Synthetic Fertilizer Use (kgN/ha)"] = non_synth_fert
+                    df_cultures.at[c, "Total Non Synthetic Fertilizer Use (ktN)"] = (
+                        non_synth_fert * df_cultures.at[c, "Area (ha)"] / 1e6
+                    )
+
+                    fert_tot = fert_synth + non_synth_fert
+
+                    if self.prod_func == "Ratio":
+                        y_max = df_cultures.at[c, "Ymax (kgN/ha)"]
+
+                        new_yield = Y_th_ratio(fert_tot, y_max)
+                    if self.prod_func == "Linear":
+                        a = df_cultures.at[c, "a"]
+                        b = df_cultures.at[c, "b"]
+                        new_yield = Y_th_lin(fert_tot, a, b)
+                    if self.prod_func == "Exponential":
+                        y_max = df_cultures.at[c, "Ymax (kgN/ha)"]
+                        k_param = df_cultures.at[c, "k (kgN/ha)"]
+
+                        new_yield = Y.Y_th_exp_cap(fert_tot, y_max, k_param)
+                    df_cultures.at[c, "Yield (kgN/ha)"] = new_yield
+                    # Production en ktN
+                    nitro_prod_ktN = (new_yield * area_ha) / 1e6
+                    df_cultures.at[c, "Nitrogen Production (ktN)"] = nitro_prod_ktN
+
+                else:
+                    # Pour les légumineuses, on ne touche pas Yield ni Nitrogen Production
+                    pass
+
+            ## Azote synthétique volatilisé par les terres
+            # Est ce qu'il n'y a que l'azote synthétique qui est volatilisé ?
+
+            # 1 % des emissions de NH3 du aux fert. synth sont volatilisées sous forme de N2O
+            df_cultures["Volatilized Nitrogen N-NH3 (ktN)"] = (
+                df_cultures["Synthetic Fertilizer Use (ktN)"] * 0.99 * coef_volat_NH3
+            )
+            df_cultures["Volatilized Nitrogen N-N2O (ktN)"] = df_cultures["Synthetic Fertilizer Use (ktN)"] * (
+                coef_volat_N2O + 0.01 * coef_volat_NH3
+            )
+            # df_cultures["Synthetic Fertilizer Use (ktN)"] = df_cultures["Synthetic Fertilizer Use (ktN)"] * (
+            #     1 - coef_volat_NH3 - coef_volat_N2O
+            # )
+
+            source = {"Haber-Bosch": 1}
+            target = df_cultures["Synthetic Fertilizer Use (ktN)"].to_dict()
+
+            flux_generator.generate_flux(source, target)
+
+            source = df_cultures["Volatilized Nitrogen N-NH3 (ktN)"].to_dict()
+            target = {"NH3 volatilization": 1}
+
+            flux_generator.generate_flux(source, target)
+
+            source = df_cultures["Volatilized Nitrogen N-N2O (ktN)"].to_dict()
+            target = {"N2O emission": 1}
+
+            flux_generator.generate_flux(source, target)
+
+            # A cela on ajoute les emissions indirectes de N2O lors de la fabrication des engrais
+            # epend_tot_synt = (
+            #     df_cultures["Volatilized Nitrogen N-NH3 (ktN)"]
+            #     + df_cultures["Volatilized Nitrogen N-N2O (ktN)"]
+            #     + df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"]
+            # ).sum()
+            epend_tot_synt = df_cultures["Synthetic Fertilizer Use (ktN)"].sum()
+            coef_emis_N_N2O = (
+                technical.loc[
+                    technical["Variable"] == "Indirect N2O volatilization coefficient for synthetic nitrogen",
+                    "Business as usual",
+                ].item()
+                / 100
+            )
+            target = {"N2O emission": 1}
+            source = {"Haber-Bosch": epend_tot_synt * coef_emis_N_N2O}
+
+            flux_generator.generate_flux(source, target)
 
             df_cultures["Yield (qtl/ha)"] = (
                 df_cultures["Yield (kgN/ha)"]
@@ -4502,7 +4589,9 @@ class NitrogenFlowModel_prospect:
                         continue
 
                     # a) fraction par culture de chaque source
-                    eff_c = {k: v * prop for k, v in effluent_src.items()}
+                    eff_c = {
+                        k: (v - sum([x_opt[i] for i in effluents_idx])) * prop for k, v in effluent_src.items()
+                    }  # On ne compte pas l'azote des effluents qui finit dans le méthaniseur
                     boues_c = {k: v * prop for k, v in boues_src.items()}
                     dig_c = {"methaniser": tot_dig * prop}
 
