@@ -611,7 +611,9 @@ class scenario:
             proj / 1000
         )  # to be in thousands, not in millions !
 
-        trade_data = pd.read_excel(os.path.join(self.data_path, "import_export.xlsx"), sheet_name="Feuil1")
+        trade_data = pd.read_excel(
+            os.path.join(self.data_path, "GRAFS_data.xlsx"), sheet_name="import_export"
+        )  # .set_index("Elevage")
 
         sheets["main"].loc[sheets["main"]["Variable"] == "Export of vegetal pdcts", "Business as usual"] = np.round(
             trade_data.loc[trade_data["Type"] == "Export", region].item(), 0
@@ -619,6 +621,14 @@ class scenario:
 
         sheets["main"].loc[sheets["main"]["Variable"] == "Import of vegetal pdcts", "Business as usual"] = np.round(
             trade_data.loc[trade_data["Type"] == "Import", region].item(), 0
+        )
+
+        meth_data = pd.read_excel(
+            os.path.join(self.data_path, "GRAFS_data.xlsx"), sheet_name="Energy_prod"
+        )  # .set_index("Elevage")
+
+        sheets["main"].loc[sheets["main"]["Variable"] == "Methaniser production", "Business as usual"] = np.round(
+            meth_data.loc[meth_data["Type"] == "Méthaniseur", region].item(), 0
         )
 
         if self.data is not None:
@@ -2511,13 +2521,6 @@ class NitrogenFlowModel_prospect:
             culture: row["Area (ha)"] * row["Spreading Rate (%)"] / Norm for culture, row in df_cultures.iterrows()
         }
 
-        source_boue = {
-            "urban": prop_urb * N_boue * prop_recy_urb,
-            "rural": (1 - prop_urb) * prop_recy_rur * N_boue,
-        }
-
-        flux_generator.generate_flux(source_boue, target_ependage)
-
         # Le reste est perdu dans l'environnement
         # Ajouter les fuites de N2O
         source = {
@@ -2600,33 +2603,46 @@ class NitrogenFlowModel_prospect:
 
         flux_generator.generate_flux(source, target)
 
+        # N20
+        target = {"N2O emission": 1}
+        source = (
+            df_elevage["Excreted nitrogen (ktN)"]
+            * df_elevage["% excreted on grassland"]
+            / 100
+            * df_elevage["N-N2O EM. outdoor"]
+        ).to_dict()
+
+        flux_generator.generate_flux(source, target)
+
         ## Epandage sur champs
 
-        source = (
+        df_elevage["Available manure after volatilization (ktN)"] = (
             df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["% excreted indoors"]
             / 100
+            * (df_elevage["% excreted indoors as manure"] + df_elevage["% excreted indoors as other manure"])
+            / 100
             * (
-                df_elevage["% excreted indoors as manure"]
-                / 100
-                * (
-                    1
-                    - df_elevage["N-NH3 EM. manure indoor"]
-                    - df_elevage["N-N2O EM. manure indoor"]
-                    - df_elevage["N-N2 EM. manure indoor"]
-                )
-                + df_elevage["% excreted indoors as slurry"]
-                / 100
-                * (
-                    1
-                    - df_elevage["N-NH3 EM. slurry indoor"]
-                    - df_elevage["N-N2O EM. slurry indoor"]
-                    - df_elevage["N-N2 EM. slurry indoor"]
-                )
+                1
+                - df_elevage["N-NH3 EM. manure indoor"]
+                - df_elevage["N-N2O EM. manure indoor"]
+                - df_elevage["N-N2 EM. manure indoor"]
             )
-        ).to_dict()
+        )
 
-        flux_generator.generate_flux(source, target_ependage)
+        df_elevage["Available slurry after volatilization (ktN)"] = (
+            df_elevage["Excreted nitrogen (ktN)"]
+            * df_elevage["% excreted indoors"]
+            / 100
+            * df_elevage["% excreted indoors as slurry"]
+            / 100
+            * (
+                1
+                - df_elevage["N-NH3 EM. slurry indoor"]
+                - df_elevage["N-N2O EM. slurry indoor"]
+                - df_elevage["N-N2 EM. slurry indoor"]
+            )
+        )
 
         # Le reste part dans l'atmosphere
 
@@ -2638,7 +2654,9 @@ class NitrogenFlowModel_prospect:
             / 100
             * (
                 df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-N2 EM. slurry indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-N2 EM. manure indoor"]
+                + (df_elevage["% excreted indoors as manure"] + df_elevage["% excreted indoors as other manure"])
+                / 100
+                * df_elevage["N-N2 EM. manure indoor"]
                 # + other manure emission ?? TODO
             )
         ).to_dict()
@@ -2654,7 +2672,25 @@ class NitrogenFlowModel_prospect:
             / 100
             * (
                 df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-NH3 EM. slurry indoor"]
-                + df_elevage["% excreted indoors as manure"] / 100 * df_elevage["N-NH3 EM. manure indoor"]
+                + (df_elevage["% excreted indoors as manure"] + df_elevage["% excreted indoors as other manure"])
+                / 100
+                * df_elevage["N-NH3 EM. manure indoor"]
+            )
+        ).to_dict()
+
+        flux_generator.generate_flux(source, target)
+
+        # N2O
+        target = {"N2O emission": 1}
+        source = (
+            df_elevage["Excreted nitrogen (ktN)"]
+            * df_elevage["% excreted indoors"]
+            / 100
+            * (
+                df_elevage["% excreted indoors as slurry"] / 100 * df_elevage["N-N2O EM. slurry indoor"]
+                + (df_elevage["% excreted indoors as manure"] + df_elevage["% excreted indoors as other manure"])
+                / 100
+                * df_elevage["N-N2O EM. manure indoor"]
             )
         ).to_dict()
 
@@ -2669,19 +2705,47 @@ class NitrogenFlowModel_prospect:
             "NH3 volatilization": 0.1 * adjacency_matrix[:, label_to_index["NH3 volatilization"]].sum(),
         }
         # TODO réfléchir à comment intégrer les retombées de la volatilisation des engrais synthétiques
-        adjacency_matrix[:, label_to_index["N2O emission"]] *= 0.99
-        adjacency_matrix[:, label_to_index["NH3 volatilization"]] *= 0.9
+        # adjacency_matrix[:, label_to_index["N2O emission"]] *= 0.99
+        # adjacency_matrix[:, label_to_index["NH3 volatilization"]] *= 0.9
         flux_generator.generate_flux(source, target)
 
         df_cultures = df_cultures.fillna(0)
 
         # Calcul de l'azote épendu par hectare
         def calculer_azote_ependu(culture):
-            sources = self.betail + self.Pop + ["atmospheric N2", "other sectors", "NH3 volatilization", "N2O emission"]
+            if df_cultures["Area (ha)"][culture] <= 0:
+                return 0
+            sources = ["atmospheric N2", "other sectors", "NH3 volatilization", "N2O emission"]
             adj_matrix_df = pd.DataFrame(adjacency_matrix, index=self.labels, columns=self.labels)
-            return adj_matrix_df.loc[sources, culture].sum()
+            sum_effluents = (
+                df_elevage["Available manure after volatilization (ktN)"]
+                + df_elevage["Available slurry after volatilization (ktN)"]
+            ).sum()
+            effluents = target_ependage[culture] * sum_effluents
+            boues = target_ependage[culture] * N_boue * (prop_urb * prop_recy_urb + (1 - prop_urb) * prop_recy_rur)
+            if (effluents + boues) * 1e6 / df_cultures["Area (ha)"][culture] > 170 and int(self.year) > 2990:
+                supp = 170 * df_cultures["Area (ha)"][culture] / 1e6
+            else:
+                supp = boues + effluents
+            return adj_matrix_df.loc[sources, culture].sum() + supp
 
-        df_cultures["Total Non Synthetic Fertilizer Use (ktN)"] = df_cultures.index.map(calculer_azote_ependu)
+        # def calculer_azote_ependu(culture):
+        #     """
+        #     Azote incorporé sans action humaine (seeds, dépôt atmosphérique)
+        #     C'est la fertilisation naturelle des légumineuse
+        #     Pour les autres il faut ajouter manure, slurry, methaniser, boue, N_synth
+        #     Fait dans le model d'optim
+        #     Ajout aussi de l'héritage des légumineuses
+        #     """
+        #     if df_cultures["Area (ha)"][culture] <= 0:
+        #         return 0
+        #     sources = ["atmospheric N2", "other sectors", "NH3 volatilization", "N2O emission"]
+        #     adj_matrix_df = pd.DataFrame(adjacency_matrix, index=self.labels, columns=self.labels)
+        #     return adj_matrix_df.loc[sources, culture].sum()
+
+        df_cultures["Total Non Synthetic Fertilizer Use (ktN)"] = df_cultures.index.map(
+            calculer_azote_ependu
+        )  # df_cultures.index.map(calculer_azote_ependu)
         df_cultures["Surface Non Synthetic Fertilizer Use (kgN/ha)"] = df_cultures.apply(
             lambda row: row["Total Non Synthetic Fertilizer Use (ktN)"] / row["Area (ha)"] * 10**6
             if row["Area (ha)"] > 0 and row["Total Non Synthetic Fertilizer Use (ktN)"] > 0
@@ -2790,6 +2854,15 @@ class NitrogenFlowModel_prospect:
         w_Nsyn = technical.loc[technical["Variable"] == "Weight synthetic fertilizer use", "Business as usual"].item()
         w_imp = technical.loc[technical["Variable"] == "Weight import", "Business as usual"].item()
         w_exp = technical.loc[technical["Variable"] == "Weight export", "Business as usual"].item()
+        w_energy = technical.loc[technical["Variable"] == "Weight energy", "Business as usual"].item()
+        w_share_energy = technical.loc[technical["Variable"] == "Weight methaniser input", "Business as usual"].item()
+
+        self.w_diet = w_diet
+        self.w_Nsyn = w_Nsyn
+        self.w_imp = w_imp
+        self.w_exp = w_exp
+        self.w_energy = w_energy
+        self.w_share_energy = w_share_energy
 
         df_elevage_comp = df_elevage.copy()
         df_cons_vege = df_elevage.loc[df_elevage["Ingestion (ktN)"] > 10**-8, "Ingestion (ktN)"]
@@ -2800,9 +2873,60 @@ class NitrogenFlowModel_prospect:
         df_cons_vege.loc["urban"] = N_vege * prop_urb
         df_cons_vege.loc["rural"] = N_vege * (1 - prop_urb)
 
+        meth_prod = main.loc[main["Variable"] == "Methaniser production", "Business as usual"].item()
+        meth_productivity = pd.read_excel(os.path.join(self.data_path, "GRAFS_data.xlsx"), sheet_name="Energy_power")
+        meth_regime = {
+            "Crop residues": technical.loc[
+                technical["Variable"] == "Share of crop residues in methaniser", "Business as usual"
+            ].item(),
+            "Green waste": technical.loc[
+                technical["Variable"] == "Share of green waste in methaniser", "Business as usual"
+            ].item(),
+            "Dedicated culture": technical.loc[
+                technical["Variable"] == "Share of dedicated culture in methaniser", "Business as usual"
+            ].item(),
+            "Non edible animal": technical.loc[
+                technical["Variable"] == "Share of animal food industry in methaniser", "Business as usual"
+            ].item(),
+            "Livestock effluent": technical.loc[
+                technical["Variable"] == "Share of livestock effluent in methaniser", "Business as usual"
+            ].item(),
+        }
+
+        power_MB = dict(zip(meth_productivity["Item"], meth_productivity["Methanization power (GWh/tMB)"]))
+        cat_of = dict(zip(meth_productivity["Item"], meth_productivity["Category"]))
+
+        # b) coefficient ktN ➜ tMB pour chaque intrant méthanisable
+        coeff_N_to_MB = {}  # [tMB / ktN]
+
+        coeff_N_to_MB["Green waste"] = 1e3 / (0.01)
+
+        # — Cultures (résidus & dédiées) —
+        for c in ["Forage maize", "Straw"]:  # + autres si besoin
+            N_pct = df_cultures.at[c, "Nitrogen Content (%)"] / 100  # kg N / kg DM
+            DM_pct = df_cultures.at[c, "DM content (% of gross matter)"] / 100
+            coeff_N_to_MB[c] = 1e3 / (N_pct * DM_pct)  # ktN ➜ tMB
+
+        # — Effluents : slurry / manure —
+        for animal in df_elevage.index:
+            # Slurry
+            N_pct = df_elevage.at[animal, "Slurry nitrogen Content (%)"] / 100
+            coeff_N_to_MB[f"{animal} slurry"] = 1e3 / (N_pct)
+            # Manure
+            N_pct = df_elevage.at[animal, "Manure nitrogen Content (%)"] / 100
+            coeff_N_to_MB[f"{animal} manure"] = 1e3 / (N_pct)
+
+            pct_non_edible = df_elevage.at[animal, "% non edible"] / 100  # fraction N
+            coeff_N_to_MB[f"{animal} waste"] = 1e3 / (pct_non_edible * 1e3)
+
+        # from IPython import embed
+
+        # embed()
+
         if len(df_cons_vege) > 0:
             CROPS = list(df_cultures.index)  # par exemple
             CONSUMERS = list(df_cons_vege.index)
+            EFFLUENTS = [eff for animal in df_elevage.index for eff in (f"{animal} slurry", f"{animal} manure")]
 
             # --------------------------------------------------------------------------
             # 1) Collect data from your DataFrames (example placeholders)
@@ -2820,6 +2944,17 @@ class NitrogenFlowModel_prospect:
             nonSynthFert = {c: df_cultures.at[c, "Surface Non Synthetic Fertilizer Use (kgN/ha)"] for c in CROPS}
             ingestion = {k: df_cons_vege.at[k] for k in CONSUMERS}
 
+            # ------------------------------------------------------------------
+            # Quantités N disponibles (kt N) par catégorie animale
+            # ------------------------------------------------------------------
+            avail_slurry = {
+                f"{a} slurry": df_elevage.at[a, "Available slurry after volatilization (ktN)"] for a in df_elevage.index
+            }
+            avail_manure = {
+                f"{a} manure": df_elevage.at[a, "Available manure after volatilization (ktN)"] for a in df_elevage.index
+            }
+            avail_waste = {f"{a} waste": df_elevage.at[a, "Non Edible Nitrogen (ktN)"] for a in df_elevage.index}
+
             # Filter out any (c,k) pairs not in the diet. We'll build an "allowed" pair list:
             allowed_ck = []
             for k in CONSUMERS:
@@ -2836,21 +2971,55 @@ class NitrogenFlowModel_prospect:
             # 2) Create indexing for decision variables
             # --------------------------------------------------------------------------
 
+            # en kgN/ha
             idx_synth = {}
             offset = 0
             for c in CROPS:
                 idx_synth[c] = offset
                 offset += 1
 
+            # en ktN
             idx_alloc = {}
             for c, k in allowed_ck:
                 idx_alloc[(c, k)] = offset
                 offset += 1
 
+            # en ktN
             idx_import = {}
             for c, k in allowed_ck:
                 idx_import[(c, k)] = offset
                 offset += 1
+
+            # en ktN
+            idx_methan = {}
+            Non_effluents_idx = []
+            for c in CROPS:
+                if c in ["Forage maize", "Straw"]:  # Ajouter ici toutes les cultures éligibles
+                    idx_methan[c] = offset
+                    Non_effluents_idx.append(c)
+                    offset += 1
+
+            effluents_idx = []
+            for e in EFFLUENTS:  # Définis la liste des effluents concernés
+                idx_methan[e] = offset
+                effluents_idx.append(e)
+                offset += 1
+
+            for animal in df_elevage.index:
+                # et on ajoute cet item dans l’index de décision méthaniseur
+                idx_methan[f"{animal} waste"] = offset
+                Non_effluents_idx.append(f"{animal} waste")
+                offset += 1
+
+            idx_methan["Green waste"] = offset
+            Non_effluents_idx.append("Green waste")
+            offset += 1
+
+            # Regrouper les indices idx_methan par catégorie
+            items_by_cat = {}
+            for item in idx_methan:
+                cat = cat_of[item]
+                items_by_cat.setdefault(cat, []).append(item)
 
             n_vars = offset  # total number of decision variables
 
@@ -2892,7 +3061,9 @@ class NitrogenFlowModel_prospect:
                 Return the scalar value of the objective:
                 w_diet * diet_deviation
                 + w_Nsyn * fertilizer_deviation
-                + w_imp * import_export_deviation
+                + w_imp * import_deviation
+                + w_exp * export_deviation
+                + w_energy * energy_prod_deviation
                 """
 
                 # 3.a) diet_deviation
@@ -2929,20 +3100,42 @@ class NitrogenFlowModel_prospect:
 
                 # 3.b) fertilizer_deviation
                 # sum of synthetic fertilizers in ktN
-                total_synth = 0.0
+                total_synth_crops = 0.0
+                total_synth_grasslands = 0.0
                 for c in CROPS:
                     # x[idx_synth[c]] is in kgN/ha
-                    fert_per_ha = x[idx_synth[c]] + nonSynthFert[c]
-                    total_synth += x[idx_synth[c]] * area[c]  # only the synthetic part
+                    fert_per_ha = (
+                        x[idx_synth[c]]
+                        + nonSynthFert[c]
+                        + (
+                            (sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                            / df_cultures.at[c, "Area (ha)"]
+                            if df_cultures.at[c, "Area (ha)"] != 0
+                            else 0
+                        )
+                    )
+                    if c == "Natural meadow ":
+                        total_synth_grasslands += x[idx_synth[c]] * area[c]  # only the synthetic part
+                    else:
+                        total_synth_crops += x[idx_synth[c]] * area[c]
                 # Convert from kgN to ktN
-                total_synth_kt = total_synth / 1e6
-                # desired total = (N_synth_crop + N_synth_grass)
-                if N_synth_crop + N_synth_grass < 1:
-                    scale = 1
+                total_synth_crops_kt = total_synth_crops / 1e6
+                total_synth_grasslands_kt = total_synth_grasslands / 1e6
+
+                if N_synth_crop < 1:
+                    scale_c = 1
                 else:
-                    scale = N_synth_crop + N_synth_grass
-                fert_dev = np.maximum(0, (total_synth_kt - (N_synth_crop + N_synth_grass)) / scale) ** 2
-                # fert_dev = ((total_synth_kt - (N_synth_crop + N_synth_grass)) / scale) ** 2
+                    scale_c = N_synth_crop
+
+                if N_synth_grass < 1:
+                    scale_g = 1
+                else:
+                    scale_g = N_synth_grass
+                fert_dev = (
+                    np.maximum(0, (total_synth_crops_kt - N_synth_crop) / scale_c) ** 2
+                    + np.maximum(0, (total_synth_grasslands_kt - N_synth_grass) / scale_g) ** 2
+                )
+
                 # 3.c) import_export_deviation
                 # sum import
                 sum_imp = 0.0
@@ -2955,19 +3148,51 @@ class NitrogenFlowModel_prospect:
                     # Production locale (ktN) ; on suppose qu'elle est déjà correcte/à jour :
                     if self.prod_func == "Ratio":
                         production_c = (
-                            Y_th_ratio(x[idx_synth[c]] + nonSynthFert[c], Ymax[c])
+                            Y_th_ratio(
+                                x[idx_synth[c]]
+                                + nonSynthFert[c]
+                                + (
+                                    (sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                                    / df_cultures.at[c, "Area (ha)"]
+                                    if df_cultures.at[c, "Area (ha)"] != 0
+                                    else 0
+                                ),
+                                Ymax[c],
+                            )
                             * df_cultures.at[c, "Area (ha)"]
                             / 1e6
                         )
                     if self.prod_func == "Linear":
                         production_c = (
-                            Y_th_lin(x[idx_synth[c]] + nonSynthFert[c], a[c], b[c])
+                            Y_th_lin(
+                                x[idx_synth[c]]
+                                + nonSynthFert[c]
+                                + (
+                                    (sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                                    / df_cultures.at[c, "Area (ha)"]
+                                    if df_cultures.at[c, "Area (ha)"] != 0
+                                    else 0
+                                ),
+                                a[c],
+                                b[c],
+                            )
                             * df_cultures.at[c, "Area (ha)"]
                             / 1e6
                         )
                     if self.prod_func == "Exponential":
                         production_c = (
-                            Y.Y_th_exp_cap(x[idx_synth[c]] + nonSynthFert[c], Ymax[c], k_param[c])
+                            Y.Y_th_exp_cap(
+                                x[idx_synth[c]]
+                                + nonSynthFert[c]
+                                + (
+                                    (sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                                    / df_cultures.at[c, "Area (ha)"]
+                                    if df_cultures.at[c, "Area (ha)"] != 0
+                                    else 0
+                                ),
+                                Ymax[c],
+                                k_param[c],
+                            )
                             * df_cultures.at[c, "Area (ha)"]
                             / 1e6
                         )
@@ -3050,11 +3275,53 @@ class NitrogenFlowModel_prospect:
                             # if deviation < 0: # i.e., alloc_ck < target_alloc_c
                             #     spread_penalty_fixed += deviation**2
 
+                # 4) Energy production deviation
+
+                # Use x_methan to compute energy_production as
+                # E = sum(x_methan[i]*Gross_mater_ktN*meth_productivity[i])
+
+                # The share of each category input is strictly forced and should be meth_regime
+
+                # The Gross_mater_ktN is the coefficient linking Nitrogen flow to gross mater flow. For plants products as Crop residues and Dedicated culture, use "Nitrogen Content (%)" and "DM content (% of gross matter)" in df_cultures to get the coefficient (Gross_mater_ktN = x_methan[i]*df_cultures["Nitrogen Content (%)", i]/100*df_cultures["DM content (% of gross matter)", i]/100)
+                # For effluents, use df_elevage["Manure nitrogen Content (%)"] and df_elevage["Slurry nitrogen Content (%)"] columns to get gross mater input.
+                # For Non edible animal use df_elevage["% non edible"]
+                # For green waste use 1% for Nitrogen content in Gross mater
+
+                # Then ene_dev = (E - meth_prod)**2
+
+                energy_prod_GWh = 0.0
+                cat_mass = {cat: 0.0 for cat in meth_regime}  # tMB par catégorie
+
+                for item, idx in idx_methan.items():
+                    # Quantité d'azote envoyée au méthaniseur (variable x) en ktN
+                    N_kt = x[idx]
+                    # Conversion ktN ➜ tMB
+                    mb = N_kt * coeff_N_to_MB[item]  # tonnes de matière brute
+                    # Productivité en GWh
+                    energy_prod_GWh += mb * power_MB[item]
+                    # Cumuler par catégorie
+                    cat_mass[cat_of[item]] += mb
+
+                if meth_prod < 1:
+                    scale = 1
+                else:
+                    scale = meth_prod
+                ene_dev = ((energy_prod_GWh - meth_prod) / scale) ** 2
+
+                # b) Soft-constrain : respecter les parts d’intrants par catégorie
+                share_penalty = 0.0
+                total_mb = sum(cat_mass.values()) + 1e-9
+                for cat, share_tgt in meth_regime.items():
+                    share_real = cat_mass[cat] / total_mb
+                    share_penalty += (share_real - share_tgt) ** 2  # quadratique
+
                 return (
                     w_diet * total_dev
                     + w_Nsyn * fert_dev
                     + w_imp * imp_dev
                     + w_exp * exp_dev
+                    + w_energy * ene_dev
+                    + w_share_energy * share_penalty
                     + w_spread_fixed * spread_penalty_fixed
                 )
 
@@ -3212,20 +3479,41 @@ class NitrogenFlowModel_prospect:
 
                 # 3.b) fertilizer_deviation
                 # sum of synthetic fertilizers in ktN
-                total_synth = 0.0
+                total_synth_crops = 0.0
+                total_synth_grasslands = 0.0
                 for c in CROPS:
                     # x[idx_synth[c]] is in kgN/ha
-                    fert_per_ha = x[idx_synth[c]] + nonSynthFert[c]
-                    total_synth += x[idx_synth[c]] * area[c]  # only the synthetic part
+                    fert_per_ha = (
+                        x[idx_synth[c]]
+                        + nonSynthFert[c]
+                        + (
+                            (sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                            / df_cultures.at[c, "Area (ha)"]
+                            if df_cultures.at[c, "Area (ha)"] != 0
+                            else 0
+                        )
+                    )
+                    if c == "Natural meadow ":
+                        total_synth_grasslands += x[idx_synth[c]] * area[c]  # only the synthetic part
+                    else:
+                        total_synth_crops += x[idx_synth[c]] * area[c]
                 # Convert from kgN to ktN
-                total_synth_kt = total_synth / 1e6
-                # desired total = (N_synth_crop + N_synth_grass)
-                if N_synth_crop + N_synth_grass < 1:
-                    scale = 1
+                total_synth_crops_kt = total_synth_crops / 1e6
+                total_synth_grasslands_kt = total_synth_grasslands / 1e6
+
+                if N_synth_crop < 1:
+                    scale_c = 1
                 else:
-                    scale = N_synth_crop + N_synth_grass
-                fert_dev = np.maximum(0, (total_synth_kt - (N_synth_crop + N_synth_grass)) / scale) ** 2
-                # fert_dev = ((total_synth_kt - (N_synth_crop + N_synth_grass)) / scale) ** 2
+                    scale_c = N_synth_crop
+
+                if N_synth_grass < 1:
+                    scale_g = 1
+                else:
+                    scale_g = N_synth_grass
+                fert_dev = (
+                    np.maximum(0, (total_synth_crops_kt - N_synth_crop) / scale_c) ** 2
+                    + np.maximum(0, (total_synth_grasslands_kt - N_synth_grass) / scale_g) ** 2
+                )
                 # 3.c) import_export_deviation
                 # sum import
                 sum_imp = 0.0
@@ -3238,19 +3526,51 @@ class NitrogenFlowModel_prospect:
                     # Production locale (ktN) ; on suppose qu'elle est déjà correcte/à jour :
                     if self.prod_func == "Ratio":
                         production_c = (
-                            Y_th_ratio(x[idx_synth[c]] + nonSynthFert[c], Ymax[c])
+                            Y_th_ratio(
+                                x[idx_synth[c]]
+                                + nonSynthFert[c]
+                                + (
+                                    (sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                                    / df_cultures.at[c, "Area (ha)"]
+                                    if df_cultures.at[c, "Area (ha)"] != 0
+                                    else 0
+                                ),
+                                Ymax[c],
+                            )
                             * df_cultures.at[c, "Area (ha)"]
                             / 1e6
                         )
                     if self.prod_func == "Linear":
                         production_c = (
-                            Y_th_lin(x[idx_synth[c]] + nonSynthFert[c], a[c], b[c])
+                            Y_th_lin(
+                                x[idx_synth[c]]
+                                + nonSynthFert[c]
+                                + (
+                                    (sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                                    / df_cultures.at[c, "Area (ha)"]
+                                    if df_cultures.at[c, "Area (ha)"] != 0
+                                    else 0
+                                ),
+                                a[c],
+                                b[c],
+                            )
                             * df_cultures.at[c, "Area (ha)"]
                             / 1e6
                         )
                     if self.prod_func == "Exponential":
                         production_c = (
-                            Y.Y_th_exp_cap(x[idx_synth[c]] + nonSynthFert[c], Ymax[c], k_param[c])
+                            Y.Y_th_exp_cap(
+                                x[idx_synth[c]]
+                                + nonSynthFert[c]
+                                + (
+                                    (sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                                    / df_cultures.at[c, "Area (ha)"]
+                                    if df_cultures.at[c, "Area (ha)"] != 0
+                                    else 0
+                                ),
+                                Ymax[c],
+                                k_param[c],
+                            )
                             * df_cultures.at[c, "Area (ha)"]
                             / 1e6
                         )
@@ -3285,16 +3605,76 @@ class NitrogenFlowModel_prospect:
                 else:
                     exp_dev = ((export_total - export_vege) / export_vege) ** 2
 
-                return total_dev, fert_dev, imp_dev, exp_dev, import_vege, export_vege, sum_imp, export_total
+                # Methanisation
+                energy_prod_GWh = 0.0
+                cat_mass = {cat: 0.0 for cat in meth_regime}  # tMB par catégorie
+
+                for item, idx in idx_methan.items():
+                    # Quantité d'azote envoyée au méthaniseur (variable x) en ktN
+                    N_kt = x[idx]
+                    # Conversion ktN ➜ tMB
+                    mb = N_kt * coeff_N_to_MB[item]  # tonnes de matière brute
+                    # Productivité en GWh
+                    energy_prod_GWh += mb * power_MB[item]
+                    # Cumuler par catégorie
+                    cat_mass[cat_of[item]] += mb
+
+                if meth_prod < 1:
+                    scale = 1
+                else:
+                    scale = meth_prod
+                ene_dev = ((energy_prod_GWh - meth_prod) / scale) ** 2
+
+                # b) Soft-constrain : respecter les parts d’intrants par catégorie
+                w_share_energy = 10
+                share_penalty = 0.0
+                total_mb = sum(cat_mass.values()) + 1e-9
+                for cat, share_tgt in meth_regime.items():
+                    share_real = cat_mass[cat] / total_mb
+                    share_penalty += (share_real - share_tgt) ** 2  # quadratique
+
+                return (
+                    total_dev,
+                    fert_dev,
+                    N_synth_crop,
+                    N_synth_grass,
+                    total_synth_crops_kt,
+                    total_synth_grasslands_kt,
+                    imp_dev,
+                    exp_dev,
+                    import_vege,
+                    export_vege,
+                    sum_imp,
+                    export_total,
+                    ene_dev,
+                    energy_prod_GWh,
+                    meth_prod,
+                    share_penalty,
+                )
 
             def my_callback(xk):
                 # xk is the current solution vector at iteration k
                 # Evaluate any terms you want here, e.g.:
                 f_val = objective(xk)
                 # Possibly store separate sub-terms:
-                diet_dev_term, fertilizer_term, imp_term, exp_dev, import_vege, export_vege, sum_imp, export_total = (
-                    compute_objective_terms(xk)
-                )
+                (
+                    diet_dev_term,
+                    fertilizer_term,
+                    N_synth_crop,
+                    N_synth_grass,
+                    total_synth_crops_kt,
+                    total_synth_grasslands_kt,
+                    imp_dev,
+                    exp_dev,
+                    import_vege,
+                    export_vege,
+                    sum_imp,
+                    export_total,
+                    ene_dev,
+                    energy_prod_GWh,
+                    meth_prod,
+                    share_penalty,
+                ) = compute_objective_terms(xk)
                 # Append them to some global or nonlocal list
                 iteration_log.append(
                     {
@@ -3302,12 +3682,20 @@ class NitrogenFlowModel_prospect:
                         "objective": f_val,
                         "diet_dev": diet_dev_term,
                         "fert_dev": fertilizer_term,
-                        "import term": imp_term,
+                        "Nsyn crop target": N_synth_crop,
+                        "Nsyn crop model": total_synth_crops_kt,
+                        "Nsyn grasslands target": N_synth_grass,
+                        "Nsyn grasslands model": total_synth_grasslands_kt,
+                        "import term": imp_dev,
                         "export term": exp_dev,
                         "import target": import_vege,
                         "import model": sum_imp,
                         "export target": export_vege,
                         "export model": export_total,
+                        "meth_dev": ene_dev,
+                        "methanisation model": energy_prod_GWh,
+                        "methanisation target": meth_prod,
+                        "methanisation share dev": share_penalty,
                     }
                 )
 
@@ -3339,9 +3727,9 @@ class NitrogenFlowModel_prospect:
                 # --- Helper function to calculate production ---
                 # (Avoid recalculating this repeatedly inside the constraint function if possible,
                 # but here we need it dependent on x_synth which changes)
-                def calculate_production(x_synth_val, c):
+                def calculate_production(x_synth_val, c, x_meth_val):
                     # Make sure idx_synth[c] exists if you use it here, or adjust logic
-                    fert_tot = x_synth_val + nonSynthFert[c]  # Assuming x_ maps directly for synth
+                    fert_tot = x_synth_val + nonSynthFert[c] + x_meth_val  # Assuming x_ maps directly for synth
                     if self.prod_func == "Ratio":
                         y_ha = Y_th_ratio(fert_tot, df_cultures.loc[c, "Ymax (kgN/ha)"])
                     if self.prod_func == "Linear":
@@ -3390,7 +3778,21 @@ class NitrogenFlowModel_prospect:
                             if c2 not in calculated_productions:
                                 # Ensure c2 is a valid crop index/name
                                 if c2 in idx_synth:
-                                    prod_c2_val = calculate_production(x_[idx_synth[c2]], c2)
+                                    prod_c2_val = calculate_production(
+                                        x_[idx_synth[c2]],
+                                        c2,
+                                        nonSynthFert[c]
+                                        + (
+                                            (
+                                                sum(x_[idx_methan[i]] for i in Non_effluents_idx)
+                                                * target_ependage[c]
+                                                * 1e6
+                                            )
+                                            / df_cultures.at[c, "Area (ha)"]
+                                            if df_cultures.at[c, "Area (ha)"] != 0
+                                            else 0
+                                        ),
+                                    )
                                     calculated_productions[c2] = prod_c2_val
                                 else:
                                     # Handle case where crop might be in regimes but not synthesizable (maybe fixed production?)
@@ -3453,25 +3855,52 @@ class NitrogenFlowModel_prospect:
                 # Ingestion = local + import (eq)
                 for k_ in CONSUMERS:
                     cons.append({"type": "eq", "fun": lambda x_, k_=k_: consumption_rule_expr(x_, k_)})
+
+                # 3) Effluents – bornes dures sur l’azote disponible
+                for animal in df_elevage.index:
+                    cons.append({"type": "ineq", "fun": lambda x_, a=animal: effluent_slurry_balance(x_, a)})
+                    cons.append({"type": "ineq", "fun": lambda x_, a=animal: effluent_manure_balance(x_, a)})
+                    cons.append({"type": "ineq", "fun": lambda x_, a=animal: nonedible_balance(x_, a)})
+
+                # --- nouvelle contrainte sur la part dedicated culture ---
+                cons.append({"type": "ineq", "fun": dedicated_share_ceiling})
                 return cons
 
             def production_balance_expr(x_, c):
+                """Production (kt N) – consommations (aliment + méthano)  ≥  0"""
+
+                # a) N allouée à l’alimentation humaine & animale
                 sum_local = 0.0
                 for k_ in CONSUMERS:
                     if (c, k_) in idx_alloc:
                         sum_local += x_[idx_alloc[(c, k_)]]
 
-                # production c
-                fert_tot = x_[idx_synth[c]] + nonSynthFert[c]
+                # b) N envoyée au méthaniseur (pour les cultures éligibles)
+                if c in idx_methan:  # ex. maize forage, straw
+                    sum_local += x_[idx_methan[c]]
+
+                # c) production potentielle en kt N
+                fert_tot = (
+                    x_[idx_synth[c]]
+                    + nonSynthFert[c]
+                    + (
+                        (sum(x_[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                        / df_cultures.at[c, "Area (ha)"]
+                        if df_cultures.at[c, "Area (ha)"] != 0
+                        else 0
+                    )
+                )
                 if self.prod_func == "Ratio":
                     y = Y_th_ratio(fert_tot, Ymax[c])
-                if self.prod_func == "Linear":
+                elif self.prod_func == "Linear":
                     y = Y_th_lin(fert_tot, a[c], b[c])
-                if self.prod_func == "Exponential":
+                else:  # Exponential
                     y = Y.Y_th_exp_cap(fert_tot, Ymax[c], k_param[c])
-                prod_c = (y * area[c]) / 1e6
 
-                return prod_c - sum_local  # doit être >= 0
+                prod_c = (y * area[c]) / 1e6  # kt N
+
+                # d) contrainte  (≥ 0)
+                return prod_c - sum_local
 
             def consumption_rule_expr(x_, k_):
                 sum_local = 0.0
@@ -3484,6 +3913,45 @@ class NitrogenFlowModel_prospect:
 
                 return sum_local + sum_import - ingestion[k_]
 
+            # ------------------------------------------------------------------
+            # Fonctions-contraintes (Pyomo style ⇒ returns expression ≥ 0)
+            # ------------------------------------------------------------------
+            def effluent_slurry_balance(x_, animal):
+                """N allouée ≤ N disponible -- slurry"""
+                item = f"{animal} slurry"
+                used = x_[idx_methan[item]]
+                return avail_slurry[item] - used  #  ≥ 0
+
+            def effluent_manure_balance(x_, animal):
+                item = f"{animal} manure"
+                used = x_[idx_methan[item]]
+                return avail_manure[item] - used  #  ≥ 0
+
+            def nonedible_balance(x_, animal):
+                item = f"{animal} waste"
+                used = x_[idx_methan[item]]
+                return avail_waste[item] - used  #  ≥ 0
+
+            # -------------------------------------------------------------
+            #  calculateur: part dedicated ≤ 15 %
+            # -------------------------------------------------------------
+            def dedicated_share_ceiling(x_):
+                num = 0.0  # N dédiée
+                den = 0.0  # N totale méthaniseur
+
+                for item, idx in idx_methan.items():
+                    n_kt = x_[idx]
+                    den += n_kt
+                    if cat_of[item] == "dedicated culture":  # cat_of défini plus haut
+                        num += n_kt
+
+                # Si aucun intrant méthaniseur, contrainte triviale (renvoyer ≥ 0)
+                if den < 1e-9:
+                    return 0.0
+
+                # ineq  : 0.15·den − num  ≥  0
+                return 0.15 * den - num
+
             # --------------------------------------------------------------------------
             # 5) Build bounds
             # --------------------------------------------------------------------------
@@ -3493,7 +3961,7 @@ class NitrogenFlowModel_prospect:
             # We must create a bounds array for each variable in x
             # --------------------------------------------------------------------------
 
-            bounds = [None] * n_vars
+            bounds = [(0.0, None)] * n_vars
             for c in CROPS:
                 # For synth_fert[c]
                 i = idx_synth[c]
@@ -3508,7 +3976,10 @@ class NitrogenFlowModel_prospect:
 
             for c, k_ in allowed_ck:
                 i = idx_import[(c, k_)]
-                bounds[i] = (0.0, None)  # nonnegative
+                if c != "Natural meadow ":
+                    bounds[i] = (0.0, None)  # nonnegative
+                else:
+                    bounds[i] = (0.0, 0.0)  # Pas d'importation de Prairie Naturelle
 
             # --------------------------------------------------------------------------
             # 6) Initial guess
@@ -3542,9 +4013,6 @@ class NitrogenFlowModel_prospect:
             #     options={"maxiter": 1000, "ftol": 1e-5, "disp": True},
             # )
 
-            # from IPython import embed
-
-            # embed()
             # Stage 2: refine from the stage 1 solution with a tighter tolerance
             res = minimize(
                 fun=objective,
@@ -3553,125 +4021,32 @@ class NitrogenFlowModel_prospect:
                 bounds=bounds,
                 constraints=cons,
                 callback=my_callback,
-                options={"maxiter": 1000, "ftol": 1e-5, "disp": True, "eps": 1e-6},
+                options={"maxiter": 1000, "ftol": 1e-2, "disp": True, "eps": 1e-3},
             )
 
             self.log = iteration_log
 
             x_opt = res.x
+            self.x_opt = x_opt
 
-            # On crée les nouvelles colonnes à zéro par défaut
-            df_cultures["Surface Synthetic Fertilizer Use (kgN/ha)"] = 0.0
-            df_cultures["Synthetic Fertilizer Use (ktN)"] = 0.0
+            # return (
+            #     x_opt,
+            #     df_cultures,
+            #     df_elevage,
+            #     idx_alloc,
+            #     idx_synth,
+            #     idx_import,
+            #     idx_methan,
+            #     cat_of,
+            #     meth_prod,
+            #     meth_productivity,
+            #     meth_regime,
+            #     iteration_log,
+            # )
 
-            # Parcours de toutes les cultures
-            for c in df_cultures.index:
-                if df_cultures.at[c, "Category"] != "leguminous":
-                    # 1) Récupérer la fertilisation synthétique du solveur, en kgN/ha
-                    #    -> synth_fert_sol[c] = variable du solveur
-                    if c in idx_synth and x_opt[idx_synth[c]] > 1e-1:
-                        fert_synth = x_opt[idx_synth[c]]
-                    else:
-                        fert_synth = 0.0
+            # from IPython import embed
 
-                    # On met à jour la colonne "Surface Synthetic Fertilizer Use (kgN/ha)"
-                    fert_synth_with_volat = (
-                        fert_synth * 1 / (0.99 - 0.01 * 0.01)
-                    )  # Pour prendre en compte l'azote synthétique volatilizé et non consommé par la plante
-                    df_cultures.at[c, "Surface Synthetic Fertilizer Use (kgN/ha)"] = fert_synth_with_volat
-
-                    # 2) Calculer la fertilisation synthétique totale en ktN
-                    area_ha = df_cultures.at[c, "Area (ha)"]
-                    total_synth_ktN = (fert_synth_with_volat * area_ha) / 1e6  # (kgN/ha * ha) / 1e6 = ktN
-                    df_cultures.at[c, "Synthetic Fertilizer Use (ktN)"] = total_synth_ktN
-
-                    # 3) Mettre à jour rendement et production
-                    # On calcule la fertilisation totale (synthétique + éventuel non-synthétique)
-                    non_synth_fert = df_cultures.at[c, "Surface Non Synthetic Fertilizer Use (kgN/ha)"]
-                    fert_tot = fert_synth + non_synth_fert
-
-                    if self.prod_func == "Ratio":
-                        y_max = df_cultures.at[c, "Ymax (kgN/ha)"]
-
-                        new_yield = Y_th_ratio(fert_tot, y_max)
-                    if self.prod_func == "Linear":
-                        a = df_cultures.at[c, "a"]
-                        b = df_cultures.at[c, "b"]
-                        new_yield = Y_th_lin(fert_tot, a, b)
-                    if self.prod_func == "Exponential":
-                        y_max = df_cultures.at[c, "Ymax (kgN/ha)"]
-                        k_param = df_cultures.at[c, "k (kgN/ha)"]
-
-                        new_yield = Y.Y_th_exp_cap(fert_tot, y_max, k_param)
-                    df_cultures.at[c, "Yield (kgN/ha)"] = new_yield
-                    # Production en ktN
-                    nitro_prod_ktN = (new_yield * area_ha) / 1e6
-                    df_cultures.at[c, "Nitrogen Production (ktN)"] = nitro_prod_ktN
-
-                else:
-                    # Pour les légumineuses, on ne touche pas Yield ni Nitrogen Production
-                    pass
-
-            ## Azote synthétique volatilisé par les terres
-            # Est ce qu'il n'y a que l'azote synthétique qui est volatilisé ?
-            coef_volat_NH3 = (
-                technical.loc[
-                    technical["Variable"] == "NH3 volatilization coefficient for synthetic nitrogen",
-                    "Business as usual",
-                ].item()
-                / 100
-            )
-            coef_volat_N2O = 0.01
-
-            # 1 % des emissions de NH3 du aux fert. synth sont volatilisées sous forme de N2O
-            df_cultures["Volatilized Nitrogen N-NH3 (ktN)"] = (
-                df_cultures["Synthetic Fertilizer Use (ktN)"] * 0.99 * coef_volat_NH3
-            )
-            df_cultures["Volatilized Nitrogen N-N2O (ktN)"] = df_cultures["Synthetic Fertilizer Use (ktN)"] * (
-                coef_volat_N2O + 0.01 * coef_volat_NH3
-            )
-            df_cultures["Synthetic Fertilizer Use (ktN)"] = df_cultures["Synthetic Fertilizer Use (ktN)"] * (
-                1 - coef_volat_NH3 - coef_volat_N2O
-            )
-
-            source = {"Haber-Bosch": 1}
-            target = df_cultures["Synthetic Fertilizer Use (ktN)"].to_dict()
-
-            flux_generator.generate_flux(source, target)
-
-            source = df_cultures["Volatilized Nitrogen N-NH3 (ktN)"].to_dict()
-            target = {"NH3 volatilization": 1}
-
-            flux_generator.generate_flux(source, target)
-
-            source = df_cultures["Volatilized Nitrogen N-N2O (ktN)"].to_dict()
-            target = {"N2O emission": 1}
-
-            flux_generator.generate_flux(source, target)
-
-            # A cela on ajoute les emissions indirectes de N2O lors de la fabrication des engrais
-            # epend_tot_synt = (
-            #     df_cultures["Volatilized Nitrogen N-NH3 (ktN)"]
-            #     + df_cultures["Volatilized Nitrogen N-N2O (ktN)"]
-            #     + df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"]
-            # ).sum()
-            epend_tot_synt = df_cultures["Synthetic Fertilizer Use (ktN)"].sum()
-            coef_emis_N_N2O = (
-                technical.loc[
-                    technical["Variable"] == "Indirect N2O volatilization coefficient for synthetic nitrogen",
-                    "Business as usual",
-                ].item()
-                / 100
-            )
-            target = {"N2O emission": 1}
-            source = {"Haber-Bosch": epend_tot_synt * coef_emis_N_N2O}
-
-            flux_generator.generate_flux(source, target)
-
-            # Azote issu de la partie non comestible des carcasses
-            source_non_comestible = df_elevage["Non Edible Nitrogen (ktN)"].to_dict()
-            target_other_sectors = {"other sectors": 1}
-            flux_generator.generate_flux(source_non_comestible, target_other_sectors)
+            # embed()
 
             allocations = []
 
@@ -3712,9 +4087,193 @@ class NitrogenFlowModel_prospect:
                         }
                     )
 
+            # ----------------------------------------------------------------------
+            #  boucle spécifique aux flux vers le METHANISEUR (cultures dédiées / résidus)
+            # ----------------------------------------------------------------------
+            for culture, idx in idx_methan.items():
+                val = x_opt[idx]  # kt N envoyés au digesteur
+                if val <= 1e-6:
+                    continue  # rien d'alloué
+
+                # Catégorie de l'intrant (selon meth_productivity)
+                cat = cat_of.get(culture, "").lower()  # ex. "dedicated culture"
+
+                if cat in ("dedicated culture", "crop residues"):
+                    allocations.append(
+                        {
+                            "Culture": culture,
+                            "Consumer": "methaniser",
+                            "Allocated Nitrogen": val,
+                            "Type": "Energy production",
+                        }
+                    )
+
             allocations_df = pd.DataFrame(allocations)
             self.allocations_df = allocations_df
             self.allocation_vege = allocations_df
+
+            # Création d'un df pour l'allocation au système énergétique
+            # ------------------------------------------------------------------
+            # 1) total d’azote envoyé au digesteur
+            # ------------------------------------------------------------------
+            total_N_methan = sum(x_opt[i] for i in idx_methan.values())
+
+            # ------------------------------------------------------------------
+            # 2) construction de la table
+            # ------------------------------------------------------------------
+            allocation_energy = []
+
+            for item, idx in idx_methan.items():
+                val = x_opt[idx]  # kt N alloués à cet intrant
+                if val <= 1e-6:  # on ignore les ~0
+                    val = 0
+
+                # Catégorie depuis meth_productivity ; défaut = "unknown"
+                category = cat_of.get(item, "unknown")
+
+                allocation_energy.append(
+                    {
+                        "Input": item,
+                        "Category": category,  # crop residues, livestock_effluent, etc.
+                        "Allocated Nitrogen (ktN)": val,
+                        "Share (%)": val * 100 / (total_N_methan + 1e-9),
+                        "Destination": "methaniser",
+                    }
+                )
+            allocation_energy_df = pd.DataFrame(allocation_energy).sort_values("Share (%)", ascending=False)
+            allocation_energy_df["Allocated MB (t)"] = allocation_energy_df.apply(
+                lambda row: row["Allocated Nitrogen (ktN)"] * coeff_N_to_MB[row["Input"]], axis=1
+            )
+
+            # fonction de calcul de l'energie par item
+            def energy_from_row(row):
+                item = row["Input"]
+                mb = row["Allocated Nitrogen (ktN)"] * coeff_N_to_MB[item]  # t MB
+                return mb * power_MB[item]  # GWh
+
+            allocation_energy_df["Energy produced (GWh)"] = allocation_energy_df.apply(energy_from_row, axis=1)
+
+            self.allocation_energy_df = allocation_energy_df
+
+            # Mise à jour de df_cultures
+            # On crée les nouvelles colonnes à zéro par défaut
+            df_cultures["Surface Synthetic Fertilizer Use (kgN/ha)"] = 0.0
+            df_cultures["Synthetic Fertilizer Use (ktN)"] = 0.0
+
+            coef_volat_NH3 = (
+                technical.loc[
+                    technical["Variable"] == "NH3 volatilization coefficient for synthetic nitrogen",
+                    "Business as usual",
+                ].item()
+                / 100
+            )
+            coef_volat_N2O = 0.01
+
+            # Parcours de toutes les cultures
+            for c in df_cultures.index:
+                if df_cultures.at[c, "Category"] != "leguminous":
+                    # 1) Récupérer la fertilisation synthétique du solveur, en kgN/ha
+                    #    -> synth_fert_sol[c] = variable du solveur
+                    if c in idx_synth and x_opt[idx_synth[c]] > 1e-6:
+                        fert_synth = x_opt[idx_synth[c]]
+                    else:
+                        fert_synth = 0.0
+
+                    # On met à jour la colonne "Surface Synthetic Fertilizer Use (kgN/ha)"
+                    fert_synth_with_volat = fert_synth / (
+                        1 - (0.99 * coef_volat_NH3 + coef_volat_N2O + 0.01 * coef_volat_NH3)
+                    )  # Pour prendre en compte l'azote synthétique volatilizé et non consommé par la plante
+                    df_cultures.at[c, "Surface Synthetic Fertilizer Use (kgN/ha)"] = fert_synth_with_volat
+
+                    # 2) Calculer la fertilisation synthétique totale en ktN
+                    area_ha = df_cultures.at[c, "Area (ha)"]
+                    total_synth_ktN = (fert_synth_with_volat * area_ha) / 1e6  # (kgN/ha * ha) / 1e6 = ktN
+                    df_cultures.at[c, "Synthetic Fertilizer Use (ktN)"] = total_synth_ktN
+
+                    # 3) Mettre à jour rendement et production
+                    # On calcule la fertilisation totale (synthétique + éventuel non-synthétique)
+                    non_synth_fert = nonSynthFert[c] + (
+                        (sum(x_opt[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6) / area_ha
+                        if area_ha != 0
+                        else 0
+                    )  # df_cultures.at[c, "Surface Non Synthetic Fertilizer Use (kgN/ha)"]
+                    # On met à jour la fertilisation non synthétique avec l'apport des méthaniseurs
+                    df_cultures.at[c, "Surface Non Synthetic Fertilizer Use (kgN/ha)"] = non_synth_fert
+                    df_cultures.at[c, "Total Non Synthetic Fertilizer Use (ktN)"] = (
+                        non_synth_fert * df_cultures.at[c, "Area (ha)"] / 1e6
+                    )
+
+                    fert_tot = fert_synth + non_synth_fert
+
+                    if self.prod_func == "Ratio":
+                        y_max = df_cultures.at[c, "Ymax (kgN/ha)"]
+
+                        new_yield = Y_th_ratio(fert_tot, y_max)
+                    if self.prod_func == "Linear":
+                        a = df_cultures.at[c, "a"]
+                        b = df_cultures.at[c, "b"]
+                        new_yield = Y_th_lin(fert_tot, a, b)
+                    if self.prod_func == "Exponential":
+                        y_max = df_cultures.at[c, "Ymax (kgN/ha)"]
+                        k_param = df_cultures.at[c, "k (kgN/ha)"]
+
+                        new_yield = Y.Y_th_exp_cap(fert_tot, y_max, k_param)
+                    df_cultures.at[c, "Yield (kgN/ha)"] = new_yield
+                    # Production en ktN
+                    nitro_prod_ktN = (new_yield * area_ha) / 1e6
+                    df_cultures.at[c, "Nitrogen Production (ktN)"] = nitro_prod_ktN
+
+                else:
+                    # Pour les légumineuses, on ne touche pas Yield ni Nitrogen Production
+                    pass
+
+            ## Azote synthétique volatilisé par les terres
+            # Est ce qu'il n'y a que l'azote synthétique qui est volatilisé ?
+
+            # 1 % des emissions de NH3 du aux fert. synth sont volatilisées sous forme de N2O
+            df_cultures["Volatilized Nitrogen N-NH3 (ktN)"] = (
+                df_cultures["Synthetic Fertilizer Use (ktN)"] * 0.99 * coef_volat_NH3
+            )
+            df_cultures["Volatilized Nitrogen N-N2O (ktN)"] = df_cultures["Synthetic Fertilizer Use (ktN)"] * (
+                coef_volat_N2O + 0.01 * coef_volat_NH3
+            )
+            # df_cultures["Synthetic Fertilizer Use (ktN)"] = df_cultures["Synthetic Fertilizer Use (ktN)"] * (
+            #     1 - coef_volat_NH3 - coef_volat_N2O
+            # )
+
+            source = {"Haber-Bosch": 1}
+            target = df_cultures["Synthetic Fertilizer Use (ktN)"].to_dict()
+
+            flux_generator.generate_flux(source, target)
+
+            source = df_cultures["Volatilized Nitrogen N-NH3 (ktN)"].to_dict()
+            target = {"NH3 volatilization": 1}
+
+            flux_generator.generate_flux(source, target)
+
+            source = df_cultures["Volatilized Nitrogen N-N2O (ktN)"].to_dict()
+            target = {"N2O emission": 1}
+
+            flux_generator.generate_flux(source, target)
+
+            # A cela on ajoute les emissions indirectes de N2O lors de la fabrication des engrais
+            # epend_tot_synt = (
+            #     df_cultures["Volatilized Nitrogen N-NH3 (ktN)"]
+            #     + df_cultures["Volatilized Nitrogen N-N2O (ktN)"]
+            #     + df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"]
+            # ).sum()
+            epend_tot_synt = df_cultures["Synthetic Fertilizer Use (ktN)"].sum()
+            coef_emis_N_N2O = (
+                technical.loc[
+                    technical["Variable"] == "Indirect N2O volatilization coefficient for synthetic nitrogen",
+                    "Business as usual",
+                ].item()
+                / 100
+            )
+            target = {"N2O emission": 1}
+            source = {"Haber-Bosch": epend_tot_synt * coef_emis_N_N2O}
+
+            flux_generator.generate_flux(source, target)
 
             df_cultures["Yield (qtl/ha)"] = (
                 df_cultures["Yield (kgN/ha)"]
@@ -3724,6 +4283,7 @@ class NitrogenFlowModel_prospect:
 
             df_cultures["Nitrogen for Feed (ktN)"] = 0.0
             df_cultures["Nitrogen for Food (ktN)"] = 0.0
+            df_cultures["Nitrogen for Energy (ktN)"] = 0.0
 
             group_sums = allocations_df.groupby(["Culture", "Type"])["Allocated Nitrogen"].sum()
             table_sums = group_sums.unstack(fill_value=0.0)
@@ -3732,20 +4292,29 @@ class NitrogenFlowModel_prospect:
                     df_cultures.at[c, "Nitrogen for Feed (ktN)"] = table_sums.at[c, "Local culture feed"]
                 if "Local culture food" in table_sums.columns:
                     df_cultures.at[c, "Nitrogen for Food (ktN)"] = table_sums.at[c, "Local culture food"]
+                if "Energy production" in table_sums.columns:
+                    df_cultures.at[c, "Nitrogen for Energy (ktN)"] = table_sums.at[c, "Energy production"]
 
-            df_cultures["Available Nitrogen After Feed and Food (ktN)"] = (
+            df_cultures["Available Nitrogen After Feed Food and Energy (ktN)"] = np.round(
                 df_cultures["Nitrogen Production (ktN)"]
                 - df_cultures["Nitrogen for Feed (ktN)"]
                 - df_cultures["Nitrogen for Food (ktN)"]
+                - df_cultures["Nitrogen for Energy (ktN)"],
+                3,
             )
 
             # Mise à jour de df_elevage
 
             df_elevage["Consummed Nitrogen from local feed (ktN)"] = 0.0
             df_elevage["Consummed Nitrogen from imported feed (ktN)"] = 0.0
+            df_elevage["Manure to methaniser (ktN)"] = 0.0
+            df_elevage["Slurry to methaniser (ktN)"] = 0.0
+            df_elevage["Non Edible Nitrogen to methaniser (ktN)"] = 0.0
 
             group_sums = allocations_df.groupby(["Consumer", "Type"])["Allocated Nitrogen"].sum()
             table_sums = group_sums.unstack(fill_value=0.0)
+
+            energy_by_item = allocation_energy_df.set_index("Input")["Allocated Nitrogen (ktN)"]
 
             for k in df_elevage.index:
                 if "Local culture feed" in table_sums.columns:
@@ -3754,6 +4323,22 @@ class NitrogenFlowModel_prospect:
                     ]
                 if "Imported Feed" in table_sums.columns:
                     df_elevage.at[k, "Consummed Nitrogen from imported feed (ktN)"] = table_sums.at[k, "Imported Feed"]
+
+            for animal in df_elevage.index:
+                # ---------- slurry ----------
+                item = f"{animal} slurry"
+                if item in energy_by_item:
+                    df_elevage.at[animal, "Slurry to methaniser (ktN)"] = energy_by_item[item]
+
+                # ---------- manure ----------
+                item = f"{animal} manure"
+                if item in energy_by_item:
+                    df_elevage.at[animal, "Manure to methaniser (ktN)"] = energy_by_item[item]
+
+                # ---------- non edible waste ----------
+                item = f"{animal} waste"
+                if item in energy_by_item:
+                    df_elevage.at[animal, "Non Edible Nitrogen to methaniser (ktN)"] = energy_by_item[item]
 
             deviations_list = []
 
@@ -3793,6 +4378,46 @@ class NitrogenFlowModel_prospect:
 
             df_deviation = pd.DataFrame(deviations_list)
             self.deviations_df = df_deviation
+
+            # ------------------------------------------------------------------
+            #  Déviations des intrants MÉTHANISEUR vs régime cible (meth_regime)
+            # ------------------------------------------------------------------
+            meth_dev_list = []
+
+            # 1)  tonnage N total envoyé au méthaniseur
+            # total_N_meth = allocation_energy_df["Allocated Nitrogen (ktN)"].sum() + 1e-9
+
+            # 2)  t MB total envoyé au méthaniseur
+            total_MB_meth = allocation_energy_df["Allocated MB (t)"].sum() + 1e-9
+
+            # 2)  Somme par catégorie réelle
+            # real_by_cat = allocation_energy_df.groupby("Category")["Allocated Nitrogen (ktN)"].sum().to_dict()
+
+            # 2) Somme par catégorie (matière brute)
+            real_MB_by_cat = allocation_energy_df.groupby("Category")["Allocated MB (t)"].sum().to_dict()
+
+            # 3)  Boucle sur les catégories cibles du régime
+            for cat, share_target in meth_regime.items():
+                allocated_MB = real_MB_by_cat.get(cat, 0.0)
+                share_real = allocated_MB / total_MB_meth
+                deviation_pct = (share_real - share_target) * 100
+
+                meth_dev_list.append(
+                    {
+                        "Category": cat,
+                        "Expected Share (%)": share_target * 100,
+                        "Allocated Share (%)": share_real * 100,
+                        "Allocated MB (t)": allocated_MB,
+                        "Deviation (%)": deviation_pct,
+                        "System": "methaniser",
+                    }
+                )
+
+            # 4)  DataFrame récapitulatif
+            meth_deviation_df = pd.DataFrame(meth_dev_list).sort_values("Category")
+
+            # exemple d’accès
+            self.meth_deviation_df = meth_deviation_df
 
             # Génération des flux pour les cultures locales
             allocations_locales = allocations_df[
@@ -3842,6 +4467,299 @@ class NitrogenFlowModel_prospect:
                 if sum(flux.values()) > 0:
                     flux_generator.generate_flux(flux, target)
 
+            # ---------------------------------------------------------------
+            #  Générer les flux d’intrants vers le MÉTHANISEUR
+            #  (toutes catégories SAUF green-waste)
+            # ---------------------------------------------------------------
+
+            # 1)  Sous-ensemble des allocations destinées au digesteur
+            meth_flux_df = allocation_energy_df[
+                (allocation_energy_df["Destination"] == "methaniser")
+                & (allocation_energy_df["Category"] != "Green waste")  # exclusion
+            ]
+
+            # 2)  Pour chaque espèce, sommer slurry + manure + waste
+            for animal in df_elevage.index:
+                total_N = 0.0
+                for form in ("slurry", "manure", "waste"):
+                    item = f"{animal} {form}"
+                    if item in meth_flux_df.set_index("Input").index:
+                        total_N += meth_flux_df.set_index("Input").at[item, "Allocated Nitrogen (ktN)"]
+
+                # si la somme est non nulle, on crée le flux
+                if total_N > 1e-6:
+                    source = {animal: total_N}  # ex. {'bovine': 52.3}
+                    target = {"methaniser": 1}  # normalisation
+                    flux_generator.generate_flux(source, target)
+
+            # 3) cultures dédiées / résidus → méthaniseur
+            for item, row in meth_flux_df.iterrows():
+                if row["Category"] in ("Dedicated culture", "Crop residues"):
+                    # on regroupe toutes ces cultures sous la clé 'crops_to_meth'
+                    source = {row["Input"]: row["Allocated Nitrogen (ktN)"]}
+                    target = {"methaniser": 1}
+                    flux_generator.generate_flux(source, target)
+
+            # Ajout du flux de Green waste vers Methaniser
+            source = {"green waste": 1}
+            target = {
+                "methaniser": allocation_energy_df.loc[
+                    allocation_energy_df["Category"] == "Green waste", "Allocated Nitrogen (ktN)"
+                ].item()
+            }
+            flux_generator.generate_flux(source, target)
+
+            ## Epandage sur champs
+
+            # source = (
+            #     df_elevage["Excreted nitrogen (ktN)"]
+            #     * df_elevage["% excreted indoors"]
+            #     / 100
+            #     * (
+            #         df_elevage["% excreted indoors as manure"]
+            #         / 100
+            #         * (
+            #             1
+            #             - df_elevage["N-NH3 EM. manure indoor"]
+            #             - df_elevage["N-N2O EM. manure indoor"]
+            #             - df_elevage["N-N2 EM. manure indoor"]
+            #         )
+            #         + df_elevage["% excreted indoors as slurry"]
+            #         / 100
+            #         * (
+            #             1
+            #             - df_elevage["N-NH3 EM. slurry indoor"]
+            #             - df_elevage["N-N2O EM. slurry indoor"]
+            #             - df_elevage["N-N2 EM. slurry indoor"]
+            #         )
+            #     )
+            # ).to_dict()
+
+            # On applique ici les directives nitrates pour ne pas dépasser un certain niveau d'épandage de matière organique
+            # if int(self.year) < 1990:
+            #     source_boue = {
+            #         "urban": prop_urb * N_boue * prop_recy_urb,
+            #         "rural": (1 - prop_urb) * prop_recy_rur * N_boue,
+            #     }
+
+            #     flux_generator.generate_flux(source_boue, target_ependage)
+            #     source = (
+            #         df_elevage["Available slurry after volatilization (ktN)"]
+            #         - df_elevage["Slurry to methaniser (ktN)"]
+            #         + df_elevage["Available manure after volatilization (ktN)"]
+            #         - df_elevage["Manure to methaniser (ktN)"]
+            #     ).to_dict()
+            #     flux_generator.generate_flux(source, target_ependage)
+
+            #     source = {
+            #         "methaniser": allocation_energy_df.loc[
+            #             allocation_energy_df["Destination"] == "methaniser", "Allocated Nitrogen (ktN)"
+            #         ].sum()
+            #     }
+            #     flux_generator.generate_flux(source, target_ependage)
+
+            # flux_generator.generate_flux(source, target_ependage)
+
+            # ---------------------------------------------------------------
+            # Préparation des sources globales (kt N)
+            # ---------------------------------------------------------------
+            # effluent_src = (
+            #     df_elevage["Available slurry after volatilization (ktN)"]
+            #     - df_elevage["Slurry to methaniser (ktN)"]
+            #     + df_elevage["Available manure after volatilization (ktN)"]
+            #     - df_elevage["Manure to methaniser (ktN)"]
+            # ).to_dict()  # ex. {'bovine slurry': 32, 'bovine manure': 18, ...}
+
+            effluent_src = {}
+
+            for animal in df_elevage.index:
+                # Slurry résiduel
+                qty_slurry = (
+                    df_elevage.at[animal, "Available slurry after volatilization (ktN)"]
+                    - df_elevage.at[animal, "Slurry to methaniser (ktN)"]
+                )
+                if qty_slurry > 1e-6:
+                    effluent_src[f"{animal} slurry"] = qty_slurry
+
+                # Manure résiduel
+                qty_manure = (
+                    df_elevage.at[animal, "Available manure after volatilization (ktN)"]
+                    - df_elevage.at[animal, "Manure to methaniser (ktN)"]
+                )
+                if qty_manure > 1e-6:
+                    effluent_src[f"{animal} manure"] = qty_manure
+
+            digestat_src = {
+                "methaniser": allocation_energy_df.loc[
+                    allocation_energy_df["Destination"] == "methaniser", "Allocated Nitrogen (ktN)"
+                ].sum()
+            }
+
+            boues_src = {
+                "urban": prop_urb * N_boue * prop_recy_urb,
+                "rural": (1 - prop_urb) * N_boue * prop_recy_rur,
+            }
+
+            tot_eff = sum(effluent_src.values())
+            tot_dig = digestat_src["methaniser"]
+            tot_boues = sum(boues_src.values())
+
+            # ------------------------------------------------------------------
+            # 0) Initialisation des nouvelles colonnes
+            # ------------------------------------------------------------------
+            df_elevage["Manure to crops (ktN)"] = 0.0
+            df_elevage["Slurry to crops (ktN)"] = 0.0
+
+            for col in [
+                "Effluent Fertilization (ktN)",
+                "Sludges Fertilization (ktN)",
+                "Digestat Fertilization (ktN)",
+                "Other non Synthetic Fertilization (ktN)",
+            ]:
+                df_cultures[col] = 0.0
+
+            # ------------------------------------------------------------------
+            # 1) Fonction utilitaire pour ajouter les quantités aux DataFrames
+            # ------------------------------------------------------------------
+            def add_to_elevage(item_name, qty_kt):
+                if qty_kt <= 1e-6:
+                    return
+                # Séparer par le dernier espace pour éviter un crash si le nom animal contient un espace
+                animal, form = item_name.rsplit(" ", 1)  # ex. "bovine slurry" → ("bovine", "slurry")
+                if animal in df_elevage.index:
+                    if form == "slurry":
+                        df_elevage.at[animal, "Slurry to crops (ktN)"] += qty_kt
+                    elif form == "manure":
+                        df_elevage.at[animal, "Manure to crops (ktN)"] += qty_kt
+
+            def add_to_culture(cult, effluents=0.0, boues=0.0, digestat=0.0, other=0.0):
+                df_cultures.at[cult, "Effluent Fertilization (ktN)"] += effluents
+                df_cultures.at[cult, "Sludges Fertilization (ktN)"] += boues
+                df_cultures.at[cult, "Digestat Fertilization (ktN)"] += digestat
+                df_cultures.at[cult, "Other non Synthetic Fertilization (ktN)"] += other
+
+            # ------------------------------------------------------------------
+            # 2) BOUCLE D’EPANDAGE  (reprend la logique précédente)
+            # ------------------------------------------------------------------
+            adj_matrix_df = pd.DataFrame(adjacency_matrix, index=self.labels, columns=self.labels)
+            if int(self.year) < 2990:
+                # ---------- Ancienne logique (pas de plafond) ----------
+                for cult, prop in target_ependage.items():
+                    if prop <= 0.0:
+                        continue
+
+                    # a) fraction par culture de chaque source
+                    eff_c = {
+                        k: v * prop for k, v in effluent_src.items()
+                    }  # On ne compte pas l'azote des effluents qui finit dans le méthaniseur
+                    boues_c = {k: v * prop for k, v in boues_src.items()}
+                    dig_c = {"methaniser": tot_dig * prop}
+
+                    # Regroupper les aniamux dans eff_c
+                    new_eff_c = {}
+
+                    for key, value in eff_c.items():
+                        # Extraire le nom de l'animal (le premier mot de la clé)
+                        animal_name = key.split(" ")[0]
+
+                        # Ajouter la valeur à l'animal correspondant
+                        # Si l'animal n'existe pas encore comme clé, il est initialisé à 0 avant d'ajouter la valeur
+                        new_eff_c[animal_name] = new_eff_c.get(animal_name, 0.0) + value
+
+                    other_N = adj_matrix_df.loc[
+                        ["atmospheric N2", "other sectors", "NH3 volatilization", "N2O emission"], cult
+                    ].sum()
+
+                    # b) Mise à jour DataFrames
+                    add_to_culture(
+                        cult,
+                        effluents=sum(new_eff_c.values()),
+                        boues=sum(boues_c.values()),
+                        digestat=dig_c["methaniser"],
+                        other=other_N,
+                    )
+                    for itm, qty in eff_c.items():
+                        add_to_elevage(itm, qty)
+
+                    # c) Flux vers ‘flux_generator’ (inchangé)
+                    flux_generator.generate_flux(boues_c, {cult: 1})
+                    flux_generator.generate_flux(new_eff_c, {cult: 1})
+                    flux_generator.generate_flux(dig_c, {cult: 1})
+
+            else:
+                # ---------- Version plafonnée 170 kg N/ha ----------
+                for cult, prop in target_ependage.items():
+                    if prop <= 0.0:
+                        continue
+
+                    area_ha = df_cultures.at[cult, "Area (ha)"]
+                    limit_kt = 170 * area_ha / 1e6
+
+                    # -- répartition brute par culture --
+                    eff_c = {k: v * prop for k, v in effluent_src.items()}
+                    boues_c = {k: v * prop for k, v in boues_src.items()}
+                    dig_c = {"methaniser": tot_dig * prop}
+
+                    N_eff, N_boues, N_dig = map(sum, (eff_c.values(), boues_c.values(), [dig_c["methaniser"]]))
+                    total_N = N_eff + N_boues + N_dig
+                    over = max(0.0, total_N - limit_kt)
+
+                    # --------- réductions successives ----------
+                    # 1) boues
+                    if over > 0 and N_boues > 0:
+                        rem = min(over, N_boues)
+                        ratio = (N_boues - rem) / N_boues
+                        boues_c = {k: v * ratio for k, v in boues_c.items()}
+                        over -= rem
+                    # 2) digestat
+                    if over > 0 and N_dig > 0:
+                        rem = min(over, N_dig)
+                        dig_c["methaniser"] -= rem
+                        over -= rem
+                    # 3) effluents
+                    if over > 0 and N_eff > 0:
+                        ratio = (N_eff - over) / N_eff
+                        eff_c = {k: v * ratio for k, v in eff_c.items()}
+                        over = 0.0
+
+                    # --------- Comptabilisation pour les DataFrames ----------
+                    other_N = adj_matrix_df.loc[
+                        ["atmospheric N2", "other sectors", "NH3 volatilization", "N2O emission"], cult
+                    ].sum()
+
+                    add_to_culture(
+                        cult,
+                        effluents=sum(eff_c.values()),
+                        boues=sum(boues_c.values()),
+                        digestat=dig_c["methaniser"],
+                        other=other_N,
+                    )
+                    for itm, qty in eff_c.items():
+                        add_to_elevage(itm, qty)
+
+                    # --------- Flux matière (vers culture & hydro) ----------
+                    flux_generator.generate_flux(boues_c, {cult: 1})
+                    flux_generator.generate_flux(eff_c, {cult: 1})
+                    flux_generator.generate_flux(dig_c, {cult: 1})
+
+                    # Surplus (boues/dig/effluents) envoyé à l’hydro-system
+                    surplus_src = {}
+                    for d in (boues_c, dig_c, eff_c):
+                        for k, v in d.items():
+                            if v < 1e-6:  # ce qui a été retranché
+                                surplus_src[k] = surplus_src.get(k, 0.0) + (
+                                    boues_src.get(k, 0) + dig_c.get(k, 0) + eff_c.get(k, 0) - v
+                                )
+                    if surplus_src:
+                        flux_generator.generate_flux(surplus_src, {"hydro-system": 1})
+
+            # # Azote issu de la partie non comestible des carcasses vers autres secteurs
+            source_non_comestible = (
+                df_elevage["Non Edible Nitrogen (ktN)"] - df_elevage["Non Edible Nitrogen to methaniser (ktN)"]
+            ).to_dict()
+            target_other_sectors = {"other sectors": 1}
+            flux_generator.generate_flux(source_non_comestible, target_other_sectors)
+
             # On redonne à df_elevage sa forme d'origine et à import_feed_net sa vraie valeur
             # Utiliser `infer_objects(copy=False)` pour éviter l'avertissement sur le downcasting
             df_elevage = df_elevage.combine_first(df_elevage_comp)
@@ -3851,6 +4769,10 @@ class NitrogenFlowModel_prospect:
 
             # Inférer les types pour éviter le warning sur les colonnes object
             df_elevage = df_elevage.infer_objects(copy=False)
+
+            # from IPython import embed
+
+            # embed()
 
             # feed_export = import_feed - import_feed_net
 
@@ -3942,7 +4864,7 @@ class NitrogenFlowModel_prospect:
                 source = {
                     culture: df_cultures.loc[
                         df_cultures.index == culture,
-                        "Available Nitrogen After Feed and Food (ktN)",
+                        "Available Nitrogen After Feed Food and Energy (ktN)",
                     ].item()
                 }
                 target = {f"{categorie} food trade": 1}
@@ -3953,7 +4875,7 @@ class NitrogenFlowModel_prospect:
                 source = {
                     culture: df_cultures.loc[
                         df_cultures.index == culture,
-                        "Available Nitrogen After Feed and Food (ktN)",
+                        "Available Nitrogen After Feed Food and Energy (ktN)",
                     ].item()
                 }
                 target = {f"{categorie} feed trade": 1}
@@ -3961,7 +4883,7 @@ class NitrogenFlowModel_prospect:
                 source = {
                     culture: df_cultures.loc[
                         df_cultures.index == culture,
-                        "Available Nitrogen After Feed and Food (ktN)",
+                        "Available Nitrogen After Feed Food and Energy (ktN)",
                     ].item()
                 }
                 target = {"soil stock": 1}
@@ -4281,7 +5203,7 @@ class NitrogenFlowModel_prospect:
         :return: Total vegetal exported nitrogen (in ktN).
         :rtype: float
         """
-        return self.df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
+        return self.df_cultures["Available Nitrogen After Feed Food and Energy (ktN)"].sum()
 
     def net_imported_plant(self):
         """
@@ -4294,7 +5216,7 @@ class NitrogenFlowModel_prospect:
         """
         return (
             self.importations_df["Imported Nitrogen (ktN)"].sum()
-            - self.df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
+            - self.df_cultures["Available Nitrogen After Feed Food and Energy (ktN)"].sum()
         )
 
     def net_imported_animal(self):
