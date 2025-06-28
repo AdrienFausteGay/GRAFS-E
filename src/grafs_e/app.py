@@ -29,7 +29,11 @@ from grafs_e.sankey import (
     streamlit_sankey_fertilization,
     streamlit_sankey_food_flows,
 )
-from grafs_e.system_flows_svg import mapping_svg_fluxes, streamlit_sankey_systemic_flows_svg
+from grafs_e.system_flows_svg import (
+    mapping_svg_fluxes_hist,
+    mapping_svg_fluxes_pros,
+    streamlit_sankey_systemic_flows_svg,
+)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -435,6 +439,28 @@ with tab3:
         # Récupérer l'objet model
         model = st.session_state["model"]
 
+        st.subheader("Territorial Systemic Overview")
+        st.write(
+            f"This Sankey diagram presents nitrogen flows in the agricultural system organized by key categories (10% = {np.round(model.adjacency_matrix.sum() / 10, 0)} ktN/yr)."
+        )
+        # st.write("For optimal visualization, please switch to full screen mode.")
+
+        # streamlit_sankey_systemic_flows(model)
+        # os.path.join(os.getcwd(), "data/system_flows.svg")
+        # 1) Point de départ : le dossier racine du projet
+        base = Path(__file__).parent.parent  # par exemple, un dossier au-dessus de app.py
+        # 2) Construire le chemin vers le SVG
+        # svg_template_path = base / "grafs_e" / "data" / "system_flows.svg"
+
+        if int(st.session_state.year) > 2014:
+            mapping_svg_fluxes = mapping_svg_fluxes_pros
+            svg_template_path = base / "grafs_e" / "data" / "system_flows_pros.svg"
+        else:
+            mapping_svg_fluxes = mapping_svg_fluxes_hist
+            svg_template_path = base / "grafs_e" / "data" / "system_flows_hist.svg"
+
+        streamlit_sankey_systemic_flows_svg(model, mapping_svg_fluxes, svg_template_path)
+
         # 🔹 Ajouter un bouton de mode
         mode_complet = st.toggle("Detailed view", value=False, key="first")
 
@@ -615,21 +641,6 @@ with tab3:
 
         streamlit_sankey_food_flows(model, cultures, legumineuses, prairies, trades, merges=merge)
 
-        st.subheader("Territorial Systemic Overview")
-        st.write(
-            f"This Sankey diagram presents nitrogen flows in the agricultural system organized by key categories (10% = {np.round(model.adjacency_matrix.sum() / 10, 0)} ktN/yr)."
-        )
-        # st.write("For optimal visualization, please switch to full screen mode.")
-
-        # streamlit_sankey_systemic_flows(model)
-        # os.path.join(os.getcwd(), "data/system_flows.svg")
-        # 1) Point de départ : le dossier racine du projet
-        base = Path(__file__).parent.parent  # par exemple, un dossier au-dessus de app.py
-        # 2) Construire le chemin vers le SVG
-        svg_template_path = base / "grafs_e" / "data" / "system_flows.svg"
-
-        streamlit_sankey_systemic_flows_svg(model, mapping_svg_fluxes, svg_template_path)
-
 with tab4:
     st.title("Detailed data")
 
@@ -653,6 +664,14 @@ with tab4:
         st.subheader("Diet deviations from defined diet")
 
         st.dataframe(model.deviations_df)
+
+        if int(st.session_state.year) > 2024:
+            st.subheader("Energy from biomass")
+            st.text("Methaniser allocation")
+            st.dataframe(model.allocation_energy_df)
+
+            st.text("Input deviation for methanizer")
+            st.dataframe(model.meth_deviation_df)
 
 
 # 📌 Stocker et récupérer les modèles pour chaque région en cache
@@ -749,60 +768,68 @@ def create_map_with_metrics(geojson_data, metrics, metric_name, year):
     map_center = [46.6034, 1.8883]  # Centre approximatif de la France
     m = folium.Map(location=map_center, zoom_start=6, tiles="OpenStreetMap")
 
+    min_val, max_val = get_metric_range(metrics)
+
+    if "net" in metric_name or "Footprint" in metric_name:
+        cmap = cm.get_cmap("bwr")
+        min_val = min(min_val, -abs(max_val))
+        max_val = max(abs(min_val), max_val)
+    else:
+        cmap = cm.get_cmap("plasma")  # Utilisation de la colormap "plasma"
+
+    norm = mcolors.Normalize(vmin=min_val, vmax=max_val)
+
+    if "Relative" in metric_name or "NUE" in metric_name:
+        unit = "%"
+    elif "Eff" in metric_name:
+        unit = ""
+    elif "Footprint" in metric_name:
+        unit = "Mha"
+    elif "Livestock density" == metric_name:
+        unit = "LU/ha"
+    else:
+        unit = "ktN/yr"
+
+    # 📊 Nouveau : créer le tableau des valeurs régionales
+    table_data = []
+
     for feature in geojson_data["features"]:
         region_name = feature["properties"]["nom"]
-        metric_value = metrics.get(region_name, None)
+        metric_value = metrics.get(region_name, np.nan)
 
-        if metric_value is not None:
-            # 📌 Obtenir min et max du metric sélectionné
-            min_val, max_val = get_metric_range(metrics)
+        if np.isnan(metric_value):
+            color = "#CCCCCC"
+        else:
+            rgba = cmap(norm(metric_value))
+            color = mcolors.to_hex(rgba)
 
-            if "net" in metric_name or "Footprint" in metric_name:
-                cmap = cm.get_cmap("bwr")
-                min_val = min(min_val, -abs(max_val))
-                max_val = max(abs(min_val), max_val)
-            else:
-                cmap = cm.get_cmap("plasma")  # Utilisation de la colormap "plasma"
+        def style_function(x, fill_color=color):
+            return {
+                "fillColor": fill_color,
+                "color": "black",
+                "weight": 1,
+                "fillOpacity": 0.6,
+            }
 
-            # 📌 Normaliser et mapper les couleurs
-            norm = mcolors.Normalize(vmin=min_val, vmax=max_val)
+        folium.GeoJson(
+            feature,
+            style_function=style_function,
+            tooltip=folium.Tooltip(f"{region_name}: {metric_value:.2f} {unit}"),
+        ).add_to(m)
 
-            if "Relative" in metric_name or "NUE" in metric_name:
-                unit = "%"
-            elif "Eff" in metric_name:
-                unit = ""
-            elif "Footprint" in metric_name:
-                unit = "Mha"
-            elif "Livestock density" == metric_name:
-                unit = "LU/ha"
-            else:
-                unit = "ktN/yr"
-
-            for feature in geojson_data["features"]:
-                region_name = feature["properties"]["nom"]
-                metric_value = metrics.get(region_name, np.nan)  # Valeur de l'indicateur
-                if np.isnan(metric_value):  # Si pas de donnée, couleur grise
-                    color = "#CCCCCC"
-                else:
-                    rgba = cmap(norm(metric_value))  # Convertir en RGBA
-                    color = mcolors.to_hex(rgba)  # Convertir en HEX
-
-                def style_function(x, fill_color=color):
-                    return {
-                        "fillColor": fill_color,  # ✅ Corrected: capture current `color`
-                        "color": "black",
-                        "weight": 1,
-                        "fillOpacity": 0.6,
-                    }
-
-                folium.GeoJson(
-                    feature,
-                    style_function=style_function,
-                    tooltip=folium.Tooltip(f"{region_name}: {metric_value:.2f} {unit}"),
-                ).add_to(m)
+        table_data.append(
+            {
+                "Région": region_name,
+                "Valeur": round(metric_value, 2) if not np.isnan(metric_value) else None,
+                # "Unité": unit,
+            }
+        )
 
     add_color_legend(m, min_val, max_val, cmap, metric_name)
-    return m
+
+    df = pd.DataFrame(table_data)
+
+    return m, df
 
 
 def weighted_mean(metrics, area):
@@ -873,7 +900,7 @@ with tab5:
             # 📌 Charger le GeoJSON et créer la carte
             geojson_data = load_geojson()
 
-            map_obj = get_cached_map(geojson_data, metrics, st.session_state.metric, st.session_state.map_year)
+            map_obj, table = get_cached_map(geojson_data, metrics, st.session_state.metric, st.session_state.map_year)
 
             # 📌 Convertir la carte en HTML pour éviter la disparition
             st.session_state.map_html = map_obj._repr_html_()
@@ -904,6 +931,8 @@ with tab5:
 
         if st.session_state.map_html:
             st.components.v1.html(st.session_state.map_html, height=800, scrolling=True)
+            st.dataframe(table)
+            st.download_button("Download Data", table.to_csv(index=False), file_name="data.csv")
         else:
             st.warning("Please run the model to generate the map.")
 
@@ -1756,8 +1785,146 @@ with tab6:
 
             if st.session_state.heatmap_fig_pros:
                 if st.session_state.model:
+                    SA = st.toggle("See Solver Analytics", value=False, key="SA")
+                    if SA:
+                        st.subheader("Solver Analytics")
+                        # ----------------------------
+                        # 1. Préparer les données
+                        # ----------------------------
+
+                        final = st.session_state.model.log[-1]
+
+                        weights = {
+                            "diet_dev": st.session_state.model.w_diet,
+                            "fert_dev": st.session_state.model.w_Nsyn,
+                            "imp_dev": st.session_state.model.w_imp,
+                            "exp_dev": st.session_state.model.w_exp,
+                            "energy_dev": st.session_state.model.w_energy,
+                            "energy_prod": st.session_state.model.w_share_energy,
+                        }
+
+                        # --- table contraintes "cible vs réalisé" ---
+                        rows = [
+                            ("Synthetic N (crops)", final["Nsyn crop target"], final["Nsyn crop model"]),
+                            ("Synthetic N (grass)", final["Nsyn grasslands target"], final["Nsyn grasslands model"]),
+                            ("Imports", final["import target"], final["import model"]),
+                            ("Exports", final["export target"], final["export model"]),
+                            ("Energy Production", final["methanisation target"], final["methanisation model"]),
+                        ]
+                        df = pd.DataFrame(rows, columns=["Constraint", "Target", "Model"])
+
+                        EPS = 1  # ← tolérance (ktN/an)
+                        # CAP = 400  # ← % maxi affiché
+
+                        df["%"] = 100 * (df["Model"] + EPS) / (df["Target"] + EPS)
+                        # df["%"] = df["%"].clip(upper=CAP)  # on limite à 400 %
+
+                        max_pct = df["%"].max()
+                        CAP = 400 if 1.1 * max_pct >= 400 else 1.1 * max_pct
+
+                        # --- radar normalisé -------------------------------------------------
+                        theta = df["Constraint"].tolist()
+                        theta_closed = theta + [theta[0]]  # boucle fermée
+
+                        r_target = [100] * len(theta) + [100]
+                        r_model = df["%"].tolist() + [df["%"].iloc[0]]
+
+                        # 1) ligne 100 %
+                        fig = go.Figure()
+                        fig.add_trace(
+                            go.Scatterpolar(
+                                r=r_target,
+                                theta=theta_closed,
+                                mode="lines",
+                                line=dict(color="grey", dash="dot"),
+                                name="Target (100 %)",
+                            )
+                        )
+
+                        # 2) surface modèle
+                        fig.add_trace(
+                            go.Scatterpolar(
+                                r=r_model,
+                                theta=theta_closed,
+                                fill="toself",
+                                line=dict(color="dodgerblue"),
+                                name="Model",
+                            )
+                        )
+
+                        # 3) mise à l’échelle radiale
+                        max_pct = df["%"].max()
+                        CAP = 400 if 1.1 * max_pct >= 400 else 1.1 * max_pct  # 400 % ou 1.1×max
+                        ticks = [0, 50, 100, 200, 400] if CAP >= 400 else [0, 50, 100, 200]
+
+                        fig.update_layout(
+                            title="Model vs Target (normalised)",
+                            polar=dict(
+                                radialaxis=dict(
+                                    range=[0, CAP],
+                                    tickvals=[v for v in ticks if v <= CAP],
+                                    ticksuffix="%",
+                                    color="black",
+                                )
+                            ),
+                            legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5),
+                            height=450,
+                        )
+
+                        st.plotly_chart(fig, use_container_width=True)
+
+                        def color_diff(model, target, constraint):
+                            if target == 0:
+                                return "" if model == 0 else "background-color:red"  # rouge si mod>0 alors que cible 0
+                            ratio = model / target
+                            diff = abs(model - target)
+                            if (
+                                0.8 <= ratio <= 1.25
+                                or diff < 5
+                                or (ratio <= 1 and constraint in ["Synthetic N (crops)", "Synthetic N (grass)"])
+                            ):
+                                return "background-color:green"  # vert (±10 %)
+                            if 0.4 <= ratio <= 2.5 or diff < 10:
+                                return "background-color:orange"  # orange
+                            return "background-color:red"  # rouge
+
+                        styled = df.style.apply(
+                            lambda row: [
+                                color_diff(row.Model, row.Target, row.Constraint) if col == "Model" else ""
+                                for col in row.index
+                            ],
+                            axis=1,
+                        ).format({"Target": "{:.2f}", "Model": "{:.2f}"})
+
+                        st.dataframe(styled)
+
+                        objective = final["objective"]
+                        good = 1.5  # à adapter : zone « OK »
+                        warn = 2.5  # au-delà = rouge
+                        end = 4
+
+                        fig_g = go.Figure(
+                            go.Indicator(
+                                mode="gauge+number",
+                                value=objective
+                                / sum(
+                                    list(weights.values())
+                                ),  # On s'intéresse à une moyenne pondérée des termes de la fonctions objectif
+                                title={"text": "Objective function"},
+                                gauge={
+                                    "axis": {"range": [0, end]},
+                                    "steps": [
+                                        {"range": [0, good], "color": "#c9f7d4"},
+                                        {"range": [good, warn], "color": "#fff3b0"},
+                                        {"range": [warn, end], "color": "#f9c0c0"},
+                                    ],
+                                },
+                            )
+                        )
+                        st.plotly_chart(fig_g, use_container_width=True)
+
                     st.text(
                         f"Total Throughflow : {np.round(st.session_state.model.get_transition_matrix().sum(), 1)} ktN/yr."
                     )
-                st.subheader(f"Heatmap – {st.session_state.selected_region_pros} / {st.session_state.year_pros}")
+                st.subheader(f"Heatmap – {st.session_state.selected_region_pros} in {st.session_state.year_pros}")
                 st.plotly_chart(st.session_state.heatmap_fig_pros, use_container_width=True)

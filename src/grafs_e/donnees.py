@@ -156,6 +156,8 @@ ext = [
     "soil stock",
     "atmospheric N2",
     "Haber-Bosch",
+    "methaniser",
+    "green waste",
     "other sectors",
     "animal trade",
     "fishery products",
