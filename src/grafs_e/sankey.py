@@ -123,7 +123,7 @@ def streamlit_sankey(transition_matrix, main_node, scope=1, index_to_label=None,
     fig = go.Figure(
         go.Sankey(
             node=dict(
-                pad=7,
+                pad=10,
                 thickness=15,
                 line=dict(color="black", width=0.5),
                 label=labels,
@@ -146,6 +146,8 @@ def streamlit_sankey(transition_matrix, main_node, scope=1, index_to_label=None,
         template="plotly_dark",  # Thème sombre de Plotly
         font_color="black",  # Couleur générale du texte (titres, axes, etc.)
         font_size=20,
+        width=200,
+        height=600,
     )
     # Affichage du Sankey dans Streamlit
     st.plotly_chart(fig, use_container_width=True)
