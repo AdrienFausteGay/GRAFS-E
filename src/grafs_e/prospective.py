@@ -769,8 +769,8 @@ class scenario:
             ] = self.extrapolate_recent_trend(self.get_import_net(self.region), self.year, seuil_bas=None)[1][-1]
 
             # Proportion urbaine
-            sheets["main"].loc[
-                sheets["main"]["Variable"] == "Urban population",
+            sheets["technical"].loc[
+                sheets["technical"]["Variable"] == "Urban population",
                 "Business as usual",
             ] = self.logistic_urb_pop(self.region, self.year)
 
@@ -2486,7 +2486,7 @@ class NitrogenFlowModel_prospect:
         FE_N_NH3_em = 0.118
         FE_N_N2_em = 0.425
         pop = main.loc[main["Variable"] == "Population", "Business as usual"].item()
-        prop_urb = main.loc[main["Variable"] == "Urban population", "Business as usual"].item() / 100
+        prop_urb = technical.loc[technical["Variable"] == "Urban population", "Business as usual"].item() / 100
         N_cons_cap = main.loc[main["Variable"] == "Total per capita protein ingestion", "Business as usual"].item()
         N_cap_vege = main.loc[main["Variable"] == "Vegetal per capita protein ingestion", "Business as usual"].item()
         N_cap_viande = main.loc[
@@ -3218,14 +3218,14 @@ class NitrogenFlowModel_prospect:
                 #     imp_dev = ((net_import_model - net_import) / (net_import + 1e-6)) ** 2
 
                 if abs(import_vege) < 1:
-                    imp_dev = (sum_imp - import_vege) ** 2
+                    imp_dev = (np.maximum(0, sum_imp - import_vege)) ** 2
                 else:
-                    imp_dev = ((sum_imp - import_vege) / import_vege) ** 2
+                    imp_dev = (np.maximum(0, (sum_imp - import_vege) / import_vege)) ** 2
 
                 if abs(export_vege) < 1:
-                    exp_dev = (export_total - export_vege) ** 2
+                    exp_dev = (np.minimum(0, export_total - export_vege)) ** 2
                 else:
-                    exp_dev = ((export_total - export_vege) / export_vege) ** 2
+                    exp_dev = (np.minimum(0, (export_total - export_vege) / export_vege)) ** 2
 
                 # --- NEW: Allocation Spread Penalty based on Fixed Proportions ---
                 spread_penalty_fixed = 0.0
@@ -3596,14 +3596,14 @@ class NitrogenFlowModel_prospect:
                 #     imp_dev = ((net_import_model - net_import) / (net_import + 1e-6)) ** 2
 
                 if abs(import_vege) < 1:
-                    imp_dev = (sum_imp - import_vege) ** 2
+                    imp_dev = (np.maximum(0, sum_imp - import_vege)) ** 2
                 else:
-                    imp_dev = ((sum_imp - import_vege) / import_vege) ** 2
+                    imp_dev = (np.maximum(0, (sum_imp - import_vege) / import_vege)) ** 2
 
                 if abs(export_vege) < 1:
-                    exp_dev = (export_total - export_vege) ** 2
+                    exp_dev = (np.minimum(0, export_total - export_vege)) ** 2
                 else:
-                    exp_dev = ((export_total - export_vege) / export_vege) ** 2
+                    exp_dev = (np.minimum(0, (export_total - export_vege) / export_vege)) ** 2
 
                 # Methanisation
                 energy_prod_GWh = 0.0
