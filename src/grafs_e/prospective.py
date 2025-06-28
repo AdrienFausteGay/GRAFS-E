@@ -3218,14 +3218,14 @@ class NitrogenFlowModel_prospect:
                 #     imp_dev = ((net_import_model - net_import) / (net_import + 1e-6)) ** 2
 
                 if abs(import_vege) < 1:
-                    imp_dev = (sum_imp - import_vege) ** 2
+                    imp_dev = (np.maximum(0, sum_imp - import_vege)) ** 2
                 else:
-                    imp_dev = ((sum_imp - import_vege) / import_vege) ** 2
+                    imp_dev = (np.maximum(0, (sum_imp - import_vege) / import_vege)) ** 2
 
                 if abs(export_vege) < 1:
-                    exp_dev = (export_total - export_vege) ** 2
+                    exp_dev = (np.minimum(0, export_total - export_vege)) ** 2
                 else:
-                    exp_dev = ((export_total - export_vege) / export_vege) ** 2
+                    exp_dev = (np.minimum(0, (export_total - export_vege) / export_vege)) ** 2
 
                 # --- NEW: Allocation Spread Penalty based on Fixed Proportions ---
                 spread_penalty_fixed = 0.0
@@ -3596,14 +3596,14 @@ class NitrogenFlowModel_prospect:
                 #     imp_dev = ((net_import_model - net_import) / (net_import + 1e-6)) ** 2
 
                 if abs(import_vege) < 1:
-                    imp_dev = (sum_imp - import_vege) ** 2
+                    imp_dev = (np.maximum(0, sum_imp - import_vege)) ** 2
                 else:
-                    imp_dev = ((sum_imp - import_vege) / import_vege) ** 2
+                    imp_dev = (np.maximum(0, (sum_imp - import_vege) / import_vege)) ** 2
 
                 if abs(export_vege) < 1:
-                    exp_dev = (export_total - export_vege) ** 2
+                    exp_dev = (np.minimum(0, export_total - export_vege)) ** 2
                 else:
-                    exp_dev = ((export_total - export_vege) / export_vege) ** 2
+                    exp_dev = (np.minimum(0, (export_total - export_vege) / export_vege)) ** 2
 
                 # Methanisation
                 energy_prod_GWh = 0.0
@@ -4021,7 +4021,7 @@ class NitrogenFlowModel_prospect:
                 bounds=bounds,
                 constraints=cons,
                 callback=my_callback,
-                options={"maxiter": 1000, "ftol": 1e-2, "disp": True, "eps": 1e-3},
+                options={"maxiter": 1000, "ftol": 1e-5, "disp": True, "eps": 1e-6},
             )
 
             self.log = iteration_log
