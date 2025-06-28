@@ -29,7 +29,11 @@ from grafs_e.sankey import (
     streamlit_sankey_fertilization,
     streamlit_sankey_food_flows,
 )
-from grafs_e.system_flows_svg import mapping_svg_fluxes, streamlit_sankey_systemic_flows_svg
+from grafs_e.system_flows_svg import (
+    mapping_svg_fluxes_hist,
+    mapping_svg_fluxes_pros,
+    streamlit_sankey_systemic_flows_svg,
+)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -446,7 +450,14 @@ with tab3:
         # 1) Point de départ : le dossier racine du projet
         base = Path(__file__).parent.parent  # par exemple, un dossier au-dessus de app.py
         # 2) Construire le chemin vers le SVG
-        svg_template_path = base / "grafs_e" / "data" / "system_flows.svg"
+        # svg_template_path = base / "grafs_e" / "data" / "system_flows.svg"
+
+        if int(st.session_state.year) > 2014:
+            mapping_svg_fluxes = mapping_svg_fluxes_pros
+            svg_template_path = base / "grafs_e" / "data" / "system_flows_pros.svg"
+        else:
+            mapping_svg_fluxes = mapping_svg_fluxes_hist
+            svg_template_path = base / "grafs_e" / "data" / "system_flows_hist.svg"
 
         streamlit_sankey_systemic_flows_svg(model, mapping_svg_fluxes, svg_template_path)
 

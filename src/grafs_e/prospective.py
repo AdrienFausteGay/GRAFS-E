@@ -2971,22 +2971,26 @@ class NitrogenFlowModel_prospect:
             # 2) Create indexing for decision variables
             # --------------------------------------------------------------------------
 
+            # en kgN/ha
             idx_synth = {}
             offset = 0
             for c in CROPS:
                 idx_synth[c] = offset
                 offset += 1
 
+            # en ktN
             idx_alloc = {}
             for c, k in allowed_ck:
                 idx_alloc[(c, k)] = offset
                 offset += 1
 
+            # en ktN
             idx_import = {}
             for c, k in allowed_ck:
                 idx_import[(c, k)] = offset
                 offset += 1
 
+            # en ktN
             idx_methan = {}
             Non_effluents_idx = []
             for c in CROPS:
@@ -3103,7 +3107,12 @@ class NitrogenFlowModel_prospect:
                     fert_per_ha = (
                         x[idx_synth[c]]
                         + nonSynthFert[c]
-                        + sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c]
+                        + (
+                            (sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                            / df_cultures.at[c, "Area (ha)"]
+                            if df_cultures.at[c, "Area (ha)"] != 0
+                            else 0
+                        )
                     )
                     if c == "Natural meadow ":
                         total_synth_grasslands += x[idx_synth[c]] * area[c]  # only the synthetic part
@@ -3142,7 +3151,12 @@ class NitrogenFlowModel_prospect:
                             Y_th_ratio(
                                 x[idx_synth[c]]
                                 + nonSynthFert[c]
-                                + sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c],
+                                + (
+                                    (sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                                    / df_cultures.at[c, "Area (ha)"]
+                                    if df_cultures.at[c, "Area (ha)"] != 0
+                                    else 0
+                                ),
                                 Ymax[c],
                             )
                             * df_cultures.at[c, "Area (ha)"]
@@ -3153,7 +3167,12 @@ class NitrogenFlowModel_prospect:
                             Y_th_lin(
                                 x[idx_synth[c]]
                                 + nonSynthFert[c]
-                                + sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c],
+                                + (
+                                    (sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                                    / df_cultures.at[c, "Area (ha)"]
+                                    if df_cultures.at[c, "Area (ha)"] != 0
+                                    else 0
+                                ),
                                 a[c],
                                 b[c],
                             )
@@ -3165,7 +3184,12 @@ class NitrogenFlowModel_prospect:
                             Y.Y_th_exp_cap(
                                 x[idx_synth[c]]
                                 + nonSynthFert[c]
-                                + sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c],
+                                + (
+                                    (sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                                    / df_cultures.at[c, "Area (ha)"]
+                                    if df_cultures.at[c, "Area (ha)"] != 0
+                                    else 0
+                                ),
                                 Ymax[c],
                                 k_param[c],
                             )
@@ -3462,7 +3486,12 @@ class NitrogenFlowModel_prospect:
                     fert_per_ha = (
                         x[idx_synth[c]]
                         + nonSynthFert[c]
-                        + sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c]
+                        + (
+                            (sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                            / df_cultures.at[c, "Area (ha)"]
+                            if df_cultures.at[c, "Area (ha)"] != 0
+                            else 0
+                        )
                     )
                     if c == "Natural meadow ":
                         total_synth_grasslands += x[idx_synth[c]] * area[c]  # only the synthetic part
@@ -3500,7 +3529,12 @@ class NitrogenFlowModel_prospect:
                             Y_th_ratio(
                                 x[idx_synth[c]]
                                 + nonSynthFert[c]
-                                + sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c],
+                                + (
+                                    (sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                                    / df_cultures.at[c, "Area (ha)"]
+                                    if df_cultures.at[c, "Area (ha)"] != 0
+                                    else 0
+                                ),
                                 Ymax[c],
                             )
                             * df_cultures.at[c, "Area (ha)"]
@@ -3511,7 +3545,12 @@ class NitrogenFlowModel_prospect:
                             Y_th_lin(
                                 x[idx_synth[c]]
                                 + nonSynthFert[c]
-                                + sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c],
+                                + (
+                                    (sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                                    / df_cultures.at[c, "Area (ha)"]
+                                    if df_cultures.at[c, "Area (ha)"] != 0
+                                    else 0
+                                ),
                                 a[c],
                                 b[c],
                             )
@@ -3523,7 +3562,12 @@ class NitrogenFlowModel_prospect:
                             Y.Y_th_exp_cap(
                                 x[idx_synth[c]]
                                 + nonSynthFert[c]
-                                + sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c],
+                                + (
+                                    (sum(x[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                                    / df_cultures.at[c, "Area (ha)"]
+                                    if df_cultures.at[c, "Area (ha)"] != 0
+                                    else 0
+                                ),
                                 Ymax[c],
                                 k_param[c],
                             )
@@ -3738,7 +3782,16 @@ class NitrogenFlowModel_prospect:
                                         x_[idx_synth[c2]],
                                         c2,
                                         nonSynthFert[c]
-                                        + sum(x_[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c],
+                                        + (
+                                            (
+                                                sum(x_[idx_methan[i]] for i in Non_effluents_idx)
+                                                * target_ependage[c]
+                                                * 1e6
+                                            )
+                                            / df_cultures.at[c, "Area (ha)"]
+                                            if df_cultures.at[c, "Area (ha)"] != 0
+                                            else 0
+                                        ),
                                     )
                                     calculated_productions[c2] = prod_c2_val
                                 else:
@@ -3830,7 +3883,12 @@ class NitrogenFlowModel_prospect:
                 fert_tot = (
                     x_[idx_synth[c]]
                     + nonSynthFert[c]
-                    + sum(x_[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c]
+                    + (
+                        (sum(x_[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6)
+                        / df_cultures.at[c, "Area (ha)"]
+                        if df_cultures.at[c, "Area (ha)"] != 0
+                        else 0
+                    )
                 )
                 if self.prod_func == "Ratio":
                     y = Y_th_ratio(fert_tot, Ymax[c])
@@ -3963,7 +4021,7 @@ class NitrogenFlowModel_prospect:
                 bounds=bounds,
                 constraints=cons,
                 callback=my_callback,
-                options={"maxiter": 1000, "ftol": 1e-5, "disp": True, "eps": 1e-6},
+                options={"maxiter": 1000, "ftol": 1e-2, "disp": True, "eps": 1e-3},
             )
 
             self.log = iteration_log
@@ -4134,8 +4192,10 @@ class NitrogenFlowModel_prospect:
 
                     # 3) Mettre à jour rendement et production
                     # On calcule la fertilisation totale (synthétique + éventuel non-synthétique)
-                    non_synth_fert = (
-                        nonSynthFert[c] + sum(x_opt[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c]
+                    non_synth_fert = nonSynthFert[c] + (
+                        (sum(x_opt[idx_methan[i]] for i in Non_effluents_idx) * target_ependage[c] * 1e6) / area_ha
+                        if area_ha != 0
+                        else 0
                     )  # df_cultures.at[c, "Surface Non Synthetic Fertilizer Use (kgN/ha)"]
                     # On met à jour la fertilisation non synthétique avec l'apport des méthaniseurs
                     df_cultures.at[c, "Surface Non Synthetic Fertilizer Use (kgN/ha)"] = non_synth_fert
@@ -4590,7 +4650,7 @@ class NitrogenFlowModel_prospect:
 
                     # a) fraction par culture de chaque source
                     eff_c = {
-                        k: (v - sum([x_opt[i] for i in effluents_idx])) * prop for k, v in effluent_src.items()
+                        k: v * prop for k, v in effluent_src.items()
                     }  # On ne compte pas l'azote des effluents qui finit dans le méthaniseur
                     boues_c = {k: v * prop for k, v in boues_src.items()}
                     dig_c = {"methaniser": tot_dig * prop}
@@ -4710,9 +4770,9 @@ class NitrogenFlowModel_prospect:
             # Inférer les types pour éviter le warning sur les colonnes object
             df_elevage = df_elevage.infer_objects(copy=False)
 
-            from IPython import embed
+            # from IPython import embed
 
-            embed()
+            # embed()
 
             # feed_export = import_feed - import_feed_net
 
