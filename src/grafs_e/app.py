@@ -1879,12 +1879,17 @@ with tab6:
                             ratio = model / target
                             diff = abs(model - target)
                             if (
-                                0.8 <= ratio <= 1.25
+                                0.9 <= ratio <= 1.1
                                 or diff < 5
-                                or (ratio <= 1 and constraint in ["Synthetic N (crops)", "Synthetic N (grass)"])
+                                or (
+                                    ratio <= 1
+                                    and constraint in ["Synthetic N (crops)", "Synthetic N (grass)", "Imports"]
+                                )
                             ):
                                 return "background-color:green"  # vert (±10 %)
-                            if 0.4 <= ratio <= 2.5 or diff < 10:
+                            elif ratio > 1 and constraint in ["Exports"]:
+                                return "background-color:green"
+                            elif 0.5 <= ratio <= 2 or diff < 10:
                                 return "background-color:orange"  # orange
                             return "background-color:red"  # rouge
 
