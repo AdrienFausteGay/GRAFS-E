@@ -429,6 +429,7 @@ with tab2:
         st.subheader(f"Heatmap of the nitrogen flows for {st.session_state.selected_region} in {st.session_state.year}")
         st.plotly_chart(st.session_state.heatmap_fig, use_container_width=True)
 
+
 with tab3:
     st.title("Sankey")
 
