@@ -19,6 +19,7 @@ from grafs_e.N_class import NitrogenFlowModel
 # data = DataLoader()
 # matrices, norm_matrices = get_matrices(data)
 # df_plot = plot_dendrogram(norm_matrices)
+# mean_matrices_by_cluster, global_mean_matrix = compute_mean_matrice(norm_matrices, df_plot)
 # %%
 
 

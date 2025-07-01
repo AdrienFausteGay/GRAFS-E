@@ -51,7 +51,6 @@ cultures = [
     "Citrus",
     "Hemp",
     "Flax",
-    "Non-legume temporary meadow",
 ]
 
 legumineuses = [
@@ -68,7 +67,10 @@ legumineuses = [
 # même si cette culture n'est pas considérée comme
 # une légumineuse dans pvar (cf fixation N2)
 
-prairies = ["Natural meadow "]
+prairies = [
+    "Natural meadow ",
+    "Non-legume temporary meadow",
+]
 
 categories_mapping = {
     # Céréales (hors riz)
@@ -528,7 +530,7 @@ regimes = {
         0.0008: ["Soybean"],
         0.0005: ["Rapeseed"],
         0.0003: ["Other oil crops"],
-        0.105: ["Dry vegetables", "Cabagge", "Leaves vegetables"],
+        0.105: ["Dry vegetables", "Cabbage", "Leaves vegetables"],
         0.031: ["Fruits", "Squash and melons"],
         0.0009: ["Citrus"],
         0.0015: ["Olives"],
@@ -552,7 +554,7 @@ regimes = {
         0.0008: ["Soybean"],
         0.0005: ["Rapeseed"],
         0.0003: ["Other oil crops"],
-        0.105: ["Dry vegetables", "Cabagge", "Leaves vegetables"],
+        0.105: ["Dry vegetables", "Cabbage", "Leaves vegetables"],
         0.031: ["Fruits", "Squash and melons"],
         0.0009: ["Citrus"],
         0.0015: ["Olives"],
