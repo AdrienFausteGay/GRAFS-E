@@ -164,25 +164,9 @@ class CultureData:
         epend["Crop Production (ktonDFW)"] = pd.DataFrame.from_dict(
             vege_prod_dict, orient="index", columns=["Crop Production (ktonDFW)"]
         )
+
         # Calcul de l'azote disponible pour les cultures
         epend["Nitrogen Production (ktN)"] = epend["Crop Production (ktonDFW)"] * epend["Nitrogen Content (%)"] / 100
-        mask = epend["Area (ha)"] != 0
-
-        epend.loc[mask, "Yield (qtl/ha)"] = (
-            epend.loc[mask, "Crop Production (ktonDFW)"] * 1e4 / epend.loc[mask, "Area (ha)"]
-        )
-
-        epend.loc[mask, "Yield (kgN/ha)"] = (
-            epend.loc[mask, "Nitrogen Production (ktN)"] / epend.loc[mask, "Area (ha)"] * 1e6
-        )
-
-        mask = epend["Fertilization Need (kgN/qtl)"] > 0
-        epend["Surface Fertilization Need (kgN/ha)"] = epend["Surface Fertilization Need (kgN/ha)"].astype(
-            "float64", copy=False
-        )
-        epend.loc[mask, "Surface Fertilization Need (kgN/ha)"] = (
-            epend.loc[mask, "Fertilization Need (kgN/qtl)"] * epend.loc[mask, "Yield (qtl/ha)"]
-        )
 
         epend = epend.fillna(0)
 
@@ -744,6 +728,31 @@ class NitrogenFlowModel:
         df_cultures.loc["Straw", "Yield (qtl/ha)"] = (
             df_cultures["Crop Production (ktonDFW)"]["Straw"] / df_cultures["Area (ha)"]["Straw"] * 1000
         )
+
+        # Calcul de l'azote disponible pour les cultures
+        df_cultures["Nitrogen Production (ktN)"] = (
+            df_cultures["Crop Production (ktonDFW)"] * df_cultures["Nitrogen Content (%)"] / 100
+        )
+        mask = df_cultures["Area (ha)"] != 0
+
+        df_cultures.loc[mask, "Yield (qtl/ha)"] = (
+            df_cultures.loc[mask, "Crop Production (ktonDFW)"] * 1e4 / df_cultures.loc[mask, "Area (ha)"]
+        )
+
+        df_cultures.loc[mask, "Yield (kgN/ha)"] = (
+            df_cultures.loc[mask, "Nitrogen Production (ktN)"] / df_cultures.loc[mask, "Area (ha)"] * 1e6
+        )
+
+        # Maintenant que straw est réglé, on peut calculer le rendement
+        mask = df_cultures["Fertilization Need (kgN/qtl)"] > 0
+        df_cultures["Surface Fertilization Need (kgN/ha)"] = df_cultures["Surface Fertilization Need (kgN/ha)"].astype(
+            "float64", copy=False
+        )
+        df_cultures.loc[mask, "Surface Fertilization Need (kgN/ha)"] = (
+            df_cultures.loc[mask, "Fertilization Need (kgN/qtl)"] * df_cultures.loc[mask, "Yield (qtl/ha)"]
+        )
+
+        df_cultures.fillna(0)
 
         ## Flux depuis 'other sectors' (seeds) vers les cibles sélectionnées
         # selected_data = data[(data["index_excel"] >= 106) & (data["index_excel"] <= 139)]
