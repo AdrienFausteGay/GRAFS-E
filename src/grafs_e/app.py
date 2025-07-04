@@ -487,28 +487,26 @@ with tab3:
             tre = 1e-1
         else:
             merge = {
-                "Livestock and human": [
+                "Livestock": [
                     "bovines",
                     "ovines",
                     "equine",
                     "poultry",
                     "porcines",
                     "caprines",
-                    "urban",
-                    "rural",
                 ],
-                "Industry": ["Haber-Bosch", "other sectors"],
+                "Population": ["urban", "rural"],
+                "Industry": ["Haber-Bosch", "other sectors", "methaniser"],
                 "Cereals": [
                     "Wheat",
                     "Oat",
                     "Barley",
-                    "Grain maize",
+                    "Maize",
                     "Rye",
                     "Other cereals",
                     "Rice",
                 ],
                 "Forages": [
-                    "Straw",
                     "Forage maize",
                     "Forage cabbages",
                 ],
@@ -535,6 +533,31 @@ with tab3:
                     "Citrus",
                 ],
                 "Roots": ["Sugar beet", "Potatoes", "Other roots"],
+                "Environment": [
+                    "atmospheric N2",
+                    "Atmospheric deposition",
+                    "NH3 volatilization",
+                    "N2O emission",
+                    "hydro-system",
+                    "other losses",
+                    "soil stock",
+                ],
+                "Trade": [
+                    "animal trade",
+                    "cereals (excluding rice) food trade",
+                    "fruits and vegetables food trade",
+                    "leguminous food trade",
+                    "oleaginous food trade",
+                    "roots food trade",
+                    "rice food trade",
+                    "cereals (excluding rice) feed trade",
+                    "forages feed trade",
+                    "leguminous feed trade",
+                    "oleaginous feed trade",
+                    "grasslands feed trade",
+                    "fishery products",
+                    "temporary meadows feed trade",
+                ],
             }
             tre = 1
 
@@ -589,6 +612,22 @@ with tab3:
                     "Rye",
                     "Other cereals",
                     "Rice",
+                ],
+                "Grain": [
+                    "Wheat grain",
+                    "Oat grain",
+                    "Barley grain",
+                    "Maize grain",
+                    "Rye grain",
+                    "Other cereals grain",
+                ],
+                "Straw": [
+                    "Wheat straw",
+                    "Oat straw",
+                    "Barley straw",
+                    "Maize straw",
+                    "Rye straw",
+                    "Other cereals straw",
                 ],
                 "Forages": [
                     "Straw",
