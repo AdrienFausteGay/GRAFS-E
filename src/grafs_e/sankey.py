@@ -6,7 +6,9 @@ from grafs_e.donnees import *
 from grafs_e.N_class import *
 
 
-def streamlit_sankey(transition_matrix, main_node, scope=1, index_to_label=None, index_to_color=None):
+def streamlit_sankey(
+    transition_matrix, main_node, scope=1, index_to_label=None, label_to_index=None, index_to_color=None
+):
     """
     Creates an interactive Sankey diagram in Streamlit, displaying the incoming and outgoing flows of a main node
     with custom tooltips on hover.
@@ -118,6 +120,14 @@ def streamlit_sankey(transition_matrix, main_node, scope=1, index_to_label=None,
 
     add_forward_flows(main_node, 1)
     add_backward_flows(main_node, 1)
+
+    if index_to_label[main_node] in cereales:
+        st.text(index_to_label[main_node])
+        add_forward_flows(label_to_index[index_to_label[main_node] + " straw"], 1)
+        add_forward_flows(label_to_index[index_to_label[main_node] + " grain"], 1)
+    if index_to_label[main_node] == "Cereals":
+        add_forward_flows(label_to_index["Straw"], 1)
+        add_forward_flows(label_to_index["Grain"], 1)
 
     # Création du Sankey avec hovertemplate pour les nœuds et les liens
     fig = go.Figure(
@@ -272,11 +282,13 @@ def streamlit_sankey_app(model, mode_complet):
     if mode_complet:
         # A) Mode complet, pas de fusion
         transition = model.adjacency_matrix
-        new_labels = model.labels  # on ne change rien
+        # new_labels = model.labels  # on ne change rien
+        new_labels = model.labels
+        new_labels_menu = [label for label in model.labels if "grain" not in label and "straw" not in label]
         old_to_new = {i: i for i in range(len(new_labels))}  # mapping trivial
 
         # Sélectionner un objet parmi les labels originaux du modèle
-        main_node_label = st.selectbox("Select an object", new_labels)
+        main_node_label = st.selectbox("Select an object", new_labels_menu)
 
     else:
         # B) Mode simplifié, avec merges
@@ -290,18 +302,19 @@ def streamlit_sankey_app(model, mode_complet):
                 "caprines",
             ],
             "Population": ["urban", "rural"],
-            "Industry": ["Haber-Bosch", "other sectors"],
+            "Industry": ["Haber-Bosch", "other sectors", "methaniser"],
             "Cereals": [
                 "Wheat",
                 "Oat",
                 "Barley",
-                "Grain maize",
+                "Maize",
                 "Rye",
                 "Other cereals",
                 "Rice",
             ],
+            "Grain": ["Wheat grain", "Oat grain", "Barley grain", "Maize grain", "Rye grain", "Other cereals grain"],
+            "Straw": ["Wheat straw", "Oat straw", "Barley straw", "Maize straw", "Rye straw", "Other cereals straw"],
             "Forages": [
-                "Straw",
                 "Forage maize",
                 "Forage cabbages",
             ],
@@ -396,6 +409,10 @@ def streamlit_sankey_app(model, mode_complet):
             return "purple"
         if lbl == "Trade":
             return "silver"
+        if lbl == "Grain":
+            return "gold"
+        if lbl == "Straw":
+            return "yellow"
         return node_color.get(new_label_to_index[lbl], "gray")
 
     new_index_to_color = {i: color_for_label(new_labels[i]) for i in range(len(new_labels))}
@@ -408,6 +425,7 @@ def streamlit_sankey_app(model, mode_complet):
         main_node=main_node_index,
         scope=1,
         index_to_label=new_index_to_label,  # <--- on passe le nouveau mapping
+        label_to_index=new_label_to_index,
         index_to_color=new_index_to_color,  # <--- idem
     )
 
@@ -514,6 +532,7 @@ def streamlit_sankey_fertilization(
         "Livestock and human": "lightblue",
         "Temporary meadows": "forestgreen",
         "Forages": "limegreen",
+        "Environment": "crimson",
     }
     # On récupère éventuellement certaines couleurs d'origine
     # On suppose model.node_color: dict(index->couleur) ou dict(label->couleur)
@@ -735,7 +754,7 @@ def streamlit_sankey_food_flows(
     # 2) Construire des ensembles de nœuds "sources" et "cibles" (fusionnés)
     # -------------------------------------------------------------------------
     sources_merged = set()
-    for lbl in cultures + legumineuses + prairies + trades:
+    for lbl in cultures + straws + grains + legumineuses + prairies + trades:
         idx_merged = old_label_to_new_index(lbl)
         if idx_merged is not None:
             sources_merged.add(idx_merged)
@@ -915,16 +934,21 @@ def streamlit_sankey_food_flows(
         "Roots": "orange",
         "Temporary meadows": "forestgreen",
         "Forages": "limegreen",
+        "Grain": "gold",
+        "Straw": "yellow",
     }
     for old_i in sorted_kept:
         lbl = all_sankey_nodes[old_i]
         sankey_labels.append(lbl)
 
-        # Couleur simple : import en vert, export en rouge
         if "import" in lbl:
             sankey_colors.append("slategray")
         elif "export" in lbl:
             sankey_colors.append("silver")
+        elif "grain" in lbl:
+            sankey_colors.append("gold")
+        elif "straw" in lbl:
+            sankey_colors.append("yellow")
         elif lbl in color_dict.keys():
             # Sinon on utilise ta palette custom ou gris par défaut
             # On peut essayer de retrouver l'index "i" d'origine
