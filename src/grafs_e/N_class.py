@@ -152,12 +152,12 @@ class CultureData:
         vege_prod_dict = vege_prod_data.set_index("nom")[region].to_dict()
 
         # Extraire la part de carbone dans le grains
-        C_grain_data = df[(df["index_excel"] >= 460) & (df["index_excel"] <= 495)][["nom", region]]
-        C_grain_dict = C_grain_data.set_index("nom")[region].to_dict()
+        # C_grain_data = df[(df["index_excel"] >= 460) & (df["index_excel"] <= 495)][["nom", region]]
+        # C_grain_dict = C_grain_data.set_index("nom")[region].to_dict()
 
         # Extraire la part de carbone dans la paille
-        C_straw_data = df[(df["index_excel"] >= 499) & (df["index_excel"] <= 534)][["nom", region]]
-        C_straw_dict = C_straw_data.set_index("nom")[region].to_dict()
+        # C_straw_data = df[(df["index_excel"] >= 499) & (df["index_excel"] <= 534)][["nom", region]]
+        # C_straw_dict = C_straw_data.set_index("nom")[region].to_dict()
 
         # Straw production real
         Straw_prod = df[df["index_excel"] == 190][region].item()
@@ -174,18 +174,18 @@ class CultureData:
         epend["Crop Production (ktonDFW)"] = pd.DataFrame.from_dict(
             vege_prod_dict, orient="index", columns=["Crop Production (ktonDFW)"]
         )
-        epend["Carbon allocation to grain (%)"] = pd.DataFrame.from_dict(
-            C_grain_dict, orient="index", columns=["Crop Production (ktonDFW)"]
-        )
+        # epend["Carbon allocation to grain (%)"] = pd.DataFrame.from_dict(
+        #     C_grain_dict, orient="index", columns=["Carbon allocation to grain (%)"]
+        # )
 
-        epend["Carbon allocation to straw (%)"] = pd.DataFrame.from_dict(
-            C_straw_dict, orient="index", columns=["Crop Production (ktonDFW)"]
-        )
+        # epend["Carbon allocation to straw (%)"] = pd.DataFrame.from_dict(
+        #     C_straw_dict, orient="index", columns=["Carbon allocation to straw (%)"]
+        # )
 
-        epend["Carbon allocation to grain (%)"] *= 100
-        epend["Carbon allocation to straw (%)"] *= 100
+        # epend["Carbon allocation to grain (%)"] *= 100
+        # epend["Carbon allocation to straw (%)"] *= 100
 
-        epend = epend.drop("Straw")
+        # epend = epend.drop("Straw")
         epend = epend.rename(index={"Grain maize": "Maize"})
 
         # Calcul de l'azote disponible pour les cultures
@@ -309,6 +309,87 @@ class ElevageData:
         combined_df = combined_df.join(gas_em, how="left")
 
         combined_df = combined_df.fillna(0)
+
+        combined_df["Edible Nitrogen (ktN)"] = combined_df["Production"] * combined_df["% edible"]
+        combined_df.loc["poultry", "Edible Nitrogen (ktN)"] += (
+            df[df["index_excel"] == 1023][region].item() * df[df["index_excel"] == 1067][region].item() / 100
+        )  # ajout des oeufs
+        combined_df.loc["bovines", "Edible Nitrogen (ktN)"] += (
+            df[df["index_excel"] == 1024][region].item() * df[df["index_excel"] == 1068][region].item() / 100
+        )  # ajout du lait de vache
+
+        # Plus délicat pour les ovins/caprins car la production de lait est mélangée
+        tete_ovins_femelle = df[df["index_excel"] == 1171][region].item()
+        tete_caprins_femelle = df[df["index_excel"] == 1167][region].item()
+        production_par_tete_caprins = 1000  # kg/tete vu sur internet
+        production_par_tete_ovins = 300  # kg/tete vu sur internet
+        combined_df.loc["ovines", "Edible Nitrogen (ktN)"] += (
+            0
+            if (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
+            == 0
+            else df[df["index_excel"] == 1025][region].item()
+            * df[df["index_excel"] == 1069][region].item()
+            / 100
+            * production_par_tete_ovins
+            * tete_ovins_femelle
+            / (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
+        )  # ajout du lait de brebis
+        combined_df.loc["caprines", "Edible Nitrogen (ktN)"] += (
+            0
+            if (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
+            == 0
+            else df[df["index_excel"] == 1025][region].item()
+            * df[df["index_excel"] == 1069][region].item()
+            / 100
+            * production_par_tete_caprins
+            * tete_caprins_femelle
+            / (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
+        )  # ajout du lait de brebis
+
+        combined_df["Non Edible Nitrogen (ktN)"] = combined_df["Production"] * combined_df["% non edible"]
+
+        index = [1241 + j for j in range(6)]
+        selected_data = df[df["index_excel"].isin(index)]
+        selected_data.loc[:, "nom"] = selected_data["nom"].apply(lambda x: x.split()[0])
+        selected_data = selected_data.groupby("nom").agg({region: "sum", "index_excel": "first"}).reset_index()
+
+        combined_df["Excreted nitrogen (ktN)"] = selected_data.set_index("nom")[region]
+        combined_df["Ingestion (ktN)"] = (
+            combined_df["Excreted nitrogen (ktN)"]
+            + combined_df["Edible Nitrogen (ktN)"]
+            + combined_df["Non Edible Nitrogen (ktN)"]
+        )
+
+        index = [1250 + j * 14 for j in range(6)]
+        selected_data = df[df["index_excel"].isin(index)][region]
+        selected_data.index = combined_df.index
+
+        combined_df["% excreted on grassland"] = selected_data
+
+        index = [1251 + j * 14 for j in range(6)]
+        selected_data = df[df["index_excel"].isin(index)][region]
+        selected_data.index = combined_df.index
+
+        combined_df["% excreted indoors"] = selected_data
+
+        index = [1252 + j * 14 for j in range(6)]
+        selected_data = df[df["index_excel"].isin(index)][region]
+        selected_data.index = combined_df.index
+
+        combined_df["% excreted indoors as slurry"] = selected_data
+
+        index = [1254 + j * 14 for j in range(6)]
+        selected_data = df[df["index_excel"].isin(index)][region]
+        selected_data.index = combined_df.index
+
+        combined_df["% excreted indoors as manure"] = selected_data
+
+        # On ajouter la catégorie other manure dans la catégorie manure
+        index = [1253 + j * 14 for j in range(6)]
+        selected_data = df[df["index_excel"].isin(index)][region]
+        selected_data.index = combined_df.index
+
+        combined_df["% excreted indoors as manure"] += selected_data
         return combined_df
 
 
@@ -797,9 +878,11 @@ class NitrogenFlowModel:
         prod_set = set_to_add - set_to_remove
         prod = list(prod_set)
 
+        # Seeds input
         target = (df_cultures["Seed input (kt seeds/kt Ymax)"] * df_cultures["Nitrogen Production (ktN)"]).to_dict()
-        source = {"other sectors": 1}  # mettre en source le champs lui meme
-        flux_generator.generate_flux(source, target)
+        for i in df_cultures.index:
+            source = {i: 1}
+            flux_generator.generate_flux(source, {i: target[i]})
 
         ## Dépôt atmosphérique #TODO a revoir
         coef_surf = data[data["index_excel"] == 41][region].item()
@@ -917,87 +1000,6 @@ class NitrogenFlowModel:
 
         # Azote excrété sur prairies
         # Production d'azote
-
-        df_elevage["Edible Nitrogen (ktN)"] = df_elevage["Production"] * df_elevage["% edible"]
-        df_elevage.loc["poultry", "Edible Nitrogen (ktN)"] += (
-            data[data["index_excel"] == 1023][region].item() * data[data["index_excel"] == 1067][region].item() / 100
-        )  # ajout des oeufs
-        df_elevage.loc["bovines", "Edible Nitrogen (ktN)"] += (
-            data[data["index_excel"] == 1024][region].item() * data[data["index_excel"] == 1068][region].item() / 100
-        )  # ajout du lait de vache
-
-        # Plus délicat pour les ovins/caprins car la production de lait est mélangée
-        tete_ovins_femelle = data[data["index_excel"] == 1171][region].item()
-        tete_caprins_femelle = data[data["index_excel"] == 1167][region].item()
-        production_par_tete_caprins = 1000  # kg/tete vu sur internet
-        production_par_tete_ovins = 300  # kg/tete vu sur internet
-        df_elevage.loc["ovines", "Edible Nitrogen (ktN)"] += (
-            0
-            if (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
-            == 0
-            else data[data["index_excel"] == 1025][region].item()
-            * data[data["index_excel"] == 1069][region].item()
-            / 100
-            * production_par_tete_ovins
-            * tete_ovins_femelle
-            / (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
-        )  # ajout du lait de brebis
-        df_elevage.loc["caprines", "Edible Nitrogen (ktN)"] += (
-            0
-            if (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
-            == 0
-            else data[data["index_excel"] == 1025][region].item()
-            * data[data["index_excel"] == 1069][region].item()
-            / 100
-            * production_par_tete_caprins
-            * tete_caprins_femelle
-            / (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
-        )  # ajout du lait de brebis
-
-        df_elevage["Non Edible Nitrogen (ktN)"] = df_elevage["Production"] * df_elevage["% non edible"]
-
-        index = [1241 + j for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)]
-        selected_data.loc[:, "nom"] = selected_data["nom"].apply(lambda x: x.split()[0])
-        selected_data = selected_data.groupby("nom").agg({region: "sum", "index_excel": "first"}).reset_index()
-
-        df_elevage["Excreted nitrogen (ktN)"] = selected_data.set_index("nom")[region]
-        df_elevage["Ingestion (ktN)"] = (
-            df_elevage["Excreted nitrogen (ktN)"]
-            + df_elevage["Edible Nitrogen (ktN)"]
-            + df_elevage["Non Edible Nitrogen (ktN)"]
-        )
-
-        index = [1250 + j * 14 for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)][region]
-        selected_data.index = df_elevage.index
-
-        df_elevage["% excreted on grassland"] = selected_data
-
-        index = [1251 + j * 14 for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)][region]
-        selected_data.index = df_elevage.index
-
-        df_elevage["% excreted indoors"] = selected_data
-
-        index = [1252 + j * 14 for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)][region]
-        selected_data.index = df_elevage.index
-
-        df_elevage["% excreted indoors as slurry"] = selected_data
-
-        index = [1254 + j * 14 for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)][region]
-        selected_data.index = df_elevage.index
-
-        df_elevage["% excreted indoors as manure"] = selected_data
-
-        # On ajouter la catégorie other manure dans la catégorie manure
-        index = [1253 + j * 14 for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)][region]
-        selected_data.index = df_elevage.index
-
-        df_elevage["% excreted indoors as manure"] += selected_data
 
         # Calculer les poids pour chaque cible
         # Calcul de la surface totale pour les prairies
@@ -1591,6 +1593,17 @@ class NitrogenFlowModel:
                 "Limite_Imports_Normaux",
             )
 
+            # Interdiction d'importer des prairies naturelles
+            prob += (
+                lpSum(
+                    I_vars_feed[(cons, "Natural meadow ")] + E_vars_feed[(cons, "Natural meadow ")]
+                    for cons in df_cons_vege.index[:-2]
+                    if "Natural meadow " in all_cultures_regime[cons]
+                )
+                == 0,
+                "Pas_d_import_prairies_nat",
+            )
+
             # # Calcul de l'allocation cible (par exemple, allocation uniforme)
             # for culture in df_cultures.index:
             #     azote_disponible_culture = df_cultures.loc[culture, "Azote disponible"]
@@ -2179,7 +2192,7 @@ class NitrogenFlowModel:
 
                                 if culture_nitrogen_available > 1e-6:
                                     if categorie == "cereals (excluding rice)":
-                                        flux_exported["grain" + culture] = feed_export_other * (
+                                        flux_exported[culture + " grain"] = feed_export_other * (
                                             culture_nitrogen_available
                                             / df_cultures.loc[
                                                 ~df_cultures["Category"].isin(
@@ -2278,6 +2291,8 @@ class NitrogenFlowModel:
                     if azote_exported > 0:
                         if "straw" in label_source:
                             categorie = "forages"
+                        elif "grain" in label_source:
+                            categorie = "cereals (excluding rice)"
                         else:
                             categorie = df_cultures.loc[df_cultures.index == label_source, "Category"].item()
                         label_target = f"{categorie} feed trade"
@@ -2334,7 +2349,7 @@ class NitrogenFlowModel:
                     ].item()
                 }
                 target = {"other losses": 1}
-                print(source)
+                # print(source)
 
                 flux_generator.generate_flux(source, target)
 
