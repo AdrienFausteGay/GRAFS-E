@@ -3412,6 +3412,30 @@ class NitrogenFlowModel:
         """
         return self.emissions()["N2O emission"]
 
+    def export_flux_to_csv(self, filename="flux_data.csv"):
+        """
+        Exporte les flux de la matrice de transition vers un fichier CSV.
+        Chaque ligne contient (source, target, value) pour chaque flux non nul.
+
+        :param filename: Nom du fichier CSV de sortie.
+        :type filename: str
+        """
+        # Créer une liste pour stocker les flux
+        flux_data = []
+
+        # Parcourir la matrice pour extraire les flux non nuls
+        for i, source in enumerate(self.labels):
+            for j, target in enumerate(self.labels):
+                value = self.adjacency_matrix[i, j]
+                if value != 0:  # Ne prendre que les flux non nuls
+                    flux_data.append({"origine": source, "destination": target, "valeur": value})
+
+        # Créer un DataFrame à partir des données collectées
+        df_flux = pd.DataFrame(flux_data)
+
+        # Exporter le DataFrame vers un fichier CSV
+        df_flux.to_excel(filename, index=False)
+
 
 # Créer une instance du modèle
 # year = "2010"

@@ -429,6 +429,25 @@ with tab2:
         st.subheader(f"Heatmap of the nitrogen flows for {st.session_state.selected_region} in {st.session_state.year}")
         st.plotly_chart(st.session_state.heatmap_fig, use_container_width=True)
 
+        # Bouton pour télécharger la matrice
+        # ───── Création du DataFrame à partir de la matrice ──────────
+        matrix = st.session_state.model.get_transition_matrix()
+        df_matrix = pd.DataFrame(
+            matrix,
+            index=st.session_state.model.labels,
+            columns=st.session_state.model.labels,
+        )
+
+        # ───── Conversion en CSV (encodage UTF-8) ───────────────────
+        csv_bytes = df_matrix.to_csv(index=True).encode("utf-8")
+
+        # ───── Bouton de téléchargement ─────────────────────────────
+        st.download_button(
+            label="📥 Download matrix (csv)",
+            data=csv_bytes,
+            file_name=f"transition_matrix_{st.session_state.selected_region}_{st.session_state.year}.csv",
+            mime="text/csv",
+        )
 
 with tab3:
     st.title("Sankey")
@@ -1973,3 +1992,22 @@ with tab6:
                     )
                 st.subheader(f"Heatmap – {st.session_state.selected_region_pros} in {st.session_state.year_pros}")
                 st.plotly_chart(st.session_state.heatmap_fig_pros, use_container_width=True)
+                # Bouton pour télécharger la matrice
+                # ───── Création du DataFrame à partir de la matrice ──────────
+                matrix = st.session_state.model.get_transition_matrix()
+                df_matrix = pd.DataFrame(
+                    matrix,
+                    index=st.session_state.model.labels,
+                    columns=st.session_state.model.labels,
+                )
+
+                # ───── Conversion en CSV (encodage UTF-8) ───────────────────
+                csv_bytes = df_matrix.to_csv(index=True).encode("utf-8")
+
+                # ───── Bouton de téléchargement ─────────────────────────────
+                st.download_button(
+                    label="📥 Download matrix (csv)",
+                    data=csv_bytes,
+                    file_name=f"transition_matrix_{st.session_state.selected_region}_{st.session_state.year}.csv",
+                    mime="text/csv",
+                )
