@@ -447,6 +447,7 @@ with tab2:
             data=csv_bytes,
             file_name=f"transition_matrix_{st.session_state.selected_region}_{st.session_state.year}.csv",
             mime="text/csv",
+            key="hist"
         )
 
 with tab3:
@@ -991,7 +992,7 @@ with tab5:
         if st.session_state.map_html:
             st.components.v1.html(st.session_state.map_html, height=800, scrolling=True)
             st.dataframe(table)
-            st.download_button("Download Data", table.to_csv(index=False), file_name="data.csv")
+            st.download_button("Download Data", table.to_csv(index=False), file_name="data.csv", key="mapbutton")
         else:
             st.warning("Please run the model to generate the map.")
 
@@ -1715,6 +1716,7 @@ with tab6:
                         data=file_data,
                         file_name=st.session_state.name + ".xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="scenar_button"
                     )
                     st.markdown("Once you have your scenario ready, go to Prospective mode tab.")
 
@@ -1826,6 +1828,7 @@ with tab6:
                     data=st.session_state.pkl_blob,
                     file_name=f"{st.session_state.name}.pkl",
                     mime="application/octet-stream",
+                    key="pros_pkl"
                 )
 
             if st.button("🔄 Reset model"):
@@ -2010,4 +2013,5 @@ with tab6:
                     data=csv_bytes,
                     file_name=f"transition_matrix_{st.session_state.selected_region}_{st.session_state.year}.csv",
                     mime="text/csv",
+                    key="pros_matrix"
                 )
