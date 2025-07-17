@@ -102,7 +102,7 @@ class CultureData:
             The method performs various data transformations and calculations, including filling missing values with zero.
     """
 
-    def __init__(self, data_loader, year, region, categories_mapping=categories_mapping):
+    def __init__(self, data_loader, year, region):
         """Initializes the CultureData class by preprocessing the data for the given year, region, and categories.
 
         Args:
@@ -115,7 +115,6 @@ class CultureData:
         self.year = year
         self.df = data_loader.pre_process_df(self.year, self.region)
         self.data_path = data_loader.data_path
-        self.categories_mapping = categories_mapping
         self.df_cultures = self.create_culture_dataframe()
 
     def create_culture_dataframe(self):
@@ -152,6 +151,17 @@ class CultureData:
         vege_prod_data = df[(df["index_excel"] >= 183) & (df["index_excel"] <= 218)][["nom", region]]
         vege_prod_dict = vege_prod_data.set_index("nom")[region].to_dict()
 
+        # Extraire la part de carbone dans le grains
+        # C_grain_data = df[(df["index_excel"] >= 460) & (df["index_excel"] <= 495)][["nom", region]]
+        # C_grain_dict = C_grain_data.set_index("nom")[region].to_dict()
+
+        # Extraire la part de carbone dans la paille
+        # C_straw_data = df[(df["index_excel"] >= 499) & (df["index_excel"] <= 534)][["nom", region]]
+        # C_straw_dict = C_straw_data.set_index("nom")[region].to_dict()
+
+        # Straw production real
+        Straw_prod = df[df["index_excel"] == 190][region].item()
+
         # Extraire les taux de surface avec épendage
         epend = pd.read_excel(
             os.path.join(data_path, "GRAFS_data.xlsx"),
@@ -164,8 +174,24 @@ class CultureData:
         epend["Crop Production (ktonDFW)"] = pd.DataFrame.from_dict(
             vege_prod_dict, orient="index", columns=["Crop Production (ktonDFW)"]
         )
+        # epend["Carbon allocation to grain (%)"] = pd.DataFrame.from_dict(
+        #     C_grain_dict, orient="index", columns=["Carbon allocation to grain (%)"]
+        # )
+
+        # epend["Carbon allocation to straw (%)"] = pd.DataFrame.from_dict(
+        #     C_straw_dict, orient="index", columns=["Carbon allocation to straw (%)"]
+        # )
+
+        # epend["Carbon allocation to grain (%)"] *= 100
+        # epend["Carbon allocation to straw (%)"] *= 100
+
+        # epend = epend.drop("Straw")
+        epend = epend.rename(index={"Grain maize": "Maize"})
+
         # Calcul de l'azote disponible pour les cultures
         epend["Nitrogen Production (ktN)"] = epend["Crop Production (ktonDFW)"] * epend["Nitrogen Content (%)"] / 100
+
+        # Calcul de l'azote disponible pour les cultures
         mask = epend["Area (ha)"] != 0
 
         epend.loc[mask, "Yield (qtl/ha)"] = (
@@ -183,6 +209,27 @@ class CultureData:
         epend.loc[mask, "Surface Fertilization Need (kgN/ha)"] = (
             epend.loc[mask, "Fertilization Need (kgN/qtl)"] * epend.loc[mask, "Yield (qtl/ha)"]
         )
+
+        # Gestion de la production de paille
+        mask = (epend["Area (ha)"] != 0) & (epend.index.isin(cereales))
+        epend.loc[mask, "Straw Production (ktonDWF)"] = (
+            epend.loc[mask, "Crop Production (ktonDFW)"]
+            * epend.loc[mask, "Carbon allocation to straw (%)"]
+            / epend.loc[mask, "Carbon allocation to grain (%)"]
+        )
+
+        # Correction par rapport aux données historiques
+        scale_factor = (
+            Straw_prod / epend.loc[mask, "Straw Production (ktonDWF)"].sum()
+            if epend.loc[mask, "Straw Production (ktonDWF)"].sum() != 0
+            else 0
+        )
+        self.scale_factor = scale_factor
+        epend.loc[mask, "Straw Production (ktonDWF)"] *= scale_factor
+
+        epend.loc[mask, "Straw Production (ktN)"] = (
+            epend.loc[mask, "Straw Production (ktonDWF)"] * 0.5 / 100
+        )  # Données GRAFS-E N content
 
         epend = epend.fillna(0)
 
@@ -262,6 +309,87 @@ class ElevageData:
         combined_df = combined_df.join(gas_em, how="left")
 
         combined_df = combined_df.fillna(0)
+
+        combined_df["Edible Nitrogen (ktN)"] = combined_df["Production"] * combined_df["% edible"]
+        combined_df.loc["poultry", "Edible Nitrogen (ktN)"] += (
+            df[df["index_excel"] == 1023][region].item() * df[df["index_excel"] == 1067][region].item() / 100
+        )  # ajout des oeufs
+        combined_df.loc["bovines", "Edible Nitrogen (ktN)"] += (
+            df[df["index_excel"] == 1024][region].item() * df[df["index_excel"] == 1068][region].item() / 100
+        )  # ajout du lait de vache
+
+        # Plus délicat pour les ovins/caprins car la production de lait est mélangée
+        tete_ovins_femelle = df[df["index_excel"] == 1171][region].item()
+        tete_caprins_femelle = df[df["index_excel"] == 1167][region].item()
+        production_par_tete_caprins = 1000  # kg/tete vu sur internet
+        production_par_tete_ovins = 300  # kg/tete vu sur internet
+        combined_df.loc["ovines", "Edible Nitrogen (ktN)"] += (
+            0
+            if (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
+            == 0
+            else df[df["index_excel"] == 1025][region].item()
+            * df[df["index_excel"] == 1069][region].item()
+            / 100
+            * production_par_tete_ovins
+            * tete_ovins_femelle
+            / (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
+        )  # ajout du lait de brebis
+        combined_df.loc["caprines", "Edible Nitrogen (ktN)"] += (
+            0
+            if (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
+            == 0
+            else df[df["index_excel"] == 1025][region].item()
+            * df[df["index_excel"] == 1069][region].item()
+            / 100
+            * production_par_tete_caprins
+            * tete_caprins_femelle
+            / (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
+        )  # ajout du lait de brebis
+
+        combined_df["Non Edible Nitrogen (ktN)"] = combined_df["Production"] * combined_df["% non edible"]
+
+        index = [1241 + j for j in range(6)]
+        selected_data = df[df["index_excel"].isin(index)]
+        selected_data.loc[:, "nom"] = selected_data["nom"].apply(lambda x: x.split()[0])
+        selected_data = selected_data.groupby("nom").agg({region: "sum", "index_excel": "first"}).reset_index()
+
+        combined_df["Excreted nitrogen (ktN)"] = selected_data.set_index("nom")[region]
+        combined_df["Ingestion (ktN)"] = (
+            combined_df["Excreted nitrogen (ktN)"]
+            + combined_df["Edible Nitrogen (ktN)"]
+            + combined_df["Non Edible Nitrogen (ktN)"]
+        )
+
+        index = [1250 + j * 14 for j in range(6)]
+        selected_data = df[df["index_excel"].isin(index)][region]
+        selected_data.index = combined_df.index
+
+        combined_df["% excreted on grassland"] = selected_data
+
+        index = [1251 + j * 14 for j in range(6)]
+        selected_data = df[df["index_excel"].isin(index)][region]
+        selected_data.index = combined_df.index
+
+        combined_df["% excreted indoors"] = selected_data
+
+        index = [1252 + j * 14 for j in range(6)]
+        selected_data = df[df["index_excel"].isin(index)][region]
+        selected_data.index = combined_df.index
+
+        combined_df["% excreted indoors as slurry"] = selected_data
+
+        index = [1254 + j * 14 for j in range(6)]
+        selected_data = df[df["index_excel"].isin(index)][region]
+        selected_data.index = combined_df.index
+
+        combined_df["% excreted indoors as manure"] = selected_data
+
+        # On ajouter la catégorie other manure dans la catégorie manure
+        index = [1253 + j * 14 for j in range(6)]
+        selected_data = df[df["index_excel"].isin(index)][region]
+        selected_data.index = combined_df.index
+
+        combined_df["% excreted indoors as manure"] += selected_data
         return combined_df
 
 
@@ -312,7 +440,7 @@ class FluxGenerator:
         for source_label, source_value in source.items():
             source_index = self.label_to_index.get(source_label)
             if source_index is None:
-                continue
+                print(f"{source_label} not found in label_to_index")
             for target_label, target_value in target.items():
                 coefficient = source_value * target_value
                 target_index = self.label_to_index.get(target_label)
@@ -466,7 +594,7 @@ class NitrogenFlowModel:
         self.ext = ext
 
         self.data_loader = data  # DataLoader(year, region)
-        self.culture_data = CultureData(self.data_loader, self.year, self.region, categories_mapping)
+        self.culture_data = CultureData(self.data_loader, self.year, self.region)
         self.elevage_data = ElevageData(self.data_loader, self.year, self.region)
         self.flux_generator = FluxGenerator(labels)
 
@@ -728,39 +856,38 @@ class NitrogenFlowModel:
         flux_generator = self.flux_generator
         data = data_loader.pre_process_df(year, region)
 
-        # Gestion du cas particulier pour 'Straw'
-        cereales = ["Wheat", "Rye", "Barley", "Oat", "Grain maize", "Other cereals"]
-        somme_azote_produit_cereales = df_cultures["Nitrogen Production (ktN)"][cereales].sum()
-        somme_surface_cereales = df_cultures["Area (ha)"][cereales].sum()
-        df_cultures.loc["Straw", "Area (ha)"] = int(
-            somme_surface_cereales
-            * df_cultures.loc["Straw", "Nitrogen Production (ktN)"]
-            / somme_azote_produit_cereales
-        )
-        for cereal in cereales:
-            df_cultures.loc[cereal, "Area (ha)"] -= int(
-                df_cultures.loc["Straw", "Area (ha)"] * df_cultures.loc[cereal, "Area (ha)"] / somme_surface_cereales
-            )
-        df_cultures.loc["Straw", "Yield (qtl/ha)"] = (
-            df_cultures["Crop Production (ktonDFW)"]["Straw"] / df_cultures["Area (ha)"]["Straw"] * 1000
-        )
+        # Flux des fonds vers grains et paille :
+        cereals_prod = []
+        for i in cereales:
+            target = {i + " straw": 1}
+            source = {i: df_cultures.loc[df_cultures.index == i, "Straw Production (ktN)"].item()}
+            flux_generator.generate_flux(source, target)
 
-        ## Flux depuis 'other sectors' (seeds) vers les cibles sélectionnées
-        # selected_data = data[(data["index_excel"] >= 106) & (data["index_excel"] <= 139)]
-        # target = selected_data.set_index("nom")[region].to_dict()
-        # source = {"other sectors": 1}
-        # flux_generator.generate_flux(source, target)
+            cereals_prod.append(i + " straw")
 
+            target = {i + " grain": 1}
+            source = {i: df_cultures.loc[df_cultures.index == i, "Nitrogen Production (ktN)"].item()}
+            flux_generator.generate_flux(source, target)
+
+            cereals_prod.append(i + " grain")
+
+        # Liste des production principales de chaque cultures
+        combined_list = cereals_prod + cultures + legumineuses + prairies
+        set_to_add = set(combined_list)
+        set_to_remove = set(cereales)
+        prod_set = set_to_add - set_to_remove
+        prod = list(prod_set)
+
+        # Seeds input
         target = (df_cultures["Seed input (kt seeds/kt Ymax)"] * df_cultures["Nitrogen Production (ktN)"]).to_dict()
-        source = {"other sectors": 1}
-        flux_generator.generate_flux(source, target)
+        for i in df_cultures.index:
+            source = {i: 1}
+            flux_generator.generate_flux(source, {i: target[i]})
 
-        ## Dépôt atmosphérique
+        ## Dépôt atmosphérique #TODO a revoir
         coef_surf = data[data["index_excel"] == 41][region].item()
         source = {"N2O emission": 0.1, "NH3 volatilization": 0.9}
-        target = (
-            coef_surf * df_cultures["Area (ha)"] / df_cultures["Area (ha)"].sum()
-        ).to_dict()  # Dépôt proportionnel aux surface
+        target = (coef_surf * df_cultures["Area (ha)"] / 1e6).to_dict()  # Dépôt proportionnel aux surface
         flux_generator.generate_flux(source, target)
 
         ## Fixation symbiotique
@@ -873,87 +1000,6 @@ class NitrogenFlowModel:
 
         # Azote excrété sur prairies
         # Production d'azote
-
-        df_elevage["Edible Nitrogen (ktN)"] = df_elevage["Production"] * df_elevage["% edible"]
-        df_elevage.loc["poultry", "Edible Nitrogen (ktN)"] += (
-            data[data["index_excel"] == 1023][region].item() * data[data["index_excel"] == 1067][region].item() / 100
-        )  # ajout des oeufs
-        df_elevage.loc["bovines", "Edible Nitrogen (ktN)"] += (
-            data[data["index_excel"] == 1024][region].item() * data[data["index_excel"] == 1068][region].item() / 100
-        )  # ajout du lait de vache
-
-        # Plus délicat pour les ovins/caprins car la production de lait est mélangée
-        tete_ovins_femelle = data[data["index_excel"] == 1171][region].item()
-        tete_caprins_femelle = data[data["index_excel"] == 1167][region].item()
-        production_par_tete_caprins = 1000  # kg/tete vu sur internet
-        production_par_tete_ovins = 300  # kg/tete vu sur internet
-        df_elevage.loc["ovines", "Edible Nitrogen (ktN)"] += (
-            0
-            if (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
-            == 0
-            else data[data["index_excel"] == 1025][region].item()
-            * data[data["index_excel"] == 1069][region].item()
-            / 100
-            * production_par_tete_ovins
-            * tete_ovins_femelle
-            / (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
-        )  # ajout du lait de brebis
-        df_elevage.loc["caprines", "Edible Nitrogen (ktN)"] += (
-            0
-            if (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
-            == 0
-            else data[data["index_excel"] == 1025][region].item()
-            * data[data["index_excel"] == 1069][region].item()
-            / 100
-            * production_par_tete_caprins
-            * tete_caprins_femelle
-            / (production_par_tete_ovins * tete_ovins_femelle + production_par_tete_caprins * tete_caprins_femelle)
-        )  # ajout du lait de brebis
-
-        df_elevage["Non Edible Nitrogen (ktN)"] = df_elevage["Production"] * df_elevage["% non edible"]
-
-        index = [1241 + j for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)]
-        selected_data.loc[:, "nom"] = selected_data["nom"].apply(lambda x: x.split()[0])
-        selected_data = selected_data.groupby("nom").agg({region: "sum", "index_excel": "first"}).reset_index()
-
-        df_elevage["Excreted nitrogen (ktN)"] = selected_data.set_index("nom")[region]
-        df_elevage["Ingestion (ktN)"] = (
-            df_elevage["Excreted nitrogen (ktN)"]
-            + df_elevage["Edible Nitrogen (ktN)"]
-            + df_elevage["Non Edible Nitrogen (ktN)"]
-        )
-
-        index = [1250 + j * 14 for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)][region]
-        selected_data.index = df_elevage.index
-
-        df_elevage["% excreted on grassland"] = selected_data
-
-        index = [1251 + j * 14 for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)][region]
-        selected_data.index = df_elevage.index
-
-        df_elevage["% excreted indoors"] = selected_data
-
-        index = [1252 + j * 14 for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)][region]
-        selected_data.index = df_elevage.index
-
-        df_elevage["% excreted indoors as slurry"] = selected_data
-
-        # On ajouter la catégorie other manure dans la catégorie liter manure
-        index = [1253 + j * 14 for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)][region]
-        selected_data.index = df_elevage.index
-
-        df_elevage["% excreted indoors as slurry"] += selected_data
-
-        index = [1254 + j * 14 for j in range(6)]
-        selected_data = data[data["index_excel"].isin(index)][region]
-        selected_data.index = df_elevage.index
-
-        df_elevage["% excreted indoors as manure"] = selected_data
 
         # Calculer les poids pour chaque cible
         # Calcul de la surface totale pour les prairies
@@ -1299,7 +1345,7 @@ class NitrogenFlowModel:
             # Variables de décision pour les allocations
             x_vars = LpVariable.dicts(
                 "x",
-                [(culture, cons) for culture in df_cultures.index for cons in df_cons_vege.index],
+                [(prod_i, cons) for prod_i in prod for cons in df_cons_vege.index],
                 lowBound=0,
                 cat="Continuous",
             )
@@ -1307,7 +1353,7 @@ class NitrogenFlowModel:
             # Variable de depassement des importations feed
             E_vars_feed = LpVariable.dicts(
                 "E",
-                [(cons, culture) for cons in df_cons_vege.index[:-2] for culture in all_cultures_regime[cons]],
+                [(cons, prod_i) for cons in df_cons_vege.index[:-2] for prod_i in all_cultures_regime[cons]],
                 lowBound=0,
                 cat="Continuous",
             )
@@ -1332,10 +1378,10 @@ class NitrogenFlowModel:
             penalite_culture_vars = LpVariable.dicts(
                 "penalite_culture",
                 [
-                    (cons, proportion, culture)
+                    (cons, proportion, prod_i)
                     for cons in df_cons_vege.index
                     for proportion in regimes[cons].keys()
-                    for culture in regimes[cons][proportion]
+                    for prod_i in regimes[cons][proportion]
                 ],
                 lowBound=0,
                 cat=LpContinuous,
@@ -1344,7 +1390,7 @@ class NitrogenFlowModel:
             # Variables d'importation pour chaque élevage et catégorie
             I_vars_feed = LpVariable.dicts(
                 "I",
-                [(cons, culture) for cons in df_cons_vege.index[:-2] for culture in all_cultures_regime[cons]],
+                [(cons, prod_i) for cons in df_cons_vege.index[:-2] for prod_i in all_cultures_regime[cons]],
                 lowBound=0,
                 cat="Continuous",
             )
@@ -1352,7 +1398,7 @@ class NitrogenFlowModel:
             # Variables d'importation pour chaque population et catégorie
             I_vars_food = LpVariable.dicts(
                 "I",
-                [(cons, culture) for cons in df_cons_vege.index[-2:] for culture in all_cultures_regime[cons]],
+                [(cons, prod_i) for cons in df_cons_vege.index[-2:] for prod_i in all_cultures_regime[cons]],
                 lowBound=0,
                 cat="Continuous",
             )
@@ -1400,22 +1446,22 @@ class NitrogenFlowModel:
                 # * lpSum(penalite_vars[(culture, cons)] for culture in df_cultures.index for cons in df_cons_vege.index)
                 + poids_penalite_culture
                 * lpSum(
-                    penalite_culture_vars[(cons, proportion, culture)]
+                    penalite_culture_vars[(cons, proportion, prod_i)]
                     for cons in df_cons_vege.index
                     for proportion in regimes[cons].keys()
-                    for culture in regimes[cons][proportion]
+                    for prod_i in regimes[cons][proportion]
                 )
                 + poids_exces_import
                 * lpSum(
-                    E_vars_feed[(cons, culture)]
+                    E_vars_feed[(cons, prod_i)]
                     for cons in df_cons_vege.index[:-2]
-                    for culture in all_cultures_regime[cons]
+                    for prod_i in all_cultures_regime[cons]
                 )
                 + poids_import_food
                 * lpSum(
-                    I_vars_food[(cons, culture)]
+                    I_vars_food[(cons, prod_i)]
                     for cons in df_cons_vege.index[-2:]
-                    for culture in all_cultures_regime[cons]
+                    for prod_i in all_cultures_regime[cons]
                 ),
                 "Minimiser_Deviations_Penalties_Et_Excès_Importation",
             )
@@ -1424,9 +1470,9 @@ class NitrogenFlowModel:
             for cons in df_cons_vege.index[:-2]:
                 besoin = df_cons_vege.loc[cons]
                 prob += (
-                    lpSum(x_vars[(culture, cons)] for culture in df_cultures.index)
-                    + lpSum(I_vars_feed[(cons, culture)] for culture in all_cultures_regime[cons])
-                    + lpSum(E_vars_feed[(cons, culture)] for culture in all_cultures_regime[cons])
+                    lpSum(x_vars[(prod_i, cons)] for prod_i in prod)
+                    + lpSum(I_vars_feed[(cons, prod_i)] for prod_i in all_cultures_regime[cons])
+                    + lpSum(E_vars_feed[(cons, prod_i)] for prod_i in all_cultures_regime[cons])
                     == besoin,
                     f"Besoin_{cons}",
                 )
@@ -1435,18 +1481,22 @@ class NitrogenFlowModel:
             for cons in df_cons_vege.index[-2:]:
                 besoin = df_cons_vege.loc[cons]
                 prob += (
-                    lpSum(x_vars[(culture, cons)] for culture in df_cultures.index)
-                    + lpSum(I_vars_food[(cons, culture)] for culture in all_cultures_regime[cons])
+                    lpSum(x_vars[(prod_i, cons)] for prod_i in prod)
+                    + lpSum(I_vars_food[(cons, prod_i)] for prod_i in all_cultures_regime[cons])
                     == besoin,
                     f"Besoin_{cons}",
                 )
 
             # Cette contrainte assure que la somme de l'azote alloué de chaque culture aux différents types de consommateurs ne dépasse pas l'azote disponible pour cette culture.
-            for culture in df_cultures.index:
-                azote_disponible = df_cultures.loc[culture, "Nitrogen Production (ktN)"]
+            for prod_i in prod:
+                if "grain" in prod_i or "straw" in prod_i:
+                    azote_disponible = adjacency_matrix[:, label_to_index[prod_i]].sum()
+                else:
+                    azote_disponible = df_cultures.loc[prod_i, "Nitrogen Production (ktN)"]
+
                 prob += (
-                    lpSum(x_vars[(culture, cons)] for cons in df_cons_vege.index) <= azote_disponible,
-                    f"Disponibilite_{culture}",
+                    lpSum(x_vars[(prod_i, cons)] for cons in df_cons_vege.index) <= azote_disponible,
+                    f"Disponibilite_{prod_i}",
                 )
 
             # interdiction de consommation locale et d'import pour des cultures qui ne sont pas dans le feed regime
@@ -1454,22 +1504,22 @@ class NitrogenFlowModel:
                 cultures_autorisees = set()
                 for cultures_liste in regimes[cons].values():
                     cultures_autorisees.update(cultures_liste)
-                for culture in df_cultures.index:
-                    if culture not in cultures_autorisees:
+                for prod_i in prod:
+                    if prod_i not in cultures_autorisees:
                         prob += (
-                            x_vars[(culture, cons)] == 0,
-                            f"Culture_Non_Autorisee_{culture}_{cons}",
+                            x_vars[(prod_i, cons)] == 0,
+                            f"Culture_Non_Autorisee_{prod_i}_{cons}",
                         )
                         # Vérifier si la variable I_vars existe avant d'ajouter la contrainte
-                        if (cons, culture) in I_vars_feed:
+                        if (cons, prod_i) in I_vars_feed:
                             prob += (
-                                I_vars_feed[(cons, culture)] == 0,
-                                f"Import_Non_Autorise_{cons}_{culture}",
+                                I_vars_feed[(cons, prod_i)] == 0,
+                                f"Import_Non_Autorise_{cons}_{prod_i}",
                             )
-                        if (cons, culture) in E_vars_feed:
+                        if (cons, prod_i) in E_vars_feed:
                             prob += (
-                                E_vars_feed[(cons, culture)] == 0,
-                                f"Import_excedentaire_Non_Autorise_{cons}_{culture}",
+                                E_vars_feed[(cons, prod_i)] == 0,
+                                f"Import_excedentaire_Non_Autorise_{cons}_{prod_i}",
                             )
 
             # même chose pour food
@@ -1477,17 +1527,17 @@ class NitrogenFlowModel:
                 cultures_autorisees = set()
                 for cultures_liste in regimes[cons].values():
                     cultures_autorisees.update(cultures_liste)
-                for culture in df_cultures.index:
-                    if culture not in cultures_autorisees:
+                for prod_i in prod:
+                    if prod_i not in cultures_autorisees:
                         prob += (
-                            x_vars[(culture, cons)] == 0,
-                            f"Culture_Non_Autorisee_{culture}_{cons}",
+                            x_vars[(prod_i, cons)] == 0,
+                            f"Culture_Non_Autorisee_{prod_i}_{cons}",
                         )
                         # Vérifier si la variable I_vars existe avant d'ajouter la contrainte
-                        if (cons, culture) in I_vars_food:
+                        if (cons, prod_i) in I_vars_food:
                             prob += (
-                                I_vars_food[(cons, culture)] == 0,
-                                f"Import_Non_Autorise_{cons}_{culture}",
+                                I_vars_food[(cons, prod_i)] == 0,
+                                f"Import_Non_Autorise_{cons}_{prod_i}",
                             )
 
             # Ces contraintes calculent les déviations entre les proportions effectives des catégories consommées par chaque élevage et les proportions initiales du régime alimentaire.
@@ -1496,9 +1546,9 @@ class NitrogenFlowModel:
                 for proportion_initiale, cultures_liste in regimes[cons].items():
                     # Azote total des cultures dans la liste
                     azote_cultures = (
-                        lpSum(x_vars[(culture, cons)] for culture in cultures_liste if culture in df_cultures.index)
-                        + lpSum(I_vars_feed[(cons, culture)] for culture in cultures_liste)
-                        + lpSum(E_vars_feed[(cons, culture)] for culture in cultures_liste)
+                        lpSum(x_vars[(prod_i, cons)] for prod_i in cultures_liste if prod_i in prod)
+                        + lpSum(I_vars_feed[(cons, prod_i)] for prod_i in cultures_liste)
+                        + lpSum(E_vars_feed[(cons, prod_i)] for prod_i in cultures_liste)
                     )
                     proportion_effective = azote_cultures / besoin
                     # Déviation par rapport à la proportion initiale
@@ -1518,8 +1568,8 @@ class NitrogenFlowModel:
                 for proportion_initiale, cultures_liste in regimes[cons].items():
                     # Azote total des cultures dans la liste
                     azote_cultures = lpSum(
-                        x_vars[(culture, cons)] for culture in cultures_liste if culture in df_cultures.index
-                    ) + lpSum(I_vars_food[(cons, culture)] for culture in cultures_liste)
+                        x_vars[(prod_i, cons)] for prod_i in cultures_liste if prod_i in prod
+                    ) + lpSum(I_vars_food[(cons, prod_i)] for prod_i in cultures_liste)
                     proportion_effective = azote_cultures / besoin
                     # Déviation par rapport à la proportion initiale
                     delta_var = delta_vars[(cons, proportion_initiale)]
@@ -1535,12 +1585,23 @@ class NitrogenFlowModel:
             # Les importations normales de feed sont égales aux données de GRAFS
             prob += (
                 lpSum(
-                    I_vars_feed[(cons, culture)]
+                    I_vars_feed[(cons, prod_i)]
                     for cons in df_cons_vege.index[:-2]
-                    for culture in all_cultures_regime[cons]
+                    for prod_i in all_cultures_regime[cons]
                 )
                 == import_feed,
                 "Limite_Imports_Normaux",
+            )
+
+            # Interdiction d'importer des prairies naturelles
+            prob += (
+                lpSum(
+                    I_vars_feed[(cons, "Natural meadow ")] + E_vars_feed[(cons, "Natural meadow ")]
+                    for cons in df_cons_vege.index[:-2]
+                    if "Natural meadow " in all_cultures_regime[cons]
+                )
+                == 0,
+                "Pas_d_import_prairies_nat",
             )
 
             # # Calcul de l'allocation cible (par exemple, allocation uniforme)
@@ -1565,35 +1626,47 @@ class NitrogenFlowModel:
                 for proportion, cultures_liste in regimes[cons].items():
                     # Allocation totale pour ce groupe de cultures
                     allocation_groupe = (
-                        lpSum(x_vars[(culture, cons)] for culture in cultures_liste if culture in df_cultures.index)
-                        + lpSum(I_vars_feed[(cons, culture)] for culture in cultures_liste)
-                        + lpSum(E_vars_feed[(cons, culture)] for culture in cultures_liste)
+                        lpSum(x_vars[(prod_i, cons)] for prod_i in cultures_liste if prod_i in prod)
+                        + lpSum(I_vars_feed[(cons, prod_i)] for prod_i in cultures_liste)
+                        + lpSum(E_vars_feed[(cons, prod_i)] for prod_i in cultures_liste)
                     )
                     # Azote total disponible pour ce groupe de cultures
-                    azote_total_groupe = df_cultures.loc[
-                        df_cultures.index.isin(cultures_liste),
-                        "Nitrogen Production (ktN)",
-                    ].sum()
+                    # azote_total_groupe = df_cultures.loc[
+                    #     df_cultures.index.isin(cultures_liste),
+                    #     "Nitrogen Production (ktN)",
+                    # ].sum()
+                    azote_total_groupe = 0
+                    for prod_i in cultures_liste:
+                        if "grain" in prod_i or "straw" in prod_i:
+                            azote_disponible_prod_i = adjacency_matrix[:, label_to_index[prod_i]].sum()
+                        else:
+                            azote_disponible_prod_i = df_cultures.loc[prod_i, "Nitrogen Production (ktN)"]
+                        azote_total_groupe += azote_disponible_prod_i
+
                     if azote_total_groupe > 0:
-                        for culture in cultures_liste:
-                            if culture in df_cultures.index:
-                                azote_disponible_culture = df_cultures.loc[culture, "Nitrogen Production (ktN)"]
+                        for prod_i in cultures_liste:
+                            if prod_i in prod:
+                                if "grain" in prod_i or "straw" in prod_i:
+                                    azote_disponible_prod_i = adjacency_matrix[:, label_to_index[prod_i]].sum()
+                                else:
+                                    azote_disponible_prod_i = df_cultures.loc[prod_i, "Nitrogen Production (ktN)"]
+
                                 # Calcul de l'allocation cible proportionnelle à la disponibilité
                                 allocation_cible_culture = (
-                                    azote_disponible_culture / azote_total_groupe
+                                    azote_disponible_prod_i / azote_total_groupe
                                 ) * allocation_groupe
                                 # Allocation réelle
-                                allocation_reelle_culture = x_vars[(culture, cons)]
+                                allocation_reelle_culture = x_vars[(prod_i, cons)]
                                 # Pénalités pour la déviation
                                 prob += (
                                     allocation_reelle_culture - allocation_cible_culture
-                                    <= penalite_culture_vars[(cons, proportion, culture)],
-                                    f"Penalite_Culture_Plus_{cons}_{proportion}_{culture}",
+                                    <= penalite_culture_vars[(cons, proportion, prod_i)],
+                                    f"Penalite_Culture_Plus_{cons}_{proportion}_{prod_i}",
                                 )
                                 prob += (
                                     allocation_cible_culture - allocation_reelle_culture
-                                    <= penalite_culture_vars[(cons, proportion, culture)],
-                                    f"Penalite_Culture_Moins_{cons}_{proportion}_{culture}",
+                                    <= penalite_culture_vars[(cons, proportion, prod_i)],
+                                    f"Penalite_Culture_Moins_{cons}_{proportion}_{prod_i}",
                                 )
                     else:
                         pass
@@ -1604,66 +1677,74 @@ class NitrogenFlowModel:
                 for proportion, cultures_liste in regimes[cons].items():
                     # Allocation totale pour ce groupe de cultures
                     allocation_groupe = lpSum(
-                        x_vars[(culture, cons)] for culture in cultures_liste if culture in df_cultures.index
-                    ) + lpSum(I_vars_food[(cons, culture)] for culture in cultures_liste)
+                        x_vars[(prod_i, cons)] for prod_i in cultures_liste if prod_i in prod
+                    ) + lpSum(I_vars_food[(cons, prod_i)] for prod_i in cultures_liste)
                     # Azote total disponible pour ce groupe de cultures
-                    azote_total_groupe = df_cultures.loc[
-                        df_cultures.index.isin(cultures_liste),
-                        "Nitrogen Production (ktN)",
-                    ].sum()
+                    azote_total_groupe = 0
+                    for prod_i in cultures_liste:
+                        if "grain" in prod_i or "straw" in prod_i:
+                            azote_disponible_prod_i = adjacency_matrix[:, label_to_index[prod_i]].sum()
+                        else:
+                            azote_disponible_prod_i = df_cultures.loc[prod_i, "Nitrogen Production (ktN)"]
+                        azote_total_groupe += azote_disponible_prod_i
+
                     if azote_total_groupe > 0:
-                        for culture in cultures_liste:
-                            if culture in df_cultures.index:
-                                azote_disponible_culture = df_cultures.loc[culture, "Nitrogen Production (ktN)"]
+                        for prod_i in cultures_liste:
+                            if prod_i in prod:
+                                if "grain" in prod_i or "straw" in prod_i:
+                                    azote_disponible_prod_i = adjacency_matrix[:, label_to_index[prod_i]].sum()
+                                else:
+                                    azote_disponible_prod_i = df_cultures.loc[prod_i, "Nitrogen Production (ktN)"]
+
                                 # Calcul de l'allocation cible proportionnelle à la disponibilité
                                 allocation_cible_culture = (
-                                    azote_disponible_culture / azote_total_groupe
+                                    azote_disponible_prod_i / azote_total_groupe
                                 ) * allocation_groupe
                                 # Allocation réelle
-                                allocation_reelle_culture = x_vars[(culture, cons)]
+                                allocation_reelle_culture = x_vars[(prod_i, cons)]
                                 # Pénalités pour la déviation
                                 prob += (
                                     allocation_reelle_culture - allocation_cible_culture
-                                    <= penalite_culture_vars[(cons, proportion, culture)],
-                                    f"Penalite_Culture_Plus_{cons}_{proportion}_{culture}",
+                                    <= penalite_culture_vars[(cons, proportion, prod_i)],
+                                    f"Penalite_Culture_Plus_{cons}_{proportion}_{prod_i}",
                                 )
                                 prob += (
                                     allocation_cible_culture - allocation_reelle_culture
-                                    <= penalite_culture_vars[(cons, proportion, culture)],
-                                    f"Penalite_Culture_Moins_{cons}_{proportion}_{culture}",
+                                    <= penalite_culture_vars[(cons, proportion, prod_i)],
+                                    f"Penalite_Culture_Moins_{cons}_{proportion}_{prod_i}",
                                 )
                     else:
                         pass
 
-            # Contrainte pour importer le feed là où les déviations sont les plus importantes
-            for cons in df_cons_vege.index[:-2]:
-                for proportion, cultures_liste in regimes[cons].items():
-                    # Total des importations pour cette proportion
-                    azote_importe = lpSum(
-                        I_vars_feed[(cons, culture)] + E_vars_feed[(cons, culture)]
-                        for culture in cultures_liste
-                        if culture in df_cultures.index
-                    )
-                    # # Lier aux variables de déviation
-                    # prob += (
-                    #     delta_import_vars[(cons, proportion)]
-                    #     >= azote_importe - delta_vars[(cons, proportion)] * df_cons_vege.loc[cons],
-                    #     f"Delta_Import_Lien_{cons}_{proportion}",
-                    # )
+            # # Contrainte pour importer le feed là où les déviations sont les plus importantes
+            # for cons in df_cons_vege.index[:-2]:
+            #     for proportion, cultures_liste in regimes[cons].items():
+            #         # Total des importations pour cette proportion
+            #         azote_importe = lpSum(
+            #             I_vars_feed[(cons, culture)] + E_vars_feed[(cons, culture)]
+            #             for culture in cultures_liste
+            #             if culture in df_cultures.index
+            #         )
+            #         # # Lier aux variables de déviation
+            #         # prob += (
+            #         #     delta_import_vars[(cons, proportion)]
+            #         #     >= azote_importe - delta_vars[(cons, proportion)] * df_cons_vege.loc[cons],
+            #         #     f"Delta_Import_Lien_{cons}_{proportion}",
+            #         # )
 
-            # Pareil pour les humains
-            for cons in df_cons_vege.index[-2:]:
-                for proportion, cultures_liste in regimes[cons].items():
-                    # Total des importations pour cette proportion
-                    azote_importe = lpSum(
-                        I_vars_food[(cons, culture)] for culture in cultures_liste if culture in df_cultures.index
-                    )
-                    # # Lier aux variables de déviation
-                    # prob += (
-                    #     delta_import_vars[(cons, proportion)]
-                    #     >= azote_importe - delta_vars[(cons, proportion)] * df_cons_vege.loc[cons],
-                    #     f"Delta_Import_Lien_{cons}_{proportion}",
-                    # )
+            # # Pareil pour les humains
+            # for cons in df_cons_vege.index[-2:]:
+            #     for proportion, cultures_liste in regimes[cons].items():
+            #         # Total des importations pour cette proportion
+            #         azote_importe = lpSum(
+            #             I_vars_food[(cons, culture)] for culture in cultures_liste if culture in df_cultures.index
+            #         )
+            #         # # Lier aux variables de déviation
+            #         # prob += (
+            #         #     delta_import_vars[(cons, proportion)]
+            #         #     >= azote_importe - delta_vars[(cons, proportion)] * df_cons_vege.loc[cons],
+            #         #     f"Delta_Import_Lien_{cons}_{proportion}",
+            #         # )
 
             # Résolution du problème
             prob.solve()
@@ -1675,12 +1756,15 @@ class NitrogenFlowModel:
                     chaine = str(var)
                     matches = re.findall(r"'([^']*)'", chaine)
                     parts = [match.replace("_", " ").strip() for match in matches]
-                    culture = parts[0]
+                    prod_i = parts[0]
+                    # if prod_i == "Wheat grain":
+                    #     print(var.name)
+                    #     print(var.varValue)
                     # Gestion du tiret dans le nom
-                    if culture == "Non legume temporary meadow":
-                        culture = "Non-legume temporary meadow"
-                    if culture == "Natural meadow":
-                        culture = "Natural meadow "
+                    if prod_i == "Non legume temporary meadow":
+                        prod_i = "Non-legume temporary meadow"
+                    if prod_i == "Natural meadow":
+                        prod_i = "Natural meadow "
                     cons = parts[1]
                     if any(index in var.name for index in df_elevage.index):
                         Type = "Local culture feed"
@@ -1688,30 +1772,32 @@ class NitrogenFlowModel:
                         Type = "Local culture food"
                     allocations.append(
                         {
-                            "Culture": culture,
+                            "Product": prod_i,
                             "Consumer": cons,
                             "Allocated Nitrogen": var.varValue,
                             "Type": Type,
                         }
                     )
+                    # if prod_i == "Wheat grain":
+                    #     print(allocations)
                 elif var.name.startswith("I") and var.varValue > 0:
                     # Nom de la variable : I_(cons, culture)
                     chaine = str(var)
                     matches = re.findall(r"'([^']*)'", chaine)
                     parts = [match.replace("_", " ").strip() for match in matches]
                     cons = parts[0]
-                    culture = parts[1]
-                    if culture == "Non legume temporary meadow":
-                        culture = "Non-legume temporary meadow"
-                    if culture == "Natural meadow":
-                        culture = "Natural meadow "
+                    prod_i = parts[1]
+                    if prod_i == "Non legume temporary meadow":
+                        prod_i = "Non-legume temporary meadow"
+                    if prod_i == "Natural meadow":
+                        prod_i = "Natural meadow "
                     if any(index in var.name for index in df_elevage.index):
                         Type = "Imported Feed"
                     else:
                         Type = "Imported Food"
                     allocations.append(
                         {
-                            "Culture": culture,
+                            "Product": prod_i,
                             "Consumer": cons,
                             "Allocated Nitrogen": var.varValue,
                             "Type": Type,
@@ -1724,14 +1810,14 @@ class NitrogenFlowModel:
                     matches = re.findall(r"'([^']*)'", chaine)
                     parts = [match.replace("_", " ").strip() for match in matches]
                     cons = parts[0]
-                    culture = parts[1]
-                    if culture == "Non legume temporary meadow":
-                        culture = "Non-legume temporary meadow"
-                    if culture == "Natural meadow":
-                        culture = "Natural meadow "
+                    prod_i = parts[1]
+                    if prod_i == "Non legume temporary meadow":
+                        prod_i = "Non-legume temporary meadow"
+                    if prod_i == "Natural meadow":
+                        prod_i = "Natural meadow "
                     allocations.append(
                         {
-                            "Culture": culture,
+                            "Product": prod_i,
                             "Consumer": cons,
                             "Allocated Nitrogen": var.varValue,
                             "Type": "Excess feed imports",
@@ -1754,31 +1840,27 @@ class NitrogenFlowModel:
                     deviation = delta_vars[delta_var_key].varValue
                     if deviation != 0:
                         # Récupérer la liste des cultures associées à cette proportion
-                        cultures_liste = regimes[cons][proportion]
-                        cultures_str = ", ".join(cultures_liste)
+                        prod_i_liste = regimes[cons][proportion]
+                        prod_i_str = ", ".join(prod_i_liste)
 
                         # Calcul de l'allocation totale (local et importée)
-                        azote_cultures_feed = (
-                            sum(
-                                x_vars[(culture, cons)].varValue
-                                for culture in cultures_liste
-                                if (culture, cons) in x_vars
+                        azote_prod_i_feed = (
+                            sum(x_vars[(prod_i, cons)].varValue for prod_i in prod_i_liste if (prod_i, cons) in x_vars)
+                            + sum(
+                                I_vars_feed[(cons, prod_i)].varValue
+                                for prod_i in prod_i_liste
+                                if (cons, prod_i) in I_vars_feed
                             )
                             + sum(
-                                I_vars_feed[(cons, culture)].varValue
-                                for culture in cultures_liste
-                                if (cons, culture) in I_vars_feed
-                            )
-                            + sum(
-                                E_vars_feed[(cons, culture)].varValue
-                                for culture in cultures_liste
-                                if (cons, culture) in E_vars_feed
+                                E_vars_feed[(cons, prod_i)].varValue
+                                for prod_i in prod_i_liste
+                                if (cons, prod_i) in E_vars_feed
                             )
                         )
                         besoin_total = df_cons_vege.loc[cons]
 
                         # Calcul de la proportion effective
-                        proportion_effective = azote_cultures_feed / besoin_total if besoin_total > 0 else 0
+                        proportion_effective = azote_prod_i_feed / besoin_total if besoin_total > 0 else 0
 
                         # Déterminer le signe
                         signe = 1 if proportion_effective > proportion else -1
@@ -1790,7 +1872,7 @@ class NitrogenFlowModel:
                                 "Deviation (%)": signe * round(deviation, 4) * 100,  # Convertir en pourcentage
                                 "Porportion Allocated (%)": proportion_rounded * 100
                                 + signe * round(deviation, 4) * 100,
-                                "Cultures": cultures_str,
+                                "Product": prod_i_str,
                             }
                         )
             for cons in df_cons_vege.index[-2:]:
@@ -1800,21 +1882,21 @@ class NitrogenFlowModel:
                     deviation = delta_vars[delta_var_key].varValue
                     if deviation != 0:
                         # Récupérer la liste des cultures associées à cette proportion
-                        cultures_liste = regimes[cons][proportion]
-                        cultures_str = ", ".join(cultures_liste)
+                        prod_i_liste = regimes[cons][proportion]
+                        prod_i_str = ", ".join(prod_i_liste)
 
                         # Calcul de l'allocation totale (local et importée)
-                        azote_cultures_food = sum(
-                            x_vars[(culture, cons)].varValue for culture in cultures_liste if (culture, cons) in x_vars
+                        azote_prod_i_food = sum(
+                            x_vars[(prod_i, cons)].varValue for prod_i in prod_i_liste if (prod_i, cons) in x_vars
                         ) + sum(
-                            I_vars_food[(cons, culture)].varValue
-                            for culture in cultures_liste
-                            if (cons, culture) in I_vars_food
+                            I_vars_food[(cons, prod_i)].varValue
+                            for prod_i in prod_i_liste
+                            if (cons, prod_i) in I_vars_food
                         )
                         besoin_total = df_cons_vege.loc[cons]
 
                         # Calcul de la proportion effective
-                        proportion_effective = azote_cultures_food / besoin_total if besoin_total > 0 else 0
+                        proportion_effective = azote_prod_i_food / besoin_total if besoin_total > 0 else 0
 
                         # Déterminer le signe
                         signe = 1 if proportion_effective > proportion else -1
@@ -1826,7 +1908,7 @@ class NitrogenFlowModel:
                                 "Deviation (%)": signe * round(deviation, 4) * 100,  # Convertir en pourcentage
                                 "Porportion Allocated (%)": proportion_rounded * 100
                                 + signe * round(deviation, 4) * 100,
-                                "Cultures": cultures_str,
+                                "Product": prod_i_str,
                             }
                         )
             self.deviations_df = pd.DataFrame(deviations)
@@ -1834,27 +1916,27 @@ class NitrogenFlowModel:
             # Extraction des importations normales
             importations = []
             for cons in df_cons_vege.index[:-2]:
-                for culture in all_cultures_regime[cons]:
-                    if (cons, culture) in I_vars_feed:
-                        import_value = I_vars_feed[(cons, culture)].varValue
+                for prod_i in all_cultures_regime[cons]:
+                    if (cons, prod_i) in I_vars_feed:
+                        import_value = I_vars_feed[(cons, prod_i)].varValue
                         if import_value > 0:
                             importations.append(
                                 {
                                     "Consumer": cons,
-                                    "Culture": culture,
+                                    "Product": prod_i,
                                     "Type": "Normal feed",
                                     "Imported Nitrogen (ktN)": import_value,
                                 }
                             )
             for cons in df_cons_vege.index[-2:]:
-                for culture in all_cultures_regime[cons]:
-                    if (cons, culture) in I_vars_food:
-                        import_value = I_vars_food[(cons, culture)].varValue
+                for prod_i in all_cultures_regime[cons]:
+                    if (cons, prod_i) in I_vars_food:
+                        import_value = I_vars_food[(cons, prod_i)].varValue
                         if import_value > 0:
                             importations.append(
                                 {
                                     "Consumer": cons,
-                                    "Culture": culture,
+                                    "Product": prod_i,
                                     "Type": "Normal food",
                                     "Imported Nitrogen (ktN)": import_value,
                                 }
@@ -1862,14 +1944,14 @@ class NitrogenFlowModel:
 
             # Extraction des imports excédentaires
             for cons in df_cons_vege.index[:-2]:
-                for culture in all_cultures_regime[cons]:
-                    if (cons, culture) in E_vars_feed:
-                        excess_value = E_vars_feed[(cons, culture)].varValue
+                for prod_i in all_cultures_regime[cons]:
+                    if (cons, prod_i) in E_vars_feed:
+                        excess_value = E_vars_feed[(cons, prod_i)].varValue
                         if excess_value > 0:
                             importations.append(
                                 {
                                     "Consumer": cons,
-                                    "Culture": culture,
+                                    "Product": prod_i,
                                     "Type": "Excédentaire feed",
                                     "Imported Nitrogen (ktN)": excess_value,
                                 }
@@ -1886,21 +1968,47 @@ class NitrogenFlowModel:
             # Mise à jour de df_cultures
             for idx, row in df_cultures.iterrows():
                 culture = row.name
-                azote_alloue = allocations_df[
-                    (allocations_df["Culture"] == culture)
-                    & (allocations_df["Type"].isin(["Local culture food", "Local culture feed"]))
-                ]["Allocated Nitrogen"].sum()
-                azote_alloue_feed = allocations_df[
-                    (allocations_df["Culture"] == culture) & (allocations_df["Type"] == "Local culture feed")
-                ]["Allocated Nitrogen"].sum()
-                azote_alloue_food = allocations_df[
-                    (allocations_df["Culture"] == culture) & (allocations_df["Type"] == "Local culture food")
-                ]["Allocated Nitrogen"].sum()
-                df_cultures.loc[idx, "Available Nitrogen After Feed and Food (ktN)"] = (
-                    row["Nitrogen Production (ktN)"] - azote_alloue
-                )
-                df_cultures.loc[idx, "Nitrogen For Feed (ktN)"] = azote_alloue_feed
-                df_cultures.loc[idx, "Nitrogen For Food (ktN)"] = azote_alloue_food
+                if culture not in cereales:
+                    azote_alloue = allocations_df[
+                        (allocations_df["Product"] == culture)
+                        & (allocations_df["Type"].isin(["Local culture food", "Local culture feed"]))
+                    ]["Allocated Nitrogen"].sum()
+                    azote_alloue_feed = allocations_df[
+                        (allocations_df["Product"] == culture) & (allocations_df["Type"] == "Local culture feed")
+                    ]["Allocated Nitrogen"].sum()
+                    azote_alloue_food = allocations_df[
+                        (allocations_df["Product"] == culture) & (allocations_df["Type"] == "Local culture food")
+                    ]["Allocated Nitrogen"].sum()
+                    df_cultures.loc[idx, "Available Nitrogen After Feed and Food (ktN)"] = (
+                        row["Nitrogen Production (ktN)"] - azote_alloue
+                    )
+                    df_cultures.loc[idx, "Nitrogen For Feed (ktN)"] = azote_alloue_feed
+                    df_cultures.loc[idx, "Nitrogen For Food (ktN)"] = azote_alloue_food
+                else:
+                    azote_alloue_feed = 0.0
+                    azote_alloue_food = 0.0
+                    azote_alloue_straw = 0.0
+
+                    azote_alloue_feed += allocations_df[
+                        (allocations_df["Product"] == culture + " grain")
+                        & (allocations_df["Type"] == "Local culture feed")
+                    ]["Allocated Nitrogen"].sum()
+                    azote_alloue_food += allocations_df[
+                        (allocations_df["Product"] == culture + " grain")
+                        & (allocations_df["Type"] == "Local culture food")
+                    ]["Allocated Nitrogen"].sum()
+                    azote_alloue_straw += allocations_df[
+                        (allocations_df["Product"] == culture + " straw")
+                        & (allocations_df["Type"] == "Local culture feed")
+                    ]["Allocated Nitrogen"].sum()
+
+                    df_cultures.loc[idx, "Available Nitrogen After Feed and Food (ktN)"] = (
+                        row["Nitrogen Production (ktN)"] - azote_alloue_food - azote_alloue_feed
+                    )
+                    df_cultures.loc[idx, "Nitrogen For Feed (ktN)"] = azote_alloue_feed
+                    df_cultures.loc[idx, "Nitrogen For Food (ktN)"] = azote_alloue_food
+                    df_cultures.loc[idx, "Straw For Feed (ktN)"] = azote_alloue_straw
+
             # Correction des valeurs proches de zéro
             df_cultures["Available Nitrogen After Feed and Food (ktN)"] = df_cultures[
                 "Available Nitrogen After Feed and Food (ktN)"
@@ -1910,6 +2018,9 @@ class NitrogenFlowModel:
             )
             df_cultures["Nitrogen For Food (ktN)"] = df_cultures["Nitrogen For Food (ktN)"].apply(
                 lambda x: 0 if abs(x) < 1e-6 else x
+            )
+            df_cultures["Straw For Feed (ktN)"] = (
+                df_cultures["Straw For Feed (ktN)"].apply(lambda x: 0 if abs(x) < 1e-6 else x).fillna(0)
             )
 
             # Mise à jour de df_elevage
@@ -1944,7 +2055,7 @@ class NitrogenFlowModel:
                 target = {cons: 1}
                 source = (
                     allocations_locales[allocations_locales["Consumer"] == cons]
-                    .set_index("Culture")["Allocated Nitrogen"]
+                    .set_index("Product")["Allocated Nitrogen"]
                     .to_dict()
                 )
                 if source:
@@ -1963,11 +2074,14 @@ class NitrogenFlowModel:
                 flux = {}
 
                 for _, row in cons_vege_imports.iterrows():
-                    culture = row["Culture"]
+                    prod_i = row["Product"]
                     azote_alloue = row["Allocated Nitrogen"]
 
                     # Récupération de la catégorie de la culture
-                    categorie = df_cultures.loc[culture, "Category"]
+                    if "grain" in prod_i or "straw" in prod_i:
+                        categorie = "cereals (excluding rice)"
+                    else:
+                        categorie = df_cultures.loc[prod_i, "Category"]
 
                     # Construction du label source pour l'importation
                     if cons in ["urban", "rural"]:
@@ -1998,78 +2112,216 @@ class NitrogenFlowModel:
             feed_export = import_feed - import_feed_net
 
             flux_exported = {}
-            if feed_export > 10**-6:  # On a importé plus que les imports net, la diff est l'export de feed
+            if feed_export > 1e-6:
                 feed_export = min(
                     feed_export,
                     df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum(),
                 )  # Patch pour gérer les cas où on a une surexportation (cf Bretagne 2010)
-                # On distingue les exports de feed prioritaires (prairies et fourrages) au reste
-                # On distingue le cas où il y a assez dans les exports prioritaires pour couvrir
-                # les export de feed au cas où il faut en plus exporter les autres cultures (mais d'abord les exports prio)
-                if (
-                    feed_export
-                    > df_cultures.loc[
+                # Toutes les cultures feed disponibles
+                feed_product_tot = df_cultures.loc[
+                    df_cultures["Category"].isin(["forages", "temporary meadows"]),
+                    "Available Nitrogen After Feed and Food (ktN)",
+                ].sum() + (
+                    df_cultures["Straw Production (ktN)"].sum()
+                    - df_cultures.loc[df_cultures.index == i, "Straw For Feed (ktN)"].item()
+                )
+                if feed_product_tot > feed_export:  # Alors on exporte au pro-rata des productions
+                    flux_exported = (
+                        df_cultures.loc[
+                            df_cultures["Category"].isin(["forages", "temporary meadows"]),
+                            "Available Nitrogen After Feed and Food (ktN)",
+                        ]
+                        * feed_export
+                        / feed_product_tot
+                    ).to_dict()
+                    # Le reste de la récolte fourragère est perdu
+                    for i in df_cultures.loc[
                         df_cultures["Category"].isin(["forages", "temporary meadows"]),
                         "Available Nitrogen After Feed and Food (ktN)",
-                    ].sum()
-                ):
-                    feed_export_prio = df_cultures.loc[
-                        df_cultures["Category"].isin(["forages", "temporary meadows"]),
-                        "Available Nitrogen After Feed and Food (ktN)",
-                    ].sum()
-                    feed_export_other = feed_export - feed_export_prio
-                else:
-                    feed_export_prio = feed_export
-                    feed_export_other = 0
-                # Répartition de l'azote exporté inutilisé par catégorie
-                # On fait un premier tour sur les cultures prioritaires
-                for culture in df_cultures.loc[df_cultures["Category"].isin(["forages", "temporary meadows"])].index:
-                    categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
-                    # On exporte pas en feed des catégories dédiées aux humains
-                    if categorie not in ["rice", "fruits and vegetables", "roots"]:
-                        # Calculer la quantité exportée par catégorie proportionnellement aux catégories présentes dans df_cultures
-                        culture_nitrogen_available = df_cultures.loc[df_cultures.index == culture][
-                            "Available Nitrogen After Feed and Food (ktN)"
-                        ].item()
-
-                        if culture_nitrogen_available > 0:
-                            flux_exported[culture] = feed_export_prio * (
-                                culture_nitrogen_available
-                                / df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
-                            )
-
-                # On écoule le reste des export de feed (si il y en a) sur les autres cultures
-                if feed_export_other > 10**-6:
-                    for culture in df_cultures.loc[
-                        ~df_cultures["Category"].isin(["forages", "temporary meadows", "natural meadows "])
                     ].index:
-                        categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
-                        # On exporte pas en feed des catégories dédiées aux humains
-                        if categorie not in ["rice", "fruits and vegetables", "roots"]:
-                            # Calculer la quantité exportée par catégorie proportionnellement aux catégories présentes dans df_cultures
-                            culture_nitrogen_available = df_cultures.loc[df_cultures.index == culture][
-                                "Available Nitrogen After Feed and Food (ktN)"
+                        source = {
+                            i: df_cultures.loc[
+                                df_cultures.index == i,
+                                "Available Nitrogen After Feed and Food (ktN)",
                             ].item()
+                            * (1 - feed_export / feed_product_tot)
+                        }
+                        target = {"other losses": 1}
+                        flux_generator.generate_flux(source, target)
+                    for i in cereales:
+                        flux_exported[i + " straw"] = (
+                            (
+                                df_cultures.loc[df_cultures.index == i, "Straw Production (ktN)"].item()
+                                - df_cultures.loc[df_cultures.index == i, "Straw For Feed (ktN)"].item()
+                            )
+                            * feed_export
+                            / feed_product_tot
+                        )
+                        # Le reste des pailles récoltées est perdues (en attendant mieux ?)
+                        # source = {
+                        #     i + " straw": (
+                        #         df_cultures.loc[df_cultures.index == i, "Straw Production (ktN)"].item()
+                        #         - df_cultures.loc[df_cultures.index == i, "Straw For Feed (ktN)"].item()
+                        #     )
+                        #     * (1 - feed_export / feed_product_tot)
+                        # }
+                        # target = {"other losses": 1}
+                        # flux_generator.generate_flux(source, target)
+                else:  # sinon, on exporte tout ce qui est disponible pour feed et on ajoute les cultures consommables aussi pas les humains
+                    flux_exported = df_cultures.loc[
+                        df_cultures["Category"].isin(["forages", "temporary meadows"]),
+                        "Available Nitrogen After Feed and Food (ktN)",
+                    ].to_dict()
+                    for i in cereales:
+                        flux_exported[i + " straw"] = (
+                            df_cultures.loc[df_cultures.index == i, "Straw Production (ktN)"].item()
+                            - df_cultures.loc[df_cultures.index == i, "Straw For Feed (ktN)"].item()
+                        )
+                    feed_export_other = feed_export - feed_product_tot
+                    if feed_export_other > 10**-6:
+                        for culture in df_cultures.loc[
+                            ~df_cultures["Category"].isin(["forages", "temporary meadows", "natural meadows "])
+                        ].index:
+                            categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
+                            # On exporte pas en feed des catégories dédiées aux humains
+                            if categorie not in ["rice", "fruits and vegetables", "roots"]:
+                                # Calculer la quantité exportée par catégorie proportionnellement aux catégories présentes dans df_cultures
+                                culture_nitrogen_available = df_cultures.loc[df_cultures.index == culture][
+                                    "Available Nitrogen After Feed and Food (ktN)"
+                                ].item()
 
-                            if culture_nitrogen_available > 0:
-                                flux_exported[culture] = feed_export_prio * (
-                                    culture_nitrogen_available
-                                    / df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
-                                )
+                                if culture_nitrogen_available > 1e-6:
+                                    if categorie == "cereals (excluding rice)":
+                                        flux_exported[culture + " grain"] = feed_export_other * (
+                                            culture_nitrogen_available
+                                            / df_cultures.loc[
+                                                ~df_cultures["Category"].isin(
+                                                    [
+                                                        "forages",
+                                                        "temporary meadows",
+                                                        "natural meadows ",
+                                                        "rice",
+                                                        "fruits and vegetables",
+                                                        "roots",
+                                                    ]
+                                                ),
+                                                "Available Nitrogen After Feed and Food (ktN)",
+                                            ].sum()
+                                        )
+                                    else:
+                                        flux_exported[culture] = feed_export_other * (
+                                            culture_nitrogen_available
+                                            / df_cultures.loc[
+                                                ~df_cultures["Category"].isin(
+                                                    [
+                                                        "forages",
+                                                        "temporary meadows",
+                                                        "natural meadows ",
+                                                        "rice",
+                                                        "fruits and vegetables",
+                                                        "roots",
+                                                    ]
+                                                ),
+                                                "Available Nitrogen After Feed and Food (ktN)",
+                                            ].sum()
+                                        )
+
+                # if feed_export > 10**-6:  # On a importé plus que les imports net, la diff est l'export de feed
+                #     feed_export = min(
+                #         feed_export,
+                #         df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum(),
+                #     )  # Patch pour gérer les cas où on a une surexportation (cf Bretagne 2010)
+                #     # On distingue les exports de feed prioritaires (prairies et fourrages) au reste
+                #     # On distingue le cas où il y a assez dans les exports prioritaires pour couvrir
+                #     # les export de feed au cas où il faut en plus exporter les autres cultures (mais d'abord les exports prio)
+                #     if (
+                #         feed_export
+                #         > df_cultures.loc[
+                #             df_cultures["Category"].isin(["forages", "temporary meadows"]),
+                #             "Available Nitrogen After Feed and Food (ktN)",
+                #         ].sum() + df_cultures["Straw Production (ktN)"].sum()
+                #     ):
+                #         feed_export_prio = df_cultures.loc[
+                #             df_cultures["Category"].isin(["forages", "temporary meadows"]),
+                #             "Available Nitrogen After Feed and Food (ktN)",
+                #         ].sum() + df_cultures["Straw Production (ktN)"].sum()
+                #         feed_export_other = feed_export - feed_export_prio
+
+                #     else:
+                #         feed_export_prio = feed_export
+                #         feed_export_other = 0
+                #     # Répartition de l'azote exporté inutilisé par catégorie
+                #     # On fait un premier tour sur les cultures prioritaires
+                #     for culture in df_cultures.loc[df_cultures["Category"].isin(["forages", "temporary meadows"])].index:
+                #         categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
+                #         # On exporte pas en feed des catégories dédiées aux humains
+                #         if categorie not in ["rice", "fruits and vegetables", "roots"]:
+                #             # Calculer la quantité exportée par catégorie proportionnellement aux catégories présentes dans df_cultures
+                #             culture_nitrogen_available = df_cultures.loc[df_cultures.index == culture][
+                #                 "Available Nitrogen After Feed and Food (ktN)"
+                #             ].item()
+
+                #             if culture_nitrogen_available > 0:
+                #                 flux_exported[culture] = feed_export_prio * (
+                #                     culture_nitrogen_available
+                #                     / df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
+                #                 )
+
+                #     # On écoule le reste des export de feed (si il y en a) sur les autres cultures
+                #     if feed_export_other > 10**-6:
+                #         for culture in df_cultures.loc[
+                #             ~df_cultures["Category"].isin(["forages", "temporary meadows", "natural meadows "])
+                #         ].index:
+                #             categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
+                #             # On exporte pas en feed des catégories dédiées aux humains
+                #             if categorie not in ["rice", "fruits and vegetables", "roots"]:
+                #                 # Calculer la quantité exportée par catégorie proportionnellement aux catégories présentes dans df_cultures
+                #                 culture_nitrogen_available = df_cultures.loc[df_cultures.index == culture][
+                #                     "Available Nitrogen After Feed and Food (ktN)"
+                #                 ].item()
+
+                #                 if culture_nitrogen_available > 0:
+                #                     flux_exported[culture] = feed_export_prio * (
+                #                         culture_nitrogen_available
+                #                         / df_cultures["Available Nitrogen After Feed and Food (ktN)"].sum()
+                #                     )
 
                 # Générer des flux les exportations vers leur catégorie d'origine
                 for label_source, azote_exported in flux_exported.items():
                     if azote_exported > 0:
-                        categorie = df_cultures.loc[df_cultures.index == label_source, "Category"].item()
+                        if "straw" in label_source:
+                            categorie = "forages"
+                        elif "grain" in label_source:
+                            categorie = "cereals (excluding rice)"
+                        else:
+                            categorie = df_cultures.loc[df_cultures.index == label_source, "Category"].item()
                         label_target = f"{categorie} feed trade"
                         target = {label_target: 1}
                         source = {label_source: azote_exported}
                         flux_generator.generate_flux(source, target)
 
         # Mise à jour du DataFrame avec les quantités exportées
-        df_cultures["Nitrogen Exported For Feed (ktN)"] = df_cultures.index.map(flux_exported).fillna(
-            0
-        )  # df_cultures.index.map(source).fillna(0)
+
+        flux_exported_filtered = {
+            key: value
+            for key, value in flux_exported.items()
+            if "straw" not in key.lower()  # .lower() pour une comparaison insensible à la casse
+        }
+
+        df_cultures["Nitrogen Exported For Feed (ktN)"] = df_cultures.index.map(flux_exported_filtered).fillna(0)
+
+        straw_flux_map = {}
+        for c in cereales:
+            if (c + " straw") in flux_exported:
+                straw_flux_map[c] = flux_exported[c + " straw"]
+
+        # Initialiser la colonne à 0
+        df_cultures["Straw Exported For Feed (ktN)"] = 0.0
+
+        # Mettre à jour les valeurs pour les pailles
+        df_cultures.loc[cereales, "Straw Exported For Feed (ktN)"] = (
+            df_cultures.loc[cereales].index.map(straw_flux_map).fillna(0)
+        )
 
         df_cultures["Available Nitrogen After Feed, Export Feed and Food (ktN)"] = (
             df_cultures["Available Nitrogen After Feed and Food (ktN)"]
@@ -2077,11 +2329,42 @@ class NitrogenFlowModel:
         ).apply(lambda x: 0 if abs(x) < 1e-6 else x)
 
         # import/export food
-        # Le surplus est food exporté (ou stocké mais cela ne nous regarde pas)
+        # Le surplus est food exporté (ou perdu pour les pailles et prairies permanentes)
         for idx, row in df_cultures.iterrows():
             culture = row.name
             categorie = df_cultures.loc[df_cultures.index == culture, "Category"].item()
-            if categorie not in ["temporary meadows", "natural meadows ", "forages"]:
+            if culture in cereales:
+                source = {
+                    culture + " straw": df_cultures.loc[
+                        df_cultures.index == culture,
+                        "Straw Production (ktN)",
+                    ].item()
+                    - df_cultures.loc[
+                        df_cultures.index == culture,
+                        "Straw For Feed (ktN)",
+                    ].item()
+                    - df_cultures.loc[
+                        df_cultures.index == culture,
+                        "Straw Exported For Feed (ktN)",
+                    ].item()
+                }
+                target = {"other losses": 1}
+                # print(source)
+
+                flux_generator.generate_flux(source, target)
+
+                source = {
+                    culture + " grain": df_cultures.loc[
+                        df_cultures.index == culture, "Available Nitrogen After Feed, Export Feed and Food (ktN)"
+                    ].item()
+                }
+                target = {"cereals (excluding rice) food trade": 1}
+                # if culture == "Wheat":
+                #     print(source)
+                #     print(target)
+                #     print("____")
+                flux_generator.generate_flux(source, target)
+            elif categorie not in ["temporary meadows", "natural meadows ", "forages"]:
                 source = {
                     culture: df_cultures.loc[
                         df_cultures.index == culture,
@@ -2089,6 +2372,7 @@ class NitrogenFlowModel:
                     ].item()
                 }
                 target = {f"{categorie} food trade": 1}
+                flux_generator.generate_flux(source, target)
             elif (
                 culture != "Natural meadow "
             ):  # TODO Que faire des production de feed qui ne sont ni consommées ni exportées ? Pour l'instant on les exporte....
@@ -2099,7 +2383,8 @@ class NitrogenFlowModel:
                         "Available Nitrogen After Feed, Export Feed and Food (ktN)",
                     ].item()
                 }
-                target = {f"{categorie} feed trade": 1}
+                target = {"other losses": 1}
+                flux_generator.generate_flux(source, target)
             else:
                 source = {
                     culture: df_cultures.loc[
@@ -2108,7 +2393,7 @@ class NitrogenFlowModel:
                     ].item()
                 }
                 target = {"soil stock": 1}
-            flux_generator.generate_flux(source, target)
+                flux_generator.generate_flux(source, target)
 
         # Que faire d'eventuel surplus de prairies ou forage ? Pour l'instant on les ignores... Ou alors vers soil stock ?
 

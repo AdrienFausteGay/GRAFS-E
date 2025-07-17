@@ -29,10 +29,9 @@ cultures = [
     "Rye",
     "Barley",
     "Oat",
-    "Grain maize",
+    "Maize",
     "Rice",
     "Other cereals",
-    "Straw",
     "Forage maize",
     "Forage cabbages",
     "Rapeseed",
@@ -51,7 +50,6 @@ cultures = [
     "Citrus",
     "Hemp",
     "Flax",
-    "Non-legume temporary meadow",
 ]
 
 legumineuses = [
@@ -68,7 +66,41 @@ legumineuses = [
 # même si cette culture n'est pas considérée comme
 # une légumineuse dans pvar (cf fixation N2)
 
-prairies = ["Natural meadow "]
+prairies = [
+    "Natural meadow ",
+    "Non-legume temporary meadow",
+]
+
+# On différentie les productions de grains et de paille pour les céréales
+cereales = ["Wheat", "Rye", "Barley", "Oat", "Maize", "Other cereals"]
+straws = []
+grains = []
+for i in cereales:
+    straws.append(i + " straw")
+    grains.append(i + " grain")
+
+
+# other_prod = []
+
+# prod = grains + straws + ["Rice",
+#     "Forage cabbages",
+#     "Rapeseed",
+#     "Sunflower",
+#     "Other oil crops",
+#     "Sugar beet",
+#     "Potatoes",
+#     "Other roots",
+#     "Dry vegetables",
+#     "Dry fruits",
+#     "Squash and melons",
+#     "Cabbage",
+#     "Leaves vegetables",
+#     "Fruits",
+#     "Olives",
+#     "Citrus",
+#     "Hemp",
+#     "Flax",
+# ] + legumineuses + prairies
 
 categories_mapping = {
     # Céréales (hors riz)
@@ -76,7 +108,7 @@ categories_mapping = {
     "Rye": "cereals (excluding rice)",
     "Barley": "cereals (excluding rice)",
     "Oat": "cereals (excluding rice)",
-    "Grain maize": "cereals (excluding rice)",
+    "Maize": "cereals (excluding rice)",
     "Other cereals": "cereals (excluding rice)",
     # Riz
     "Rice": "rice",
@@ -174,7 +206,7 @@ ext = [
     "temporary meadows feed trade",
 ]
 
-labels_init = cultures + legumineuses + prairies + betail + Pop + ext
+labels_init = cultures + legumineuses + prairies + straws + grains + betail + Pop + ext
 
 regions = [
     "Nord Pas de Calais",
@@ -274,7 +306,7 @@ regions_extented = [
 
 
 # Labels used in this work:
-labels = cultures + legumineuses + prairies + betail + Pop + ext
+labels = cultures + legumineuses + prairies + straws + grains + betail + Pop + ext
 
 label_to_index = {label: index for index, label in enumerate(labels)}
 index_to_label = {v: k for k, v in label_to_index.items()}
@@ -298,6 +330,8 @@ node_color = {
         if label in categories_mapping and categories_mapping[label] in ["temporary meadows", "forages"]
         else "darkgreen"
         if label in categories_mapping and categories_mapping[label] == "natural meadows "
+        else "gold"
+        if label == "Rice"
         else "lightblue"
         if label in betail
         else "darkblue"
@@ -312,6 +346,10 @@ node_color = {
         if label in ["Haber-Bosch", "other sectors"]
         else "seagreen"
         if label in ["atmospheric N2"]
+        else "gold"
+        if "grain" in label
+        else "yellow"
+        if "straw" in label
         else "gray"  # Default color if the label is not in any of the above categories
     )
     for label in labels
@@ -322,7 +360,7 @@ nickname_dict = {
     "Rye": "Rye",
     "Barley": "Bly",
     "Oat": "Oat",
-    "Grain maize": "G-Mz",
+    "Maize": "G-Mz",
     "Rice": "Rice",
     "Other cereals": "Oth-Cer",
     "Straw": "Straw",
@@ -458,26 +496,21 @@ animal_type_mapping = {
 
 ## Régimes
 
-herbes = [
-    "Natural meadow ",
-    "Non-legume temporary meadow",
-    "Alfalfa and clover",
-    "Straw",
-]
+herbes = ["Natural meadow ", "Non-legume temporary meadow", "Alfalfa and clover"] + [i + " straw" for i in cereales]
 
 # ATTENTION, cette mise en forme des données interdit d'avoir des proportions égales dans une catégorie
 regimes = {
     "bovines": {
         0.61: herbes,
         0.08: ["Forage maize"],
-        0.1: ["Barley", "Wheat", "Rye", "Other cereals"],
+        0.1: ["Barley grain", "Wheat grain", "Rye grain", "Other cereals grain"],
         0.2: ["Soybean", "Rapeseed", "Peas", "Horse beans and faba beans"],
         0.01: ["Forage cabbages"],
     },
     "ovines": {
         0.67: herbes,
         0.05: ["Forage maize"],
-        0.08: ["Wheat", "Barley", "Oat", "Rye", "Other cereals"],
+        0.08: ["Wheat grain", "Barley grain", "Oat grain", "Rye grain", "Other cereals grain"],
         0.06: ["Other oil crops", "Peas", "Other protein crops", "Sunflower"],
         0.09: ["Soybean", "Horse beans and faba beans"],
         0.04: ["Rapeseed"],
@@ -486,13 +519,13 @@ regimes = {
     "caprines": {
         0.63: herbes,
         0.07: ["Forage maize"],
-        0.08: ["Barley"],
+        0.08: ["Barley grain"],
         0.22: ["Soybean", "Rapeseed", "Peas", "Horse beans and faba beans"],
     },
-    "equine": {0.87: herbes, 0.13: ["Oat"]},
+    "equine": {0.87: herbes, 0.13: ["Oat grain"]},
     "poultry": {
-        0.28: ["Wheat", "Other cereals"],
-        0.10: ["Grain maize"],
+        0.28: ["Wheat grain", "Other cereals grain"],
+        0.10: ["Maize grain"],
         0.57: ["Soybean", "Horse beans and faba beans"],
         0.05: [
             "Rapeseed",
@@ -503,21 +536,21 @@ regimes = {
         ],
     },
     "porcines": {
-        0.18: ["Wheat"],
-        0.12: ["Grain maize"],
-        0.13: ["Barley", "Other cereals"],
+        0.18: ["Wheat grain"],
+        0.12: ["Maize grain"],
+        0.13: ["Barley grain", "Other cereals grain"],
         0.23: ["Soybean", "Horse beans and faba beans"],
         0.07: ["Rapeseed"],
         0.27: ["Peas", "Green beans", "Dry beans", "Green peas"],
     },
     "urban": {
-        0.605: ["Wheat"],
+        0.605: ["Wheat grain"],
         0.033: ["Rice"],
-        0.004: ["Barley"],
-        0.052: ["Grain maize"],
-        0.003: ["Rye"],
-        0.005: ["Oat"],
-        0.006: ["Other cereals"],
+        0.004: ["Barley grain"],
+        0.052: ["Maize grain"],
+        0.003: ["Rye grain"],
+        0.005: ["Oat grain"],
+        0.006: ["Other cereals grain"],
         0.076: ["Potatoes"],
         0.002: ["Sugar beet"],
         0.001: ["Other roots"],
@@ -528,20 +561,20 @@ regimes = {
         0.0008: ["Soybean"],
         0.0005: ["Rapeseed"],
         0.0003: ["Other oil crops"],
-        0.105: ["Vegetables", "Cabagge"],
+        0.105: ["Dry vegetables", "Cabbage", "Leaves vegetables"],
         0.031: ["Fruits", "Squash and melons"],
         0.0009: ["Citrus"],
         0.0015: ["Olives"],
         0.0325: ["Sunflower"],
     },
     "rural": {
-        0.605: ["Wheat"],
+        0.605: ["Wheat grain"],
         0.033: ["Rice"],
-        0.004: ["Barley"],
-        0.052: ["Grain maize"],
-        0.003: ["Rye"],
-        0.005: ["Oat"],
-        0.006: ["Other cereals"],
+        0.004: ["Barley grain"],
+        0.052: ["Maize grain"],
+        0.003: ["Rye grain"],
+        0.005: ["Oat grain"],
+        0.006: ["Other cereals grain"],
         0.076: ["Potatoes"],
         0.002: ["Sugar beet"],
         0.001: ["Other roots"],
@@ -552,7 +585,7 @@ regimes = {
         0.0008: ["Soybean"],
         0.0005: ["Rapeseed"],
         0.0003: ["Other oil crops"],
-        0.105: ["Vegetables", "Cabagge"],
+        0.105: ["Dry vegetables", "Cabbage", "Leaves vegetables"],
         0.031: ["Fruits", "Squash and melons"],
         0.0009: ["Citrus"],
         0.0015: ["Olives"],
