@@ -146,10 +146,12 @@ class CultureData:
         surface_dict = surface_data.set_index("nom")[region].to_dict()
         surface_dict["Rice"] = surface_dict.pop("rice")
         surface_dict["Forage cabbages"] = surface_dict.pop("Forage cabbages & roots")
+        surface_dict["Maize"] = surface_dict.pop("Grain maize")
 
         # Extraire les données de production végétale
         vege_prod_data = df[(df["index_excel"] >= 183) & (df["index_excel"] <= 218)][["nom", region]]
         vege_prod_dict = vege_prod_data.set_index("nom")[region].to_dict()
+        vege_prod_dict["Maize"] = vege_prod_dict.pop("Grain maize")
 
         # Extraire la part de carbone dans le grains
         # C_grain_data = df[(df["index_excel"] >= 460) & (df["index_excel"] <= 495)][["nom", region]]
