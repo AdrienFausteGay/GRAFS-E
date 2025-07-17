@@ -2973,7 +2973,11 @@ class NitrogenFlowModel_prospect:
         coeff_N_to_MB["Green waste"] = 1e3 / (0.01)
 
         # — Cultures (résidus & dédiées) —
-        for c in ["Forage maize"]:  # + autres si besoin
+        for c in [
+            "Forage maize",
+            "Alfalfa and clover",
+            "Non-legume temporary meadow",
+        ]:  # + autres si besoin
             N_pct = df_cultures.at[c, "Nitrogen Content (%)"] / 100  # kg N / kg DM
             DM_pct = df_cultures.at[c, "DM content (% of gross matter)"] / 100
             coeff_N_to_MB[c] = 1e3 / (N_pct * DM_pct)  # ktN ➜ tMB
@@ -3068,7 +3072,11 @@ class NitrogenFlowModel_prospect:
             idx_methan = {}
             Non_effluents_idx = []
             for c in CROPS:
-                if c in ["Forage maize"]:  # Ajouter ici toutes les cultures éligibles
+                if c in [
+                    "Forage maize",
+                    "Alfalfa and clover",
+                    "Non-legume temporary meadow",
+                ]:  # Ajouter ici toutes les cultures éligibles
                     idx_methan[c] = offset
                     Non_effluents_idx.append(c)
                     offset += 1
@@ -3549,7 +3557,7 @@ class NitrogenFlowModel_prospect:
                 for k_ in CONSUMERS:
                     # 1) Somme totale allouée (local + imports) pour le consommateur k_
                     denom_k = 0.0
-                    for c_ in CROPS:
+                    for c_ in prod:
                         # Allocation locale
                         if (c_, k_) in idx_alloc:
                             denom_k += x[idx_alloc[(c_, k_)]]
@@ -3981,7 +3989,7 @@ class NitrogenFlowModel_prospect:
                 return cons
 
             def production_balance_expr(x_, c):
-                """Production (kt N) – consommations (aliment + méthano)  ≥  0"""
+                """Production (kt N) - consommations (aliment + méthano)  ≥  0"""
 
                 # a) N allouée à l’alimentation humaine & animale
                 sum_local = 0.0
@@ -4154,6 +4162,10 @@ class NitrogenFlowModel_prospect:
             x_opt = res.x
             self.x_opt = x_opt
 
+            # from IPython import embed
+
+            # embed()
+
             # return (
             #     x_opt,
             #     df_cultures,
@@ -4259,6 +4271,7 @@ class NitrogenFlowModel_prospect:
                         "Allocated Nitrogen (ktN)": val,
                         "Share (%)": val * 100 / (total_N_methan + 1e-9),
                         "Destination": "methaniser",
+                        "Energy power (GwH/tMB)": power_MB[item],
                     }
                 )
             allocation_energy_df = pd.DataFrame(allocation_energy).sort_values("Share (%)", ascending=False)
@@ -5044,10 +5057,7 @@ class NitrogenFlowModel_prospect:
             cons_viande_import = cons_viande - df_elevage["Edible Nitrogen (ktN)"].sum()
             commerce_path = "FAOSTAT_data_fr_viande_import.csv"
             commerce = pd.read_csv(os.path.join(self.data_path, commerce_path))
-            if (
-                int(year) < 1965
-            ):  # Si on est avant 65, on se base sur les rations de 65. De toute façon ça concerne des import minoritaires...
-                year = "1965"
+            year = "2014"
             commerce = commerce.loc[commerce["Année"] == int(year), ["Produit", "Valeur"]]
 
             corresp_dict = {
