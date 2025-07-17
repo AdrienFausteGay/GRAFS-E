@@ -429,6 +429,26 @@ with tab2:
         st.subheader(f"Heatmap of the nitrogen flows for {st.session_state.selected_region} in {st.session_state.year}")
         st.plotly_chart(st.session_state.heatmap_fig, use_container_width=True)
 
+        # Bouton pour télécharger la matrice
+        # ───── Création du DataFrame à partir de la matrice ──────────
+        matrix = st.session_state.model.get_transition_matrix()
+        df_matrix = pd.DataFrame(
+            matrix,
+            index=st.session_state.model.labels,
+            columns=st.session_state.model.labels,
+        )
+
+        # ───── Conversion en CSV (encodage UTF-8) ───────────────────
+        csv_bytes = df_matrix.to_csv(index=True).encode("utf-8")
+
+        # ───── Bouton de téléchargement ─────────────────────────────
+        st.download_button(
+            label="📥 Download matrix (csv)",
+            data=csv_bytes,
+            file_name=f"transition_matrix_{st.session_state.selected_region}_{st.session_state.year}.csv",
+            mime="text/csv",
+            key="hist"
+        )
 
 with tab3:
     st.title("Sankey")
@@ -972,7 +992,7 @@ with tab5:
         if st.session_state.map_html:
             st.components.v1.html(st.session_state.map_html, height=800, scrolling=True)
             st.dataframe(table)
-            st.download_button("Download Data", table.to_csv(index=False), file_name="data.csv")
+            st.download_button("Download Data", table.to_csv(index=False), file_name="data.csv", key="mapbutton")
         else:
             st.warning("Please run the model to generate the map.")
 
@@ -1696,6 +1716,7 @@ with tab6:
                         data=file_data,
                         file_name=st.session_state.name + ".xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="scenar_button"
                     )
                     st.markdown("Once you have your scenario ready, go to Prospective mode tab.")
 
@@ -1807,6 +1828,7 @@ with tab6:
                     data=st.session_state.pkl_blob,
                     file_name=f"{st.session_state.name}.pkl",
                     mime="application/octet-stream",
+                    key="pros_pkl"
                 )
 
             if st.button("🔄 Reset model"):
@@ -1973,3 +1995,23 @@ with tab6:
                     )
                 st.subheader(f"Heatmap – {st.session_state.selected_region_pros} in {st.session_state.year_pros}")
                 st.plotly_chart(st.session_state.heatmap_fig_pros, use_container_width=True)
+                # Bouton pour télécharger la matrice
+                # ───── Création du DataFrame à partir de la matrice ──────────
+                matrix = st.session_state.model.get_transition_matrix()
+                df_matrix = pd.DataFrame(
+                    matrix,
+                    index=st.session_state.model.labels,
+                    columns=st.session_state.model.labels,
+                )
+
+                # ───── Conversion en CSV (encodage UTF-8) ───────────────────
+                csv_bytes = df_matrix.to_csv(index=True).encode("utf-8")
+
+                # ───── Bouton de téléchargement ─────────────────────────────
+                st.download_button(
+                    label="📥 Download matrix (csv)",
+                    data=csv_bytes,
+                    file_name=f"transition_matrix_{st.session_state.selected_region}_{st.session_state.year}.csv",
+                    mime="text/csv",
+                    key="pros_matrix"
+                )
