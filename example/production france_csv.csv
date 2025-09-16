@@ -1,0 +1,370 @@
+,Unnamed: 0,Area,Year,category,subgroup1,subgroup2,subgroup3,item code,item,value,unit,Nitrogen Production (ktN)
+417836,417836,France,1961,Vegetal productions,"Crops, primary","Cereals, primary",,44,Barley,5412790.0,t,97610.64631529072
+417837,417837,France,1961,Vegetal productions,"Crops, primary","Cereals, primary",,89,Buckwheat,55660.0,t,962.918
+417838,417838,France,1961,Vegetal productions,"Crops, primary","Cereals, primary",,56,Maize (corn),2480000.0,t,30791.68
+417839,417839,France,1961,Vegetal productions,"Crops, primary","Cereals, primary",,79,Millet,4645.0,t,94.54897499999998
+417840,417840,France,1961,Vegetal productions,"Crops, primary","Cereals, primary",,103,Mixed grain,185680.0,t,2246.728
+417841,417841,France,1961,Vegetal productions,"Crops, primary","Cereals, primary",,75,Oats,2590690.0,t,55958.904
+417842,417842,France,1961,Vegetal productions,"Crops, primary","Cereals, primary",,27,Rice,133690.0,t,1724.601
+417843,417843,France,1961,Vegetal productions,"Crops, primary","Cereals, primary",,71,Rye,346810.0,t,7387.052999999999
+417844,417844,France,1961,Vegetal productions,"Crops, primary","Cereals, primary",,83,Sorghum,18990.0,t,276.3677999367
+417845,417845,France,1961,Vegetal productions,"Crops, primary","Cereals, primary",,15,Wheat,9573520.0,t,200469.5088
+417846,417846,France,1961,Vegetal productions,"Crops, primary",Fibre Crops Primary,,771,"Flax, raw or retted",55520.0,t,1837.712
+417847,417847,France,1961,Vegetal productions,"Crops, primary",Fibre Crops Primary,,777,"True hemp, raw or retted",2335.0,t,7.331900000000001
+417848,417848,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,"Citrus Fruit, Total",497,Lemons and limes,280.0,t,0.504
+417849,417849,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,"Citrus Fruit, Total",490,Oranges,1300.0,t,4.03
+417850,417850,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,"Citrus Fruit, Total",495,"Tangerines, mandarins, clementines",920.0,t,1.7480000000000002
+417851,417851,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,,515,Apples,2142000.0,t,4641.00000714
+417852,417852,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,,526,Apricots,93910.0,t,350.5973330203
+417853,417853,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,,552,Blueberries,10000.0,t,10.6
+417854,417854,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,,568,Cantaloupes and other melons,163530.0,t,0.0
+417855,417855,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,,531,Cherries,92500.0,t,162.79999999999998
+417856,417856,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,,550,Currants,7350.0,t,16.464000000000002
+417857,417857,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,,569,Figs,3330.0,t,10.1232
+417858,417858,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,,560,Grapes,7491000.0,t,26967.6
+417859,417859,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,,541,Other stone fruits,2000.0,t,4.44
+417860,417860,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,,534,Peaches and nectarines,325010.0,t,715.0219999999999
+417861,417861,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,,521,Pears,333000.0,t,589.41
+417862,417862,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,,536,Plums and sloes,155950.0,t,374.28
+417863,417863,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,,523,Quinces,1010.0,t,0.3232
+417864,417864,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,,547,Raspberries,3910.0,t,5.6304
+417865,417865,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,,544,Strawberries,56040.0,t,307.0992
+417866,417866,France,1961,Vegetal productions,"Crops, primary",Fruit Primary,,567,Watermelons,5420.0,t,9.755999999999998
+417867,417867,France,1961,Vegetal productions,"Crops, primary",Oilcrops Primary,,336,Hempseed,900.0,t,31.68
+417868,417868,France,1961,Vegetal productions,"Crops, primary",Oilcrops Primary,,333,Linseed,46100.0,t,1327.68
+417869,417869,France,1961,Vegetal productions,"Crops, primary",Oilcrops Primary,,292,Mustard seed,13678.0,t,544.93152
+417870,417870,France,1961,Vegetal productions,"Crops, primary",Oilcrops Primary,,260,Olives,2009.0,t,14.6657
+417871,417871,France,1961,Vegetal productions,"Crops, primary",Oilcrops Primary,,339,"Other oil seeds, n.e.c.",45000.0,t,588.3428569499999
+417872,417872,France,1961,Vegetal productions,"Crops, primary",Oilcrops Primary,,296,Poppy seed,456.0,t,13.1328
+417873,417873,France,1961,Vegetal productions,"Crops, primary",Oilcrops Primary,,270,Rape or colza seed,106519.0,t,3340.43584
+417874,417874,France,1961,Vegetal productions,"Crops, primary",Oilcrops Primary,,267,Sunflower seed,12201.0,t,287.45556
+417875,417875,France,1961,Vegetal productions,"Crops, primary","Pulses, Total",,176,"Beans, dry",86770.0,t,3625.8290669559
+417876,417876,France,1961,Vegetal productions,"Crops, primary","Pulses, Total",,181,"Broad beans and horse beans, dry",54780.0,t,1655.4515999999996
+417877,417877,France,1961,Vegetal productions,"Crops, primary","Pulses, Total",,201,"Lentils, dry",9710.0,t,348.20059999999995
+417878,417878,France,1961,Vegetal productions,"Crops, primary","Pulses, Total",,211,Other pulses n.e.c.,1250.0,t,32.5833333375
+417879,417879,France,1961,Vegetal productions,"Crops, primary","Pulses, Total",,187,"Peas, dry",22610.0,t,859.18
+417880,417880,France,1961,Vegetal productions,"Crops, primary","Roots and Tubers, Total",,116,Potatoes,14331130.0,t,36343.74568
+417881,417881,France,1961,Vegetal productions,"Crops, primary",Sugar Crops Primary,,157,Sugar beet,13235800.0,t,27706.941289214003
+417882,417882,France,1961,Vegetal productions,"Crops, primary","Treenuts, Total",,221,"Almonds, in shell",3680.0,t,143.15200000000002
+417883,417883,France,1961,Vegetal productions,"Crops, primary","Treenuts, Total",,220,"Chestnuts, in shell",71230.0,t,205.1424
+417884,417884,France,1961,Vegetal productions,"Crops, primary","Treenuts, Total",,225,"Hazelnuts, in shell",290.0,t,1.537
+417885,417885,France,1961,Vegetal productions,"Crops, primary","Treenuts, Total",,222,"Walnuts, in shell",27800.0,t,614.936
+417886,417886,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,366,Artichokes,160000.0,t,512.0
+417887,417887,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,367,Asparagus,68480.0,t,327.3344
+417888,417888,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,420,"Broad beans and horse beans, green",8770.0,t,42.973
+417889,417889,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,358,Cabbages,596720.0,t,2261.5688
+417890,417890,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,426,Carrots and turnips,606350.0,t,1290.3128
+417891,417891,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,393,Cauliflowers and broccoli,429800.0,t,1704.8733347659995
+417892,417892,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,401,"Chillies and peppers, green (Capsicum spp. and Pimenta spp.)",2830.0,t,6.2826
+417893,417893,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,397,Cucumbers and gherkins,50660.0,t,77.6786664978
+417894,417894,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,399,Eggplants (aubergines),28430.0,t,79.98306657190001
+417895,417895,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,406,Green garlic,37050.0,t,237.12
+417896,417896,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,407,Leeks and other alliaceous vegetables,392370.0,t,1196.7285
+417897,417897,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,372,Lettuce and chicory,458000.0,t,1105.3066651400002
+417898,417898,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,449,Mushrooms and truffles,32342.0,t,300.13376
+417899,417899,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,403,"Onions and shallots, dry (excluding dehydrated)",240100.0,t,621.0586674670001
+417900,417900,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,402,"Onions and shallots, green",13780.0,t,35.4605332874
+417901,417901,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,414,"Other beans, green",51510.0,t,211.191
+417902,417902,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,463,"Other vegetables, fresh n.e.c.",3533000.0,t,19855.460000000003
+417903,417903,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,417,"Peas, green",276600.0,t,4619.22
+417904,417904,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,394,"Pumpkins, squash and gourds",171060.0,t,456.16000057020005
+417905,417905,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,373,Spinach,83760.0,t,336.71520000000004
+417906,417906,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,423,String beans,172420.0,t,513.8116
+417907,417907,France,1961,Vegetal productions,"Crops, primary",Vegetables Primary,,388,Tomatoes,530400.0,t,716.04
+417908,417908,France,1961,Vegetal productions,"Crops, primary",,,459,Chicory roots,160050.0,t,281.688
+417909,417909,France,1961,Vegetal productions,"Crops, primary",,,17530,"Fibre Crops, Fibre Equivalent",57855.0,t,0.0
+417910,417910,France,1961,Vegetal productions,"Crops, primary",,,677,Hop cones,1946.0,t,36.001000000000005
+417911,417911,France,1961,Vegetal productions,"Crops, primary",,,1841,"Oilcrops, Cake Equivalent",134435.11,t,0.0
+417912,417912,France,1961,Vegetal productions,"Crops, primary",,,1732,"Oilcrops, Oil Equivalent",80901.89,t,0.0
+417913,417913,France,1961,Vegetal productions,"Crops, primary",,,826,Unmanufactured tobacco,34238.0,t,1429.4365
+417914,417914,France,1961,Animal productions,Livestock primary,Eggs Primary,,1062,"Hen eggs in shell, fresh",520000.0,t,10244.0
+417915,417915,France,1961,Animal productions,Livestock primary,"Hides and skins, primary",,919,Raw hides and skins of cattle,138009.0,t,7286.8752
+417916,417916,France,1961,Animal productions,Livestock primary,"Hides and skins, primary",,1025,Raw hides and skins of goats or kids,411.0,t,21.7008
+417917,417917,France,1961,Animal productions,Livestock primary,"Hides and skins, primary",,995,Raw hides and skins of sheep or lambs,12779.0,t,674.7312000000001
+417918,417918,France,1961,Animal productions,Livestock primary,"Meat, Total","Meat, Poultry",1058,"Meat of chickens, fresh or chilled",439000.0,t,13170.0
+417919,417919,France,1961,Animal productions,Livestock primary,"Meat, Total","Meat, Poultry",1069,"Meat of ducks, fresh or chilled",30000.0,t,900.0
+417920,417920,France,1961,Animal productions,Livestock primary,"Meat, Total","Meat, Poultry",1073,"Meat of geese, fresh or chilled",9000.0,t,270.0
+417921,417921,France,1961,Animal productions,Livestock primary,"Meat, Total","Meat, Poultry",1080,"Meat of turkeys, fresh or chilled",41700.0,t,1251.0
+417922,417922,France,1961,Animal productions,Livestock primary,"Meat, Total",Sheep and Goat Meat,1017,"Meat of goat, fresh or chilled",6000.0,t,162.00000000000003
+417923,417923,France,1961,Animal productions,Livestock primary,"Meat, Total",Sheep and Goat Meat,977,"Meat of sheep, fresh or chilled",99000.0,t,2673.0
+417924,417924,France,1961,Animal productions,Livestock primary,"Meat, Total","Beef and Buffalo Meat, primary",867,"Meat of cattle with the bone, fresh or chilled",1448000.0,t,45322.4
+417925,417925,France,1961,Animal productions,Livestock primary,"Meat, Total",,1097,"Horse meat, fresh or chilled",102000.0,t,3192.6
+417926,417926,France,1961,Animal productions,Livestock primary,"Meat, Total",,1035,"Meat of pig with the bone, fresh or chilled",1188000.0,t,41580.0
+417927,417927,France,1961,Animal productions,Livestock primary,"Meat, Total",,1141,"Meat of rabbits and hares, fresh or chilled",190000.0,t,5700.0
+417928,417928,France,1961,Animal productions,Livestock primary,"Meat, Total",,1166,"Other meat of mammals, fresh or chilled",140000.0,t,4200.0
+417929,417929,France,1961,Animal productions,Livestock primary,"Milk, Total",,882,Raw milk of cattle,19069296.0,t,101067.2688
+417930,417930,France,1961,Animal productions,Livestock primary,"Milk, Total",,1020,Raw milk of goats,250000.0,t,2350.0
+417931,417931,France,1961,Animal productions,Livestock primary,"Milk, Total",,982,Raw milk of sheep,87600.0,t,823.44
+417932,417932,France,1961,Animal productions,Livestock primary,,,869,"Cattle fat, unrendered",77969.23,t,233.90769
+417933,417933,France,1961,Animal productions,Livestock primary,,,868,"Edible offal of cattle, fresh, chilled or frozen",194923.08,t,5652.769319999999
+417934,417934,France,1961,Animal productions,Livestock primary,,,1018,"Edible offal of goat, fresh, chilled or frozen",1269.23,t,36.80767
+417935,417935,France,1961,Animal productions,Livestock primary,,,1036,"Edible offal of pigs, fresh, chilled or frozen",152513.51,t,4422.89179
+417936,417936,France,1961,Animal productions,Livestock primary,,,978,"Edible offal of sheep, fresh, chilled or frozen",8514.0,t,246.906
+417937,417937,France,1961,Animal productions,Livestock primary,,,1098,"Edible offals of horses and other equines,  fresh, chilled or frozen",10577.78,t,306.75562
+417938,417938,France,1961,Animal productions,Livestock primary,,,1037,Fat of pigs,41740.54,t,125.22162
+417939,417939,France,1961,Animal productions,Livestock primary,,,1019,"Goat fat, unrendered",426.92,t,1.28076
+417940,417940,France,1961,Animal productions,Livestock primary,,,1182,Natural honey,8000.0,t,5.64
+417941,417941,France,1961,Animal productions,Livestock primary,,,979,"Sheep fat, unrendered",3000.0,t,9.0
+417942,417942,France,1961,Animal productions,Livestock primary,,,987,"Shorn wool, greasy, including fleece-washed shorn wool",23600.0,t,2607.8
+417943,417943,France,1961,Animal productions,Livestock primary,,,1185,Silk-worm cocoons suitable for reeling,48.0,t,6.48
+417944,417944,France,1961,Live animals,Live Animals,,,1107,Asses,76200.0,An,
+417945,417945,France,1961,Live animals,Live Animals,,,1181,Bees,890000.0,No,
+417946,417946,France,1961,Live animals,Live Animals,Cattle and Buffaloes,,866,Cattle,19501008.0,An,
+417947,417947,France,1961,Live animals,Live Animals,,,1096,Horses,1728800.0,An,
+417948,417948,France,1961,Live animals,Live Animals,,,1110,Mules and hinnies,67300.0,An,
+417949,417949,France,1961,Live animals,Live Animals,Poultry Birds,,1057,Chickens,167000000.0,An,
+417950,417950,France,1961,Live animals,Live Animals,Poultry Birds,,1068,Ducks,9000000.0,An,
+417951,417951,France,1961,Live animals,Live Animals,Poultry Birds,,1072,Geese,1000000.0,An,
+417952,417952,France,1961,Live animals,Live Animals,Poultry Birds,,1079,Turkeys,1600000.0,An,
+417953,417953,France,1961,Live animals,Live Animals,,,1140,Rabbits and hares,38000000.0,An,
+417954,417954,France,1961,Live animals,Live Animals,Sheep and Goats,,976,Sheep,9063000.0,An,
+417955,417955,France,1961,Live animals,Live Animals,Sheep and Goats,,1016,Goats,1172000.0,An,
+417956,417956,France,1961,Live animals,Live Animals,,,1034,Swine / pigs,8603000.0,An,
+425562,425562,France,2023,Vegetal productions,"Crops, primary","Cereals, primary",,44,Barley,12143490.0,t,218987.6029595217
+425563,425563,France,2023,Vegetal productions,"Crops, primary","Cereals, primary",,108,Cereals n.e.c.,270210.0,t,3907.2366
+425564,425564,France,2023,Vegetal productions,"Crops, primary","Cereals, primary",,56,Maize (corn),12834600.0,t,159354.3936
+425565,425565,France,2023,Vegetal productions,"Crops, primary","Cereals, primary",,103,Mixed grain,472570.0,t,5718.097
+425566,425566,France,2023,Vegetal productions,"Crops, primary","Cereals, primary",,75,Oats,337340.0,t,7286.544
+425567,425567,France,2023,Vegetal productions,"Crops, primary","Cereals, primary",,27,Rice,68270.0,t,880.683
+425568,425568,France,2023,Vegetal productions,"Crops, primary","Cereals, primary",,71,Rye,168310.0,t,3585.003
+425569,425569,France,2023,Vegetal productions,"Crops, primary","Cereals, primary",,83,Sorghum,303990.0,t,4424.0677989867
+425570,425570,France,2023,Vegetal productions,"Crops, primary","Cereals, primary",,97,Triticale,1646460.0,t,28450.8288
+425571,425571,France,2023,Vegetal productions,"Crops, primary","Cereals, primary",,15,Wheat,35995570.0,t,753747.2358
+425572,425572,France,2023,Vegetal productions,"Crops, primary",Fibre Crops Primary,,771,"Flax, raw or retted",515340.0,t,17057.754
+425573,425573,France,2023,Vegetal productions,"Crops, primary",Fibre Crops Primary,,777,"True hemp, raw or retted",122820.0,t,385.6548
+425574,425574,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,"Citrus Fruit, Total",497,Lemons and limes,14300.0,t,25.74
+425575,425575,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,"Citrus Fruit, Total",490,Oranges,8980.0,t,27.838
+425576,425576,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,"Citrus Fruit, Total",507,Pomelos and grapefruits,8650.0,t,15.57
+425577,425577,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,"Citrus Fruit, Total",495,"Tangerines, mandarins, clementines",40820.0,t,77.558
+425578,425578,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,515,Apples,1894440.0,t,4104.6200063148
+425579,425579,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,526,Apricots,127780.0,t,477.0453329074
+425580,425580,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,572,Avocados,1210.0,t,3.2670000000000003
+425581,425581,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,486,Bananas,212460.0,t,305.9424
+425582,425582,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,552,Blueberries,10545.0,t,11.1777
+425583,425583,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,568,Cantaloupes and other melons,322500.0,t,0.0
+425584,425584,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,531,Cherries,31080.0,t,54.7008
+425585,425585,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,550,Currants,12890.0,t,28.8736
+425586,425586,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,569,Figs,7190.0,t,21.8576
+425587,425587,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,560,Grapes,6205260.0,t,22338.936
+425588,425588,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,592,Kiwi fruit,49770.0,t,71.66879999999999
+425589,425589,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,603,"Other tropical fruits, n.e.c.",44370.0,t,122.4612
+425590,425590,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,534,Peaches and nectarines,222790.0,t,490.138
+425591,425591,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,521,Pears,128250.0,t,227.0025
+425592,425592,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,536,Plums and sloes,207580.0,t,498.192
+425593,425593,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,547,Raspberries,6300.0,t,9.072
+425594,425594,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,530,Sour cherries,2580.0,t,3.7152
+425595,425595,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,544,Strawberries,77050.0,t,422.234
+425596,425596,France,2023,Vegetal productions,"Crops, primary",Fruit Primary,,567,Watermelons,23510.0,t,42.318000000000005
+425597,425597,France,2023,Vegetal productions,"Crops, primary",,,1738,Other Fruit Primary,78816.08999999985,t,0.0
+425598,425598,France,2023,Vegetal productions,"Crops, primary",Oilcrops Primary,,333,Linseed,51690.0,t,1488.6719999999998
+425599,425599,France,2023,Vegetal productions,"Crops, primary",Oilcrops Primary,,260,Olives,29740.0,t,217.102
+425600,425600,France,2023,Vegetal productions,"Crops, primary",Oilcrops Primary,,339,"Other oil seeds, n.e.c.",26660.0,t,348.5604570286
+425601,425601,France,2023,Vegetal productions,"Crops, primary",Oilcrops Primary,,270,Rape or colza seed,4276890.0,t,134123.2704
+425602,425602,France,2023,Vegetal productions,"Crops, primary",Oilcrops Primary,,236,Soya beans,387820.0,t,22997.726
+425603,425603,France,2023,Vegetal productions,"Crops, primary",Oilcrops Primary,,267,Sunflower seed,2061430.0,t,48567.2908
+425604,425604,France,2023,Vegetal productions,"Crops, primary","Pulses, Total",,181,"Broad beans and horse beans, dry",216320.0,t,6537.1904
+425605,425605,France,2023,Vegetal productions,"Crops, primary","Pulses, Total",,210,Lupins,10870.0,t,472.8449999999999
+425606,425606,France,2023,Vegetal productions,"Crops, primary","Pulses, Total",,211,Other pulses n.e.c.,288910.0,t,7530.9206676297
+425607,425607,France,2023,Vegetal productions,"Crops, primary","Pulses, Total",,187,"Peas, dry",485190.0,t,18437.22
+425608,425608,France,2023,Vegetal productions,"Crops, primary","Roots and Tubers, Total",,116,Potatoes,8606490.0,t,21826.05864
+425609,425609,France,2023,Vegetal productions,"Crops, primary",Sugar Crops Primary,,157,Sugar beet,30580680.0,t,64015.55669806441
+425610,425610,France,2023,Vegetal productions,"Crops, primary","Treenuts, Total",,221,"Almonds, in shell",2130.0,t,82.85700000000001
+425611,425611,France,2023,Vegetal productions,"Crops, primary","Treenuts, Total",,220,"Chestnuts, in shell",8570.0,t,24.6816
+425612,425612,France,2023,Vegetal productions,"Crops, primary","Treenuts, Total",,225,"Hazelnuts, in shell",17160.0,t,90.948
+425613,425613,France,2023,Vegetal productions,"Crops, primary","Treenuts, Total",,222,"Walnuts, in shell",31380.0,t,694.1256000000001
+425614,425614,France,2023,Vegetal productions,"Crops, primary",,,1729,"Other Treenuts, Total",1339.4000000000017,t,0.0
+425615,425615,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,366,Artichokes,23330.0,t,74.656
+425616,425616,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,367,Asparagus,27340.0,t,130.68519999999998
+425617,425617,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,420,"Broad beans and horse beans, green",43900.0,t,215.11
+425618,425618,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,358,Cabbages,175670.0,t,665.7893
+425619,425619,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,426,Carrots and turnips,629630.0,t,1339.85264
+425620,425620,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,393,Cauliflowers and broccoli,208660.0,t,827.6846673622
+425621,425621,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,401,"Chillies and peppers, green (Capsicum spp. and Pimenta spp.)",24970.0,t,55.4334
+425622,425622,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,397,Cucumbers and gherkins,179940.0,t,275.9079994002
+425623,425623,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,399,Eggplants (aubergines),40690.0,t,114.4745331977
+425624,425624,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,406,Green garlic,29310.0,t,187.584
+425625,425625,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,407,Leeks and other alliaceous vegetables,175880.0,t,536.434
+425626,425626,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,372,Lettuce and chicory,401200.0,t,968.2293319960002
+425627,425627,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,449,Mushrooms and truffles,94550.0,t,877.4240000000001
+425628,425628,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,403,"Onions and shallots, dry (excluding dehydrated)",742150.0,t,1919.6946691405
+425629,425629,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,414,"Other beans, green",315980.0,t,1295.5179999999998
+425630,425630,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,463,"Other vegetables, fresh n.e.c.",469910.0,t,2640.8942000000006
+425631,425631,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,417,"Peas, green",268200.0,t,4478.94
+425632,425632,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,394,"Pumpkins, squash and gourds",356830.0,t,951.5466678561002
+425633,425633,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,373,Spinach,79400.0,t,319.18800000000005
+425634,425634,France,2023,Vegetal productions,"Crops, primary",Vegetables Primary,,388,Tomatoes,656190.0,t,885.8565000000001
+425635,425635,France,2023,Vegetal productions,"Crops, primary",,,1735,Other Vegetables Primary,412800.0,t,0.0
+425636,425636,France,2023,Vegetal productions,"Crops, primary",,,17530,"Fibre Crops, Fibre Equivalent",638160.0,t,0.0
+425637,425637,France,2023,Vegetal productions,"Crops, primary",,,677,Hop cones,720.0,t,13.32
+425638,425638,France,2023,Vegetal productions,"Crops, primary",,,826,Unmanufactured tobacco,2920.0,t,121.91
+425639,425639,France,2023,Animal productions,Livestock primary,"Meat, Total","Meat, Poultry",1058,"Meat of chickens, fresh or chilled",1128280.0,t,33848.4
+425640,425640,France,2023,Animal productions,Livestock primary,"Meat, Total","Meat, Poultry",1069,"Meat of ducks, fresh or chilled",136500.0,t,4095.0
+425641,425641,France,2023,Animal productions,Livestock primary,"Meat, Total","Meat, Poultry",1080,"Meat of turkeys, fresh or chilled",240230.0,t,7206.9
+425642,425642,France,2023,Animal productions,Livestock primary,"Meat, Total",,1808,"Other Meat, Poultry",1128.0500000000466,t,0.0
+425643,425643,France,2023,Animal productions,Livestock primary,"Meat, Total",Sheep and Goat Meat,1017,"Meat of goat, fresh or chilled",5870.0,t,158.49
+425644,425644,France,2023,Animal productions,Livestock primary,"Meat, Total",Sheep and Goat Meat,977,"Meat of sheep, fresh or chilled",72830.0,t,1966.41
+425645,425645,France,2023,Animal productions,Livestock primary,"Meat, Total","Beef and Buffalo Meat, primary",867,"Meat of cattle with the bone, fresh or chilled",1301420.0,t,40734.446
+425646,425646,France,2023,Animal productions,Livestock primary,"Meat, Total",,1035,"Meat of pig with the bone, fresh or chilled",2062460.0,t,72186.1
+425647,425647,France,2023,Animal productions,Livestock primary,"Meat, Total",,1141,"Meat of rabbits and hares, fresh or chilled",22137.0,t,664.11
+425648,425648,France,2023,Animal productions,Livestock primary,,,1765,"Other Meat, Total",4877.280000000261,t,0.0
+425649,425649,France,2023,Animal productions,Livestock primary,"Milk, Total",,882,Raw milk of cattle,23882000.0,t,126574.6
+425650,425650,France,2023,Animal productions,Livestock primary,"Milk, Total",,1020,Raw milk of goats,718330.0,t,6752.302
+425651,425651,France,2023,Animal productions,Livestock primary,"Milk, Total",,982,Raw milk of sheep,337300.0,t,3170.62
+425652,425652,France,2023,Live animals,Live Animals,,,1181,Bees,1792000.0,No,
+425653,425653,France,2023,Live animals,Live Animals,Cattle and Buffaloes,,866,Cattle,16806900.0,An,
+425654,425654,France,2023,Live animals,Live Animals,Poultry Birds,,1057,Chickens,220787000.0,An,
+425655,425655,France,2023,Live animals,Live Animals,Poultry Birds,,1068,Ducks,18988000.0,An,
+425656,425656,France,2023,Live animals,Live Animals,Poultry Birds,,1072,Geese,196000.0,An,
+425657,425657,France,2023,Live animals,Live Animals,Poultry Birds,,1079,Turkeys,13780000.0,An,
+425658,425658,France,2023,Live animals,Live Animals,,,1140,Rabbits and hares,377000.0,An,
+425659,425659,France,2023,Live animals,Live Animals,Sheep and Goats,,976,Sheep,6576000.0,An,
+425660,425660,France,2023,Live animals,Live Animals,Sheep and Goats,,1016,Goats,1275000.0,An,
+425661,425661,France,2023,Live animals,Live Animals,,,1034,Swine / pigs,11794050.0,An,
+1465760,1465760,France,1961,Vegetal surfaces,"Crops, primary","Cereals, primary",,44,Barley,2259100.0,ha,
+1465761,1465761,France,1961,Vegetal surfaces,"Crops, primary","Cereals, primary",,89,Buckwheat,45200.0,ha,
+1465762,1465762,France,1961,Vegetal surfaces,"Crops, primary","Cereals, primary",,56,Maize (corn),980600.0,ha,
+1465763,1465763,France,1961,Vegetal surfaces,"Crops, primary","Cereals, primary",,79,Millet,3530.0,ha,
+1465764,1465764,France,1961,Vegetal surfaces,"Crops, primary","Cereals, primary",,103,Mixed grain,111200.0,ha,
+1465765,1465765,France,1961,Vegetal surfaces,"Crops, primary","Cereals, primary",,75,Oats,1441170.0,ha,
+1465766,1465766,France,1961,Vegetal surfaces,"Crops, primary","Cereals, primary",,27,Rice,33000.0,ha,
+1465767,1465767,France,1961,Vegetal surfaces,"Crops, primary","Cereals, primary",,71,Rye,261200.0,ha,
+1465768,1465768,France,1961,Vegetal surfaces,"Crops, primary","Cereals, primary",,83,Sorghum,8000.0,ha,
+1465769,1465769,France,1961,Vegetal surfaces,"Crops, primary","Cereals, primary",,15,Wheat,3997300.0,ha,
+1465770,1465770,France,1961,Vegetal surfaces,"Crops, primary",Fibre Crops Primary,,771,"Flax, raw or retted",52000.0,ha,
+1465771,1465771,France,1961,Vegetal surfaces,"Crops, primary",Fibre Crops Primary,,777,"True hemp, raw or retted",1995.0,ha,
+1465772,1465772,France,1961,Vegetal surfaces,"Crops, primary",Fruit Primary,"Citrus Fruit, Total",497,Lemons and limes,35.0,ha,
+1465773,1465773,France,1961,Vegetal surfaces,"Crops, primary",Fruit Primary,"Citrus Fruit, Total",490,Oranges,415.0,ha,
+1465774,1465774,France,1961,Vegetal surfaces,"Crops, primary",Fruit Primary,"Citrus Fruit, Total",495,"Tangerines, mandarins, clementines",220.0,ha,
+1465775,1465775,France,1961,Vegetal surfaces,"Crops, primary",Fruit Primary,,515,Apples,97362.0,ha,
+1465776,1465776,France,1961,Vegetal surfaces,"Crops, primary",Fruit Primary,,526,Apricots,10329.0,ha,
+1465777,1465777,France,1961,Vegetal surfaces,"Crops, primary",Fruit Primary,,568,Cantaloupes and other melons,13067.0,ha,
+1465778,1465778,France,1961,Vegetal surfaces,"Crops, primary",Fruit Primary,,531,Cherries,14461.0,ha,
+1465779,1465779,France,1961,Vegetal surfaces,"Crops, primary",Fruit Primary,,550,Currants,1499.0,ha,
+1465780,1465780,France,1961,Vegetal surfaces,"Crops, primary",Fruit Primary,,569,Figs,160.0,ha,
+1465781,1465781,France,1961,Vegetal surfaces,"Crops, primary",Fruit Primary,,560,Grapes,1418000.0,ha,
+1465782,1465782,France,1961,Vegetal surfaces,"Crops, primary",Fruit Primary,,534,Peaches and nectarines,52573.0,ha,
+1465783,1465783,France,1961,Vegetal surfaces,"Crops, primary",Fruit Primary,,521,Pears,25337.0,ha,
+1465784,1465784,France,1961,Vegetal surfaces,"Crops, primary",Fruit Primary,,536,Plums and sloes,17609.0,ha,
+1465785,1465785,France,1961,Vegetal surfaces,"Crops, primary",Fruit Primary,,523,Quinces,5.0,ha,
+1465786,1465786,France,1961,Vegetal surfaces,"Crops, primary",Fruit Primary,,547,Raspberries,761.0,ha,
+1465787,1465787,France,1961,Vegetal surfaces,"Crops, primary",Fruit Primary,,544,Strawberries,1500.0,ha,
+1465788,1465788,France,1961,Vegetal surfaces,"Crops, primary",Fruit Primary,,567,Watermelons,177.0,ha,
+1465789,1465789,France,1961,Vegetal surfaces,"Crops, primary",Oilcrops Primary,,336,Hempseed,2065.0,ha,
+1465790,1465790,France,1961,Vegetal surfaces,"Crops, primary",Oilcrops Primary,,333,Linseed,52000.0,ha,
+1465791,1465791,France,1961,Vegetal surfaces,"Crops, primary",Oilcrops Primary,,292,Mustard seed,15990.0,ha,
+1465792,1465792,France,1961,Vegetal surfaces,"Crops, primary",Oilcrops Primary,,260,Olives,44756.0,ha,
+1465793,1465793,France,1961,Vegetal surfaces,"Crops, primary",Oilcrops Primary,,296,Poppy seed,445.0,ha,
+1465794,1465794,France,1961,Vegetal surfaces,"Crops, primary",Oilcrops Primary,,270,Rape or colza seed,70176.0,ha,
+1465795,1465795,France,1961,Vegetal surfaces,"Crops, primary",Oilcrops Primary,,267,Sunflower seed,7144.0,ha,
+1465796,1465796,France,1961,Vegetal surfaces,"Crops, primary","Pulses, Total",,176,"Beans, dry",95600.0,ha,
+1465797,1465797,France,1961,Vegetal surfaces,"Crops, primary","Pulses, Total",,181,"Broad beans and horse beans, dry",37600.0,ha,
+1465798,1465798,France,1961,Vegetal surfaces,"Crops, primary","Pulses, Total",,201,"Lentils, dry",12800.0,ha,
+1465799,1465799,France,1961,Vegetal surfaces,"Crops, primary","Pulses, Total",,211,Other pulses n.e.c.,1200.0,ha,
+1465800,1465800,France,1961,Vegetal surfaces,"Crops, primary","Pulses, Total",,187,"Peas, dry",11900.0,ha,
+1465801,1465801,France,1961,Vegetal surfaces,"Crops, primary","Roots and Tubers, Total",,116,Potatoes,890176.0,ha,
+1465802,1465802,France,1961,Vegetal surfaces,"Crops, primary",Sugar Crops Primary,,157,Sugar beet,359300.0,ha,
+1465803,1465803,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,366,Artichokes,20109.0,ha,
+1465804,1465804,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,367,Asparagus,23170.0,ha,
+1465805,1465805,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,420,"Broad beans and horse beans, green",600.0,ha,
+1465806,1465806,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,358,Cabbages,24993.0,ha,
+1465807,1465807,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,426,Carrots and turnips,25402.0,ha,
+1465808,1465808,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,393,Cauliflowers and broccoli,25279.0,ha,
+1465809,1465809,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,401,"Chillies and peppers, green (Capsicum spp. and Pimenta spp.)",343.0,ha,
+1465810,1465810,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,397,Cucumbers and gherkins,3167.0,ha,
+1465811,1465811,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,399,Eggplants (aubergines),1422.0,ha,
+1465812,1465812,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,406,Green garlic,6291.0,ha,
+1465813,1465813,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,407,Leeks and other alliaceous vegetables,13281.0,ha,
+1465814,1465814,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,372,Lettuce and chicory,24900.0,ha,
+1465815,1465815,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,403,"Onions and shallots, dry (excluding dehydrated)",13228.0,ha,
+1465816,1465816,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,402,"Onions and shallots, green",1191.0,ha,
+1465817,1465817,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,414,"Other beans, green",7739.0,ha,
+1465818,1465818,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,463,"Other vegetables, fresh n.e.c.",307000.0,ha,
+1465819,1465819,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,417,"Peas, green",39944.0,ha,
+1465820,1465820,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,394,"Pumpkins, squash and gourds",3767.0,ha,
+1465821,1465821,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,373,Spinach,4738.0,ha,
+1465822,1465822,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,423,String beans,29432.0,ha,
+1465823,1465823,France,1961,Vegetal surfaces,"Crops, primary",Vegetables Primary,,388,Tomatoes,20269.0,ha,
+1465824,1465824,France,1961,Vegetal surfaces,"Crops, primary",,,459,Chicory roots,4595.0,ha,
+1465825,1465825,France,1961,Vegetal surfaces,"Crops, primary",,,17530,"Fibre Crops, Fibre Equivalent",53995.0,ha,
+1465826,1465826,France,1961,Vegetal surfaces,"Crops, primary",,,677,Hop cones,1140.0,ha,
+1465827,1465827,France,1961,Vegetal surfaces,"Crops, primary",,,1841,"Oilcrops, Cake Equivalent",147820.0,ha,
+1465828,1465828,France,1961,Vegetal surfaces,"Crops, primary",,,1732,"Oilcrops, Oil Equivalent",192576.0,ha,
+1465829,1465829,France,1961,Vegetal surfaces,"Crops, primary",,,826,Unmanufactured tobacco,21750.0,ha,
+1470628,1470628,France,2023,Vegetal surfaces,"Crops, primary","Cereals, primary",,44,Barley,1815490.0,ha,
+1470629,1470629,France,2023,Vegetal surfaces,"Crops, primary","Cereals, primary",,108,Cereals n.e.c.,79210.0,ha,
+1470630,1470630,France,2023,Vegetal surfaces,"Crops, primary","Cereals, primary",,56,Maize (corn),1314680.0,ha,
+1470631,1470631,France,2023,Vegetal surfaces,"Crops, primary","Cereals, primary",,103,Mixed grain,113140.0,ha,
+1470632,1470632,France,2023,Vegetal surfaces,"Crops, primary","Cereals, primary",,75,Oats,78900.0,ha,
+1470633,1470633,France,2023,Vegetal surfaces,"Crops, primary","Cereals, primary",,27,Rice,12120.0,ha,
+1470634,1470634,France,2023,Vegetal surfaces,"Crops, primary","Cereals, primary",,71,Rye,38820.0,ha,
+1470635,1470635,France,2023,Vegetal surfaces,"Crops, primary","Cereals, primary",,83,Sorghum,54610.0,ha,
+1470636,1470636,France,2023,Vegetal surfaces,"Crops, primary","Cereals, primary",,97,Triticale,326270.0,ha,
+1470637,1470637,France,2023,Vegetal surfaces,"Crops, primary","Cereals, primary",,15,Wheat,4998280.0,ha,
+1470638,1470638,France,2023,Vegetal surfaces,"Crops, primary",Fibre Crops Primary,,771,"Flax, raw or retted",131160.0,ha,
+1470639,1470639,France,2023,Vegetal surfaces,"Crops, primary",Fibre Crops Primary,,777,"True hemp, raw or retted",19410.0,ha,
+1470640,1470640,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,"Citrus Fruit, Total",497,Lemons and limes,2580.0,ha,
+1470641,1470641,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,"Citrus Fruit, Total",490,Oranges,950.0,ha,
+1470642,1470642,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,"Citrus Fruit, Total",512,"Other citrus fruit, n.e.c.",680.0,ha,
+1470643,1470643,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,"Citrus Fruit, Total",507,Pomelos and grapefruits,380.0,ha,
+1470644,1470644,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,"Citrus Fruit, Total",495,"Tangerines, mandarins, clementines",2360.0,ha,
+1470645,1470645,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,515,Apples,53800.0,ha,
+1470646,1470646,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,526,Apricots,11120.0,ha,
+1470647,1470647,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,572,Avocados,150.0,ha,
+1470648,1470648,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,486,Bananas,10900.0,ha,
+1470649,1470649,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,552,Blueberries,2485.0,ha,
+1470650,1470650,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,568,Cantaloupes and other melons,13590.0,ha,
+1470651,1470651,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,531,Cherries,6680.0,ha,
+1470652,1470652,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,550,Currants,2810.0,ha,
+1470653,1470653,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,569,Figs,830.0,ha,
+1470654,1470654,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,560,Grapes,753340.0,ha,
+1470655,1470655,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,592,Kiwi fruit,3990.0,ha,
+1470656,1470656,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,558,Other berries and fruits of the genus vaccinium n.e.c.,1330.0,ha,
+1470657,1470657,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,542,Other pome fruits,4210.0,ha,
+1470658,1470658,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,541,Other stone fruits,6470.0,ha,
+1470659,1470659,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,603,"Other tropical fruits, n.e.c.",6130.0,ha,
+1470660,1470660,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,534,Peaches and nectarines,11220.0,ha,
+1470661,1470661,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,521,Pears,6080.0,ha,
+1470662,1470662,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,536,Plums and sloes,15110.0,ha,
+1470663,1470663,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,547,Raspberries,680.0,ha,
+1470664,1470664,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,530,Sour cherries,760.0,ha,
+1470665,1470665,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,544,Strawberries,3890.0,ha,
+1470666,1470666,France,2023,Vegetal surfaces,"Crops, primary",Fruit Primary,,567,Watermelons,930.0,ha,
+1470667,1470667,France,2023,Vegetal surfaces,"Crops, primary",Oilcrops Primary,,333,Linseed,26900.0,ha,
+1470668,1470668,France,2023,Vegetal surfaces,"Crops, primary",Oilcrops Primary,,260,Olives,16790.0,ha,
+1470669,1470669,France,2023,Vegetal surfaces,"Crops, primary",Oilcrops Primary,,339,"Other oil seeds, n.e.c.",19550.0,ha,
+1470670,1470670,France,2023,Vegetal surfaces,"Crops, primary",Oilcrops Primary,,270,Rape or colza seed,1345730.0,ha,
+1470671,1470671,France,2023,Vegetal surfaces,"Crops, primary",Oilcrops Primary,,236,Soya beans,157750.0,ha,
+1470672,1470672,France,2023,Vegetal surfaces,"Crops, primary",Oilcrops Primary,,267,Sunflower seed,821740.0,ha,
+1470673,1470673,France,2023,Vegetal surfaces,"Crops, primary","Pulses, Total",,181,"Broad beans and horse beans, dry",80230.0,ha,
+1470674,1470674,France,2023,Vegetal surfaces,"Crops, primary","Pulses, Total",,210,Lupins,4930.0,ha,
+1470675,1470675,France,2023,Vegetal surfaces,"Crops, primary","Pulses, Total",,211,Other pulses n.e.c.,116930.0,ha,
+1470676,1470676,France,2023,Vegetal surfaces,"Crops, primary","Pulses, Total",,187,"Peas, dry",151600.0,ha,
+1470677,1470677,France,2023,Vegetal surfaces,"Crops, primary","Roots and Tubers, Total",,116,Potatoes,204010.0,ha,
+1470678,1470678,France,2023,Vegetal surfaces,"Crops, primary",Sugar Crops Primary,,157,Sugar beet,380550.0,ha,
+1470679,1470679,France,2023,Vegetal surfaces,"Crops, primary","Treenuts, Total",,221,"Almonds, in shell",2330.0,ha,
+1470680,1470680,France,2023,Vegetal surfaces,"Crops, primary","Treenuts, Total",,220,"Chestnuts, in shell",9080.0,ha,
+1470681,1470681,France,2023,Vegetal surfaces,"Crops, primary","Treenuts, Total",,225,"Hazelnuts, in shell",7920.0,ha,
+1470682,1470682,France,2023,Vegetal surfaces,"Crops, primary","Treenuts, Total",,234,"Other nuts (excluding wild edible nuts and groundnuts), in shell, n.e.c.",7030.0,ha,
+1470683,1470683,France,2023,Vegetal surfaces,"Crops, primary","Treenuts, Total",,222,"Walnuts, in shell",26870.0,ha,
+1470684,1470684,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,366,Artichokes,4100.0,ha,
+1470685,1470685,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,367,Asparagus,6670.0,ha,
+1470686,1470686,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,420,"Broad beans and horse beans, green",7090.0,ha,
+1470687,1470687,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,358,Cabbages,7910.0,ha,
+1470688,1470688,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,426,Carrots and turnips,15110.0,ha,
+1470689,1470689,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,393,Cauliflowers and broccoli,15320.0,ha,
+1470690,1470690,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,401,"Chillies and peppers, green (Capsicum spp. and Pimenta spp.)",1360.0,ha,
+1470691,1470691,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,397,Cucumbers and gherkins,1710.0,ha,
+1470692,1470692,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,399,Eggplants (aubergines),1410.0,ha,
+1470693,1470693,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,406,Green garlic,4130.0,ha,
+1470694,1470694,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,407,Leeks and other alliaceous vegetables,5360.0,ha,
+1470695,1470695,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,372,Lettuce and chicory,16450.0,ha,
+1470696,1470696,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,403,"Onions and shallots, dry (excluding dehydrated)",21780.0,ha,
+1470697,1470697,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,414,"Other beans, green",26000.0,ha,
+1470698,1470698,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,463,"Other vegetables, fresh n.e.c.",23850.0,ha,
+1470699,1470699,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,417,"Peas, green",40150.0,ha,
+1470700,1470700,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,394,"Pumpkins, squash and gourds",12520.0,ha,
+1470701,1470701,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,373,Spinach,4400.0,ha,
+1470702,1470702,France,2023,Vegetal surfaces,"Crops, primary",Vegetables Primary,,388,Tomatoes,5920.0,ha,
+1470703,1470703,France,2023,Vegetal surfaces,"Crops, primary",,,1735,Other Vegetables Primary,21700.0,ha,
+1470704,1470704,France,2023,Vegetal surfaces,"Crops, primary",,,677,Hop cones,550.0,ha,
+1470705,1470705,France,2023,Vegetal surfaces,"Crops, primary",,,826,Unmanufactured tobacco,1060.0,ha,
