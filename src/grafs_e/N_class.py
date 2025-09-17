@@ -188,6 +188,9 @@ class DataLoader:
         df_prod = self.get_columns(area, year, self.init_df_prod, categories_needed=(
             "Production (kton)",
             "Nitrogen Content (%)",
+            "Origin compartment",
+            "Type",
+            "Sub Type",
         ))
 
         # Calcul de l'azote disponible pour les cultures
@@ -227,14 +230,20 @@ class DataLoader:
             "Seed input (kt seeds/kt Ymax)",
             "Fertilization Need (kgN/qtl)",
             "Surface Fertilization Need (kgN/ha)",
+            "Harvest Index",
+            "Main Production",
+            "Category",
+            "BNF alpha",
+            "BNF beta",
+            "BGN"
         ))
 
         df_prod = self.generate_df_prod(area, year)
-        df_cultures["Main Crop Production (kton)"] = df_cultures["Main production"].map(df_prod["Production (kton)"])
+        df_cultures["Main Crop Production (kton)"] = df_cultures["Main Production"].map(df_prod["Production (kton)"])
         
         # Calcul du N produit (ktN) = production (kton) * N% / 100
         df_cultures["Main Nitrogen Production (ktN)"] = (
-            df_cultures["Main Crop Production (kton)"] * df_cultures["Main production"].map(df_prod["Nitrogen Content (%)"]) / 100
+            df_cultures["Main Crop Production (kton)"] * df_cultures["Main Production"].map(df_prod["Nitrogen Content (%)"]) / 100
         )
 
         mask = df_cultures["Area (ha)"] != 0
@@ -304,19 +313,15 @@ class DataLoader:
             "N-N2 EM excretion (%)",
             "N-N2O EM excretion (%)",
             "Total ingestion per capita (kgN)",
-            "Vegetal ingestion per capita (kgN)",
-            "Animal ingestion per capita (kgN)",
+            "Fischery ingestion per capita (kgN)",
             "Excretion recycling (%)",
         ))
 
-        df_pop["Plant Ingestion (ktN)"] = df_pop["Inhabitants"]*df_pop["Vegetal ingestion per capita (kgN)"] / 1e6
-        df_pop["Animal Ingestion (ktN)"] = df_pop["Inhabitants"]*df_pop["Animal ingestion per capita (kgN)"] / 1e6
+        #TODO a calculer à la fin de compute_fluxes()
+        # df_pop["Plant Ingestion (ktN)"] = df_pop["Inhabitants"]*df_pop["Vegetal ingestion per capita (kgN)"] / 1e6
+        # df_pop["Animal Ingestion (ktN)"] = df_pop["Inhabitants"]*df_pop["Animal ingestion per capita (kgN)"] / 1e6
         df_pop["Ingestion (ktN)"] = df_pop["Inhabitants"]*df_pop["Total ingestion per capita (kgN)"] / 1e6
-        df_pop["Fishery Ingestion (ktN)"] = df_pop["Ingestion (ktN)"] - df_pop["Plant Ingestion (ktN)"] - df_pop["Animal Ingestion (ktN)"]
-
-        self.N_boue = df_pop["Ingestion (ktN)"].sum()
-        self.N_vege = df_pop["Plant Ingestion (ktN)"].sum()
-        self.N_viande = df_pop["Animal Ingestion (ktN)"].sum()
+        df_pop["Fishery Ingestion (ktN)"] = df_pop["Inhabitants"]*df_pop["Fischery ingestion per capita (kgN)"] / 1e6
 
         df_pop = df_pop.fillna(0)
         self.df_pop = df_pop
@@ -952,12 +957,6 @@ class NitrogenFlowModel:
 
         ## Fixation symbiotique
 
-        df_cultures["Harvest Index"] = np.where(
-            df_cultures["Fan coef a"] != 0,
-            (df_cultures["Fan coef b"] * df_cultures["Yield (kgN/ha)"] / 100 + df_cultures["Fan coef a"]),
-            df_cultures["Carbon allocation to grain (%)"] / (df_cultures["Carbon allocation to grain (%)"] + df_cultures["Carbon allocation to straw (%)"])
-        )
-
         target_fixation = (
             (df_cultures["BNF alpha"]*df_cultures["Main Nitrogen Production (ktN)"]/df_cultures["Harvest Index"] + df_cultures["BNF beta"])*df_cultures["BGN"]
         ).to_dict()
@@ -1156,7 +1155,6 @@ class NitrogenFlowModel:
         total_surface_cereales = df_cultures.loc[
             (
                 (df_cultures["Category"] == "cereals (excluding rice)")
-                | (df_cultures.index.isin(["Forage maize"]))
             ),
             "Area (ha)",
         ].sum()
@@ -1164,14 +1162,12 @@ class NitrogenFlowModel:
         df_cultures.loc[
             (
                 (df_cultures["Category"] == "cereals (excluding rice)")
-                | (df_cultures.index.isin(["Forage maize"]))
             ),
             "Leguminous heritage (ktN)",
         ] = (
             df_cultures.loc[
                 (
                     (df_cultures["Category"] == "cereals (excluding rice)")
-                    | (df_cultures.index.isin(["Forage maize"]))
                 ),
                 "Area (ha)",
             ]
@@ -1311,7 +1307,7 @@ class NitrogenFlowModel:
 
         # Filtre les données d'ingestion humaine (attention à ne pas ajouter la consommation de produits de la mer)
         df_pop_ingestion = df_pop.copy()
-        df_pop_ingestion["Ingestion (ktN)"] = df_pop_ingestion["Plant Ingestion (ktN)"] + df_pop_ingestion["Animal Ingestion (ktN)"]
+        df_pop_ingestion["Ingestion (ktN)"] = df_pop_ingestion["Ingestion (ktN)"] - df_pop_ingestion["Fishery Ingestion (ktN)"]
         df_pop_ingestion = df_pop_ingestion.loc[df_pop["Ingestion (ktN)"] > 10**-8, ["Ingestion (ktN)"]]
         df_pop_ingestion["Type"] = "Human"
 
@@ -1575,6 +1571,10 @@ class NitrogenFlowModel:
                 )
 
         allocations_df = pd.DataFrame(allocations)
+
+        from IPython import embed
+
+        embed()
 
         # Filtrer les lignes en supprimant celles dont 'Allocated Nitrogen' est très proche de zéro
         allocations_df = allocations_df[allocations_df["Allocated Nitrogen"].abs() >= 1e-6]
