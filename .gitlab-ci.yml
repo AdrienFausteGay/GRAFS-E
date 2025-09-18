@@ -2,7 +2,7 @@ default:
   image: python:3.12-slim
 
 variables:
-  DOC_DIR: "docs"                    # dossier Sphinx (conf.py dans docs/)
+  DOC_DIR: "docs/source"                    # dossier Sphinx (conf.py dans docs/)
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   UV_PROJECT_ENVIRONMENT: ".venv"    # pour que uv crée .venv dans le repo
   SPHINXOPTS: "-W --keep-going"      # fail on warnings (retire -W si trop strict)
