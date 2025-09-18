@@ -1,0 +1,30 @@
+# Image Python officielle
+image: python:3.13
+
+variables:
+  DOC_DIR: "docs"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+
+before_script:
+  - pip install -U uv
+
+stages:
+  - deploy
+
+pages:
+  stage: deploy
+  script:
+    # Installe les dépendances "docs" depuis pyproject (extras)
+    - uv sync --frozen --extra docs || uv sync --extra docs
+    # Build Sphinx vers le dossier public/
+    - uv run sphinx-build -b html "$DOC_DIR/source" public
+  artifacts:
+    paths:
+      - public
+  rules:
+    # Déploie uniquement depuis la branche par défaut (main/master)
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
