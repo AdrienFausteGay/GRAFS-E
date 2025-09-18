@@ -35,4 +35,5 @@ docs = [
   "matplotlib",
   "plotly",
   "pulp",
+  "sphinx-autodoc-typehints>=2.1",
 ]
