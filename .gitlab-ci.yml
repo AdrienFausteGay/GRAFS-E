@@ -27,6 +27,8 @@ stages:
 docs:preview:
   stage: test
   script:
+    - uv sync --group docs
+    - uv pip install -e .
     - uv run sphinx-build -b html "$DOC_DIR" build/html $SPHINXOPTS
   artifacts:
     name: "docs-preview-$CI_COMMIT_REF_SLUG"
@@ -43,6 +45,8 @@ docs:preview:
 pages:
   stage: deploy
   script:
+    - uv sync --group docs
+    - uv pip install -e .        # ← rend importable grafs_e pour Sphinx
     - uv run sphinx-build -b html "$DOC_DIR" public $SPHINXOPTS
   artifacts:
     paths:
