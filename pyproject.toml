@@ -36,4 +36,5 @@ docs = [
   "plotly",
   "pulp",
   "sphinx-autodoc-typehints>=2.1",
+  "sphinx_copybutton",
 ]
