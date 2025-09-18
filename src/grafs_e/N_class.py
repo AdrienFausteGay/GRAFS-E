@@ -19,16 +19,7 @@ pd.set_option("display.max_rows", None)
 pd.set_option("future.no_silent_downcasting", True)
 
 class DataLoader:
-    """Load the GRAFS Excel file (written by Julia Le Noë).
-
-    This class makes it possible to access all the data stored in the Excel file.
-    Currently, only yearly data (area, production, etc.) are accessed.
-    Stable data is stored in the 'GRAFS_data.xlsx' file.
-
-    This class will become obsolete once a proper database is built.
-
-    No arguments are required; the script automatically finds the Excel sheet.
-    Loading time: approximately 40 seconds.
+    """Load input data files : project file and data file.
     """
 
     def __init__(self, project_path, data_path):
@@ -1572,14 +1563,10 @@ class NitrogenFlowModel:
 
         allocations_df = pd.DataFrame(allocations)
 
-        from IPython import embed
-
-        embed()
-
         # Filtrer les lignes en supprimant celles dont 'Allocated Nitrogen' est très proche de zéro
         allocations_df = allocations_df[allocations_df["Allocated Nitrogen"].abs() >= 1e-6]
 
-        self.allocation_vege = allocations_df
+        self.allocations_df = allocations_df
 
         deviations = []
         for cons, proportion, products_list in pairs:
@@ -1954,8 +1941,8 @@ class NitrogenFlowModel:
         :return: Total imported nitrogen (in ktN).
         :rtype: float
         """
-        return self.allocation_vege.loc[
-            self.allocation_vege["Type"].isin(["Imported Food", "Imported Feed"]),
+        return self.allocations_df.loc[
+            self.allocations_df["Type"].isin(["Imported Food", "Imported Feed"]),
             "Allocated Nitrogen",
         ].sum()
 
@@ -2417,8 +2404,8 @@ class NitrogenFlowModel:
 
         # Define a reusable function for import calculations to avoid repeated code
         def calculate_import_surface(import_type):
-            alloc = self.allocation_vege.loc[
-                self.allocation_vege["Type"] == import_type, ["Product", "Allocated Nitrogen"]
+            alloc = self.allocations_df.loc[
+                self.allocations_df["Type"] == import_type, ["Product", "Allocated Nitrogen"]
             ]
             alloc_grouped = alloc.groupby("Product")["Allocated Nitrogen"].sum()
             
@@ -2449,7 +2436,7 @@ class NitrogenFlowModel:
         # For now, we will simply correct the data access to use the merged_df.
 
         # Livestock import (as in original code, with corrected data access)
-        # The logic here is highly complex and relies on undefined `regimes` and `allocation_vege`.
+        # The logic here is highly complex and relies on undefined `regimes` and `allocations_df`.
         # It seems to be calculating a theoretical land use. This part is not easily vectorizable
         # without more context on the data structure. The original logic is kept.
         elevage_importe = self.df_elevage[self.df_elevage["Net animal nitrogen exports (ktN)"] < 0].copy()
@@ -2458,7 +2445,7 @@ class NitrogenFlowModel:
         )
         surface_par_culture = pd.Series(0.0, index=self.df_prod.index)
         for animal in elevage_importe.index:
-            if animal not in self.allocation_vege["Consumer"].values:
+            if animal not in self.allocations_df["Consumer"].values:
                 continue
             
             part_importee = elevage_importe.loc[animal, "fraction_importée"]
@@ -2466,7 +2453,7 @@ class NitrogenFlowModel:
                 # ... (The rest of the `inf` logic from the original code)
                 pass # Skipping complex logic as it is not part of the main question.
             else:
-                aliments = self.allocation_vege[self.allocation_vege["Consumer"] == animal]
+                aliments = self.allocations_df[self.allocations_df["Consumer"] == animal]
                 for _, row in aliments.iterrows():
                     culture = row["Product"]
                     azote = row["Allocated Nitrogen"] * part_importee
@@ -2487,10 +2474,10 @@ class NitrogenFlowModel:
         )
         surface_par_culture_exporte = pd.Series(0.0, index=self.df_prod.index)
         for animal in elevage_exporte.index:
-            if animal not in self.allocation_vege["Consumer"].values:
+            if animal not in self.allocations_df["Consumer"].values:
                 continue
             part_exportee = elevage_exporte.loc[animal, "fraction_exportée"]
-            aliments = self.allocation_vege[self.allocation_vege["Consumer"] == animal]
+            aliments = self.allocations_df[self.allocations_df["Consumer"] == animal]
             for _, row in aliments.iterrows():
                 culture = row["Product"]
                 azote = row["Allocated Nitrogen"] * part_exportee
@@ -2595,7 +2582,7 @@ class NitrogenFlowModel:
     #     Give the diet for a consumer.
     #     """
     #     # Filtrer les données pour "urban" et effectuer les transformations
-    #     df_filtered = self.allocation_vege.loc[self.allocation_vege["Consumer"] == cons, ["Product", "Allocated Nitrogen"]]
+    #     df_filtered = self.allocations_df.loc[self.allocations_df["Consumer"] == cons, ["Product", "Allocated Nitrogen"]]
 
     #     df_filtered = df_filtered.groupby("Product", as_index=False)["Allocated Nitrogen"].sum()
 
