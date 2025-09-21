@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "build>=1.3.0",
     "matplotlib>=3.10.6",
     "nbformat>=5.10.4",
     "numpy>=2.3.3",
@@ -13,9 +14,28 @@ dependencies = [
     "plotly>=6.3.0",
     "pulp>=3.2.2",
     "seaborn>=0.13.2",
+    "twine>=6.2.0",
 ]
 
 [dependency-groups]
 dev = [
     "ipykernel>=6.30.1",
+    "ruff"
+]
+
+docs = [
+  "sphinx>=7.3",
+  "pydata-sphinx-theme>=0.15",
+  "sphinx-design>=0.6",
+  "myst-parser>=2.0",      # si tu as des pages Markdown
+  "accessible-pygments",
+  # libs dont tes snippets ont besoin :
+  "numpy",
+  "pandas",
+  "matplotlib",
+  "plotly",
+  "pulp",
+  "sphinx-autodoc-typehints>=2.1",
+  "sphinx_copybutton",
+  "sphinxcontrib.bibtex",
 ]

@@ -19,16 +19,7 @@ pd.set_option("display.max_rows", None)
 pd.set_option("future.no_silent_downcasting", True)
 
 class DataLoader:
-    """Load the GRAFS Excel file (written by Julia Le Noë).
-
-    This class makes it possible to access all the data stored in the Excel file.
-    Currently, only yearly data (area, production, etc.) are accessed.
-    Stable data is stored in the 'GRAFS_data.xlsx' file.
-
-    This class will become obsolete once a proper database is built.
-
-    No arguments are required; the script automatically finds the Excel sheet.
-    Loading time: approximately 40 seconds.
+    """Load input data files : project file and data file.
     """
 
     def __init__(self, project_path, data_path):
@@ -55,8 +46,8 @@ class DataLoader:
         fixed_compartments = ["Haber-Bosch",
                               "hydro-system",
                               "atmospheric N2",
-                              "NH3 volatilization",
-                              "N2O emission",
+                              "atmospheric NH3",
+                              "atmospheric N20",
                               "fishery products",
                               "other sectors",
                               "other losses",
@@ -188,6 +179,9 @@ class DataLoader:
         df_prod = self.get_columns(area, year, self.init_df_prod, categories_needed=(
             "Production (kton)",
             "Nitrogen Content (%)",
+            "Origin compartment",
+            "Type",
+            "Sub Type",
         ))
 
         # Calcul de l'azote disponible pour les cultures
@@ -227,14 +221,20 @@ class DataLoader:
             "Seed input (kt seeds/kt Ymax)",
             "Fertilization Need (kgN/qtl)",
             "Surface Fertilization Need (kgN/ha)",
+            "Harvest Index",
+            "Main Production",
+            "Category",
+            "BNF alpha",
+            "BNF beta",
+            "BGN"
         ))
 
         df_prod = self.generate_df_prod(area, year)
-        df_cultures["Main Crop Production (kton)"] = df_cultures["Main production"].map(df_prod["Production (kton)"])
+        df_cultures["Main Crop Production (kton)"] = df_cultures["Main Production"].map(df_prod["Production (kton)"])
         
         # Calcul du N produit (ktN) = production (kton) * N% / 100
         df_cultures["Main Nitrogen Production (ktN)"] = (
-            df_cultures["Main Crop Production (kton)"] * df_cultures["Main production"].map(df_prod["Nitrogen Content (%)"]) / 100
+            df_cultures["Main Crop Production (kton)"] * df_cultures["Main Production"].map(df_prod["Nitrogen Content (%)"]) / 100
         )
 
         mask = df_cultures["Area (ha)"] != 0
@@ -304,19 +304,15 @@ class DataLoader:
             "N-N2 EM excretion (%)",
             "N-N2O EM excretion (%)",
             "Total ingestion per capita (kgN)",
-            "Vegetal ingestion per capita (kgN)",
-            "Animal ingestion per capita (kgN)",
+            "Fischery ingestion per capita (kgN)",
             "Excretion recycling (%)",
         ))
 
-        df_pop["Plant Ingestion (ktN)"] = df_pop["Inhabitants"]*df_pop["Vegetal ingestion per capita (kgN)"] / 1e6
-        df_pop["Animal Ingestion (ktN)"] = df_pop["Inhabitants"]*df_pop["Animal ingestion per capita (kgN)"] / 1e6
+        #TODO a calculer à la fin de compute_fluxes()
+        # df_pop["Plant Ingestion (ktN)"] = df_pop["Inhabitants"]*df_pop["Vegetal ingestion per capita (kgN)"] / 1e6
+        # df_pop["Animal Ingestion (ktN)"] = df_pop["Inhabitants"]*df_pop["Animal ingestion per capita (kgN)"] / 1e6
         df_pop["Ingestion (ktN)"] = df_pop["Inhabitants"]*df_pop["Total ingestion per capita (kgN)"] / 1e6
-        df_pop["Fishery Ingestion (ktN)"] = df_pop["Ingestion (ktN)"] - df_pop["Plant Ingestion (ktN)"] - df_pop["Animal Ingestion (ktN)"]
-
-        self.N_boue = df_pop["Ingestion (ktN)"].sum()
-        self.N_vege = df_pop["Plant Ingestion (ktN)"].sum()
-        self.N_viande = df_pop["Animal Ingestion (ktN)"].sum()
+        df_pop["Fishery Ingestion (ktN)"] = df_pop["Inhabitants"]*df_pop["Fischery ingestion per capita (kgN)"] / 1e6
 
         df_pop = df_pop.fillna(0)
         self.df_pop = df_pop
@@ -662,7 +658,7 @@ class NitrogenFlowModel:
         self.year = year
         self.area = area
 
-        self.data_loader = data  # DataLoader(year, area)
+        self.data_loader = data
         self.labels = data.labels
         self.label_to_index = data.label_to_index
         self.index_to_label = data.index_to_label
@@ -946,17 +942,11 @@ class NitrogenFlowModel:
             flux_generator.generate_flux(source, {i: target[i]})
 
         ## Dépôt atmosphérique
-        source = {"N2O emission": 0.1, "NH3 volatilization": 0.9}
+        source = {"atmospheric N20": 0.1, "atmospheric NH3": 0.9}
         target = (df_global.loc["Atmospheric deposition coef (kgN/ha)"].item() * df_cultures["Area (ha)"] / 1e6).to_dict()  # Dépôt proportionnel aux surface
         flux_generator.generate_flux(source, target)
 
         ## Fixation symbiotique
-
-        df_cultures["Harvest Index"] = np.where(
-            df_cultures["Fan coef a"] != 0,
-            (df_cultures["Fan coef b"] * df_cultures["Yield (kgN/ha)"] / 100 + df_cultures["Fan coef a"]),
-            df_cultures["Carbon allocation to grain (%)"] / (df_cultures["Carbon allocation to grain (%)"] + df_cultures["Carbon allocation to straw (%)"])
-        )
 
         target_fixation = (
             (df_cultures["BNF alpha"]*df_cultures["Main Nitrogen Production (ktN)"]/df_cultures["Harvest Index"] + df_cultures["BNF beta"])*df_cultures["BGN"]
@@ -983,12 +973,12 @@ class NitrogenFlowModel:
 
         # Le reste est perdu dans l'environnement
         source = ((df_pop["Ingestion (ktN)"]*df_pop["N-N2O EM excretion (%)"]) / 100).to_dict()
-        target = {"N2O emission": 1}
+        target = {"atmospheric N20": 1}
         flux_generator.generate_flux(source, target)
 
         # Ajouter les fuites de NH3
         source = ((df_pop["Ingestion (ktN)"]*df_pop["N-NH3 EM excretion (%)"]) / 100).to_dict()
-        target = {"NH3 volatilization": 1}
+        target = {"atmospheric NH3": 1}
         flux_generator.generate_flux(source, target)
 
         # Ajouter les fuites de N2
@@ -1036,7 +1026,7 @@ class NitrogenFlowModel:
 
         # NH3
         # 1 % est volatilisée de manière indirecte sous forme de N2O
-        target = {"NH3 volatilization": 0.99, "N2O emission": 0.01}
+        target = {"atmospheric NH3": 0.99, "atmospheric N20": 0.01}
         source = (
             df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["Excreted on grassland (%)"]
@@ -1047,7 +1037,7 @@ class NitrogenFlowModel:
         flux_generator.generate_flux(source, target)
 
         # N2O
-        target = {"N2O emission": 1}
+        target = {"atmospheric N20": 1}
         source = (
             df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["Excreted on grassland (%)"]
@@ -1102,7 +1092,7 @@ class NitrogenFlowModel:
 
         # NH3
         # 1 % est volatilisée de manière indirecte sous forme de N2O
-        target = {"NH3 volatilization": 0.99, "N2O emission": 0.01}
+        target = {"atmospheric NH3": 0.99, "atmospheric N20": 0.01}
         source = (
             df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["Excreted indoor (%)"]
@@ -1116,7 +1106,7 @@ class NitrogenFlowModel:
         flux_generator.generate_flux(source, target)
 
         # N2O
-        target = {"N2O emission": 1}
+        target = {"atmospheric N20": 1}
         source = (
             df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["Excreted indoor (%)"]
@@ -1156,7 +1146,6 @@ class NitrogenFlowModel:
         total_surface_cereales = df_cultures.loc[
             (
                 (df_cultures["Category"] == "cereals (excluding rice)")
-                | (df_cultures.index.isin(["Forage maize"]))
             ),
             "Area (ha)",
         ].sum()
@@ -1164,14 +1153,12 @@ class NitrogenFlowModel:
         df_cultures.loc[
             (
                 (df_cultures["Category"] == "cereals (excluding rice)")
-                | (df_cultures.index.isin(["Forage maize"]))
             ),
             "Leguminous heritage (ktN)",
         ] = (
             df_cultures.loc[
                 (
                     (df_cultures["Category"] == "cereals (excluding rice)")
-                    | (df_cultures.index.isin(["Forage maize"]))
                 ),
                 "Area (ha)",
             ]
@@ -1280,19 +1267,19 @@ class NitrogenFlowModel:
         flux_generator.generate_flux(source, target)
 
         source = df_cultures["Volatilized Nitrogen N-NH3 (ktN)"].to_dict()
-        target = {"NH3 volatilization": 1}
+        target = {"atmospheric NH3": 1}
 
         flux_generator.generate_flux(source, target)
 
         source = df_cultures["Volatilized Nitrogen N-N2O (ktN)"].to_dict()
-        target = {"N2O emission": 1}
+        target = {"atmospheric N20": 1}
 
         flux_generator.generate_flux(source, target)
 
         # A cela on ajoute les emissions indirectes de N2O lors de la fabrication des engrais
         epend_tot_synt = df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"].sum()
         coef_emis_N_N2O = df_global.loc["coefficient N-N2O indirect emission synthetic fertilization (%)"].item() / 100
-        target = {"N2O emission": 1}
+        target = {"atmospheric N20": 1}
         source = {"Haber-Bosch": epend_tot_synt * coef_emis_N_N2O}
 
         flux_generator.generate_flux(source, target)
@@ -1311,7 +1298,7 @@ class NitrogenFlowModel:
 
         # Filtre les données d'ingestion humaine (attention à ne pas ajouter la consommation de produits de la mer)
         df_pop_ingestion = df_pop.copy()
-        df_pop_ingestion["Ingestion (ktN)"] = df_pop_ingestion["Plant Ingestion (ktN)"] + df_pop_ingestion["Animal Ingestion (ktN)"]
+        df_pop_ingestion["Ingestion (ktN)"] = df_pop_ingestion["Ingestion (ktN)"] - df_pop_ingestion["Fishery Ingestion (ktN)"]
         df_pop_ingestion = df_pop_ingestion.loc[df_pop["Ingestion (ktN)"] > 10**-8, ["Ingestion (ktN)"]]
         df_pop_ingestion["Type"] = "Human"
 
@@ -1406,12 +1393,17 @@ class NitrogenFlowModel:
         # delta_import doit être supérieur ou égal à la déviation négative (pour capturer la valeur absolue)
         prob += delta_import >= import_net - net_import_model
 
+        if import_net > 1:
+            norm = import_net
+        else:
+            norm = 1
+
         prob += (
             poids_penalite_deviation
             * lpSum(delta_vars[(cons, tuple(products_list))] for cons, proportion, products_list in pairs)
             + poids_penalite_culture
             * lpSum(penalite_culture_vars)
-            + poids_penalite_import * delta_import,
+            + poids_penalite_import * delta_import / norm,
             "Minimiser_Deviations_Penalties_Et_Excès_Importation",
         )
 
@@ -1579,7 +1571,7 @@ class NitrogenFlowModel:
         # Filtrer les lignes en supprimant celles dont 'Allocated Nitrogen' est très proche de zéro
         allocations_df = allocations_df[allocations_df["Allocated Nitrogen"].abs() >= 1e-6]
 
-        self.allocation_vege = allocations_df
+        self.allocations_df = allocations_df
 
         deviations = []
         for cons, proportion, products_list in pairs:
@@ -1616,9 +1608,9 @@ class NitrogenFlowModel:
 
         self.deviations_df = pd.DataFrame(deviations)
 
-        # Extraction des importations normales
+        # Extraction des importations
         importations = []
-        for cons in df_cons_vege.loc[df_cons_vege["Type"]=="Animal"].index:
+        for cons in df_cons_vege.index:
             for prod_i in all_cultures_regime[cons]:
                 if (prod_i, cons) in I_vars:
                     import_value = I_vars[(prod_i, cons)].varValue
@@ -1753,6 +1745,13 @@ class NitrogenFlowModel:
 
             flux_generator.generate_flux(source, target)
 
+        df_elevage["Net animal nitrogen exports (ktN)"] = (
+            df_prod.loc[df_prod["Type"] == "animal"].groupby("Origin compartment")["Available Nitrogen After Feed and Food (ktN)"].sum()
+            .sub(self.importations_df.merge(df_prod.loc[df_prod["Type"] == "animal"], left_on='Product', right_index=True)
+                .groupby('Origin compartment')['Imported Nitrogen (ktN)'].sum(), fill_value=0)
+            .reindex(df_elevage.index, fill_value=0)
+        )
+
         # Calcul des déséquilibres négatifs
         for label in df_cultures.index:
             node_index = label_to_index[label]
@@ -1774,13 +1773,14 @@ class NitrogenFlowModel:
             elif imbalance < 0:
                 # Plus d'entrées que de sorties, on augmente les sorties
                 # adjacency_matrix[node_index, n] = -imbalance  # Flux de la culture vers le nœud de balance
-                if label != "Natural meadow ":  # 70% de l'excès fini dans les ecosystèmes aquatiques
+                category = df_cultures.loc[df_cultures.index==label, "category"].item()
+                if category == "natural meadows":  # 70% de l'excès fini dans les ecosystèmes aquatiques
                     source = {label: -imbalance}
                     # Ajouter soil stock parmis les surplus de fertilisation.
                     target = {
                         "other losses": 0.2925,
                         "hydro-system": 0.7,
-                        "N2O emission": 0.0075,
+                        "atmospheric N20": 0.0075,
                     }
                 else:
                     if (
@@ -1794,7 +1794,7 @@ class NitrogenFlowModel:
                         target = {
                             "other losses": 0.2925,
                             "hydro-system": 0.7,
-                            "N2O emission": 0.0075,
+                            "atmospheric N20": 0.0075,
                         }
                         flux_generator.generate_flux(source, target)
                         source = {
@@ -1938,83 +1938,6 @@ class NitrogenFlowModel:
         """
         return self.adjacency_matrix
 
-    def get_core_matrix(self):
-        """
-        Extracts and returns the core matrix of nitrogen fluxes between active sectors.
-
-        This method filters out rows and columns with no flows and excludes external sectors.
-        The result isolates the central dynamics of the system.
-
-        :return: A 2D NumPy array of the filtered core matrix.
-        :rtype: numpy.ndarray
-        """
-        # Calcul de la taille du noyau
-        core_size = len(self.adjacency_matrix) - len(self.ext)
-
-        # Extraire la matrice principale (noyau)
-        core_matrix = self.adjacency_matrix[:core_size, :core_size]
-
-        # Calculer la somme des éléments sur chaque ligne
-        row_sums = core_matrix.sum(axis=1)
-
-        # Identifier les indices des lignes où la somme est non nulle
-        non_zero_rows = row_sums != 0
-
-        # Identifier les indices des colonnes à garder (les mêmes indices que les lignes non nulles)
-        non_zero_columns = non_zero_rows
-
-        # Filtrer les lignes et les colonnes avec une somme non nulle
-        core_matrix_filtered = core_matrix[non_zero_rows, :][:, non_zero_columns]
-
-        # Retourner la matrice filtrée
-        self.core_matrix = core_matrix_filtered
-        self.non_zero_rows = non_zero_rows
-        return core_matrix_filtered
-
-    def get_adjacency_matrix(self):
-        """
-        Returns the binary adjacency matrix of nitrogen fluxes.
-
-        This matrix has the same dimensions as the core matrix and indicates the presence
-        (1) or absence (0) of nitrogen fluxes between sectors.
-
-        :return: A binary adjacency matrix.
-        :rtype: numpy.ndarray
-        """
-        _ = self.get_core_matrix()
-        return (self.core_matrix != 0).astype(int)
-
-    def extract_input_output_matrixs(self, clean=True):
-        """
-        Extracts input and output matrices (C and B blocks) from the full transition matrix.
-
-        These matrices represent the nitrogen flows between core and external sectors:
-        - B: Outputs from core to external sectors.
-        - C: Inputs from external to core sectors.
-
-        If `clean` is True, the method removes rows and columns corresponding to inactive sectors.
-
-        :param clean: Whether to remove zero-flow sectors from the matrices.
-        :type clean: bool
-        :return: A tuple (B, C) of NumPy arrays.
-        :rtype: tuple[numpy.ndarray, numpy.ndarray]
-        """
-        # Fonction pour extraire la matrice entrée (C) et la matrice sortie (B) de la matrice complète.
-        # Taille de la matrice coeur
-        core_size = len(self.adjacency_matrix) - len(self.ext)
-        n = len(self.adjacency_matrix)
-        # Extraire la sous-matrice B (bloc haut-droit)
-        B = self.adjacency_matrix[:core_size, core_size:n]
-
-        # Extraire la sous-matrice C (bloc bas-gauche)
-        C = self.adjacency_matrix[core_size:n, :core_size]
-
-        if clean:
-            C = C[:][:, self.non_zero_rows]
-            B = B[self.non_zero_rows, :][:]
-
-        return B, C
-
     def imported_nitrogen(self):
         """
         Calculates the total amount of nitrogen imported into the system.
@@ -2024,14 +1947,14 @@ class NitrogenFlowModel:
         :return: Total imported nitrogen (in ktN).
         :rtype: float
         """
-        return self.allocation_vege.loc[
-            self.allocation_vege["Type"].isin(["Imported Food", "Imported Feed", "Excess feed imports"]),
+        return self.allocations_df.loc[
+            self.allocations_df["Type"].isin(["Imported Food", "Imported Feed"]),
             "Allocated Nitrogen",
         ].sum()
 
     def net_imported_plant(self):
         """
-        Computes the net nitrogen imports for plant sectors.
+        Computes the net nitrogen imports of plant.
 
         Calculated as the difference between total nitrogen imports and plant sector availability after local uses (feed and food).
 
@@ -2040,7 +1963,7 @@ class NitrogenFlowModel:
         """
         return (
             self.importations_df["Imported Nitrogen (ktN)"].sum()
-            - self.df_prod.loc[(self.df_prod["Type"]=="plant") & ~(self.df_prod["Sub type"].isin(["forage"])), "Available Nitrogen After Feed and Food (ktN)"].sum()
+            - self.df_prod.loc[(self.df_prod["Type"]=="plant") & ~(self.df_prod["Sub Type"].isin(["grasslands"])), "Available Nitrogen After Feed and Food (ktN)"].sum()
         )
 
     def net_imported_animal(self):
@@ -2050,7 +1973,7 @@ class NitrogenFlowModel:
         :return: Total nitrogen exported via animal products (in ktN).
         :rtype: float
         """
-        return self.df_elevage["Net animal nitrogen exports (ktN)"].sum()
+        return - self.df_elevage["Net animal nitrogen exports (ktN)"].sum()
 
     def total_plant_production(self):
         """
@@ -2227,7 +2150,7 @@ class NitrogenFlowModel:
         :return: Total nitrogen in edible animal products (in ktN).
         :rtype: float
         """
-        return self.df_elevage["Edible Nitrogen (ktN)"].sum()
+        return self.df_elevage["Edible Nitrogen (ktN)"].sum() + self.df_elevage["Dairy Nitrogen (ktN)"].sum()
 
     def emissions(self):
         """
@@ -2240,12 +2163,12 @@ class NitrogenFlowModel:
         """
         return pd.Series(
             {
-                "N2O emission": np.round(
-                    self.adjacency_matrix[:, self.data_loader.label_to_index["N2O emission"]].sum() * (14 * 2 + 16) / (14 * 2), 2
+                "atmospheric N20": np.round(
+                    self.adjacency_matrix[:, self.data_loader.label_to_index["atmospheric N20"]].sum() * (14 * 2 + 16) / (14 * 2), 2
                 ),
                 "atmospheric N2": np.round(self.adjacency_matrix[:, self.data_loader.label_to_index["atmospheric N2"]].sum(), 2),
-                "NH3 volatilization": np.round(
-                    self.adjacency_matrix[:, self.data_loader.label_to_index["NH3 volatilization"]].sum() * 17 / 14, 2
+                "atmospheric NH3": np.round(
+                    self.adjacency_matrix[:, self.data_loader.label_to_index["atmospheric NH3"]].sum() * 17 / 14, 2
                 ),
             },
             name="Emission",
@@ -2269,18 +2192,6 @@ class NitrogenFlowModel:
         """
         return self.df_cultures["Area (ha)"].sum()
 
-    # def N_eff(self):
-    #     return gr.GraphAnalyzer.calculate_Neff(self.adjacency_matrix)
-
-    # def C_eff(self):
-    #     return gr.GraphAnalyzer.calculate_Ceff(self.adjacency_matrix)
-
-    # def F_eff(self):
-    #     return gr.GraphAnalyzer.calculate_Feff(self.adjacency_matrix)
-
-    # def R_eff(self):
-    #     return gr.GraphAnalyzer.calculate_Reff(self.adjacency_matrix)
-
     def Ftot(self, culture):
         area = self.df_cultures.loc[self.df_cultures.index == culture, "Area (ha)"].item()
         if area == 0:  # Vérification pour éviter la division par zéro
@@ -2303,161 +2214,163 @@ class NitrogenFlowModel:
             return 0
         return self.df_cultures.loc[self.df_cultures.index == culture, "Total Nitrogen Production (ktN)"].item() * 1e6 / area
 
-    def tot_fert(self):
-        """
-        Computes total nitrogen inputs to the system, broken down by origin.
 
-        Categories include animal and human excretion, atmospheric deposition, Haber-Bosch inputs, leguminous enrichment, etc.
+# A reprendre
+    # def tot_fert(self):
+    #     """
+    #     Computes total nitrogen inputs to the system, broken down by origin.
 
-        :return: A pandas Series of nitrogen inputs by source (in ktN).
-        :rtype: pandas.Series
-        """
-        return pd.Series(
-            {
-                "Mining": self.adjacency_matrix[self.dataloader.label_to_index["soil stock"], :].sum(),
-                "Seeds": self.adjacency_matrix[self.dataloader.label_to_index["other sectors"], :].sum(),
-                "Human excretion": self.adjacency_matrix[
-                    self.dataloader.label_to_index["urban"] : self.dataloader.label_to_index["rural"] + 1,
-                    self.dataloader.label_to_index["Wheat"] : self.dataloader.label_to_index["Natural meadow "] + 1,
-                ].sum(),
-                "Leguminous soil enrichment": self.adjacency_matrix[
-                    self.dataloader.label_to_index["Horse beans and faba beans"] : self.dataloader.label_to_index["Alfalfa and clover"] + 1,
-                    self.dataloader.label_to_index["Wheat"] : self.dataloader.label_to_index["Natural meadow "] + 1,
-                ].sum(),
-                "Haber-Bosch": self.adjacency_matrix[self.dataloader.label_to_index["Haber-Bosch"], :].sum(),
-                "Atmospheric deposition": self.adjacency_matrix[
-                    self.dataloader.label_to_index["N2O emission"], : self.dataloader.label_to_index["Natural meadow "] + 1
-                ].sum()
-                + self.adjacency_matrix[
-                    self.dataloader.label_to_index["NH3 volatilization"], : self.dataloader.label_to_index["Natural meadow "] + 1
-                ].sum(),
-                "atmospheric N2": self.adjacency_matrix[
-                    self.dataloader.label_to_index["atmospheric N2"], self.dataloader.label_to_index["Wheat"] : self.dataloader.label_to_index["Natural meadow "] + 1
-                ].sum(),
-                "Animal excretion": self.adjacency_matrix[
-                    self.dataloader.label_to_index["bovines"] : self.dataloader.label_to_index["equine"] + 1,
-                    self.dataloader.label_to_index["Wheat"] : self.dataloader.label_to_index["Natural meadow "] + 1,
-                ].sum(),
-            }
-        )
+    #     Categories include animal and human excretion, atmospheric deposition, Haber-Bosch inputs, leguminous enrichment, etc.
 
-    def rel_fert(self):
-        """
-        Computes the relative share (%) of each nitrogen input source.
+    #     :return: A pandas Series of nitrogen inputs by source (in ktN).
+    #     :rtype: pandas.Series
+    #     """
+    #     return pd.Series(
+    #         {
+    #             "Mining": self.adjacency_matrix[self.data_loader.label_to_index["soil stock"], :].sum(),
+    #             "Seeds": self.adjacency_matrix[self.data_loader.label_to_index["other sectors"], :].sum(),
+    #             "Human excretion": self.adjacency_matrix[
+    #                 self.data_loader.label_to_index["urban"] : self.data_loader.label_to_index["rural"] + 1,
+    #                 self.data_loader.label_to_index["Wheat"] : self.data_loader.label_to_index["Natural meadow "] + 1,
+    #             ].sum(),
+    #             "Leguminous soil enrichment": self.adjacency_matrix[
+    #                 self.data_loader.label_to_index["Horse beans and faba beans"] : self.data_loader.label_to_index["Alfalfa and clover"] + 1,
+    #                 self.data_loader.label_to_index["Wheat"] : self.data_loader.label_to_index["Natural meadow "] + 1,
+    #             ].sum(),
+    #             "Haber-Bosch": self.adjacency_matrix[self.data_loader.label_to_index["Haber-Bosch"], :].sum(),
+    #             "Atmospheric deposition": self.adjacency_matrix[
+    #                 self.data_loader.label_to_index["atmospheric N20"], : self.data_loader.label_to_index["Natural meadow "] + 1
+    #             ].sum()
+    #             + self.adjacency_matrix[
+    #                 self.data_loader.label_to_index["atmospheric NH3"], : self.data_loader.label_to_index["Natural meadow "] + 1
+    #             ].sum(),
+    #             "atmospheric N2": self.adjacency_matrix[
+    #                 self.data_loader.label_to_index["atmospheric N2"], self.data_loader.label_to_index["Wheat"] : self.data_loader.label_to_index["Natural meadow "] + 1
+    #             ].sum(),
+    #             "Animal excretion": self.adjacency_matrix[
+    #                 self.data_loader.label_to_index["bovines"] : self.data_loader.label_to_index["equine"] + 1,
+    #                 self.data_loader.label_to_index["Wheat"] : self.data_loader.label_to_index["Natural meadow "] + 1,
+    #             ].sum(),
+    #         }
+    #     )
 
-        :return: A pandas Series with nitrogen input sources as percentage of the total.
-        :rtype: pandas.Series
-        """
-        df = self.tot_fert()
-        return df * 100 / df.sum()
+    # def rel_fert(self):
+    #     """
+    #     Computes the relative share (%) of each nitrogen input source.
 
-    def primXsec(self):
-        """
-        Calculates the percentage of nitrogen from secondary sources (biological or recycled),
-        compared to the total nitrogen inputs.
+    #     :return: A pandas Series with nitrogen input sources as percentage of the total.
+    #     :rtype: pandas.Series
+    #     """
+    #     df = self.tot_fert()
+    #     return df * 100 / df.sum()
 
-        Secondary sources include: human excretion, animal excretion, atmospheric inputs, seeds, and leguminous fixation.
+    # def primXsec(self):
+    #     """
+    #     Calculates the percentage of nitrogen from secondary sources (biological or recycled),
+    #     compared to the total nitrogen inputs.
 
-        :return: Share of secondary sources in total nitrogen inputs (%).
-        :rtype: float
-        """
-        df = self.tot_fert()
-        return (
-            (
-                df["Human excretion"].sum()
-                + df["Animal excretion"].sum()
-                + df["atmospheric N2"].sum()
-                + df["Atmospheric deposition"].sum()
-                + df["Seeds"].sum()
-                + df["Leguminous soil enrichment"].sum()
-            )
-            * 100
-            / df.sum()
-        )
+    #     Secondary sources include: human excretion, animal excretion, atmospheric inputs, seeds, and leguminous fixation.
 
-    def NUE(self):
-        """
-        Calculates the crop-level nitrogen use efficiency (NUE).
+    #     :return: Share of secondary sources in total nitrogen inputs (%).
+    #     :rtype: float
+    #     """
+    #     df = self.tot_fert()
+    #     return (
+    #         (
+    #             df["Human excretion"].sum()
+    #             + df["Animal excretion"].sum()
+    #             + df["atmospheric N2"].sum()
+    #             + df["Atmospheric deposition"].sum()
+    #             + df["Seeds"].sum()
+    #             + df["Leguminous soil enrichment"].sum()
+    #         )
+    #         * 100
+    #         / df.sum()
+    #     )
 
-        Defined as the ratio of nitrogen produced by crops over total nitrogen inputs.
+    # def NUE(self):
+    #     """
+    #     Calculates the crop-level nitrogen use efficiency (NUE).
 
-        :return: NUE of crop systems (%).
-        :rtype: float
-        """
-        df = self.tot_fert()
-        return self.df_cultures["Total Nitrogen Production (ktN)"].sum() * 100 / df.sum()
+    #     Defined as the ratio of nitrogen produced by crops over total nitrogen inputs.
 
-    def NUE_system(self):
-        """
-        Calculates system-wide nitrogen use efficiency, including crop and livestock production.
+    #     :return: NUE of crop systems (%).
+    #     :rtype: float
+    #     """
+    #     df = self.tot_fert()
+    #     return self.df_cultures["Total Nitrogen Production (ktN)"].sum() * 100 / df.sum()
 
-        Accounts for feed losses and nitrogen consumed via imported feed.
+    # def NUE_system(self):
+    #     """
+    #     Calculates system-wide nitrogen use efficiency, including crop and livestock production.
 
-        :return: System-wide NUE (%).
-        :rtype: float
-        """
-        plant_prod = self.df_prod.loc[self.df_prod["Type"]=="plant"]
-        N_NP = (
-            plant_prod["Nitrogen Production (ktN)"].sum()
-            - plant_prod["Nitrogen For Feed (ktN)"].sum()
-            + self.df_elevage["Edible Nitrogen (ktN)"].sum()
-            + self.df_elevage["Non Edible Nitrogen (ktN)"].sum()
-        )
-        df_fert = self.tot_fert()
-        N_tot = (
-            df_fert["Haber-Bosch"]
-            + df_fert["atmospheric N2"]
-            + df_fert["Atmospheric deposition"]
-            + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
-        )
-        return N_NP / N_tot * 100
+    #     Accounts for feed losses and nitrogen consumed via imported feed.
 
-    def NUE_system_2(self):
-        """
-        Alternative NUE computation considering livestock conversion factors and feed inputs.
+    #     :return: System-wide NUE (%).
+    #     :rtype: float
+    #     """
+    #     plant_prod = self.df_prod.loc[self.df_prod["Type"]=="plant"]
+    #     N_NP = (
+    #         plant_prod["Nitrogen Production (ktN)"].sum()
+    #         - plant_prod["Nitrogen For Feed (ktN)"].sum()
+    #         + self.df_elevage["Edible Nitrogen (ktN)"].sum()
+    #         + self.df_elevage["Non Edible Nitrogen (ktN)"].sum()
+    #     )
+    #     df_fert = self.tot_fert()
+    #     N_tot = (
+    #         df_fert["Haber-Bosch"]
+    #         + df_fert["atmospheric N2"]
+    #         + df_fert["Atmospheric deposition"]
+    #         + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
+    #     )
+    #     return N_NP / N_tot * 100
 
-        Includes non-edible nitrogen outputs and imported feed consumption in the calculation.
+    # def NUE_system_2(self):
+    #     """
+    #     Alternative NUE computation considering livestock conversion factors and feed inputs.
 
-        :return: Adjusted system-wide NUE (%).
-        :rtype: float
-        """
-        N_NP = (
-            self.df_cultures["Total Nitrogen Production (ktN)"].sum()
-            + (
-                (self.df_elevage["Edible Nitrogen (ktN)"] + self.df_elevage["Non Edible Nitrogen (ktN)"])
-                * (1 - 1 / self.df_elevage["Conversion factor (%)"])
-            ).sum()
-            + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
-        )
-        df_fert = self.tot_fert()
-        N_tot = (
-            df_fert["Haber-Bosch"]
-            + df_fert["atmospheric N2"]
-            + df_fert["Atmospheric deposition"]
-            + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
-        )
-        return N_NP / N_tot * 100
+    #     Includes non-edible nitrogen outputs and imported feed consumption in the calculation.
 
-    def N_self_sufficient(self):
-        """
-        Estimates nitrogen self-sufficiency of the system.
+    #     :return: Adjusted system-wide NUE (%).
+    #     :rtype: float
+    #     """
+    #     N_NP = (
+    #         self.df_cultures["Total Nitrogen Production (ktN)"].sum()
+    #         + (
+    #             (self.df_elevage["Edible Nitrogen (ktN)"] + self.df_elevage["Non Edible Nitrogen (ktN)"])
+    #             * (1 - 1 / self.df_elevage["Conversion factor (%)"])
+    #         ).sum()
+    #         + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
+    #     )
+    #     df_fert = self.tot_fert()
+    #     N_tot = (
+    #         df_fert["Haber-Bosch"]
+    #         + df_fert["atmospheric N2"]
+    #         + df_fert["Atmospheric deposition"]
+    #         + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
+    #     )
+    #     return N_NP / N_tot * 100
 
-        Defined as the share of atmospheric (biological) nitrogen inputs relative to all external nitrogen sources.
+    # def N_self_sufficient(self):
+    #     """
+    #     Estimates nitrogen self-sufficiency of the system.
 
-        :return: Self-sufficiency ratio (%).
-        :rtype: float
-        """
-        df_fert = self.tot_fert()
-        return (
-            (df_fert["atmospheric N2"] + df_fert["Atmospheric deposition"])
-            * 100
-            / (
-                df_fert["atmospheric N2"]
-                + df_fert["Atmospheric deposition"]
-                + df_fert["Haber-Bosch"]
-                + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
-            )
-        )
+    #     Defined as the share of atmospheric (biological) nitrogen inputs relative to all external nitrogen sources.
+
+    #     :return: Self-sufficiency ratio (%).
+    #     :rtype: float
+    #     """
+    #     df_fert = self.tot_fert()
+    #     return (
+    #         (df_fert["atmospheric N2"] + df_fert["Atmospheric deposition"])
+    #         * 100
+    #         / (
+    #             df_fert["atmospheric N2"]
+    #             + df_fert["Atmospheric deposition"]
+    #             + df_fert["Haber-Bosch"]
+    #             + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
+    #         )
+    #     )
     
     def env_footprint(self):
         """
@@ -2497,8 +2410,8 @@ class NitrogenFlowModel:
 
         # Define a reusable function for import calculations to avoid repeated code
         def calculate_import_surface(import_type):
-            alloc = self.allocation_vege.loc[
-                self.allocation_vege["Type"] == import_type, ["Product", "Allocated Nitrogen"]
+            alloc = self.allocations_df.loc[
+                self.allocations_df["Type"] == import_type, ["Product", "Allocated Nitrogen"]
             ]
             alloc_grouped = alloc.groupby("Product")["Allocated Nitrogen"].sum()
             
@@ -2529,7 +2442,7 @@ class NitrogenFlowModel:
         # For now, we will simply correct the data access to use the merged_df.
 
         # Livestock import (as in original code, with corrected data access)
-        # The logic here is highly complex and relies on undefined `regimes` and `allocation_vege`.
+        # The logic here is highly complex and relies on undefined `regimes` and `allocations_df`.
         # It seems to be calculating a theoretical land use. This part is not easily vectorizable
         # without more context on the data structure. The original logic is kept.
         elevage_importe = self.df_elevage[self.df_elevage["Net animal nitrogen exports (ktN)"] < 0].copy()
@@ -2538,7 +2451,7 @@ class NitrogenFlowModel:
         )
         surface_par_culture = pd.Series(0.0, index=self.df_prod.index)
         for animal in elevage_importe.index:
-            if animal not in self.allocation_vege["Consumer"].values:
+            if animal not in self.allocations_df["Consumer"].values:
                 continue
             
             part_importee = elevage_importe.loc[animal, "fraction_importée"]
@@ -2546,7 +2459,7 @@ class NitrogenFlowModel:
                 # ... (The rest of the `inf` logic from the original code)
                 pass # Skipping complex logic as it is not part of the main question.
             else:
-                aliments = self.allocation_vege[self.allocation_vege["Consumer"] == animal]
+                aliments = self.allocations_df[self.allocations_df["Consumer"] == animal]
                 for _, row in aliments.iterrows():
                     culture = row["Product"]
                     azote = row["Allocated Nitrogen"] * part_importee
@@ -2567,10 +2480,10 @@ class NitrogenFlowModel:
         )
         surface_par_culture_exporte = pd.Series(0.0, index=self.df_prod.index)
         for animal in elevage_exporte.index:
-            if animal not in self.allocation_vege["Consumer"].values:
+            if animal not in self.allocations_df["Consumer"].values:
                 continue
             part_exportee = elevage_exporte.loc[animal, "fraction_exportée"]
-            aliments = self.allocation_vege[self.allocation_vege["Consumer"] == animal]
+            aliments = self.allocations_df[self.allocations_df["Consumer"] == animal]
             for _, row in aliments.iterrows():
                 culture = row["Product"]
                 azote = row["Allocated Nitrogen"] * part_exportee
@@ -2584,15 +2497,11 @@ class NitrogenFlowModel:
 
         # Crop exports
         # Columns assumed to exist in merged_df after merge and prior calculations.
-        export_surface_feed = (
-            merged_df["Nitrogen Exported For Feed (ktN)"]
-            / merged_df["Nitrogen Production (ktN)"]
-            * merged_df["Area (ha)"]
-        ).sum()
-        export_surface_food = (
-            merged_df["Available Nitrogen After Feed, Export Feed and Food (ktN)"]
-            / merged_df["Nitrogen Production (ktN)"]
-            * merged_df["Area (ha)"]
+        mask = merged_df["Sub Type"] != "grasslands"
+        export_surface = (
+            merged_df.loc[mask, "Available Nitrogen After Feed and Food (ktN)"]
+            / merged_df.loc[mask, "Nitrogen Production (ktN)"]
+            * merged_df.loc[mask, "Area (ha)"]
         ).sum()
 
         return pd.Series(
@@ -2603,242 +2512,9 @@ class NitrogenFlowModel:
                 "Import Feed": int(total_feed_import),
                 "Import Livestock": int(import_animal),
                 "Export Livestock": -int(export_animal),
-                "Export Feed": -int(export_surface_feed),
-                "Export Food": -int(export_surface_food),
+                "Export Plant": -int(export_surface),
             }
         )
-
-    # def env_footprint_old(self):
-    #     """
-    #     Calculates the land footprint (in ha) of nitrogen flows linked to:
-    #     - local food and feed production,
-    #     - imported food and feed,
-    #     - imported and exported livestock nitrogen,
-    #     - crop exports for feed and food.
-
-    #     This is expressed as theoretical land areas mobilized by the nitrogen content.
-
-    #     :return: A pandas Series of land footprint values (in ha), positive for imports and local use, negative for exports.
-    #     :rtype: pandas.Series
-    #     """
-    #     local_surface_food = (
-    #         self.df_cultures["Nitrogen For Food (ktN)"]
-    #         / self.df_cultures["Nitrogen Production (ktN)"]
-    #         * self.df_cultures["Area (ha)"]
-    #     ).sum()
-    #     local_surface_feed = (
-    #         self.df_cultures["Nitrogen For Feed (ktN)"]
-    #         / self.df_cultures["Nitrogen Production (ktN)"]
-    #         * self.df_cultures["Area (ha)"]
-    #     ).sum()
-
-    #     # Food import
-    #     # 1. Filtrer les allocations "Imported food"
-    #     alloc = self.allocation_vege.loc[
-    #         self.allocation_vege["Type"] == "Imported Food", ["Culture", "Allocated Nitrogen"]
-    #     ]
-
-    #     # 2. Grouper par culture au cas où il y aurait plusieurs lignes par culture
-    #     alloc_grouped = alloc.groupby("Culture")["Allocated Nitrogen"].sum()
-
-    #     # 3. Créer un DataFrame aligné avec les index de df_cultures
-    #     alloc_df = pd.DataFrame(index=self.df_cultures.index)
-    #     alloc_df["Allocated Nitrogen"] = alloc_grouped
-    #     alloc_df["Allocated Nitrogen"] = alloc_df["Allocated Nitrogen"].fillna(0)
-
-    #     # 4. Calcul final : ratio * surface
-    #     # Récupère les valeurs de 'Nitrogen Production (ktN)' et de 'Allocated Nitrogen'
-    #     nitrogen_production = self.df_cultures["Nitrogen Production (ktN)"]
-    #     allocated_nitrogen = alloc_df["Allocated Nitrogen"]
-
-    #     # Si 'Nitrogen Production (ktN)' est nul, se rabattre sur les valeurs du blé
-    #     # En supposant que "Wheat" soit dans l'index de df_cultures, sinon adapte-le
-    #     wheat_nitrogen_production = self.df_cultures.loc["Wheat", "Nitrogen Production (ktN)"]
-    #     wheat_area = self.df_cultures.loc["Wheat", "Area (ha)"]
-
-    #     # Remplacer les valeurs de 'Nitrogen Production (ktN)' par celles du blé si elles sont nulles
-    #     adjusted_nitrogen_production = nitrogen_production.replace(0, wheat_nitrogen_production)
-
-    #     # Utiliser la superficie du blé lorsque la production d'azote est nulle, sans modifier df_cultures
-    #     adjusted_area = self.df_cultures["Area (ha)"].where(nitrogen_production != 0, wheat_area)
-
-    #     # Calcul du total des importations alimentaires
-    #     total_food_import = (allocated_nitrogen / adjusted_nitrogen_production * adjusted_area).sum()
-
-    #     # Feed import
-    #     # 1. Filtrer les allocations "Imported food"
-    #     alloc = self.allocation_vege.loc[
-    #         self.allocation_vege["Type"] == "Imported Feed", ["Culture", "Allocated Nitrogen"]
-    #     ]
-
-    #     # 2. Grouper par culture au cas où il y aurait plusieurs lignes par culture
-    #     alloc_grouped = alloc.groupby("Culture")["Allocated Nitrogen"].sum()
-
-    #     # 3. Créer un DataFrame aligné avec les index de df_cultures
-    #     alloc_df = pd.DataFrame(index=self.df_cultures.index)
-    #     alloc_df["Allocated Nitrogen"] = alloc_grouped
-    #     alloc_df["Allocated Nitrogen"] = alloc_df["Allocated Nitrogen"].fillna(0)
-
-    #     # 4. Calcul final : ratio * surface
-    #     # Récupère les valeurs de 'Nitrogen Production (ktN)' et de 'Allocated Nitrogen'
-    #     nitrogen_production = self.df_cultures["Nitrogen Production (ktN)"]
-    #     allocated_nitrogen = alloc_df["Allocated Nitrogen"]
-
-    #     # Si 'Nitrogen Production (ktN)' est nul, se rabattre sur les valeurs du blé
-    #     # En supposant que "Wheat" soit dans l'index de df_cultures, sinon adapte-le
-    #     wheat_nitrogen_production = self.df_cultures.loc["Wheat", "Nitrogen Production (ktN)"]
-    #     wheat_area = self.df_cultures.loc["Wheat", "Area (ha)"]
-
-    #     # Remplacer les valeurs de 'Nitrogen Production (ktN)' par celles du blé si elles sont nulles
-    #     adjusted_nitrogen_production = nitrogen_production.replace(0, wheat_nitrogen_production)
-
-    #     # Utiliser la superficie du blé lorsque la production d'azote est nulle, sans modifier df_cultures
-    #     adjusted_area = self.df_cultures["Area (ha)"].where(nitrogen_production != 0, wheat_area)
-
-    #     # Calcul du total des importations alimentaires
-    #     total_feed_import = (allocated_nitrogen / adjusted_nitrogen_production * adjusted_area).sum()
-
-    #     ## Importation de viande
-    #     # 1. Sélectionner les animaux importés
-    #     elevage_importe = self.df_elevage[self.df_elevage["Net animal nitrogen exports (ktN)"] < 0]
-
-    #     # 2. Pourcentage importé = |export net négatif| / production totale
-    #     elevage_importe["fraction_importée"] = (
-    #         -elevage_importe["Net animal nitrogen exports (ktN)"] / elevage_importe["Edible Nitrogen (ktN)"]
-    #     )
-
-    #     # 3. Créer un DataFrame vide pour accumuler les contributions par culture
-    #     surface_par_culture = pd.Series(0.0, index=self.df_cultures.index)
-
-    #     # 4. Parcourir chaque type d'élevage importé
-    #     for animal in elevage_importe.index:
-    #         if animal not in self.allocation_vege["Consumer"].values:
-    #             continue  # Si l'animal n'est pas dans les allocations, on passe
-
-    #         # a. Calculer la part importée de l'azote pour cet élevage
-    #         part_importee = elevage_importe.loc[animal, "fraction_importée"]
-
-    #         if elevage_importe.loc[elevage_importe.index == animal, "fraction_importée"].item() == np.inf:
-    #             # Calculer l'azote végétal nécessaire (N_feed=Azote importé/0.12)
-    #             N_animal_imported = -elevage_importe.loc[animal, "Net animal nitrogen exports (ktN)"]
-    #             N_feed_total_required = N_animal_imported / 0.12
-    #             # Aller chercher dans régimes[animal] les cultures consommées et en quelles proportion
-    #             # Dans chaque catégories, prendre la première culture avec un rendement non nul ou nan de la liste (df_cultures["Nitrogen Production (ktN)"]/df_culture["Area (ha)"])
-    #             # En déduire la surface théoriquement utilisée pour le nourrir (surface_par_culture[culture] = N_feed/rendement)
-    #             # Si aucune culture de la catégorie n'a de rendement, passer cette catégorie
-
-    #             # Parcourir les catégories du régime de l'animal
-    #             for proportion, culture_list in regimes[animal].items():
-    #                 N_feed_for_category = N_feed_total_required * proportion
-
-    #                 # Chercher la *première* culture valide dans la liste de la catégorie
-    #                 for culture_name in culture_list:
-    #                     # Vérifier si la culture existe dans df_cultures
-    #                     if culture_name in self.df_cultures.index:
-    #                         prod = self.df_cultures.loc[culture_name, "Nitrogen Production (ktN)"]
-    #                         surface = self.df_cultures.loc[culture_name, "Area (ha)"]
-
-    #                         # Calculer le rendement si possible (surface > 0 et prod > 0)
-    #                         if surface > 0 and prod > 0:
-    #                             rendement = prod / surface
-    #                             # Calculer la surface nécessaire pour cette catégorie via cette culture
-    #                             surface_needed = N_feed_for_category / rendement
-    #                             # Ajouter à la surface totale pour cette culture
-    #                             surface_par_culture[culture_name] = (
-    #                                 surface_par_culture.get(culture_name, 0) + surface_needed
-    #                             )
-    #                             break  # On a trouvé la première culture valide, on passe à la catégorie suivante du régime
-    #                         # else: rendement invalide (0 ou NaN), on essaie la culture suivante dans la liste
-    #                     # else: la culture n'est pas dans df_cultures, on essaie la suivante dans la liste
-    #         else:
-    #             # b. Extraire les allocations d'azote de chaque culture pour cet élevage
-    #             aliments = self.allocation_vege[self.allocation_vege["Consumer"] == animal]
-
-    #             for _, row in aliments.iterrows():
-    #                 culture = row["Culture"]
-    #                 azote = row["Allocated Nitrogen"] * part_importee  # Quantité d'azote importée pour cette culture
-
-    #                 if culture not in self.df_cultures.index:
-    #                     culture = "Wheat"  # Si la culture n'est pas dans df_cultures, on remplace par du blé
-
-    #                 # c. Récupérer la production d'azote et la surface de la culture
-    #                 prod = self.df_cultures.loc[culture, "Nitrogen Production (ktN)"]
-    #                 surface = self.df_cultures.loc[culture, "Area (ha)"]
-    #                 # if prod == 0:
-    #                 #     culture = "Wheat"
-    #                 #     prod = self.df_cultures.loc[culture, "Nitrogen Production (ktN)"]
-    #                 #     surface = self.df_cultures.loc[culture, "Area (ha)"]
-    #                 # d. Calculer la surface nécessaire pour produire l'azote consommé
-    #                 if prod > 0:
-    #                     surface_equivalente = azote / prod * surface
-    #                     surface_par_culture[culture] += surface_equivalente
-    #     import_animal = surface_par_culture.sum()
-
-    #     ## Export animaux
-    #     # 1. Sélectionner les animaux exportés (ceux qui ont un exportation nette positive)
-    #     elevage_exporte = self.df_elevage[self.df_elevage["Net animal nitrogen exports (ktN)"] > 0]
-
-    #     # 2. Calculer la fraction exportée pour chaque animal (en proportion de la production totale)
-    #     elevage_exporte["fraction_exportée"] = (
-    #         elevage_exporte["Net animal nitrogen exports (ktN)"] / elevage_exporte["Edible Nitrogen (ktN)"]
-    #     )
-
-    #     # 3. Créer un dictionnaire pour accumuler les résultats par culture
-    #     surface_par_culture_exporte = pd.Series({culture: 0.0 for culture in self.df_cultures.index})
-
-    #     # 4. Parcourir chaque type d'élevage exporté
-    #     for animal in elevage_exporte.index:
-    #         if animal not in self.allocation_vege["Consumer"].values:
-    #             continue  # Si l'animal n'est pas dans les allocations, on passe
-
-    #         # a. Calculer la part exportée de l'azote pour cet élevage
-    #         part_exportee = elevage_exporte.loc[animal, "fraction_exportée"]
-
-    #         # b. Extraire les allocations d'azote de chaque culture pour cet élevage
-    #         aliments = self.allocation_vege[self.allocation_vege["Consumer"] == animal]
-
-    #         for _, row in aliments.iterrows():
-    #             culture = row["Culture"]
-    #             azote = row["Allocated Nitrogen"] * part_exportee  # Quantité d'azote exportée pour cette culture
-
-    #             if culture not in self.df_cultures.index:
-    #                 culture = "Wheat"  # Si la culture n'est pas dans df_cultures, on remplace par du blé
-
-    #             # c. Récupérer la production d'azote et la surface de la culture
-    #             prod = self.df_cultures.loc[culture, "Nitrogen Production (ktN)"]
-    #             surface = self.df_cultures.loc[culture, "Area (ha)"]
-
-    #             # d. Calculer la surface nécessaire pour produire l'azote consommé
-    #             if prod > 0:
-    #                 surface_equivalente = azote / prod * surface
-    #                 surface_par_culture_exporte[culture] += surface_equivalente
-    #     export_animal = surface_par_culture_exporte.sum()
-
-    #     # Export culture
-    #     # Feed
-    #     export_surface_feed = (
-    #         self.df_cultures["Nitrogen Exported For Feed (ktN)"]
-    #         / self.df_cultures["Nitrogen Production (ktN)"]
-    #         * self.df_cultures["Area (ha)"]
-    #     ).sum()
-    #     # Food
-    #     export_surface_food = (
-    #         self.df_cultures["Available Nitrogen After Feed, Export Feed and Food (ktN)"]
-    #         / self.df_cultures["Nitrogen Production (ktN)"]
-    #         * self.df_cultures["Area (ha)"]
-    #     ).sum()
-    #     return pd.Series(
-    #         {
-    #             "Local Food": int(local_surface_food),
-    #             "Local Feed": int(local_surface_feed),
-    #             "Import Food": int(total_food_import),
-    #             "Import Feed": int(total_feed_import),
-    #             "Import Livestock": int(import_animal),
-    #             "Export Livestock": -int(export_animal),
-    #             "Export Feed": -int(export_surface_feed),
-    #             "Export Food": -int(export_surface_food),
-    #         }
-    #     )
 
     def net_footprint(self):
         """
@@ -2851,7 +2527,7 @@ class NitrogenFlowModel:
         """
         df = self.env_footprint()
         df_total_import = df.loc[["Import Food", "Import Feed", "Import Livestock"]].sum(axis=0)
-        df_total_export = df.loc[["Export Food", "Export Feed", "Export Livestock"]].sum(axis=0)
+        df_total_export = df.loc[["Export Plant", "Export Livestock"]].sum(axis=0)
         net_import_export = df_total_import + df_total_export
         return np.round(net_import_export / 1e6, 2)
 
@@ -2871,7 +2547,7 @@ class NitrogenFlowModel:
         :return: NH₃ emissions in kt.
         :rtype: float
         """
-        return self.emissions()["NH3 volatilization"]
+        return self.emissions()["atmospheric NH3"]
 
     def N2O_em(self):
         """
@@ -2880,9 +2556,9 @@ class NitrogenFlowModel:
         :return: N₂O emissions in kt.
         :rtype: float
         """
-        return self.emissions()["N2O emission"]
+        return self.emissions()["atmospheric N20"]
 
-    def export_flux_to_csv(self, filename="flux_data.csv"):
+    def export_flux_to_csv(self, filename="flux_data.xlsx"):
         """
         Exporte les flux de la matrice de transition vers un fichier CSV.
         Chaque ligne contient (source, target, value) pour chaque flux non nul.
@@ -2906,52 +2582,29 @@ class NitrogenFlowModel:
         # Exporter le DataFrame vers un fichier CSV
         df_flux.to_excel(filename, index=False)
 
-    def general_reg(self, cons):
-        """
-        Give the diet for a consumer.
-        """
-        # Filtrer les données pour "urban" et effectuer les transformations
-        df_filtered = self.allocation_vege.loc[self.allocation_vege["Consumer"] == cons, ["Product", "Allocated Nitrogen"]]
+# A reprendre
+    # def general_reg(self, cons):
+    #     """
+    #     Give the diet for a consumer.
+    #     """
+    #     # Filtrer les données pour "urban" et effectuer les transformations
+    #     df_filtered = self.allocations_df.loc[self.allocations_df["Consumer"] == cons, ["Product", "Allocated Nitrogen"]]
 
-        df_filtered = df_filtered.groupby("Product", as_index=False)["Allocated Nitrogen"].sum()
+    #     df_filtered = df_filtered.groupby("Product", as_index=False)["Allocated Nitrogen"].sum()
 
-        # Créer la colonne "Product" en joignant "Product" avec le premier mot de "Type"
-        # df_filtered["Product"] = df_filtered["Product"] + " " + df_filtered["Type"].str.split().str[0]
+    #     # Créer la colonne "Product" en joignant "Product" avec le premier mot de "Type"
+    #     # df_filtered["Product"] = df_filtered["Product"] + " " + df_filtered["Type"].str.split().str[0]
 
-        # Utiliser self.prod pour l'indexation, mettre 0 si l'index est absent dans df_filtered
-        # Nous devons parcourir self.prod et vérifier la présence dans df_filtered['Product']
-        df_filtered.set_index("Product", inplace=True)
+    #     # Utiliser self.prod pour l'indexation, mettre 0 si l'index est absent dans df_filtered
+    #     # Nous devons parcourir self.prod et vérifier la présence dans df_filtered['Product']
+    #     df_filtered.set_index("Product", inplace=True)
 
-        # Ajouter les produits absents de df_filtered avec une valeur de 0
-        missing_products = set(self.prod) - set(df_filtered.index)
-        for missing in missing_products:
-            df_filtered.loc[missing] = 0.0  # Si nécessaire, ajustez les valeurs à insérer pour "Allocated Nitrogen" et "Type"
+    #     # Ajouter les produits absents de df_filtered avec une valeur de 0
+    #     missing_products = set(self.df_prod) - set(df_filtered.index)
+    #     for missing in missing_products:
+    #         df_filtered.loc[missing] = 0.0  # Si nécessaire, ajustez les valeurs à insérer pour "Allocated Nitrogen" et "Type"
 
-        # Réorganiser l'ordre en fonction de self.prod
-        df_filtered = df_filtered.reindex(self.prod, fill_value=0)
+    #     # Réorganiser l'ordre en fonction de self.prod
+    #     df_filtered = df_filtered.reindex(self.df_prod, fill_value=0)
 
-        return df_filtered["Allocated Nitrogen"]
-    
-    def urb_reg(self):
-        return self.general_reg("urban")/(self.pop*self.prop_urb)
-        
-    def rur_reg(self):
-        return self.general_reg("rural")/(self.pop*(1-self.prop_urb))
-    
-    def bovines_reg(self):
-        return self.general_reg("bovines")/self.df_elevage["LU", "bovines"]
-    
-    def porcines_reg(self):
-        return self.general_reg("porcines")/self.df_elevage["LU", "porcines"]
-    
-    def ovines_reg(self):
-        return self.general_reg("ovines")/self.df_elevage["LU", "ovines"]
-    
-    def caprines_reg(self):
-        return self.general_reg("caprines")/self.df_elevage["LU", "caprines"]
-    
-    def poultry_reg(self):
-        return self.general_reg("poultry")/self.df_elevage["LU", "poultry"]
-    
-    def equines_reg(self):
-        return self.general_reg("equine")/self.df_elevage["LU", "equine"]
+    #     return df_filtered["Allocated Nitrogen"]

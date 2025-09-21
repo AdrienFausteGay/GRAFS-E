@@ -5,8 +5,9 @@ build/
 dist/
 wheels/
 *.egg-info
-.gitlab-ci.yml
 .DS_Store
+/src/*.egg-info/
+
 
 # Virtual environments
-.venv
+.venv 
