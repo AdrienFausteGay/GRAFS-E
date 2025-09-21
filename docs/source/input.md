@@ -1,6 +1,6 @@
 # Input Data
 
-In this section, we describe the **input data** required for the proper functioning of **GRAFS-E**. The data is organized into two Excel files: one project spreadsheet and one data spreadsheet.
+In this section, we describe the **input data** required for the proper functioning of **GRAFS-E**. Data can use several sources but must be coherent. If data are lacking, you can use defaut value or hypothesis. For example, if a crop production is unavailable, use crop area and mean crop productivity. The data is organized into two Excel files: one project spreadsheet and one data spreadsheet.
 
 ## Project Spreadsheet
 

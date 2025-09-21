@@ -1,5 +1,3 @@
-ChatGPT a dit :
-
 # Output
 
 The output data is organized into a transition matrix showing the flows between each compartment, along with 7 dataframes presenting the input data, intermediate calculations, and output data:

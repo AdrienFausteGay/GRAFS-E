@@ -46,8 +46,8 @@ class DataLoader:
         fixed_compartments = ["Haber-Bosch",
                               "hydro-system",
                               "atmospheric N2",
-                              "NH3 volatilization",
-                              "N2O emission",
+                              "atmospheric NH3",
+                              "atmospheric N20",
                               "fishery products",
                               "other sectors",
                               "other losses",
@@ -942,7 +942,7 @@ class NitrogenFlowModel:
             flux_generator.generate_flux(source, {i: target[i]})
 
         ## Dépôt atmosphérique
-        source = {"N2O emission": 0.1, "NH3 volatilization": 0.9}
+        source = {"atmospheric N20": 0.1, "atmospheric NH3": 0.9}
         target = (df_global.loc["Atmospheric deposition coef (kgN/ha)"].item() * df_cultures["Area (ha)"] / 1e6).to_dict()  # Dépôt proportionnel aux surface
         flux_generator.generate_flux(source, target)
 
@@ -973,12 +973,12 @@ class NitrogenFlowModel:
 
         # Le reste est perdu dans l'environnement
         source = ((df_pop["Ingestion (ktN)"]*df_pop["N-N2O EM excretion (%)"]) / 100).to_dict()
-        target = {"N2O emission": 1}
+        target = {"atmospheric N20": 1}
         flux_generator.generate_flux(source, target)
 
         # Ajouter les fuites de NH3
         source = ((df_pop["Ingestion (ktN)"]*df_pop["N-NH3 EM excretion (%)"]) / 100).to_dict()
-        target = {"NH3 volatilization": 1}
+        target = {"atmospheric NH3": 1}
         flux_generator.generate_flux(source, target)
 
         # Ajouter les fuites de N2
@@ -1026,7 +1026,7 @@ class NitrogenFlowModel:
 
         # NH3
         # 1 % est volatilisée de manière indirecte sous forme de N2O
-        target = {"NH3 volatilization": 0.99, "N2O emission": 0.01}
+        target = {"atmospheric NH3": 0.99, "atmospheric N20": 0.01}
         source = (
             df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["Excreted on grassland (%)"]
@@ -1037,7 +1037,7 @@ class NitrogenFlowModel:
         flux_generator.generate_flux(source, target)
 
         # N2O
-        target = {"N2O emission": 1}
+        target = {"atmospheric N20": 1}
         source = (
             df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["Excreted on grassland (%)"]
@@ -1092,7 +1092,7 @@ class NitrogenFlowModel:
 
         # NH3
         # 1 % est volatilisée de manière indirecte sous forme de N2O
-        target = {"NH3 volatilization": 0.99, "N2O emission": 0.01}
+        target = {"atmospheric NH3": 0.99, "atmospheric N20": 0.01}
         source = (
             df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["Excreted indoor (%)"]
@@ -1106,7 +1106,7 @@ class NitrogenFlowModel:
         flux_generator.generate_flux(source, target)
 
         # N2O
-        target = {"N2O emission": 1}
+        target = {"atmospheric N20": 1}
         source = (
             df_elevage["Excreted nitrogen (ktN)"]
             * df_elevage["Excreted indoor (%)"]
@@ -1267,19 +1267,19 @@ class NitrogenFlowModel:
         flux_generator.generate_flux(source, target)
 
         source = df_cultures["Volatilized Nitrogen N-NH3 (ktN)"].to_dict()
-        target = {"NH3 volatilization": 1}
+        target = {"atmospheric NH3": 1}
 
         flux_generator.generate_flux(source, target)
 
         source = df_cultures["Volatilized Nitrogen N-N2O (ktN)"].to_dict()
-        target = {"N2O emission": 1}
+        target = {"atmospheric N20": 1}
 
         flux_generator.generate_flux(source, target)
 
         # A cela on ajoute les emissions indirectes de N2O lors de la fabrication des engrais
         epend_tot_synt = df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"].sum()
         coef_emis_N_N2O = df_global.loc["coefficient N-N2O indirect emission synthetic fertilization (%)"].item() / 100
-        target = {"N2O emission": 1}
+        target = {"atmospheric N20": 1}
         source = {"Haber-Bosch": epend_tot_synt * coef_emis_N_N2O}
 
         flux_generator.generate_flux(source, target)
@@ -1393,12 +1393,17 @@ class NitrogenFlowModel:
         # delta_import doit être supérieur ou égal à la déviation négative (pour capturer la valeur absolue)
         prob += delta_import >= import_net - net_import_model
 
+        if import_net > 1:
+            norm = import_net
+        else:
+            norm = 1
+
         prob += (
             poids_penalite_deviation
             * lpSum(delta_vars[(cons, tuple(products_list))] for cons, proportion, products_list in pairs)
             + poids_penalite_culture
             * lpSum(penalite_culture_vars)
-            + poids_penalite_import * delta_import,
+            + poids_penalite_import * delta_import / norm,
             "Minimiser_Deviations_Penalties_Et_Excès_Importation",
         )
 
@@ -1768,13 +1773,14 @@ class NitrogenFlowModel:
             elif imbalance < 0:
                 # Plus d'entrées que de sorties, on augmente les sorties
                 # adjacency_matrix[node_index, n] = -imbalance  # Flux de la culture vers le nœud de balance
-                if label != "Natural meadow ":  # 70% de l'excès fini dans les ecosystèmes aquatiques
+                category = df_cultures.loc[df_cultures.index==label, "category"].item()
+                if category == "natural meadows":  # 70% de l'excès fini dans les ecosystèmes aquatiques
                     source = {label: -imbalance}
                     # Ajouter soil stock parmis les surplus de fertilisation.
                     target = {
                         "other losses": 0.2925,
                         "hydro-system": 0.7,
-                        "N2O emission": 0.0075,
+                        "atmospheric N20": 0.0075,
                     }
                 else:
                     if (
@@ -1788,7 +1794,7 @@ class NitrogenFlowModel:
                         target = {
                             "other losses": 0.2925,
                             "hydro-system": 0.7,
-                            "N2O emission": 0.0075,
+                            "atmospheric N20": 0.0075,
                         }
                         flux_generator.generate_flux(source, target)
                         source = {
@@ -2157,12 +2163,12 @@ class NitrogenFlowModel:
         """
         return pd.Series(
             {
-                "N2O emission": np.round(
-                    self.adjacency_matrix[:, self.data_loader.label_to_index["N2O emission"]].sum() * (14 * 2 + 16) / (14 * 2), 2
+                "atmospheric N20": np.round(
+                    self.adjacency_matrix[:, self.data_loader.label_to_index["atmospheric N20"]].sum() * (14 * 2 + 16) / (14 * 2), 2
                 ),
                 "atmospheric N2": np.round(self.adjacency_matrix[:, self.data_loader.label_to_index["atmospheric N2"]].sum(), 2),
-                "NH3 volatilization": np.round(
-                    self.adjacency_matrix[:, self.data_loader.label_to_index["NH3 volatilization"]].sum() * 17 / 14, 2
+                "atmospheric NH3": np.round(
+                    self.adjacency_matrix[:, self.data_loader.label_to_index["atmospheric NH3"]].sum() * 17 / 14, 2
                 ),
             },
             name="Emission",
@@ -2233,10 +2239,10 @@ class NitrogenFlowModel:
     #             ].sum(),
     #             "Haber-Bosch": self.adjacency_matrix[self.data_loader.label_to_index["Haber-Bosch"], :].sum(),
     #             "Atmospheric deposition": self.adjacency_matrix[
-    #                 self.data_loader.label_to_index["N2O emission"], : self.data_loader.label_to_index["Natural meadow "] + 1
+    #                 self.data_loader.label_to_index["atmospheric N20"], : self.data_loader.label_to_index["Natural meadow "] + 1
     #             ].sum()
     #             + self.adjacency_matrix[
-    #                 self.data_loader.label_to_index["NH3 volatilization"], : self.data_loader.label_to_index["Natural meadow "] + 1
+    #                 self.data_loader.label_to_index["atmospheric NH3"], : self.data_loader.label_to_index["Natural meadow "] + 1
     #             ].sum(),
     #             "atmospheric N2": self.adjacency_matrix[
     #                 self.data_loader.label_to_index["atmospheric N2"], self.data_loader.label_to_index["Wheat"] : self.data_loader.label_to_index["Natural meadow "] + 1
@@ -2541,7 +2547,7 @@ class NitrogenFlowModel:
         :return: NH₃ emissions in kt.
         :rtype: float
         """
-        return self.emissions()["NH3 volatilization"]
+        return self.emissions()["atmospheric NH3"]
 
     def N2O_em(self):
         """
@@ -2550,7 +2556,7 @@ class NitrogenFlowModel:
         :return: N₂O emissions in kt.
         :rtype: float
         """
-        return self.emissions()["N2O emission"]
+        return self.emissions()["atmospheric N20"]
 
     def export_flux_to_csv(self, filename="flux_data.xlsx"):
         """
@@ -2602,27 +2608,3 @@ class NitrogenFlowModel:
     #     df_filtered = df_filtered.reindex(self.df_prod, fill_value=0)
 
     #     return df_filtered["Allocated Nitrogen"]
-    
-    # def urb_reg(self):
-    #     return self.general_reg("urban")/(self.pop*self.prop_urb)
-        
-    # def rur_reg(self):
-    #     return self.general_reg("rural")/(self.pop*(1-self.prop_urb))
-    
-    # def bovines_reg(self):
-    #     return self.general_reg("bovines")/self.df_elevage["LU", "bovines"]
-    
-    # def porcines_reg(self):
-    #     return self.general_reg("porcines")/self.df_elevage["LU", "porcines"]
-    
-    # def ovines_reg(self):
-    #     return self.general_reg("ovines")/self.df_elevage["LU", "ovines"]
-    
-    # def caprines_reg(self):
-    #     return self.general_reg("caprines")/self.df_elevage["LU", "caprines"]
-    
-    # def poultry_reg(self):
-    #     return self.general_reg("poultry")/self.df_elevage["LU", "poultry"]
-    
-    # def equines_reg(self):
-    #     return self.general_reg("equine")/self.df_elevage["LU", "equine"]
