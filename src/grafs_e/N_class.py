@@ -1290,7 +1290,7 @@ class NitrogenFlowModel:
         flux_generator.generate_flux(source_non_comestible, target_other_sectors)
 
         # Et la valeur net
-        import_net = df_global.loc["Net Import (ktN)"].item() / 100
+        import_net = df_global.loc["Net Import (ktN)"].item()
 
         # Filtre les données d'ingestion animale et les stocke dans df_cons_vege
         df_cons_vege = df_elevage.loc[df_elevage["Ingestion (ktN)"] > 10**-8, ["Ingestion (ktN)"]].copy()
@@ -1379,7 +1379,7 @@ class NitrogenFlowModel:
         poids_penalite_deviation = df_global.loc[df_global.index=="Weight diet"]["value"].item()
 
         # Poids pour équilibrer la distribution des cultures dans les categories
-        poids_penalite_culture = df_global.loc[df_global.index=="Weight diet"]["value"].item()
+        poids_penalite_culture = df_global.loc[df_global.index=="Weight distribution"]["value"].item()
 
         poids_penalite_import = df_global.loc[df_global.index=="Weight import"]["value"].item()
 
@@ -1393,17 +1393,16 @@ class NitrogenFlowModel:
         # delta_import doit être supérieur ou égal à la déviation négative (pour capturer la valeur absolue)
         prob += delta_import >= import_net - net_import_model
 
-        if import_net > 1:
-            norm = import_net
-        else:
-            norm = 1
+        norm_imp = max(1.0, abs(df_prod["Nitrogen Production (ktN)"].sum() - df_elevage["Ingestion (ktN)"].sum() - df_pop["Ingestion (ktN)"].sum())) # max(1.0, abs(import_net))
+        n_pairs = min(1, len(pairs))
+        n_cult = max(1, len(df_prod))
 
         prob += (
-            poids_penalite_deviation
+            poids_penalite_deviation / n_pairs
             * lpSum(delta_vars[(cons, tuple(products_list))] for cons, proportion, products_list in pairs)
-            + poids_penalite_culture
+            + poids_penalite_culture / n_cult
             * lpSum(penalite_culture_vars)
-            + poids_penalite_import * delta_import / norm,
+            + poids_penalite_import * delta_import / norm_imp,
             "Minimiser_Deviations_Penalties_Et_Excès_Importation",
         )
 
@@ -1484,45 +1483,105 @@ class NitrogenFlowModel:
             besoin = df_cons_vege.loc[cons, "Ingestion (ktN)"]
             
             # Calcule l'azote total disponible pour ce groupe de cultures
-            azote_total_groupe = lpSum(get_nitrogen_production(p, df_prod) for p in products_list)
+            # azote_total_groupe = lpSum(get_nitrogen_production(p, df_prod) for p in products_list)
+            azote_total_groupe = sum(get_nitrogen_production(p, df_prod) for p in products_list)
 
-            # Alloue de l'azote pour le groupe, selon le type de consommateur
-            allocation_groupe = lpSum(
-                x_vars.get((prod, cons), 0) + 
-                I_vars.get((prod, cons), 0)
-                for prod in products_list
-            )
+            # # Alloue de l'azote pour le groupe, selon le type de consommateur
+            # allocation_groupe = lpSum(
+            #     x_vars.get((prod, cons), 0) + 
+            #     I_vars.get((prod, cons), 0)
+            #     for prod in products_list
+            # )
             
             # Ajoute les contraintes de pénalité si l'allocation du groupe n'est pas nulle
-            if besoin > 0 and azote_total_groupe.value() > 0:
+            if besoin > 0 and azote_total_groupe > 0:
                 for prod_i in products_list:
                     # Récupère la production d'azote pour le produit actuel
                     azote_disponible_prod_i = get_nitrogen_production(prod_i, df_prod)
 
+                    ingestion_totale = df_cons_vege.loc[cons, "Ingestion (ktN)"]
+                    allocation_groupe_cible = proportion * ingestion_totale
                     # Calcule l'allocation cible proportionnelle à la disponibilité
-                    allocation_cible_culture = (azote_disponible_prod_i / azote_total_groupe.value()) * allocation_groupe
+                    allocation_cible_culture = (azote_disponible_prod_i / azote_total_groupe) * allocation_groupe_cible
                     
                     # Allocation réelle
-                    allocation_reelle_culture = x_vars.get((prod_i, cons), 0)
+                    allocation_reelle_culture = x_vars.get((prod_i, cons), 0) + I_vars.get((prod_i, cons), 0)
                     
                     # Pénalités pour la déviation
                     # On utilise try-except pour éviter les erreurs si la variable n'existe pas
                     try:
                         penalite_var = penalite_culture_vars[(cons, proportion, prod_i)]
                         prob += (
-                            allocation_reelle_culture - allocation_cible_culture <= penalite_var,
+                            (allocation_reelle_culture - allocation_cible_culture)/allocation_cible_culture <= penalite_var,
                             f"Penalite_Culture_Plus_{cons}_{proportion}_{prod_i}",
                         )
                         prob += (
-                            allocation_cible_culture - allocation_reelle_culture <= penalite_var,
+                            (allocation_cible_culture - allocation_reelle_culture)/allocation_cible_culture <= penalite_var,
                             f"Penalite_Culture_Moins_{cons}_{proportion}_{prod_i}",
                         )
                     except KeyError:
                         # La variable n'existe pas, on ignore l'ajout des contraintes
                         pass
 
+#DEBUG
+        # # 1) Construire explicitement chaque terme (à conserver pour l'analyse)
+        # term_dev  = lpSum(delta_vars[(cons, tuple(products_list))]
+        #                 for cons, proportion, products_list in pairs)
+
+        # term_cult = lpSum(penalite_culture_vars)
+
+        # term_imp  = delta_import  # variable qui capte |net_import_model - import_net|
+
         # Résolution du problème
         prob.solve()
+
+        # from pulp import value
+
+        # raw_dev  = value(term_dev)   # somme des déviations (brut)
+        # raw_cult = value(term_cult)  # somme des pénalités cultures (brut)
+        # raw_imp  = value(term_imp)   # excès d'import (brut)
+
+        # # 5) Versions normalisées (si tu veux comparer des ordres de grandeur homogènes)
+        # norm_dev  = raw_dev  / n_pairs if n_pairs  else None
+        # norm_cult = raw_cult / n_cult  if n_cult   else None
+        # norm_impv = raw_imp  / norm_imp if norm_imp else None
+
+        # # 6) Contributions pondérées dans l’objectif (pour vérifier l’équilibre)
+        # w_dev  = (poids_penalite_deviation / n_pairs) * raw_dev  if n_pairs  else None
+        # w_cult = (poids_penalite_culture  / n_cult)  * raw_cult if n_cult   else None
+        # w_imp  = (poids_penalite_import   / norm_imp) * raw_imp  if norm_imp else None
+
+        # obj_val = value(prob.objective)
+
+        # print(poids_penalite_culture, poids_penalite_deviation, poids_penalite_import)
+
+#DEBUG
+        # # 7) Affichage synthétique
+        # report = {
+        #     "raw_terms": {
+        #         "deviation_sum": raw_dev,
+        #         "culture_penalty_sum": raw_cult,
+        #         "import_excess": raw_imp,
+        #     },
+        #     "normalized_terms": {
+        #         "deviation_avg_per_pair": norm_dev,
+        #         "culture_avg_per_culture": norm_cult,
+        #         "import_normalized": norm_impv,
+        #     },
+        #     "weighted_contributions": {
+        #         "dev_contrib": w_dev,
+        #         "cult_contrib": w_cult,
+        #         "imp_contrib": w_imp,
+        #         "objective_total": obj_val,
+        #         "shares_%": {
+        #             "dev": (100 * w_dev / obj_val) if obj_val else None,
+        #             "cult": (100 * w_cult / obj_val) if obj_val else None,
+        #             "imp": (100 * w_imp / obj_val) if obj_val else None,
+        #         }
+        #     }
+        # }
+
+        # import pprint; pprint.pp(report, sort_dicts=False)
 
         allocations = []
         for var in prob.variables():
@@ -1773,8 +1832,8 @@ class NitrogenFlowModel:
             elif imbalance < 0:
                 # Plus d'entrées que de sorties, on augmente les sorties
                 # adjacency_matrix[node_index, n] = -imbalance  # Flux de la culture vers le nœud de balance
-                category = df_cultures.loc[df_cultures.index==label, "category"].item()
-                if category == "natural meadows":  # 70% de l'excès fini dans les ecosystèmes aquatiques
+                category = df_cultures.loc[df_cultures.index==label, "Category"].item()
+                if category != "natural meadows":  # 70% de l'excès fini dans les ecosystèmes aquatiques
                     source = {label: -imbalance}
                     # Ajouter soil stock parmis les surplus de fertilisation.
                     target = {
@@ -1784,12 +1843,12 @@ class NitrogenFlowModel:
                     }
                 else:
                     if (
-                        imbalance * 10**6 / df_cultures.loc[df_cultures.index == "Natural meadow ", "Area (ha)"].item()
+                        imbalance * 10**6 / df_cultures.loc[df_cultures.index == label, "Area (ha)"].item()
                         > 100
                     ):  # Si c'est une prairie, l'azote est lessivé seulement au dela de 100 kgN/ha
                         source = {
-                            label: -imbalance
-                            - 100 * df_cultures.loc[df_cultures.index == "Natural meadow ", "Area (ha)"].item() / 10**6
+                            label: (-imbalance
+                            - 100) * df_cultures.loc[df_cultures.index == label, "Area (ha)"].item() / 10**6
                         }
                         target = {
                             "other losses": 0.2925,
@@ -1799,7 +1858,7 @@ class NitrogenFlowModel:
                         flux_generator.generate_flux(source, target)
                         source = {
                             label: 100
-                            * df_cultures.loc[df_cultures.index == "Natural meadow ", "Area (ha)"].item()
+                            * df_cultures.loc[df_cultures.index == label, "Area (ha)"].item()
                             / 10**6
                         }
                         target = {label: 1}

@@ -64,9 +64,11 @@ An extension to represent carbon flows is currently under development and will b
 
 This version of GRAFS-E has been designed to represent historical agro-food systems. It can already be used to propose a physical view of a scenarized system. But for more control over the scenarisation and to simplificate the use of GRAFS-E in prospective view, a GRAFS-E prospective mode is under current development.
 
-GRAFS-E is developped in Python which make it accessible for a large part of scientific community. Yet, to spread GRAFS-E among politicians, associations and the general public, a graphical interface is under current development.
+GRAFS-E is developped in Python which make it accessible for a large part of scientific community. Yet, to spread GRAFS-E among politicians, associations and the general public, a graphical interface is under current development. 
 
 ## References
 
 ```{bibliography}
 :filter: docname in docnames
+:style: unsrt
+:labelprefix: OV

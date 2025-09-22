@@ -241,3 +241,5 @@ All **crops, livestock, population, and product** compartments are balanced by c
 
 ```{bibliography}
 :filter: docname in docnames
+:style: unsrt
+:labelprefix: M
