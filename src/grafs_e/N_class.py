@@ -339,6 +339,12 @@ class DataLoader:
             "Enforce animal share"
         ]
 
+        #Weight distribution is given in option and can be computed from other weights
+        if "Weight distribution" not in global_df.index:
+            weight_diet = global_df.loc["Weight diet", "value"]
+            weight_import = global_df.loc["Weight import", "value"]
+            global_df.loc["Weight distribution", "value"] = min(weight_diet, weight_import) / 10
+
         # Check for the presence of each required item
         missing_items = [item for item in required_items if item not in global_df.index]
 
@@ -1485,24 +1491,17 @@ class NitrogenFlowModel:
             # Calcule l'azote total disponible pour ce groupe de cultures
             # azote_total_groupe = lpSum(get_nitrogen_production(p, df_prod) for p in products_list)
             azote_total_groupe = sum(get_nitrogen_production(p, df_prod) for p in products_list)
-
-            # # Alloue de l'azote pour le groupe, selon le type de consommateur
-            # allocation_groupe = lpSum(
-            #     x_vars.get((prod, cons), 0) + 
-            #     I_vars.get((prod, cons), 0)
-            #     for prod in products_list
-            # )
             
             # Ajoute les contraintes de pénalité si l'allocation du groupe n'est pas nulle
             if besoin > 0 and azote_total_groupe > 0:
                 for prod_i in products_list:
                     # Récupère la production d'azote pour le produit actuel
-                    azote_disponible_prod_i = get_nitrogen_production(prod_i, df_prod)
+                    # azote_disponible_prod_i = get_nitrogen_production(prod_i, df_prod)
 
                     ingestion_totale = df_cons_vege.loc[cons, "Ingestion (ktN)"]
                     allocation_groupe_cible = proportion * ingestion_totale
                     # Calcule l'allocation cible proportionnelle à la disponibilité
-                    allocation_cible_culture = (azote_disponible_prod_i / azote_total_groupe) * allocation_groupe_cible
+                    allocation_cible_culture = allocation_groupe_cible / len(product_list) # (azote_disponible_prod_i / azote_total_groupe) * allocation_groupe_cible
                     
                     # Allocation réelle
                     allocation_reelle_culture = x_vars.get((prod_i, cons), 0) + I_vars.get((prod_i, cons), 0)
