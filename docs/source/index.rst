@@ -14,17 +14,6 @@ GRAFS-E 1.0 — Specification
 **GRAFS-E** (Generalized Representation of Agri-Food Systems — Extended) is a flexible, open-source Python model.
 Version **1.0** covers **nitrogen** at annual resolution; **carbon, energy and other flows** are under active development.
 
-Installation
-------------
-
-.. code-block:: bash
-
-   pip install grafs-e
-
-See the :doc:`user-guide` for first steps.
-
-<!-- Online app: `grafs-e.streamlit.app <https://grafs-e.streamlit.app>`_ -->
-
 .. grid:: 1 2 2 2
    :gutter: 2
 
@@ -89,18 +78,14 @@ See the :doc:`user-guide` for first steps.
          See math behind the beast
 
 .. toctree::
-   :maxdepth: 1
-
-   overview
-   user-guide
-   grafs-e-engine
-   references/api
-
-.. toctree::
    :hidden:
    :maxdepth: 2
    :caption: Specification
 
-   02-terms
+   overview
+   user-guide
+   grafs-e-engine
    input
+   02-terms
+   references/api
    output
