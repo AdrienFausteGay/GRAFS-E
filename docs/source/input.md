@@ -8,6 +8,7 @@ The **project** spreadsheet contains the **metadata** for structuring the projec
 
 - **crops**: Data on crops
 - **livestock**: Data on livestock
+- **excretion**: Data on livestock excretions
 - **pop**: Data on human populations
 - **prod**: Data on agricultural products
 - **global**: Data regarding a specific territory
@@ -15,6 +16,14 @@ The **project** spreadsheet contains the **metadata** for structuring the projec
 Each sheet must contain the **List of Compartments** (names): Each compartment must be clearly defined (e.g., crops, livestock, etc.). Two compartments must not have the same name.
 
 In each sheet, you may add **Default Values**: If a default value for an item (e.g., Nitrogen Content for Wheat is 2 %) is provided in the project file, it will be used unless another value is available in the data file.
+
+GRAFS-E manage 3 excretion types: manure, slurry and grassland excretion. The amount of each excretion type is given by livestock tab data, yet the induced flows are computed and represented with specific excretion compartments.
+The excretion tab must be composed of 3 lines per livestock defined in livestock tab. With i the name of each livestock, the following lines must be in excretion sheet :
+- i manure
+- i slurry
+- i grasslands excretion
+
+If a row is missing, it will be automatically added with data filled with 0.
 
 The **project** file defines the basic structures for each category of data.
 
@@ -103,16 +112,7 @@ Here are the required input data related to **livestock**:
 | **Excreted indoor (%)**             | Proportion of time spent indoors in a building                                                     | float ([0, 100]) | 100 - **Excreted indoor (%)** gives the proportion of time spent grazing                                                                      |
 | **Excreted indoor as manure (%)**   | Proportion of excretions indoors converted into manure                                              | float ([0, 100]) | The rest is converted into slurry.                                                                                                                |
 | **LU**                              | Number of Livestock Units                                                                           | float (>0)       |                                                                                                                                               |
-| **Excretion / LU (kgN)**            | Amount of nitrogen excreted per LU                                                                  | float (>0)       |                                                                                                                                               |
-| **N-NH3 EM manure (%)**             | Ammonia emission factor for manure                                                                  | float ([0, 100]) |                                                                                                                                               |
-| **N-NH3 EM slurry (%)**             | Ammonia emission factor for slurry                                                                  | float ([0, 100]) |                                                                                                                                               |
-| **N-NH3 EM outdoor (%)**            | Ammonia emission factor for excretions outdoors                                                    | float ([0, 100]) |                                                                                                                                               |
-| **N-N2O EM manure (%)**             | Nitrous oxide emission factor for manure                                                           | float ([0, 100]) |                                                                                                                                               |
-| **N-N2O EM slurry (%)**             | Nitrous oxide emission factor for slurry                                                           | float ([0, 100]) |                                                                                                                                               |
-| **N-N2O EM outdoor (%)**            | Nitrous oxide emission factor for excretions outdoors                                             | float ([0, 100]) |                                                                                                                                               |
-| **N-N2 EM manure (%)**              | Nitrogen N2 emission factor for manure                                                             | float ([0, 100]) |                                                                                                                                               |
-| **N-N2 EM slurry (%)**              | Nitrogen N2 emission factor for slurry                                                             | float ([0, 100]) |                                                                                                                                               |
-| **N-N2 EM outdoor (%)**             | Nitrogen N2 emission factor for excretions outdoors                                               | float ([0, 100]) |                                                                                                                                               |
+| **Excretion / LU (kgN)**            | Amount of nitrogen excreted per LU                                                                  | float (>0)       |                                                                                                                                               |                  
 | **Diet**        | Diet ID to use for this population                                                           | str | Must have a corresponding Diet ID in Diet tab                                                                            |
 
 The management of excretions distinguishes between three types:
@@ -121,6 +121,19 @@ The management of excretions distinguishes between three types:
 - **Outdoor (non-recoverable)**
 
 For each type of excretion management **X**, the difference 100 - (N-NH3 EM X (%) + N-N2O EM X (%) + N-N2 EM manure (%)) is considered lost to continental water (compartment "hydro-system").
+
+### Excretion
+
+As stated in Here are the required input data related to **animal excretion**:
+
+| Column Name                        | Description                                                                                        | Type             | Remark                                                                                                                                          |
+| ----------------------------------  | -------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Origin compartment** | Name of the livestock compartment producing this excretion. | str              | It must match a defined  livestock compartment.      |
+| **Type**              | Type of excretion (manure, slurry or grasslands excretion)       | str              |                                                                                                         |
+| **N-NH3 EM (%)**             | Ammonia emission factor                                                                  | float ([0, 100]) |
+| **N-N2O EM (%)**            | Nitrous oxide emission factor                                             | float ([0, 100]) | 
+| **N-N2 EM (%)**             | Nitrogen N2 emission factor                                               | float ([0, 100]) | 
+
 
 ### Population
 
