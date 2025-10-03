@@ -8,6 +8,7 @@ The **project** spreadsheet contains the **metadata** for structuring the projec
 
 - **crops**: Data on crops
 - **livestock**: Data on livestock
+- **excretion**: Data on livestock excretions
 - **pop**: Data on human populations
 - **prod**: Data on agricultural products
 - **global**: Data regarding a specific territory
@@ -15,6 +16,14 @@ The **project** spreadsheet contains the **metadata** for structuring the projec
 Each sheet must contain the **List of Compartments** (names): Each compartment must be clearly defined (e.g., crops, livestock, etc.). Two compartments must not have the same name.
 
 In each sheet, you may add **Default Values**: If a default value for an item (e.g., Nitrogen Content for Wheat is 2 %) is provided in the project file, it will be used unless another value is available in the data file.
+
+GRAFS-E manage 3 excretion types: manure, slurry and grassland excretion. The amount of each excretion type is given by livestock tab data, yet the induced flows are computed and represented with specific excretion compartments.
+The excretion tab must be composed of 3 lines per livestock defined in livestock tab. With i the name of each livestock, the following lines must be in excretion sheet :
+- i manure
+- i slurry
+- i grasslands excretion
+
+If a row is missing, it will be automatically added with data filled with 0.
 
 The **project** file defines the basic structures for each category of data.
 
@@ -78,7 +87,7 @@ Here are the required crop-related input data.
 | **BNG**                              | Contribution of roots to symbiotic nitrogen fixation                                               | float (>=1)      | 0 if the crop does not fix nitrogen symbiotically. Otherwise, refer to data from Anglade et al. (2015)            |
 | **Harvest index**                    | Part of the crop harvested. Useful only for calculating symbiotic nitrogen fixation                | float ([0,1])    |                                                                                                                    |
 | **Area (ha)**                        | Area occupied by this crop in the considered territory                                              | float (>=0)      |                                                                                                                    |
-| **Streading Rate (%)**               | Proportion of the area of this crop benefiting from manure, slurry, fertilizer, etc.                | float ([0, 100]) | If no data is available, use 100 by default for all crops.                                                        |
+| **Spreading Rate (%)**               | Proportion of the area of this crop benefiting from manure, slurry, fertilizer, etc.                | float ([0, 100]) | If no data is available, use 100 by default for all crops.                                                        |
 | **Seed input (kt seeds/kt Ymax)**    | Amount of seeds to be sown per unit of yield                                                        | float (>=0)      | Used to calculate the portion of production reinvested into the crop for the next year.                           |
 
 The **Categories** available in GRAFS-E are:
@@ -103,16 +112,8 @@ Here are the required input data related to **livestock**:
 | **Excreted indoor (%)**             | Proportion of time spent indoors in a building                                                     | float ([0, 100]) | 100 - **Excreted indoor (%)** gives the proportion of time spent grazing                                                                      |
 | **Excreted indoor as manure (%)**   | Proportion of excretions indoors converted into manure                                              | float ([0, 100]) | The rest is converted into slurry.                                                                                                                |
 | **LU**                              | Number of Livestock Units                                                                           | float (>0)       |                                                                                                                                               |
-| **Excretion / LU (kgN)**            | Amount of nitrogen excreted per LU                                                                  | float (>0)       |                                                                                                                                               |
-| **N-NH3 EM manure (%)**             | Ammonia emission factor for manure                                                                  | float ([0, 100]) |                                                                                                                                               |
-| **N-NH3 EM slurry (%)**             | Ammonia emission factor for slurry                                                                  | float ([0, 100]) |                                                                                                                                               |
-| **N-NH3 EM outdoor (%)**            | Ammonia emission factor for excretions outdoors                                                    | float ([0, 100]) |                                                                                                                                               |
-| **N-N2O EM manure (%)**             | Nitrous oxide emission factor for manure                                                           | float ([0, 100]) |                                                                                                                                               |
-| **N-N2O EM slurry (%)**             | Nitrous oxide emission factor for slurry                                                           | float ([0, 100]) |                                                                                                                                               |
-| **N-N2O EM outdoor (%)**            | Nitrous oxide emission factor for excretions outdoors                                             | float ([0, 100]) |                                                                                                                                               |
-| **N-N2 EM manure (%)**              | Nitrogen N2 emission factor for manure                                                             | float ([0, 100]) |                                                                                                                                               |
-| **N-N2 EM slurry (%)**              | Nitrogen N2 emission factor for slurry                                                             | float ([0, 100]) |                                                                                                                                               |
-| **N-N2 EM outdoor (%)**             | Nitrogen N2 emission factor for excretions outdoors                                               | float ([0, 100]) |                                                                                                                                               |
+| **Excretion / LU (kgN)**            | Amount of nitrogen excreted per LU                                                                  | float (>0)       |                                                                                                                                               |                  
+| **Diet**        | Diet ID to use for this population                                                           | str | Must have a corresponding Diet ID in Diet tab                                                                            |
 
 The management of excretions distinguishes between three types:
 - **Manure**
@@ -120,6 +121,19 @@ The management of excretions distinguishes between three types:
 - **Outdoor (non-recoverable)**
 
 For each type of excretion management **X**, the difference 100 - (N-NH3 EM X (%) + N-N2O EM X (%) + N-N2 EM manure (%)) is considered lost to continental water (compartment "hydro-system").
+
+### Excretion
+
+As stated in Here are the required input data related to **animal excretion**:
+
+| Column Name                        | Description                                                                                        | Type             | Remark                                                                                                                                          |
+| ----------------------------------  | -------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Origin compartment** | Name of the livestock compartment producing this excretion. | str              | It must match a defined  livestock compartment.      |
+| **Type**              | Type of excretion (manure, slurry or grasslands excretion)       | str              |                                                                                                         |
+| **N-NH3 EM (%)**             | Ammonia emission factor                                                                  | float ([0, 100]) |
+| **N-N2O EM (%)**            | Nitrous oxide emission factor                                             | float ([0, 100]) | 
+| **N-N2 EM (%)**             | Nitrogen N2 emission factor                                               | float ([0, 100]) | 
+
 
 ### Population
 
@@ -135,6 +149,7 @@ Here are the required input data related to **human populations**:
 | **Total ingestion per capita (kgN)**| Total nitrogen intake from all sources (plant products, animals, and the sea)                       | float (>0)       |                                                                                                                   |
 | **Fishery ingestion per capita (kgN)**| Nitrogen intake from sea products                                                                   | float (>0)       |                                                                                                                   |
 | **Excretion recycling (%)**        | Rate of nitrogen recycling from excretions                                                           | float ([0, 100]) | Forms the slurry to be spread on crops                                                                             |
+| **Diet**        | Diet ID to use for this population                                                           | str | Must have a corresponding Diet ID in Diet tab                                                                            |
 
 ### Product Data
 
@@ -183,7 +198,7 @@ The name and number of global variables are fixed. Any differences from this wil
 | **Net Import (ktN)**                                         | Net physical trade balance for the territory                                                                                                                                                                                                      | float (>0)       | Used as an objective in the optimization model                                                                 |
 | **Weight import**                                            | Weight of the optimization model for the import constraint                                                                                                                                                                                        | float (>0)       | Adjusts the importance of respecting Net Import (ktN)                                                             |
 | **Weight diet**                                              | Weight of the optimization model for the diet constraint                                                                                                                                                                                          | float (>0)       | Adjusts the importance of respecting the proportions defined in the diets                                         |
-| **Weight distribution**                                       | Weight of the optimization model for the constraint of distribution within diets                                                                                                                                                                  | float (>0)       | See optimization model section for full definition                                                                |
+| **Weight distribution**                                       | Weight of the optimization model for the constraint of distribution within diets                                                                                                                                                                  | float (>0)       | See optimization model section for full definition. This input data is optional. If no value is given in project or data files, the distribution weight is $min(\text{weight diet}, \text{weight import})$                                                                |
 | **Total Synthetic Fertilizer Use on crops (ktN)**            | Total synthetic nitrogen use on crops not in the following categories: "natural meadow", "leguminous", "temporary meadows"                                                                                                                     | float (>0)       | Used to normalize the synthetic fertilizer usage after calculating needs.                                           |
 | **Total Synthetic Fertilizer Use on grasslands (ktN)**       | Total synthetic nitrogen use on grasslands not in the following categories: "natural meadow", "temporary meadows"                                                                                                                                | float (>0)       | Used to normalize the synthetic fertilizer usage after calculating needs.                                           |
 | **Atmospheric deposition coef (kgN/ha)**                     | Atmospheric deposition coefficient per unit of area                                                                                                                                                                                               | float (>0)       | This flux is considered to originate from ammonia and nitrous oxide present in the atmosphere                         |

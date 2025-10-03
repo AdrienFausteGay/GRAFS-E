@@ -14,17 +14,6 @@ GRAFS-E 1.0 — Specification
 **GRAFS-E** (Generalized Representation of Agri-Food Systems — Extended) is a flexible, open-source Python model.
 Version **1.0** covers **nitrogen** at annual resolution; **carbon, energy and other flows** are under active development.
 
-Installation
-------------
-
-.. code-block:: bash
-
-   pip install grafs-e
-
-See the :doc:`user-guide` for first steps.
-
-<!-- Online app: `grafs-e.streamlit.app <https://grafs-e.streamlit.app>`_ -->
-
 .. grid:: 1 2 2 2
    :gutter: 2
 
@@ -58,21 +47,6 @@ See the :doc:`user-guide` for first steps.
 
          To the user guide
 
-   .. grid-item-card:: Technical Reference
-      :class-card: sd-shadow-sm sd-rounded-2
-      :link-type: doc
-      :link: references/api
-
-      Python API generated from docstrings. Browse public modules, classes and methods.
-
-      +++
-
-      .. button-ref:: references/api
-         :ref-type: doc
-         :color: primary
-
-         Open API reference
-
    .. grid-item-card:: GRAFS-E Engine
       :class-card: sd-shadow-sm sd-rounded-2
       :link-type: doc
@@ -88,19 +62,31 @@ See the :doc:`user-guide` for first steps.
 
          See math behind the beast
 
-.. toctree::
-   :maxdepth: 1
+   .. grid-item-card:: Carbon layer
+      :class-card: sd-shadow-sm sd-rounded-2
+      :link-type: doc
+      :link: C_layer
 
-   overview
-   user-guide
-   grafs-e-engine
-   references/api
+      Presentation of the beta carbon layer of GRAFS-E
+
+      +++
+
+      .. button-ref:: C_layer
+         :ref-type: doc
+         :color: primary
+
+         Carbon layer doc
 
 .. toctree::
    :hidden:
    :maxdepth: 2
    :caption: Specification
 
+   overview
+   user-guide
+   grafs-e-engine
    02-terms
    input
    output
+   C_layer
+   references/api

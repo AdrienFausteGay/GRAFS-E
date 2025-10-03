@@ -16,4 +16,5 @@
    :toctree:
    :recursive:
 
+   C_class
    N_class
