@@ -47,21 +47,6 @@ Version **1.0** covers **nitrogen** at annual resolution; **carbon, energy and o
 
          To the user guide
 
-   .. grid-item-card:: Technical Reference
-      :class-card: sd-shadow-sm sd-rounded-2
-      :link-type: doc
-      :link: references/api
-
-      Python API generated from docstrings. Browse public modules, classes and methods.
-
-      +++
-
-      .. button-ref:: references/api
-         :ref-type: doc
-         :color: primary
-
-         Open API reference
-
    .. grid-item-card:: GRAFS-E Engine
       :class-card: sd-shadow-sm sd-rounded-2
       :link-type: doc
@@ -77,6 +62,21 @@ Version **1.0** covers **nitrogen** at annual resolution; **carbon, energy and o
 
          See math behind the beast
 
+   .. grid-item-card:: Carbon layer
+      :class-card: sd-shadow-sm sd-rounded-2
+      :link-type: doc
+      :link: C_layer
+
+      Presentation of the beta carbon layer of GRAFS-E
+
+      +++
+
+      .. button-ref:: C_layer
+         :ref-type: doc
+         :color: primary
+
+         Carbon layer doc
+
 .. toctree::
    :hidden:
    :maxdepth: 2
@@ -85,7 +85,8 @@ Version **1.0** covers **nitrogen** at annual resolution; **carbon, energy and o
    overview
    user-guide
    grafs-e-engine
-   input
    02-terms
-   references/api
+   input
    output
+   C_layer
+   references/api
