@@ -115,7 +115,7 @@ class DataLoader:
             "atmospheric N2O",
             "fishery products",
             "other sectors",
-            "other losses",
+            "waste",
             "soil stock",
         ]
 
@@ -256,7 +256,7 @@ class DataLoader:
                 )
                 warnings.warn(msg)
 
-        self.df_cultures = merged_df
+        merged_df = merged_df.fillna(0)
         return merged_df
 
     def generate_df_prod(self, area, year, carbon=False):
@@ -267,6 +267,8 @@ class DataLoader:
                 "Origin compartment",
                 "Type",
                 "Sub Type",
+                "Waste (%)",
+                "Other uses (%)",
             )
         else:
             categories_needed = (
@@ -289,6 +291,20 @@ class DataLoader:
         # Calcul de l'azote disponible pour les cultures
         df_prod["Nitrogen Production (ktN)"] = (
             df_prod["Production (kton)"] * df_prod["Nitrogen Content (%)"] / 100
+        )
+
+        df_prod["Nitrogen Wasted (ktN)"] = (
+            df_prod["Nitrogen Production (ktN)"] * df_prod["Waste (%)"] / 100
+        )
+
+        df_prod["Nitrogen for Other uses (ktN)"] = (
+            df_prod["Nitrogen Production (ktN)"] * df_prod["Other uses (%)"] / 100
+        )
+
+        df_prod["Available Nitrogen Production (ktN)"] = (
+            df_prod["Nitrogen Production (ktN)"]
+            - df_prod["Nitrogen Wasted (ktN)"]
+            - df_prod["Nitrogen for Other uses (ktN)"]
         )
 
         df_prod = df_prod.fillna(0)
@@ -332,7 +348,6 @@ class DataLoader:
                 "BNF alpha",
                 "BNF beta",
                 "BGN",
-                "Carbon Mechanisation Intensity (ktC/ha)",
             )
         else:
             categories_needed = (
@@ -1275,6 +1290,17 @@ class NitrogenFlowModel:
             target = {index: row["Nitrogen Production (ktN)"]}
             flux_generator.generate_flux(source, target)
 
+        # Flux des produits vers Waste et other sectors:
+        for index, row in df_prod.iterrows():
+            source = {index: row["Nitrogen Wasted (ktN)"]}
+
+            target = {"waste": 1}
+            flux_generator.generate_flux(source, target)
+
+            source = {index: row["Nitrogen for Other uses (ktN)"]}
+            target = {"other sectors": 1}
+            flux_generator.generate_flux(source, target)
+
         # Flux des animaux vers les compartiments d'excretion
         for index, row in df_excr.iterrows():
             # Création du dictionnaire target
@@ -1917,7 +1943,9 @@ class NitrogenFlowModel:
 
         # Cette contrainte assure que la somme de l'azote alloué de chaque culture aux différents types de consommateurs ne dépasse pas l'azote disponible pour cette culture.
         for prod_i in df_prod.index:
-            azote_disponible = df_prod.loc[prod_i, "Nitrogen Production (ktN)"]
+            azote_disponible = df_prod.loc[
+                prod_i, "Available Nitrogen Production (ktN)"
+            ]
 
             # On itère uniquement sur les consommateurs qui ont le produit 'prod_i' dans leur régime
             # Cela évite de chercher des variables qui n'existent pas
@@ -1968,9 +1996,9 @@ class NitrogenFlowModel:
             "Pas_d_import_prairies_nat",
         )
 
-        # Crée une fonction pour obtenir l'azote disponible, cela évitera la redondance
+        # Crée une fonction pour obtenir l'azote disponible après perte et autres usages, cela évitera la redondance
         def get_nitrogen_production(prod_i, df_prod):
-            return df_prod.loc[prod_i, "Nitrogen Production (ktN)"]
+            return df_prod.loc[prod_i, "Available Nitrogen Production (ktN)"]
 
         # Fusionne les deux boucles pour traiter tous les consommateurs
         for cons, proportion, products_list in pairs:
@@ -2239,7 +2267,7 @@ class NitrogenFlowModel:
                 & (allocations_df["Type"] == "Local culture food")
             ]["Allocated Nitrogen"].sum()
             df_prod.loc[idx, "Nitrogen Exported (ktN)"] = (
-                row["Nitrogen Production (ktN)"] - azote_alloue
+                row["Available Nitrogen Production (ktN)"] - azote_alloue
             )
             df_prod.loc[idx, "Nitrogen For Feed (ktN)"] = azote_alloue_feed
             df_prod.loc[idx, "Nitrogen For Food (ktN)"] = azote_alloue_food
@@ -2402,8 +2430,7 @@ class NitrogenFlowModel:
                     source = {label: -imbalance}
                     # Ajouter soil stock parmis les surplus de fertilisation.
                     target = {
-                        "other losses": 0.2925,
-                        "hydro-system": 0.7,
+                        "hydro-system": 0.9925,
                         "atmospheric N2O": 0.0075,
                     }
                 else:
@@ -2423,8 +2450,7 @@ class NitrogenFlowModel:
                             / 10**6
                         }
                         target = {
-                            "other losses": 0.2925,
-                            "hydro-system": 0.7,
+                            "hydro-system": 0.9925,
                             "atmospheric N2O": 0.0075,
                         }
                         flux_generator.generate_flux(source, target)
