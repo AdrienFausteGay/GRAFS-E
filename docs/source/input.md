@@ -162,23 +162,22 @@ Here is the data related to **products** necessary for GRAFS-E to simulate nitro
 | **Origin compartment** | Name of the compartment producing the product. | str              | It must match a defined compartment. Typically, the name of the crop (crops table) or livestock (livestock table)      |
 | **Type**              | Type of production ("plant" or "animal")       | str              | See Typology                                                                                                          |
 | **Sub Type**          | Subtype of the production                      | str              | See Typology                                                                                                          |
+| **Waste (%)**          | Share of Nitrogen Production wasted                      | float ([0, 100])              | Depending of the focus of the study, this can include transport waste, processing waste, distribution and domestic waste... This describe a flow from product to waste compartment.                                                                                                        |
+| **Other uses (%)**          | Share of Nitrogen Production used outside of Agro-Food system                     | float ([0, 100])              | This can include product for energy production, building material... This describe a flow from product to other sectors.                                                                                                          |
 
 #### Product Typology
 
-To handle products and the flows associated with them, GRAFS-E uses a standardized two-level typology (Type and Sub Type). Each Sub Type 'i' defines a "Trade i" compartment. This means that trade exchanges are categorized by Sub Type. The Sub Type of plants products are freely defined by the user. Only the **grasslands** Sub Type has a special rule.
+To handle products and the flows associated with them, GRAFS-E uses a standardized two-level typology (Type and Sub Type). Each Sub Type 'i' defines a "Trade i" compartment. This means that trade exchanges are categorized by Sub Type. The Sub Type of plants products are freely defined by the user. Only the **grazing** Sub Type has a special rule. **Grazing** products cannot be imported or exported.
 
 The Sub Types for **animals** products are fixed and include 3 categories.
-
-- **Plant**: Includes all products derived from crops. Typically, we find:
-    - **Grain**: Commercial product from cereals
-    - **Leguminous**: Products derived from legumes
-    - **Forage**: Forage from natural meadows, straw, or forage crops
-    - **Grasslands**: Products from permanent meadows, cannot be imported or exported.
 
 - **Animal**: Includes all products derived from animals:
     - **Edible meat**: Consumable meat
     - **Dairy**: Dairy products and eggs
     - **Non-edible meat**: Non-consumable meat. All production in this sub-type is directed to the 'other sector' (used in other industries or burned).
+
+```{warning}
+**Warning**: The Sub types must be different than **crops** categories.
     
 ### Global Data
 
