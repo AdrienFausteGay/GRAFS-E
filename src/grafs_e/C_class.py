@@ -28,6 +28,7 @@ class Dataloader_Carbon:
             "other sectors",
             "other losses",
             "soil stock",
+            "seeds",
         ]
 
         trade = [i + " trade" for i in set(self.data.init_df_prod["Sub Type"])]
@@ -144,7 +145,7 @@ class CarbonFlowModel:
                 # Construire la chaîne pour la tooltip
                 # y_val et x_val sont les indices 1..N
                 # self.labels[y_val] = nom de la source, self.labels[x_val] = nom de la cible
-                tooltip_str = f"Source : {self.labels[y_val - 1]}<br>Target : {self.labels[x_val - 1]}<br>Value  : {real_val_str} ktN/yr"
+                tooltip_str = f"Source : {self.labels[y_val - 1]}<br>Target : {self.labels[x_val - 1]}<br>Value  : {real_val_str} ktC/yr"
                 row_texts.append(tooltip_str)
             strings_matrix.append(row_texts)
 
@@ -162,7 +163,7 @@ class CarbonFlowModel:
             hoverinfo="text",  # on n'affiche plus x, y, z bruts
             # Colorbar horizontale
             colorbar=dict(
-                title="ktN/year",
+                title="ktC/year",
                 orientation="h",
                 x=0.5,  # centré horizontalement
                 xanchor="center",
@@ -187,7 +188,7 @@ class CarbonFlowModel:
         # Mettre à jour le trace pour forcer l'affichage
         fig.data[0].update(
             colorbar=dict(
-                title="ktN/year",
+                title="ktC/year",
                 orientation="h",
                 x=0.5,
                 xanchor="center",
@@ -287,6 +288,42 @@ class CarbonFlowModel:
                     )
                 except:  # noqa: E722
                     pass
+
+        ## Flux des graines
+
+        df_cultures = df_cultures.join(df_prod["C/N"], on="Main Production", how="left")
+
+        # 2. Créer la colonne "Seeds Input (ktC)"
+        df_cultures["Seeds Input (ktC)"] = (
+            df_cultures["C/N"] * df_cultures["Seeds Input (ktN)"]
+        )
+
+        target = df_cultures["Seeds Input (ktC)"].to_dict()
+        source = {"seeds": 1}
+        flux_generator.generate_flux(source, target)
+
+        # for culture_index, row in df_cultures.iterrows():
+        #     # culture_index est l'index de df_cultures (ce que vous voulez donner à change_flow)
+        #     product_key = row[
+        #         "Main Production"
+        #     ]  # Ceci est la clé à chercher dans df_prod
+
+        #     try:
+        #         # Recherche la valeur C/N dans df_prod en utilisant la clé de production
+        #         cn_value = df_prod.loc[product_key, "C/N"]
+
+        #         # Appelle change_flow avec l'index original de df_cultures
+        #         self.change_flow(
+        #             "seeds",
+        #             culture_index,  # <-- C'est l'index de df_cultures
+        #             cn_value,
+        #         )
+        #     except KeyError:
+        #         # Gère les cas où product_key n'existe pas dans df_prod
+        #         pass
+        #     except Exception:
+        #         # Gère d'autres erreurs inattendues
+        #         pass
 
         ## Flux des excretions aux cultures (soil stock)
 
@@ -581,6 +618,7 @@ class CarbonFlowModel:
             df_cultures["Carbon Production (ktC)"]
             + df_cultures["Residue Production (ktC)"]
             + df_cultures["Root Production (ktC)"]
+            - df_cultures["Seeds Input (ktC)"]
         ).to_dict()
         source = {"atmospheric CO2": 1}
 

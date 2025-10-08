@@ -18,3 +18,5 @@
 
    C_class
    N_class
+   app
+   sankey
