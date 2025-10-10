@@ -91,10 +91,10 @@ Here are the required crop-related input data.
 | **Seed input (kt seeds/kt Ymax)**    | Amount of seeds to be sown per unit of yield                                                        | float (>=0)      | Used to calculate the portion of production reinvested into the crop for the next year.                           |
 
 The **Categories** available in GRAFS-E are:
-- **Cereal (excluding rice)**: This category groups all cereals except rice. This distinction is made to determine which crops to direct excess symbiotic fixation toward.
-- **Leguminous**: Legumes are excluded from synthetic fertilizer distribution and are the source of symbiotic nitrogen fixation.
-- **Natural meadows**: Permanent natural meadows. It is not possible to export or import the products from this type of crop. Surplus production returns to the soil.
-- **Temporary meadows**: Meadows that can be mowed and whose products can be sold. Any surplus from symbiotic nitrogen fixation is directed toward the **cereal (excluding rice)** category.
+- **cereal (excluding rice)**: This category groups all cereals except rice. This distinction is made to determine which crops to direct excess symbiotic fixation toward.
+- **leguminous**: Legumes are excluded from synthetic fertilizer distribution and are the source of symbiotic nitrogen fixation.
+- **natural meadows**: Permanent natural meadows. It is not possible to export or import the products from this type of crop. Surplus production returns to the soil.
+- **temporary meadows**: Meadows that can be mowed and whose products can be sold. Any surplus from symbiotic nitrogen fixation is directed toward the **cereal (excluding rice)** category.
 
 The user can define as many additional categories as desired, but these will not have special rules. Example of other common categories:
 - Forage
@@ -167,14 +167,14 @@ Here is the data related to **products** necessary for GRAFS-E to simulate nitro
 
 #### Product Typology
 
-To handle products and the flows associated with them, GRAFS-E uses a standardized two-level typology (Type and Sub Type). Each Sub Type 'i' defines a "Trade i" compartment. This means that trade exchanges are categorized by Sub Type. The Sub Type of plants products are freely defined by the user. Only the **grazing** Sub Type has a special rule. **Grazing** products cannot be imported or exported.
+To handle products and the flows associated with them, GRAFS-E uses a standardized two-level typology (Type and Sub Type). Each Sub Type 'i' defines a "Trade i" compartment. This means that trade exchanges are categorized by Sub Type. The Sub Type of plants products are freely defined by the user. Only the **grazing** Sub Type has a special rule. **grazing** products cannot be imported or exported.
 
 The Sub Types for **animals** products are fixed and include 3 categories.
 
 - **Animal**: Includes all products derived from animals:
-    - **Edible meat**: Consumable meat
-    - **Dairy**: Dairy products and eggs
-    - **Non-edible meat**: Non-consumable meat. All production in this sub-type is directed to the 'other sector' (used in other industries or burned).
+    - **edible meat**: Consumable meat
+    - **dairy**: Dairy products and eggs
+    - **non edible meat**: Non-consumable meat. All production in this sub-type is directed to the 'other sector' (used in other industries or burned).
 
 ```{warning}
 **Warning**: The Sub types must be different than **crops** categories.
