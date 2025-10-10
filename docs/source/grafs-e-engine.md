@@ -4,10 +4,10 @@ Here are described GRAFS-E mecanisms to create a coherent flow vision of agro-fo
 
 ## Input Products flows
 
-Input flows from products are get with product data. For each product $i$ with 'Origin compartment' $j$, the inflow is 
-$$
+Input flows from products are get with product data. For each product $i$ with 'Origin compartment' $j$, the inflow is: 
+```{math}
 F_{ij} = \text{Production}_i * \text{Nitrogen Content}_i
-$$
+```
 
 This flow is now nammed $\text{Nitrogen Production}_i$
 ## Crops input fertilization flows
@@ -16,22 +16,20 @@ Crops can be fertilized by several vector depending of the context : synthetic f
 
 ### Seeds input
 
-Each yearly crops required an initial seeds input to grow. This is computed as follow for a crop $i$ : $$ F_{ii} = \text{Seed input}_i * \text{Nitrogen Production}_i$$
+Each yearly crops required an initial seeds input to grow. This is computed as follow for a crop $i$: 
+```{math}
+F_{ii} = \text{Seed input}_i * \text{Nitrogen Production}_i
+```
 
 This is the only self loop in GRAFS-E.
 
 ### Atmosperic deposition
 
 Atmospheric deposition is modelled in a simple maner with a surface coefficient. The origin of this flow is 90 % from atmospheric NH3 and 10 % from atmospheric N2O as proposed by IPCC {cite:p}`intergovernmentalpanelonclimatechangeClimateChangeLand2022`.
-For a crop $i$, the input flow is : $$F_i = \text{Atmospheric deposition coef}_i * \text{Area}_i$$ 
-
-### Biological Nitrogen Fixation
-
-Biological Nitrogen Fixation (BNF) is based on Anglade et al. work {cite:p}`angladeRelationshipsEstimatingN2`. This approach propose that BNF is linked to crops production with an affine relation : $$BNF = [{\alpha}_{cult}*\frac{Y}{HI}+{\beta}_{cult}]*BGN$$
-
-With ${\alpha}_{cult}$ and ${\beta}_{cult}$ the slope and intercept of the affine function, Y the yield (kgN/ha), HI the Harvest Index and BGN the Bellowground contribution multiplicative factor. For more details and  values for ${\alpha}_{cult}$ and ${\beta}_{cult}$ and BNG, check Anglade paper.
-
-These computed flows go from atmospheric N2 to concerned crops (the one with non zero BNF coefficients).
+For a crop $i$, the input flow is: 
+```{math}
+F_i = \text{Atmospheric deposition coef}_i * \text{Area}_i
+```
 
 ### Human excretion
 
@@ -40,7 +38,10 @@ Human excretion is the sum of all Nitrogen Ingested including fischery product.
 #### Sludge spread
 
 The excretion is partially recycled (Excretion recycling input parameter) to be spread on crops. This part is shared among crops according to their area and spreading rate.
-Spreading designate the action of manually spreading manure on a field (by opposition to direct excretion on grasslands). A streading rate of 0% means that no hectares benefited from sludges, manure and slurry (whatever is the amount). Spreading rate of 100% means that all hectares of this crop benefited from spreeding. The available amount of sludge Nitrogen is spread using this distribution: $${\rho}_i = \frac{\text{Area}_i*\text{Spreading rate_i}}{{\sum}_{j\in \text{crops}, \notin \text{natural meadow}} \text{Area_j}*\text{Spreading rate_j}}$$
+Spreading designate the action of manually spreading manure on a field (by opposition to direct excretion on grasslands). A streading rate of 0% means that no hectares benefited from sludges, manure and slurry (whatever is the amount). Spreading rate of 100% means that all hectares of this crop benefited from spreeding. The available amount of sludge Nitrogen is spread using this distribution: 
+```{math}
+{\rho}_i = \frac{\text{Area}_i*\text{Spreading rate_i}}{{\sum}_{j\in \text{crops}, \notin \text{natural meadow}} \text{Area_j}*\text{Spreading rate_j}}
+```
 
 With $i$ a crop. Therefore Spreading rate encompass how much a crop will get access to manure, sludge and slurry spreading. 
 
@@ -63,6 +64,45 @@ Another difference with human excretion is that there is no losses in hydro-syst
 
 The proportion of time spend outdoor (1 - Excreted indoor) is the proportion of excretion on grasslands crops. This kind of ecretion has its own volatilization coefficients. The distribution of outdoor excretion is simply proportional to grasslands area.
 
+### Biological Nitrogen Fixation
+
+We compute BNF following Anglade et al.{cite:p}`angladeRelationshipsEstimatingN2`:
+```{math}
+\mathrm{BNF}\;=\;\bigl(\alpha_{\text{cult}}\cdot \frac{Y}{HI} + \beta_{\text{cult}}\bigr)\cdot BGN
+```
+
+With ${\alpha}_{\text{cult}}$ and ${\beta}_{\text{cult}}$ are crop specific slope and intercept of the affine function (see Anglade for values), Y the yield (kgN/ha), HI the Harvest Index and BGN the Bellowground contribution multiplicative factor. For more details and  values for ${\alpha}_{\text{cult}}$ and ${\beta}_{\text{cult}}$ and BNG, check Anglade paper.
+
+For reference, the total plant N (harvest + residues + roots) is:
+```{math}
+Y_{\mathrm{NPP}} \;=\; Y\cdot\frac{BGN}{HI}
+```
+These flows are recorded from atmospheric $N_2$ to the corresponding legume crop nodes.
+
+### Residues, roots and "legume legacy"
+
+#### Non-legume crops
+We assume a neutral residue balance from one year to the next (residues left ≈ residues received). Consequently, residues and roots are not explicitly exchanged between crops in the N balance (they cancel out at yearly scale).
+
+#### Legume crops
+Legumes enrich the system. We compute residue Nitrogen and root Nitrogen from the harvested Nitrogen $Y$:
+```{math}
+N_{\text{residues}} \;=\; \frac{Y}{HI} - Y,
+\qquad
+N_{\text{roots}} \;=\; \frac{Y}{HI}\cdot(BGN-1).
+```
+
+Priority of fertilisation uptake is organic N first (seed + BNF + organic inputs), then mineral N to meet remaining needs.
+
+Roots are routed to soil stock (slow pool).
+Shoot residues (and any organic surplus) form a legume legacy that is transferred to the pool of cereals crops (e.g., allocated by cereal area share).
+
+If BNF plus other non-symbiotic inputs (seeds, excretions etc.) are insufficient to close the plant N balance (harvest + residues + roots), we add an explicit soil uptake flow to close mass balance (representing the use of background soil mineral N).
+
+Note: Permanent grasslands do not pass a legacy to the next crop; their residues and organic surplus go to soil stock (storage), consistent with their role as long-lived pools.
+
+Second Note: Haber Bosch inputs for grasslands (natural and temporary) are computed before Residues and Roots managment but after for non legume crops.
+
 ### Synthetic Fertilization
 
 #### Concept
@@ -71,19 +111,28 @@ Synthetic fertilization flows are the flows from Haber-Bosch compartment to each
 Synthetic fertilization is computed based on the gap between fertilization needs and non-synthetic fertilizer used. This gap is normalized using the total amount of synthetic fertilizer used on the territory.  Non-synthetic fertilizer regroup all fertilizing vectors presented above. 
 
 The philosophy behind the flows of synthetic fertilizer use is to proceed to an allocation from the stock of global use of synthetic fertilizer on the territory for a given year to each crops. The distribution of synthetic fertilizer is proportional to the gap between fertilization needs and non-synthetic fertilizer use. 
-$$F_{\text{synth tot}} = \sum_{i \in \text{crops}}f_{HB,i}$$
-$$F_{HB,i} \propto \text{fertilization need}_i - \sum_{j \in \text{non synth fertilization}} F_{ji}$$
+```{math}
+F_{\text{synth tot}} = \sum_{i \in \text{crops}}f_{HB,i} \quad
+F_{HB,i} \propto \text{fertilization need}_i - \sum_{j \in \text{non synth fertilization}} F_{ji}
+```
 
 #### Mecanism
 
 Synthetic fertilization flows are the flows from Haber-Bosch compartment to each crop using synthetic fertilization. Crop category 'leguminous' are excluded from this mecanism.
 Synthetic fertilization is computed based on the gap between fertilization needs and non-synthetic fertilizer used. This gap is normalized using the total amount of synthetic fertilizer used on the territory.  Non-synthetic fertilizer regroup all fertilizing vectors presented above. Fertilization needs are computed by surface unit. They can be given directly as a constant. This is 'Surface Fertilizer Need (kgN/ha)' in input data. Fertilization needs can also be given by production unit. This is 'Fertilization Need (kgN/qtl)'. The fertilization need is obtain by multiplying by the Yield (qtl/ha). The gap between fertilizer need and surface non synthetic fertilizer use gives the raw synthetic fertilizer use. 
-$$N^{i}_{\text{synth input}}=Y^i\rho^{i}_{\text{input}}-N_{\text{other input}}$$
-$$N^{i}_{\text{synth input}}=N^{i}_{\text{input}}-N_{\text{other inputs}}$$
+```{math}
+N^{i}_{\text{synth input}}=Y^i\rho^{i}_{\text{input}}-N_{\text{other input}} \quad
+N^{i}_{\text{synth input}}=N^{i}_{\text{input}}-N_{\text{other inputs}}
+```
 With $N^{i}_{\text{synth input}}$ denotes the raw compuation of synthetic fertilizer input per hectare for crop $i$, $Y^i$ signifies the yield of crop i, $\rho^{i}_{\text{input}}$ represents fertilization d need per unit of yield (kgN/qtl) and $N_{\text{other inputs}}$ refers to the surface nitrogen input from other sources.
-This is a theorical value get with a agronomist computation. Yet the raw synthetic fertilizer must fit the total synthetic fertilization use given in input data. Therefore, the raw values are normalized using this compuation : $$\Gamma \sum_i N^{i}_{\text{synt input}}\frac{S_i}{S}=N^{\text{input data}}_{\text{synth input}}$$
-Where $\Gamma$ is the normalization constant to go from raw values to adjusted values.
-$$f^{\text{adj}}_{HB,i} = f^{\text{raw}}_{HB,i}\Gamma$$
+This is a theorical value get with a agronomist computation. Yet the raw synthetic fertilizer must fit the total synthetic fertilization use given in input data. Therefore, the raw values are normalized using this compuation:
+```{math}
+\Gamma \sum_i N^{i}_{\text{synt input}}\frac{S_i}{S}=N^{\text{input data}}_{\text{synth input}}
+```
+Where $\Gamma$ is the normalization constant to go from raw values to adjusted values. Then we have:
+```{math}
+f^{\text{adj}}_{HB,i} = f^{\text{raw}}_{HB,i}\Gamma
+```
 The flows get after the normalization are called 'Adjusted Total Synthetic Fertilizer Use (ktN)'. The computation steps for synthetic fertilizer use are summed up in this figure
 
 ![Computation steps for synthetic fertilizer flows](_static/calcul_gamma.png)
@@ -137,18 +186,18 @@ Because input data can lack of constancy, it is unlikely that all soft constrain
 
 The modeled net import considers that all products (except grasslands products) not consummed locally is exprted :
 
-$$
+```{math}
 M \,=\, \sum_{i\in\mathcal{I}} I_i \, -\,\Bigl(P_{\text{tot}} - \sum_{k\in\mathcal{K}} X_k\Bigr)
  \,=\, \sum_{i\in\mathcal{I}} I_i \, +\, \sum_{k\in\mathcal{K}} X_k \, -\, P_{\text{tot}}.
-$$
+```
 
 ### Soft Constraints
 
 #### Absolute deviation on net imports
 
-$$
+```{math}
 \Delta_{\text{imp}} = |M-\bar{M}|.
-$$
+```
 
 #### Diet and agronomic feasibility (schematic)
 
@@ -159,14 +208,14 @@ $$
 
 We minimize a weighted sum of (i) diet deviations, (ii) diversity penalties, and (iii) trade-gap deviation:
 
-$$
+```{math}
 \min \;
 \underbrace{\omega_{\text{dev}} \sum_{s\in\mathcal{S}} \delta_s}_{\text{diet deviations}}
 \;+\;
 \underbrace{\omega_{\text{cult}} \sum_{r\in\mathcal{R}} \gamma_r}_{\text{diversity penalties}}
 \;+\;
 \underbrace{\omega_{\text{imp}} \,\Delta_{\text{imp}}}_{\text{net import deviation}}.
-$$
+```
 
 This objective pushes the solution to:
 1. Stay close to target diets (small $\delta_s$).
@@ -191,11 +240,11 @@ Avoid setting one weight orders of magnitude larger than the other unless you *e
 
 #### Suggested starting values
 
-$
+```{math}
 \omega_{\text{imp}} = 1,\quad
 \omega_{\text{dev}} = 1,\quad
 \omega_{\text{cult}} = 0.1.
-$
+```
 
 Then perform a small sensitivity sweep (e.g., multiply $ \omega_{\text{imp}} $ and $ \omega_{\text{dev}} $ by factors in $\{0.5, 1, 2, 5\}$) and check:
 
@@ -210,8 +259,10 @@ Then perform a small sensitivity sweep (e.g., multiply $ \omega_{\text{imp}} $ a
 
 ## Export
 
-Export is deduced with mass balance on each product $i$ : $$N_{\text{export}}^i = N_{\text{local production}}^i + N_{\text{import}}^i - N_{\text{consumption}}^i$$
-
+Export is deduced with mass balance on each product $i$:
+```{math}
+N_{\text{export}}^i = N_{\text{local production}}^i + N_{\text{import}}^i - N_{\text{consumption}}^i
+```
 Each term on the right side of the equation is given by input data or optimization model.
 
 ## Final checks
@@ -222,23 +273,13 @@ GRAFS‑E performs **mass‑balance checks** for every crop compartment. For all
   If the total nitrogen outputs of a crop compartment exceed its inputs, the deficit is taken from the **soil stock** compartment. This may indicate (i) an unsustainable agro‑food system, (ii) difficulties in closing loops at the system scale, or (iii) inconsistencies in the input data.
 
 - **Surplus (inputs > outputs):**  
-  If the total nitrogen inputs of a crop compartment exceed its outputs, GRAFS‑E distributes the excess depending on the crop category:
-
-  1. **Non‑“natural meadow” crops**: the nitrogen surplus is partitioned as:  
-     - **70 %** to **hydrosystem losses**,  
-     - **29.25 %** to **other losses**,  
+  If the total nitrogen inputs of a crop compartment exceed its outputs, GRAFS‑E distributes the nitrogen surplus is partitioned as:  
+     - **99.25 %** to **hydrosystem losses**,   
      - **0.75 %** to **atmospheric $N_2O$**.
 
-     Formally, for a surplus $S$ (kg N/ha):  
-     $
-     S_{hydro} = 0.70\,S,\quad
-     S_{other} = 0.2925\,S,\quad
-     S_{N_2O} = 0.0075\,S.
-     $
+All **crop, livestock, population, and product** compartments are balanced by construction. Once these checks pass, the GRAFS‑E nitrogen‑flow representation of the agro‑food system is **closed and physically coherent**.
 
-  2. **“Natural meadow” crops**: the **first 100 kg N/ha** of surplus is directed to the **soil stock**. Any surplus **above 100 kg N/ha** follows the same partitioning as non‑“natural meadow” crops (70 % hydrosystem, 29.25 % other losses, 0.75 % $N_2O$).
-
-All **crops, livestock, population, and product** compartments are balanced by construction. Once these checks pass, the GRAFS‑E nitrogen‑flow representation of the agro‑food system is **closed and physically coherent**.
+Then, for each crop compartment, inward and outward flows to “soil stock” are netted out; only the resulting net exchange with “soil stock” is retained in the accounting.
 
 ## References
 

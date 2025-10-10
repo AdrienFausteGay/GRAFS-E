@@ -123,7 +123,7 @@ class DataLoader:
         trade = [
             i + " trade"
             for i in set(self.init_df_prod["Sub Type"])
-            if i != "non edible meat" or i != "grazing"
+            if i not in ["non edible meat", "grazing"]
         ]
 
         self.trade_labels = trade
@@ -1358,7 +1358,7 @@ class NitrogenFlowModel:
 
         ## Épandage de boue sur les champs
 
-        mask = df_cultures["Category"] != "natural meadow"
+        mask = ~df_cultures["Category"].isin(["natural meadows", "temporary meadows"])
         Norm = (
             df_cultures[mask]["Area (ha)"]
             * df_cultures[mask]["Spreading Rate (%)"]
@@ -1368,7 +1368,7 @@ class NitrogenFlowModel:
         target_epandage = {
             culture: row["Area (ha)"] * row["Spreading Rate (%)"] / 100 / Norm
             for culture, row in df_cultures.iterrows()
-            if row["Category"] != "natural meadow"
+            if row["Category"] not in ["natural meadows", "temporary meadows"]
         }
 
         source_boue = (
@@ -1423,14 +1423,14 @@ class NitrogenFlowModel:
         # Calcul de la surface totale pour les prairies
 
         total_surface_grasslands = df_cultures.loc[
-            df_cultures["Category"].isin(["natural meadow", "temporary meadow"]),
+            df_cultures["Category"].isin(["natural meadows", "temporary meadows"]),
             "Area (ha)",
         ].sum()
 
         # Création du dictionnaire target
         target = (
             df_cultures.loc[
-                df_cultures["Category"].isin(["natural meadow", "temporary meadow"]),
+                df_cultures["Category"].isin(["natural meadows", "temporary meadows"]),
                 "Area (ha)",
             ]
             / total_surface_grasslands
@@ -1507,80 +1507,96 @@ class NitrogenFlowModel:
             adj_matrix_df = pd.DataFrame(
                 self.adjacency_matrix, index=self.labels, columns=self.labels
             )
-            return (
-                adj_matrix_df.loc[:, culture].sum().item()
-                - adj_matrix_df.loc[
-                    culture, culture
-                ].item()  # On soustrait les seeds qui n'entrent pas dans le bilan
+            return adj_matrix_df.loc[:, culture].sum().item()
+
+        target_fixation = (
+            (
+                df_cultures["BNF alpha"]
+                * df_cultures["Yield (kgN/ha)"]
+                / df_cultures["Harvest Index"]
+                + df_cultures["BNF beta"]
             )
+            * df_cultures["BGN"]
+            * df_cultures["Area (ha)"]
+            / 1e6
+        ).to_dict()
+        source_fixation = {"atmospheric N2": 1}
+        flux_generator.generate_flux(source_fixation, target_fixation)
+        df_cultures["Symbiotic Fixation (ktN)"] = df_cultures.index.map(
+            target_fixation
+        ).fillna(0)
+
+        # On considère que les résidus des légumineuses, prairies temporaires et prairies permanentes sont de meilleur qualité (plus grande quantité, meilleur C/N) et ne consomment pas les résidus de la culture précédente.
+
+        # df_cultures["Leguminous Nitrogen Surplus (ktN)"] = df
+
+        # df_cultures["Total Non Synthetic Fertilizer Use (ktN)"] = df_cultures.index.map(
+        #     calculer_azote_ependu
+        # )
+
+        # # Mécanisme d'héritage de l'azote en surplus des légumineuses
+        # df_cultures["Leguminous Nitrogen Surplus (ktN)"] = 0.0
+        # df_cultures.loc[
+        #     df_cultures["Category"].isin(["leguminous", "temporary meadows"]),
+        #     "Leguminous Nitrogen Surplus (ktN)",
+        # ] = (
+        #     df_cultures.loc[
+        #         df_cultures["Category"].isin(["leguminous", "temporary meadows"]),
+        #         "Total Non Synthetic Fertilizer Use (ktN)",
+        #     ]
+        #     - df_cultures.loc[
+        #         df_cultures["Category"].isin(["leguminous", "temporary meadows"]),
+        #         "Total Nitrogen Production (ktN)",
+        #     ]
+        # )
+
+        # # Distribution du surplus aux céréales
+        # total_surplus_azote = df_cultures.loc[
+        #     df_cultures["Category"].isin(["leguminous", "temporary meadows"]),
+        #     "Leguminous Nitrogen Surplus (ktN)",
+        # ].sum()
+        # total_surface_cereales = df_cultures.loc[
+        #     (df_cultures["Category"] == "cereals (excluding rice)"),
+        #     "Area (ha)",
+        # ].sum()
+        # df_cultures["Leguminous Heritage (ktN)"] = 0.0
+        # df_cultures.loc[
+        #     (df_cultures["Category"] == "cereals (excluding rice)"),
+        #     "Leguminous Heritage (ktN)",
+        # ] = (
+        #     df_cultures.loc[
+        #         (df_cultures["Category"] == "cereals (excluding rice)"),
+        #         "Area (ha)",
+        #     ]
+        #     / total_surface_cereales
+        #     * total_surplus_azote
+        # )
+
+        # # Génération des flux pour l'héritage des légumineuses
+        # source_leg = (
+        #     df_cultures.loc[df_cultures["Leguminous Nitrogen Surplus (ktN)"] > 0][
+        #         "Leguminous Nitrogen Surplus (ktN)"
+        #     ]
+        #     / df_cultures["Leguminous Nitrogen Surplus (ktN)"].sum()
+        # ).to_dict()
+        # target_leg = df_cultures["Leguminous Heritage (ktN)"].to_dict()
+        # flux_generator.generate_flux(source_leg, target_leg)
+
+        ## Azote synthétique
+        # Calcul de l'azote à épendre (bilan azoté)
 
         df_cultures["Total Non Synthetic Fertilizer Use (ktN)"] = df_cultures.index.map(
             calculer_azote_ependu
         )
 
-        target_fixation = (
-            (
-                df_cultures["BNF alpha"]
-                * df_cultures["Main Nitrogen Production (ktN)"]
-                / df_cultures["Harvest Index"]
-                + df_cultures["BNF beta"]
-            )
-            * df_cultures["BGN"]
-        ).to_dict()
-        source_fixation = {"atmospheric N2": 1}
-        flux_generator.generate_flux(source_fixation, target_fixation)
-        df_cultures["Symbiotic fixation (ktN)"] = df_cultures.index.map(
-            target_fixation
-        ).fillna(0)
+        # Séparer les données en prairies et champs
+        # On commence par un bilan sur les prairies pour avoir un bilan complet des prairies et en déduire un bilan azoté non synthétique complet sur les culturess
+        df_prairies = df_cultures[
+            df_cultures["Category"].isin(["natural meadows", "temporary meadows"])
+        ].copy()
 
-        # Mécanisme d'héritage de l'azote en surplus des légumineuses
-        df_cultures["Leguminous Nitrogen Surplus (ktN)"] = 0.0
-        df_cultures.loc[
-            df_cultures["Category"] == "leguminous", "Leguminous Nitrogen Surplus (ktN)"
-        ] = (
-            df_cultures.loc[
-                df_cultures["Category"] == "leguminous",
-                "Total Non Synthetic Fertilizer Use (ktN)",
-            ]
-            - df_cultures.loc[
-                df_cultures["Category"] == "leguminous",
-                "Total Nitrogen Production (ktN)",
-            ]
-        )
-
-        # Distribution du surplus aux céréales
-        total_surplus_azote = df_cultures.loc[
-            df_cultures["Category"] == "leguminous", "Leguminous Nitrogen Surplus (ktN)"
-        ].sum()
-        total_surface_cereales = df_cultures.loc[
-            (df_cultures["Category"] == "cereals (excluding rice)"),
-            "Area (ha)",
-        ].sum()
-        df_cultures["Leguminous heritage (ktN)"] = 0.0
-        df_cultures.loc[
-            (df_cultures["Category"] == "cereals (excluding rice)"),
-            "Leguminous heritage (ktN)",
-        ] = (
-            df_cultures.loc[
-                (df_cultures["Category"] == "cereals (excluding rice)"),
-                "Area (ha)",
-            ]
-            / total_surface_cereales
-            * total_surplus_azote
-        )
-
-        # Génération des flux pour l'héritage des légumineuses
-        source_leg = (
-            df_cultures.loc[df_cultures["Leguminous Nitrogen Surplus (ktN)"] > 0][
-                "Leguminous Nitrogen Surplus (ktN)"
-            ]
-            / df_cultures["Leguminous Nitrogen Surplus (ktN)"].sum()
-        ).to_dict()
-        target_leg = df_cultures["Leguminous heritage (ktN)"].to_dict()
-        flux_generator.generate_flux(source_leg, target_leg)
-
-        df_cultures["Surface Non Synthetic Fertilizer Use (kgN/ha)"] = (
-            df_cultures.apply(
+        df_prairies["Surface Non Synthetic Fertilizer Use (kgN/ha)"] = (
+            df_prairies.apply(
                 lambda row: row["Total Non Synthetic Fertilizer Use (ktN)"]
                 / row["Area (ha)"]
                 * 10**6
@@ -1591,55 +1607,30 @@ class NitrogenFlowModel:
             )
         )
 
-        ## Azote synthétique
-        # Calcul de l'azote à épendre (bilan azoté)
-
-        df_cultures["Total Non Synthetic Fertilizer Use (ktN)"] = df_cultures.index.map(
-            calculer_azote_ependu
-        )
-
-        df_cultures["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = (
-            df_cultures.apply(
+        df_prairies["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = (
+            df_prairies.apply(
                 lambda row: row["Surface Fertilization Need (kgN/ha)"]
                 - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"]
-                - (row["Leguminous heritage (ktN)"] / row["Area (ha)"] * 1e6)
                 if row["Area (ha)"] > 0
                 else row["Surface Fertilization Need (kgN/ha)"]
                 - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"],
                 axis=1,
             )
         )
-        df_cultures["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = df_cultures[
+        df_prairies["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = df_prairies[
             "Raw Surface Synthetic Fertilizer Use (kgN/ha)"
         ].apply(lambda x: max(x, 0))
-        df_cultures["Raw Total Synthetic Fertilizer Use (ktN)"] = (
-            df_cultures["Raw Surface Synthetic Fertilizer Use (kgN/ha)"]
-            * df_cultures["Area (ha)"]
+
+        df_prairies["Raw Total Synthetic Fertilizer Use (ktN)"] = (
+            df_prairies["Raw Surface Synthetic Fertilizer Use (kgN/ha)"]
+            * df_prairies["Area (ha)"]
             / 1e6
         )
 
-        # Calcul de la quantité moyenne (kgN) d'azote synthétique épendu par hectare
-        # Séparer les données en prairies et champs
-        df_prairies = df_cultures[
-            df_cultures["Category"].isin(["natural meadow", "temporary meadow"])
-        ].copy()
-        # Cultures n'étant pas des prairies et recevant de l'azote synthétique
-        df_champs = df_cultures[
-            ~df_cultures["Category"].isin(
-                ["natural meadow", "leguminous", "temporary meadows"]
-            )
-        ].copy()
-
         moyenne_ponderee_prairies = (
             df_prairies["Raw Total Synthetic Fertilizer Use (ktN)"]
-        ).sum()  # / df_prairies['Surface'].sum()
-        moyenne_ponderee_champs = (
-            df_champs["Raw Total Synthetic Fertilizer Use (ktN)"]
-        ).sum()  # / df_champs['Surface'].sum()
+        ).sum()
 
-        moyenne_reel_champs = df_global.loc[
-            df_global.index == "Total Synthetic Fertilizer Use on crops (ktN)"
-        ]["value"].item()
         moyenne_reel_prairies = df_global.loc[
             df_global.index == "Total Synthetic Fertilizer Use on grasslands (ktN)"
         ]["value"].item()
@@ -1651,8 +1642,179 @@ class NitrogenFlowModel:
                 / moyenne_ponderee_prairies
             )
         else:
-            df_prairies.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = 0
+            if len(df_prairies) > 0:
+                df_prairies.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = 0
             warnings.warn("No Synthetic fertilizer need for grasslands.")
+
+        # source = {"Haber Bosch": 1}
+        # target = df_prairies["Adjusted Total Synthetic Fertilizer Use (ktN)"].to_dict()
+        # flux_generator.generate_flux(source, target)
+
+        # Maintenant, on fait le bilan complet des légumineuses (de champs et de prairies)
+
+        # from IPython import embed
+
+        # embed()
+
+        df_leg = pd.concat(
+            [df_prairies, df_cultures[df_cultures["Category"] == "leguminous"]]
+        )
+
+        df_leg["Total Non Synthetic Fertilizer Use (ktN)"] = df_leg.index.map(
+            calculer_azote_ependu
+        )
+
+        df_leg["Organic Fertilization (ktN)"] = (
+            df_leg["Seeds Input (ktN)"] + df_leg["Symbiotic Fixation (ktN)"]
+        )
+        df_leg["Mineral Fertilization (ktN)"] = (
+            df_leg["Adjusted Total Synthetic Fertilizer Use (ktN)"]
+            + df_leg["Total Non Synthetic Fertilizer Use (ktN)"]
+            - df_leg["Organic Fertilization (ktN)"]
+        )
+
+        df_leg["Residues Production (ktN)"] = (
+            df_leg["Total Nitrogen Production (ktN)"] / df_leg["Harvest Index"]
+            - df_leg["Total Nitrogen Production (ktN)"]
+        )
+
+        df_leg["Roots Production (ktN)"] = (
+            df_leg["Total Nitrogen Production (ktN)"]
+            / df_leg["Harvest Index"]
+            * (df_leg["BGN"] - 1)
+        )
+
+        # 1. Calcul de la somme des productions pour toutes les lignes (vectoriel)
+        production_sum = (
+            df_leg["Residues Production (ktN)"]
+            + df_leg["Roots Production (ktN)"]
+            + df_leg["Total Nitrogen Production (ktN)"]
+        )
+
+        # 2. Définition de la condition de surplus organique (vectoriel)
+        organic_surplus_condition = (
+            df_leg["Organic Fertilization (ktN)"] > production_sum
+        )
+
+        # 3. Calcul vectoriel des colonnes avec numpy.where (le plus condensé et efficace)
+        df_leg["Surplus Organic Fertilisation (ktN)"] = np.where(
+            organic_surplus_condition,
+            df_leg["Organic Fertilization (ktN)"]
+            - production_sum,  # VRAI (Condition 1)
+            0,  # FAUX (Condition 2)
+        )
+
+        df_leg["Surplus Mineral Fertilization (ktN)"] = np.where(
+            organic_surplus_condition,
+            df_leg["Mineral Fertilization (ktN)"],  # VRAI (Condition 1)
+            df_leg["Mineral Fertilization (ktN)"]
+            - (
+                production_sum - df_leg["Organic Fertilization (ktN)"]
+            ),  # FAUX (Condition 2)
+        )
+
+        # On répartit cet azote dans leur compartiment de destination (sauf produit pour lequel c'est déjà fait)
+        # Héritage seulement pour prairies temporaires et légumineuses (pas prairies naturelles)
+        mask = df_leg["Category"].isin(["temporary meadows", "leguminous"])
+        df_leg.loc[mask, "Nitrogen for Heritage (ktN)"] = (
+            df_leg.loc[mask, "Residues Production (ktN)"]
+            + df_leg.loc[mask, "Surplus Organic Fertilisation (ktN)"]
+        )
+
+        total_surplus_azote = df_leg.loc[mask, "Nitrogen for Heritage (ktN)"].sum()
+        total_surface_cereales = df_cultures.loc[
+            (df_cultures["Category"] == "cereals (excluding rice)"),
+            "Area (ha)",
+        ].sum()
+        df_cultures["Leguminous Heritage (ktN)"] = 0.0
+        df_cultures.loc[
+            (df_cultures["Category"] == "cereals (excluding rice)"),
+            "Leguminous Heritage (ktN)",
+        ] = (
+            df_cultures.loc[
+                (df_cultures["Category"] == "cereals (excluding rice)"),
+                "Area (ha)",
+            ]
+            / total_surface_cereales
+            * total_surplus_azote
+        )
+
+        # Génération des flux pour l'héritage des légumineuses et prairies temporaires
+        source_leg = (
+            df_leg.loc[df_leg["Nitrogen for Heritage (ktN)"] > 0][
+                "Nitrogen for Heritage (ktN)"
+            ]
+            / df_leg["Nitrogen for Heritage (ktN)"].sum()
+        ).to_dict()
+        target_leg = df_cultures["Leguminous Heritage (ktN)"].to_dict()
+        flux_generator.generate_flux(source_leg, target_leg)
+
+        # Stock
+
+        source = df_leg["Roots Production (ktN)"].to_dict()
+        target = {"soil stock": 1}
+        flux_generator.generate_flux(source, target)
+
+        # On ajoute organic fertilization surplus et residues vers stock pour les prairies permanentes
+        source = (
+            df_leg.loc[~mask, "Residues Production (ktN)"]
+            + df_leg.loc[~mask, "Surplus Organic Fertilisation (ktN)"]
+        ).to_dict()
+        target = {"soil stock": 1}
+        flux_generator.generate_flux(source, target)
+
+        # Et enfin part de l'azote lessivé
+
+        source = df_leg["Surplus Mineral Fertilization (ktN)"].to_dict()
+        target = {"hydro-system": 0.9925, "atmospheric N2O": 0.0075}
+        flux_generator.generate_flux(source, target)
+
+        # Bouclage du bilan des Cultures n'étant pas des prairies ou des légumineuses
+        df_champs = df_cultures[
+            ~df_cultures["Category"].isin(
+                ["natural meadows", "temporary meadows", "leguminous"]
+            )
+        ].copy()
+
+        df_champs["Total Non Synthetic Fertilizer Use (ktN)"] = df_champs.index.map(
+            calculer_azote_ependu
+        )
+
+        df_champs["Surface Non Synthetic Fertilizer Use (kgN/ha)"] = df_champs.apply(
+            lambda row: row["Total Non Synthetic Fertilizer Use (ktN)"]
+            / row["Area (ha)"]
+            * 10**6
+            if row["Area (ha)"] > 0
+            and row["Total Non Synthetic Fertilizer Use (ktN)"] > 0
+            else 0,
+            axis=1,
+        )
+
+        df_champs["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = df_champs.apply(
+            lambda row: row["Surface Fertilization Need (kgN/ha)"]
+            - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"]
+            if row["Area (ha)"] > 0
+            else row["Surface Fertilization Need (kgN/ha)"]
+            - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"],
+            axis=1,
+        )
+        df_champs["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = df_champs[
+            "Raw Surface Synthetic Fertilizer Use (kgN/ha)"
+        ].apply(lambda x: max(x, 0))
+
+        df_champs["Raw Total Synthetic Fertilizer Use (ktN)"] = (
+            df_champs["Raw Surface Synthetic Fertilizer Use (kgN/ha)"]
+            * df_champs["Area (ha)"]
+            / 1e6
+        )
+
+        moyenne_ponderee_champs = (
+            df_champs["Raw Total Synthetic Fertilizer Use (ktN)"]
+        ).sum()
+
+        moyenne_reel_champs = df_global.loc[
+            df_global.index == "Total Synthetic Fertilizer Use on crops (ktN)"
+        ]["value"].item()
 
         if moyenne_ponderee_champs != 0:
             df_champs.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = (
@@ -1661,20 +1823,15 @@ class NitrogenFlowModel:
                 / moyenne_ponderee_champs
             )
         else:
-            df_champs.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = 0
-            warnings.warn("No Synthetic fertilizer need for crops.")
+            if len(df_champs) > 0:
+                df_champs.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = 0
+            warnings.warn("No Synthetic fertilizer need for grasslands.")
 
         self.gamma = moyenne_reel_champs / moyenne_ponderee_champs
 
         # Mise à jour de df_cultures
-
-        df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"] = (
-            df_champs["Adjusted Total Synthetic Fertilizer Use (ktN)"]
-            .combine_first(df_prairies["Adjusted Total Synthetic Fertilizer Use (ktN)"])
-            .reindex(
-                df_cultures.index, fill_value=0
-            )  # Remplissage des clés manquantes (les légumineuses) avec 0
-        )
+        df_calc = pd.concat([df_leg, df_champs], axis=0, sort=False)
+        df_cultures = df_calc.combine_first(df_cultures).fillna(0)
 
         df_cultures["Adjusted Surface Synthetic Fertilizer Use (kgN/ha)"] = 0.0
 
@@ -2483,80 +2640,136 @@ class NitrogenFlowModel:
         )
 
         # Calcul des déséquilibres négatifs
+        # for label in df_cultures.index:
+        #     node_index = label_to_index[label]
+        #     row_sum = self.adjacency_matrix[node_index, :].sum()
+        #     col_sum = self.adjacency_matrix[:, node_index].sum()
+        #     imbalance = row_sum - col_sum  # Déséquilibre entre sorties et entrées
+        #     if abs(imbalance) < 10**-6:
+        #         imbalance = 0
+
+        #     if (
+        #         imbalance > 0
+        #     ):  # Que conclure si il y a plus de sortie que d'entrée ? Que l'on détériore les réserves du sol ?
+        #         # print(f"pb de balance avec {label}")
+        #         # Plus de sorties que d'entrées, on augmente les entrées
+        #         # new_adjacency_matrix[n, node_index] = imbalance  # Flux du nœud de balance vers la culture
+        #         target = {label: imbalance}
+        #         source = {"soil stock": 1}
+        #         flux_generator.generate_flux(source, target)
+        #     elif imbalance < 0:
+        #         # Plus d'entrées que de sorties, on augmente les sorties
+        #         # adjacency_matrix[node_index, n] = -imbalance  # Flux de la culture vers le nœud de balance
+        #         category = df_cultures.loc[
+        #             df_cultures.index == label, "Category"
+        #         ].item()
+        #         if (
+        #             category != "natural meadows"
+        #         ):  # 99 % de l'excès fini dans les ecosystèmes aquatiques
+        #             source = {label: -imbalance}
+        #             # Ajouter soil stock parmis les surplus de fertilisation.
+        #             target = {
+        #                 "hydro-system": 0.9925,
+        #                 "atmospheric N2O": 0.0075,
+        #             }
+        #         else:
+        #             if (
+        #                 -imbalance
+        #                 * 10**6
+        #                 / df_cultures.loc[
+        #                     df_cultures.index == label, "Area (ha)"
+        #                 ].item()
+        #                 > 100
+        #             ):  # Si c'est une prairie, l'azote est lessivé seulement au dela de 100 kgN/ha
+        #                 source = {
+        #                     label: -imbalance
+        #                     - 100
+        #                     * df_cultures.loc[
+        #                         df_cultures.index == label, "Area (ha)"
+        #                     ].item()
+        #                     / 10**6
+        #                 }
+        #                 target = {
+        #                     "hydro-system": 0.9925,
+        #                     "atmospheric N2O": 0.0075,
+        #                 }
+        #                 flux_generator.generate_flux(source, target)
+        #                 source = {
+        #                     label: 100
+        #                     * df_cultures.loc[
+        #                         df_cultures.index == label, "Area (ha)"
+        #                     ].item()
+        #                     / 10**6
+        #                 }
+        #                 target = {"soil stock": 1}
+        #             else:  # Autrement, l'azote reste dans le sol (cas particulier, est ce que cela a du sens, quid des autres cultures ?)
+        #                 source = {label: -imbalance}
+        #                 target = {"soil stock": 1}
+        #         flux_generator.generate_flux(source, target)
+        #     # Si imbalance == 0, aucun ajustement nécessaire
+
         for label in df_cultures.index:
-            node_index = label_to_index[label]
+            node_index = label_to_index.get(label)
+            if node_index is None:
+                continue
+
+            # Calcul de l'imbalance (sorties - entrées)
             row_sum = self.adjacency_matrix[node_index, :].sum()
             col_sum = self.adjacency_matrix[:, node_index].sum()
-            imbalance = row_sum - col_sum  # Déséquilibre entre sorties et entrées
-            if abs(imbalance) < 10**-6:
-                imbalance = 0
+            imbalance = row_sum - col_sum
+
+            if abs(imbalance) < 1e-6:
+                continue
 
             if (
                 imbalance > 0
-            ):  # Que conclure si il y a plus de sortie que d'entrée ? Que l'on détériore les réserves du sol ?
-                # print(f"pb de balance avec {label}")
-                # Plus de sorties que d'entrées, on augmente les entrées
-                # new_adjacency_matrix[n, node_index] = imbalance  # Flux du nœud de balance vers la culture
+            ):  # Déficit (Plus de sorties que d'entrées) -> Augmenter l'entrée
+                # Le flux manquant vient du sol (Entrée dans la culture)
                 target = {label: imbalance}
                 source = {"soil stock": 1}
                 flux_generator.generate_flux(source, target)
-            elif imbalance < 0:
-                # Plus d'entrées que de sorties, on augmente les sorties
-                # adjacency_matrix[node_index, n] = -imbalance  # Flux de la culture vers le nœud de balance
-                category = df_cultures.loc[
-                    df_cultures.index == label, "Category"
-                ].item()
-                if (
-                    category != "natural meadow"
-                ):  # 99 % de l'excès fini dans les ecosystèmes aquatiques
-                    source = {label: -imbalance}
-                    # Ajouter soil stock parmis les surplus de fertilisation.
-                    target = {
-                        "hydro-system": 0.9925,
-                        "atmospheric N2O": 0.0075,
-                    }
-                else:
-                    if (
-                        -imbalance
-                        * 10**6
-                        / df_cultures.loc[
-                            df_cultures.index == label, "Area (ha)"
-                        ].item()
-                        > 100
-                    ):  # Si c'est une prairie, l'azote est lessivé seulement au dela de 100 kgN/ha
-                        source = {
-                            label: -imbalance
-                            - 100
-                            * df_cultures.loc[
-                                df_cultures.index == label, "Area (ha)"
-                            ].item()
-                            / 10**6
-                        }
-                        target = {
-                            "hydro-system": 0.9925,
-                            "atmospheric N2O": 0.0075,
-                        }
-                        flux_generator.generate_flux(source, target)
-                        source = {
-                            label: 100
-                            * df_cultures.loc[
-                                df_cultures.index == label, "Area (ha)"
-                            ].item()
-                            / 10**6
-                        }
-                        target = {"soil stock": 1}
-                    else:  # Autrement, l'azote reste dans le sol (cas particulier, est ce que cela a du sens, quid des autres cultures ?)
-                        source = {label: -imbalance}
-                        target = {"soil stock": 1}
+
+            else:  # Excédent (Plus d'entrées que de sorties) -> Augmenter la sortie
+                # Le surplus va aux systèmes environnementaux (Sortie de la culture)
+                source = {label: -imbalance}
+                target = {
+                    "hydro-system": 0.9925,
+                    "atmospheric N2O": 0.0075,
+                }
                 flux_generator.generate_flux(source, target)
-            # Si imbalance == 0, aucun ajustement nécessaire
+
+        ## On annule les flux bidirectionels entre les cultures et soil stock
+        soil_stock_index = label_to_index.get("soil stock")
+
+        for label in df_cultures.index:
+            node_index = label_to_index.get(label)
+            if node_index is None:
+                continue
+
+            # Flux vers la culture (du sol)
+            flux_in = self.adjacency_matrix[soil_stock_index, node_index]
+            # Flux sortant de la culture (vers le sol)
+            flux_out = self.adjacency_matrix[node_index, soil_stock_index]
+
+            net_flux = flux_out - flux_in
+
+            # 1. Annulation: met les flux bidirectionnels à zéro
+            self.adjacency_matrix[soil_stock_index, node_index] = 0
+            self.adjacency_matrix[node_index, soil_stock_index] = 0
+
+            # 2. Réintroduction du flux net
+            if abs(net_flux) > 1e-6:
+                if net_flux > 0:
+                    # Flux net positif: culture -> soil stock
+                    self.adjacency_matrix[node_index, soil_stock_index] = net_flux
+                else:
+                    # Flux net négatif: soil stock -> culture
+                    self.adjacency_matrix[soil_stock_index, node_index] = -net_flux
 
         # Calcul de imbalance dans df_cultures
         df_cultures["Balance (ktN)"] = (
             df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"]
             + df_cultures["Total Non Synthetic Fertilizer Use (ktN)"]
-            + df_cultures["Leguminous heritage (ktN)"]
-            - df_cultures["Leguminous Nitrogen Surplus (ktN)"]
             - df_cultures["Total Nitrogen Production (ktN)"]
             - df_cultures["Volatilized Nitrogen N-NH3 (ktN)"]
             - df_cultures[
