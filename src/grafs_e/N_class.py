@@ -1653,13 +1653,18 @@ class NitrogenFlowModel:
 
         # Maintenant, on fait le bilan complet des légumineuses (de champs et de prairies)
 
+        df_leg = pd.concat(
+            [df_prairies, df_cultures[df_cultures["Category"] == "leguminous"]]
+        )
+
+        df_leg = df_leg.fillna(0)
+
         # from IPython import embed
 
         # embed()
 
-        df_leg = pd.concat(
-            [df_prairies, df_cultures[df_cultures["Category"] == "leguminous"]]
-        )
+        if "Adjusted Total Synthetic Fertilizer Use (ktN)" not in df_leg.columns:
+            df_leg["Adjusted Total Synthetic Fertilizer Use (ktN)"] = 0.0
 
         df_leg["Total Non Synthetic Fertilizer Use (ktN)"] = df_leg.index.map(
             calculer_azote_ependu
@@ -1892,6 +1897,7 @@ class NitrogenFlowModel:
         epend_tot_synt = df_cultures[
             "Adjusted Total Synthetic Fertilizer Use (ktN)"
         ].sum()
+
         coef_emis_N_N2O = (
             df_global.loc[
                 "coefficient N-N2O indirect emission synthetic fertilization (%)"
@@ -2779,6 +2785,9 @@ class NitrogenFlowModel:
         total = df_cultures[colonnes_a_sommer].sum()
         total.name = "Total"
         self.df_cultures_display = pd.concat([df_cultures, total.to_frame().T])
+        self.df_cultures_display = self.df_cultures_display.loc[
+            self.df_cultures_display["Area (ha)"] != 0
+        ]
 
         colonnes_a_exclure = [
             "Excreted indoor (%)",
@@ -2801,6 +2810,9 @@ class NitrogenFlowModel:
         total = df_elevage[colonnes_a_sommer].sum()
         total.name = "Total"
         self.df_elevage_display = pd.concat([df_elevage, total.to_frame().T])
+        self.df_elevage_display = self.df_elevage_display.loc[
+            self.df_elevage_display["LU"] != 0
+        ]
 
         colonnes_a_exclure = [
             "Type",
@@ -2815,6 +2827,9 @@ class NitrogenFlowModel:
         total = df_prod[colonnes_a_sommer].sum()
         total.name = "Total"
         self.df_prod_display = pd.concat([df_prod, total.to_frame().T])
+        self.df_prod_display = self.df_prod_display.loc[
+            self.df_prod_display["Nitrogen Production (ktN)"] != 0
+        ]
 
         colonnes_a_exclure = [
             "Type",
@@ -2828,6 +2843,9 @@ class NitrogenFlowModel:
         total = df_excr[colonnes_a_sommer].sum()
         total.name = "Total"
         self.df_excr_display = pd.concat([df_excr, total.to_frame().T])
+        self.df_excr_display = self.df_excr_display.loc[
+            self.df_excr_display["Excretion to soil (ktN)"] != 0
+        ]
 
         self.df_cultures = df_cultures
         self.df_elevage = df_elevage
