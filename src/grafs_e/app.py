@@ -615,7 +615,7 @@ with tab5:
 
         st.subheader("Excretion data")
 
-        st.dataframe(model.df_excr)
+        st.dataframe(model.df_excr_display)
 
         st.subheader("Products data")
 
