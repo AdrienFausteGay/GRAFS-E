@@ -652,15 +652,14 @@ class DataLoader:
         # The list of required items
         if carbon is False:
             required_items = [
-                "Net Import (ktN)",
                 "Total Synthetic Fertilizer Use on crops (ktN)",
                 "Total Synthetic Fertilizer Use on grasslands (ktN)",
                 "Atmospheric deposition coef (kgN/ha)",
                 "coefficient N-NH3 volatilization synthetic fertilization (%)",
                 "coefficient N-N2O emission synthetic fertilization (%)",
                 "Weight diet",
-                "Weight import",
                 "Weight distribution",
+                "Weight fair local split",
                 "Enforce animal share",
             ]
         else:
@@ -669,10 +668,12 @@ class DataLoader:
         # Weight distribution is given in option and can be computed from other weights
         if "Weight distribution" not in global_df.index:
             weight_diet = global_df.loc["Weight diet", "value"]
-            weight_import = global_df.loc["Weight import", "value"]
-            global_df.loc["Weight distribution", "value"] = (
-                min(weight_diet, weight_import) / 10
-            )
+            global_df.loc["Weight distribution", "value"] = weight_diet / 10
+
+        # Weight distribution is given in option and can be computed from other weights
+        if "Weight fair local split" not in global_df.index:
+            weight_diet = global_df.loc["Weight diet", "value"]
+            global_df.loc["Weight fair local split", "value"] = weight_diet / 20
 
         # Check for the presence of each required item
         missing_items = [item for item in required_items if item not in global_df.index]
@@ -1652,13 +1653,18 @@ class NitrogenFlowModel:
 
         # Maintenant, on fait le bilan complet des légumineuses (de champs et de prairies)
 
+        df_leg = pd.concat(
+            [df_prairies, df_cultures[df_cultures["Category"] == "leguminous"]]
+        )
+
+        df_leg = df_leg.fillna(0)
+
         # from IPython import embed
 
         # embed()
 
-        df_leg = pd.concat(
-            [df_prairies, df_cultures[df_cultures["Category"] == "leguminous"]]
-        )
+        if "Adjusted Total Synthetic Fertilizer Use (ktN)" not in df_leg.columns:
+            df_leg["Adjusted Total Synthetic Fertilizer Use (ktN)"] = 0.0
 
         df_leg["Total Non Synthetic Fertilizer Use (ktN)"] = df_leg.index.map(
             calculer_azote_ependu
@@ -1891,6 +1897,7 @@ class NitrogenFlowModel:
         epend_tot_synt = df_cultures[
             "Adjusted Total Synthetic Fertilizer Use (ktN)"
         ].sum()
+
         coef_emis_N_N2O = (
             df_global.loc[
                 "coefficient N-N2O indirect emission synthetic fertilization (%)"
@@ -1901,9 +1908,6 @@ class NitrogenFlowModel:
         source = {"Haber-Bosch": epend_tot_synt * coef_emis_N_N2O}
 
         flux_generator.generate_flux(source, target)
-
-        # Et la valeur net
-        import_net = df_global.loc["Net Import (ktN)"].item()
 
         # Filtre les données d'ingestion animale et les stocke dans df_cons
         df_cons = df_elevage.loc[
@@ -2012,36 +2016,6 @@ class NitrogenFlowModel:
             df_global.index == "Weight distribution"
         ]["value"].item()
 
-        poids_penalite_import = df_global.loc[df_global.index == "Weight import"][
-            "value"
-        ].item()
-
-        net_import_model = lpSum(I_vars.values()) - (
-            df_prod["Nitrogen Production (ktN)"].sum() - lpSum(x_vars.values())
-        )
-
-        delta_import = LpVariable("delta_import", lowBound=0)
-
-        # delta_import doit être supérieur ou égal à la déviation positive
-        prob += delta_import >= net_import_model - import_net
-
-        # delta_import doit être supérieur ou égal à la déviation négative (pour capturer la valeur absolue)
-        prob += delta_import >= import_net - net_import_model
-
-        norm_imp = max(
-            1.0,
-            abs(
-                df_prod["Nitrogen Production (ktN)"].sum()
-                - df_elevage["Ingestion (ktN)"].sum()
-                - df_pop["Ingestion (ktN)"].sum()
-            ),
-        )  # max(1.0, abs(import_net))
-
-        # On ajoute un terme sur l'import brut pour rendre le modèle sensible à minimiser l'import/export d'un produit
-        poids_import_brut = min(
-            poids_penalite_import / 10, poids_penalite_deviation / 10
-        )
-
         # Contrainte sur la distribution d'un produit à tous ses consommateurs.
         # 0) Construire les parts de référence s_ref[(p, c)]
         from collections import defaultdict
@@ -2113,11 +2087,9 @@ class NitrogenFlowModel:
         )
 
         # 4) ajoute-le à l’objectif (éventuellement moyenner par nb de produits)
-        w_fair = (
-            df_global.loc["Weight fair local split", "value"].item()
-            if "Weight fair local split" in df_global.index
-            else 1e-3
-        )
+        w_fair = df_global.loc[df_global.index == "Weight fair local split"][
+            "value"
+        ].item()
 
         # Variable de surplus
         # Surplus (à exporter) par produit p
@@ -2150,7 +2122,6 @@ class NitrogenFlowModel:
             (poids_penalite_deviation / max(1, len(pairs))) * lpSum(delta_vars.values())
             + (poids_penalite_culture / max(1, len(df_prod)))
             * lpSum(penalite_culture_vars.values())
-            + (poids_penalite_import / norm_imp) * delta_import
             # + poids_import_brut * lpSum(I_vars.values())
             + w_fair
             * (fair_term / max(1, len(df_prod)))  # moyenne par produit (optionnel)
@@ -2814,6 +2785,9 @@ class NitrogenFlowModel:
         total = df_cultures[colonnes_a_sommer].sum()
         total.name = "Total"
         self.df_cultures_display = pd.concat([df_cultures, total.to_frame().T])
+        self.df_cultures_display = self.df_cultures_display.loc[
+            self.df_cultures_display["Area (ha)"] != 0
+        ]
 
         colonnes_a_exclure = [
             "Excreted indoor (%)",
@@ -2830,11 +2804,15 @@ class NitrogenFlowModel:
             "N-NH3 EM outdoor (%)",
             "N-NH3 EM slurry (%)",
             "Conversion factor (%)",
+            "Excretion / LU (kgN)",
         ]
         colonnes_a_sommer = df_elevage.columns.difference(colonnes_a_exclure)
         total = df_elevage[colonnes_a_sommer].sum()
         total.name = "Total"
         self.df_elevage_display = pd.concat([df_elevage, total.to_frame().T])
+        self.df_elevage_display = self.df_elevage_display.loc[
+            self.df_elevage_display["LU"] != 0
+        ]
 
         colonnes_a_exclure = [
             "Type",
@@ -2842,11 +2820,32 @@ class NitrogenFlowModel:
             "Nitrogen Content (%)",
             "Origin compartment",
             "Carbon Content (%)",
+            "Waste (%)",
+            "Other uses (%)",
         ]
         colonnes_a_sommer = df_prod.columns.difference(colonnes_a_exclure)
         total = df_prod[colonnes_a_sommer].sum()
         total.name = "Total"
         self.df_prod_display = pd.concat([df_prod, total.to_frame().T])
+        self.df_prod_display = self.df_prod_display.loc[
+            self.df_prod_display["Nitrogen Production (ktN)"] != 0
+        ]
+
+        colonnes_a_exclure = [
+            "Type",
+            "Nitrogen Content (%)",
+            "Origin compartment",
+            "N-NH3 EM (%)",
+            "N-N2 EM (%)",
+            "N-N2O EM (%)",
+        ]
+        colonnes_a_sommer = df_excr.columns.difference(colonnes_a_exclure)
+        total = df_excr[colonnes_a_sommer].sum()
+        total.name = "Total"
+        self.df_excr_display = pd.concat([df_excr, total.to_frame().T])
+        self.df_excr_display = self.df_excr_display.loc[
+            self.df_excr_display["Excretion to soil (ktN)"] != 0
+        ]
 
         self.df_cultures = df_cultures
         self.df_elevage = df_elevage
