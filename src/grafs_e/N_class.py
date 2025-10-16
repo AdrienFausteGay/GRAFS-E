@@ -7,8 +7,10 @@ import pandas as pd
 import plotly.graph_objects as go
 import seaborn as sns
 from matplotlib.colors import LogNorm
-from pulp import LpContinuous, LpMinimize, LpProblem, LpVariable, lpSum
+from pulp import LpContinuous, LpMinimize, LpProblem, LpVariable, lpSum, value, LpStatus
 import warnings
+import math
+import pprint
 
 # Afficher toutes les colonnes
 pd.set_option("display.max_columns", None)
@@ -118,6 +120,7 @@ class DataLoader:
             "waste",
             "soil stock",
             "seeds",
+            "methanizer",
         ]
 
         trade = [
@@ -275,6 +278,7 @@ class DataLoader:
                 "Sub Type",
                 "Waste (%)",
                 "Other uses (%)",
+                "Methanization power (MWh/tFW)",
             )
         else:
             categories_needed = (
@@ -499,6 +503,8 @@ class DataLoader:
                 "N-N2O EM (%)",
                 "Type",
                 "Origin compartment",
+                "Methanization power (MWh/tFW)",
+                "Nitrogen Content (%)",
             )
         else:
             categories_needed = (
@@ -563,7 +569,7 @@ class DataLoader:
         # Now, assign the calculated values to the 'Excretion (ktN)' column in df_excr
         df_excr["Excretion (ktN)"] = excretion_values
 
-        df_excr["Excretion to soil (ktN)"] = (
+        df_excr["Excretion after volatilization (ktN)"] = (
             df_excr["Excretion (ktN)"]
             * (
                 100
@@ -628,7 +634,7 @@ class DataLoader:
             df_pop["Inhabitants"] * df_pop["Fischery ingestion per capita (kgN)"] / 1e6
         )
 
-        df_pop["Excretion to soil (ktN)"] = (
+        df_pop["Excretion after volatilization (ktN)"] = (
             df_pop["Ingestion (ktN)"] * df_pop["Excretion recycling (%)"] / 100
         )
 
@@ -658,12 +664,21 @@ class DataLoader:
                 "coefficient N-NH3 volatilization synthetic fertilization (%)",
                 "coefficient N-N2O emission synthetic fertilization (%)",
                 "Weight diet",
+                "Weight import",
                 "Weight distribution",
                 "Weight fair local split",
                 "Enforce animal share",
+                "Methanizer Energy Production (GWh)",
+                "Weight methanizer production",
+                "Weight methanizer inputs",
+                "Green waste methanization power (MWh/ktN)",
             ]
         else:
-            required_items = ["Total Haber-Bosch methan input (kgC/kgN)"]
+            required_items = [
+                "Total Haber-Bosch methan input (kgC/kgN)",
+                "Share of methan volume in methanizer output (%)",
+                "Green waste C/N",
+            ]
 
         # Weight distribution is given in option and can be computed from other weights
         if "Weight distribution" not in global_df.index:
@@ -674,6 +689,14 @@ class DataLoader:
         if "Weight fair local split" not in global_df.index:
             weight_diet = global_df.loc["Weight diet", "value"]
             global_df.loc["Weight fair local split", "value"] = weight_diet / 20
+
+        if "Share of methan volume in methanizer output (%)" not in global_df.index:
+            global_df.loc[
+                "Share of methan volume in methanizer output (%)", "value"
+            ] = 95
+
+        if "Green waste C/N" not in global_df.index:
+            global_df.loc["Green waste C/N", "value"] = 10
 
         # Check for the presence of each required item
         missing_items = [item for item in required_items if item not in global_df.index]
@@ -765,11 +788,13 @@ class DataLoader:
 
         # --- 2) validation : tous les produits référencés existent dans df_prod.index --
         prod_index = set(self.init_df_prod.index.astype(str))
+        excr_index = set(self.init_df_excr.index.astype(str))
+        excr_index.add("waste")
         missing_products = []
         for diet_id, df_d in diet_by_id.items():
             for prod_list in df_d["Products"]:
                 for prod in prod_list:
-                    if prod not in prod_index:
+                    if prod not in prod_index and prod not in excr_index:
                         missing_products.append((diet_id, prod))
         if missing_products:
             lines = "\n".join(
@@ -824,13 +849,14 @@ class DataLoader:
                 c.lower()
                 for c in list(self.init_df_elevage.index) + list(self.init_df_pop.index)
             ]
+            + ["methanizer"]
         )
         consumers_found = set([k.lower() for k in consumer_to_diet.keys()])
 
         missing_consumers = sorted(list(consumers_expected - consumers_found))
         if missing_consumers:
             raise ValueError(
-                "Missing diet mapping for the following consumers (indexes in df_elevage/df_pop) for "
+                "Missing diet mapping for the following consumers (indexes in df_elevage, df_pop or 'mathanizer') for "
                 f"{area}/{year}:\n" + "\n".join(missing_consumers)
             )
 
@@ -891,12 +917,13 @@ class FluxGenerator:
         self.n = len(self.labels)
         self.adjacency_matrix = np.zeros((self.n, self.n))
 
-    def generate_flux(self, source, target):
+    def generate_flux(self, source, target, erase=False):
         """Generates and updates the transition matrix by calculating the flux coefficients between the source and target sectors.
 
         Args:
             source (dict): A dictionary representing the source sector, where keys are sector labels and values are the corresponding flux values.
             target (dict): A dictionary representing the target sector, where keys are sector labels and values are the corresponding flux values.
+            erase (bool): a boolean to add flows to existing flows or to erase previously stored flow and replace it with a new value
 
         This method updates the adjacency matrix by computing the flux between all pairs of source and target sectors.
         A flux coefficient is calculated as the product of the corresponding values from the `source` and `target` dictionaries.
@@ -911,7 +938,14 @@ class FluxGenerator:
                 target_index = self.label_to_index.get(target_label)
                 if target_index is not None:
                     if coefficient > 10**-7:
-                        self.adjacency_matrix[source_index, target_index] += coefficient
+                        if erase:
+                            self.adjacency_matrix[source_index, target_index] = (
+                                coefficient
+                            )
+                        else:
+                            self.adjacency_matrix[source_index, target_index] += (
+                                coefficient
+                            )
                 else:
                     print(f"{target_label} not found in label_to_index")
 
@@ -1010,16 +1044,18 @@ class NitrogenFlowModel:
             Returns a stacked representation of plant production data.
     """
 
-    def __init__(self, data, area, year):
+    def __init__(self, data, area, year, debug=False):
         """Initializes the NitrogenFlowModel class with the necessary data and model parameters.
 
         Args:
             data (DataLoader): An instance of the DataLoader class to load and preprocess the data.
             year (str): The year for which to compute the nitrogen flow model.
             area (str): The area for which to compute the nitrogen flow model.
+            debug (bool): print a report on objective model terms
         """
         self.year = year
         self.area = area
+        self.debug = debug
 
         self.data_loader = data
         self.labels = data.labels
@@ -1439,7 +1475,8 @@ class NitrogenFlowModel:
 
         # Source
         source = df_excr.loc[
-            df_excr["Type"] == "grasslands excretion", "Excretion to soil (ktN)"
+            df_excr["Type"] == "grasslands excretion",
+            "Excretion after volatilization (ktN)",
         ].to_dict()
 
         flux_generator.generate_flux(source, target)
@@ -1473,7 +1510,8 @@ class NitrogenFlowModel:
         ## Epandage sur champs
 
         source = df_excr.loc[
-            df_excr["Type"].isin(["manure", "slurry"]), "Excretion to soil (ktN)"
+            df_excr["Type"].isin(["manure", "slurry"]),
+            "Excretion after volatilization (ktN)",
         ].to_dict()
 
         flux_generator.generate_flux(source, target_epandage)
@@ -1526,62 +1564,6 @@ class NitrogenFlowModel:
         df_cultures["Symbiotic Fixation (ktN)"] = df_cultures.index.map(
             target_fixation
         ).fillna(0)
-
-        # On considère que les résidus des légumineuses, prairies temporaires et prairies permanentes sont de meilleur qualité (plus grande quantité, meilleur C/N) et ne consomment pas les résidus de la culture précédente.
-
-        # df_cultures["Leguminous Nitrogen Surplus (ktN)"] = df
-
-        # df_cultures["Total Non Synthetic Fertilizer Use (ktN)"] = df_cultures.index.map(
-        #     calculer_azote_ependu
-        # )
-
-        # # Mécanisme d'héritage de l'azote en surplus des légumineuses
-        # df_cultures["Leguminous Nitrogen Surplus (ktN)"] = 0.0
-        # df_cultures.loc[
-        #     df_cultures["Category"].isin(["leguminous", "temporary meadows"]),
-        #     "Leguminous Nitrogen Surplus (ktN)",
-        # ] = (
-        #     df_cultures.loc[
-        #         df_cultures["Category"].isin(["leguminous", "temporary meadows"]),
-        #         "Total Non Synthetic Fertilizer Use (ktN)",
-        #     ]
-        #     - df_cultures.loc[
-        #         df_cultures["Category"].isin(["leguminous", "temporary meadows"]),
-        #         "Total Nitrogen Production (ktN)",
-        #     ]
-        # )
-
-        # # Distribution du surplus aux céréales
-        # total_surplus_azote = df_cultures.loc[
-        #     df_cultures["Category"].isin(["leguminous", "temporary meadows"]),
-        #     "Leguminous Nitrogen Surplus (ktN)",
-        # ].sum()
-        # total_surface_cereales = df_cultures.loc[
-        #     (df_cultures["Category"] == "cereals (excluding rice)"),
-        #     "Area (ha)",
-        # ].sum()
-        # df_cultures["Leguminous Heritage (ktN)"] = 0.0
-        # df_cultures.loc[
-        #     (df_cultures["Category"] == "cereals (excluding rice)"),
-        #     "Leguminous Heritage (ktN)",
-        # ] = (
-        #     df_cultures.loc[
-        #         (df_cultures["Category"] == "cereals (excluding rice)"),
-        #         "Area (ha)",
-        #     ]
-        #     / total_surface_cereales
-        #     * total_surplus_azote
-        # )
-
-        # # Génération des flux pour l'héritage des légumineuses
-        # source_leg = (
-        #     df_cultures.loc[df_cultures["Leguminous Nitrogen Surplus (ktN)"] > 0][
-        #         "Leguminous Nitrogen Surplus (ktN)"
-        #     ]
-        #     / df_cultures["Leguminous Nitrogen Surplus (ktN)"].sum()
-        # ).to_dict()
-        # target_leg = df_cultures["Leguminous Heritage (ktN)"].to_dict()
-        # flux_generator.generate_flux(source_leg, target_leg)
 
         ## Azote synthétique
         # Calcul de l'azote à épendre (bilan azoté)
@@ -2010,6 +1992,19 @@ class NitrogenFlowModel:
         poids_penalite_deviation = df_global.loc[df_global.index == "Weight diet"][
             "value"
         ].item()
+        poids_import_brut = df_global.loc[df_global.index == "Weight import"][
+            "value"
+        ].item()
+        raw_import_term = lpSum(I_vars.values()) / max(
+            1,
+            (
+                df_cons["Ingestion (ktN)"].sum()
+                - df_prod.loc[
+                    df_prod["Sub Type"] != "non edible meat",
+                    "Nitrogen Production (ktN)",
+                ].sum()
+            ),
+        )
 
         # Poids pour équilibrer la distribution des cultures dans les categories
         poids_penalite_culture = df_global.loc[
@@ -2117,14 +2112,228 @@ class NitrogenFlowModel:
             )
             M[p] = max(prodN, need_with_p) + 1e-6  # marge min
 
+        # Contraintes sur la méthanisation
+        METH_DIET_NAME = "Methanizer"
+        TARGET_GWh = df_global.loc["Methanizer Energy Production (GWh)", "value"]
+        W_METH_ENERGY = df_global.loc["Weight methanizer production", "value"]
+        W_METH_DIET = df_global.loc["Weight methanizer inputs", "value"]
+        WASTE_PWR_MWh_per_ktN = df_global.loc[
+            "Green waste methanization power (MWh/ktN)", "value"
+        ]
+
+        meth_diet_df = diets[diets["Consumer"] == METH_DIET_NAME].copy()
+
+        meth_prod_items = set()
+        meth_excr_items = set()
+        meth_waste_items = set(["waste"])
+
+        for _, row in meth_diet_df.iterrows():
+            for it in row["Products"]:
+                if it in df_prod.index:
+                    meth_prod_items.add(it)
+                elif it in df_excr.index:
+                    meth_excr_items.add(it)
+                else:
+                    # tout item non trouvé dans df_prod/df_excr est interprété comme "waste"
+                    meth_waste_items.add(it)
+
+        x_meth_prod = LpVariable.dicts(
+            "x_meth_prod", list(meth_prod_items), lowBound=0, cat=LpContinuous
+        )
+        x_meth_excr = LpVariable.dicts(
+            "x_meth_excr", list(meth_excr_items), lowBound=0, cat=LpContinuous
+        )
+        N_waste_meth = LpVariable("N_waste_meth", lowBound=0, cat=LpContinuous)
+
+        # Production d'énergie
+        E_MWh_products = (
+            lpSum(
+                x_meth_prod[p]
+                * (
+                    float(df_prod.loc[p, "Methanization power (MWh/tFW)"])
+                    * 1000
+                    / (float(df_prod.loc[p, "Nitrogen Content (%)"]) / 100)
+                )
+                for p in meth_prod_items
+            )
+            if len(meth_prod_items)
+            else 0
+        )
+
+        E_MWh_excreta = (
+            lpSum(
+                x_meth_excr[e]
+                * (
+                    float(df_excr.loc[e, "Methanization power (MWh/tFW)"])
+                    * 1000
+                    / (float(df_excr.loc[e, "Nitrogen Content (%)"]) / 100)
+                )
+                for e in meth_excr_items
+            )
+            if len(meth_excr_items)
+            else 0
+        )
+
+        E_MWh_waste = N_waste_meth * WASTE_PWR_MWh_per_ktN
+        E_GWh_total = (E_MWh_products + E_MWh_excreta + E_MWh_waste) / 1000.0
+
+        meth_energy_dev = LpVariable("meth_energy_dev", lowBound=0, cat=LpContinuous)
+        prob += (
+            meth_energy_dev >= (E_GWh_total - TARGET_GWh) / TARGET_GWh,
+            "Meth_energy_dev_pos",
+        )
+        prob += (
+            meth_energy_dev >= (TARGET_GWh - E_GWh_total) / TARGET_GWh,
+            "Meth_energy_dev_neg",
+        )
+
+        # -- Diète du méthaniseur (parts d’azote par groupe)
+        pairs_meth = []
+        for _, row in meth_diet_df.iterrows():
+            prop = float(row["Proportion"])
+            prop = prop / 100.0 if prop > 1.0 else prop
+            pairs_meth.append((METH_DIET_NAME, prop, tuple(row["Products"])))
+
+        delta_meth = LpVariable.dicts(
+            "delta_meth",
+            [(METH_DIET_NAME, tuple(pL)) for _, _, pL in pairs_meth],
+            lowBound=0,
+            cat=LpContinuous,
+        )
+
+        N_to_meth_total = (
+            (lpSum(x_meth_prod.values()) if len(meth_prod_items) else 0)
+            + (lpSum(x_meth_excr.values()) if len(meth_excr_items) else 0)
+            + (N_waste_meth if isinstance(N_waste_meth, LpVariable) else 0)
+        )
+
+        for _, prop, prod_list in pairs_meth:
+            N_group = 0
+            for it in prod_list:
+                if it in x_meth_prod:
+                    N_group += x_meth_prod[it]
+                elif it in x_meth_excr:
+                    N_group += x_meth_excr[it]
+                elif isinstance(N_waste_meth, LpVariable) and it in meth_waste_items:
+                    N_group += N_waste_meth  # agrégat waste
+
+            dv = delta_meth[(METH_DIET_NAME, tuple(prod_list))]
+
+            # ----- LINEARISATION (pas de division) -----
+            # N_group - prop * N_to_meth_total <= dv
+            prob += (
+                N_group - prop * N_to_meth_total <= dv,
+                f"METH_Diet_plus_{hash(tuple(prod_list))}",
+            )
+
+            # prop * N_to_meth_total - N_group <= dv
+            prob += (
+                prop * N_to_meth_total - N_group <= dv,
+                f"METH_Diet_moins_{hash(tuple(prod_list))}",
+            )
+
+        # ----- Fair-share méthaniseur (produits) -----
+        # Contribution du méthaniseur aux parts de référence par produit (comme raw_ref pour les autres cons.)
+        raw_ref_meth = defaultdict(float)
+        for _, prop, products_list in pairs_meth:
+            if len(products_list) == 0:
+                continue
+            share_each = prop / len(products_list)
+            for p in products_list:
+                if (
+                    p in df_prod.index
+                ):  # fair-share seulement pour les PRODUITS (pas excréta/waste)
+                    raw_ref_meth[p] += share_each
+
+        # Variables de déviation pour le fair-share du méthaniseur sur chaque produit éligible
+        gamma_fair_abs_meth = LpVariable.dicts(
+            "gamma_fair_abs_meth",
+            list(
+                meth_prod_items
+            ),  # seulement les produits présents dans la diète méthaniseur
+            lowBound=0,
+            cat=LpContinuous,
+        )
+
+        # Cibles par produit : s_ref(total incluant +METH) * Prod_p
+        for p in meth_prod_items:
+            # dénominateur = parts (autres consommateurs) + part méthaniseur
+            s_den = sum(raw_ref[(p, c)] for c in df_cons.index) + raw_ref_meth.get(
+                p, 0.0
+            )
+            if s_den <= 0:
+                continue  # rien à faire si le produit n'apparaît dans aucune diète
+            s_ref_meth_p = raw_ref_meth.get(p, 0.0) / s_den
+            prodN = float(df_prod.loc[p, "Nitrogen Production (ktN)"])
+            x_cible_meth = s_ref_meth_p * prodN
+
+            # | x_meth_prod[p] - x_cible_meth | <= gamma_fair_abs_meth[p]
+            prob += (
+                x_meth_prod[p] - x_cible_meth <= gamma_fair_abs_meth[p],
+                f"FairAbsMeth_plus_{p}",
+            )
+            prob += (
+                x_cible_meth - x_meth_prod[p] <= gamma_fair_abs_meth[p],
+                f"FairAbsMeth_moins_{p}",
+            )
+
+        # Terme fair-share additionnel (même normalisation par produit)
+        fair_term_meth = lpSum(
+            gamma_fair_abs_meth[p] / prod_scale(p) for p in meth_prod_items
+        )
+
+        # ----- Répartition intra-groupe du méthaniseur (linéaire) -----
+        # Pénalités comme 'penalite_culture_vars' mais sans division par une variable
+        penalite_culture_meth = LpVariable.dicts(
+            "penalite_culture_meth",
+            [(METH_DIET_NAME, prop, it) for _, prop, L in pairs_meth for it in L],
+            lowBound=0,
+            cat=LpContinuous,
+        )
+
+        for _, prop, products_list in pairs_meth:
+            k = max(1, len(products_list))
+            # cible pour CHAQUE item du groupe : (prop * N_total_meth) / k
+            cible_item = (prop * N_to_meth_total) / k  # linéaire (prop et k constants)
+
+            for it in products_list:
+                # allocation réelle de l'item vers le méthaniseur
+                if it in x_meth_prod:
+                    alloc_it = x_meth_prod[it]
+                elif it in x_meth_excr:
+                    alloc_it = x_meth_excr[it]
+                elif isinstance(N_waste_meth, LpVariable) and it in meth_waste_items:
+                    alloc_it = N_waste_meth
+                else:
+                    continue
+
+                pv = penalite_culture_meth[(METH_DIET_NAME, prop, it)]
+                # |alloc_it - cible_item| <= pv
+                prob += (
+                    alloc_it - cible_item <= pv,
+                    f"Penalite_Meth_Plus_{hash((prop, it))}",
+                )
+                prob += (
+                    cible_item - alloc_it <= pv,
+                    f"Penalite_Meth_Moins_{hash((prop, it))}",
+                )
+
+        # On cumulera ces pénalités dans l'objectif avec un poids léger (reprendre 'poids_penalite_culture')
+        n_items_meth = max(1, sum(len(L) for _, _, L in pairs_meth))
+        penalite_culture_meth_term = (poids_penalite_culture / n_items_meth) * lpSum(
+            penalite_culture_meth.values()
+        )
+
         # Fonction objectif
         objective = (
             (poids_penalite_deviation / max(1, len(pairs))) * lpSum(delta_vars.values())
             + (poids_penalite_culture / max(1, len(df_prod)))
             * lpSum(penalite_culture_vars.values())
-            # + poids_import_brut * lpSum(I_vars.values())
-            + w_fair
-            * (fair_term / max(1, len(df_prod)))  # moyenne par produit (optionnel)
+            + poids_import_brut * raw_import_term
+            + w_fair * ((fair_term + fair_term_meth) / max(1, len(df_prod)))
+            + W_METH_ENERGY * meth_energy_dev
+            + (W_METH_DIET / max(1, len(pairs_meth))) * lpSum(delta_meth.values())
+            + penalite_culture_meth_term
         )
         prob += objective
 
@@ -2152,15 +2361,25 @@ class NitrogenFlowModel:
                     f"Contrainte_part_animale_{cons}",
                 )
 
-        # Cette contrainte assure que la somme de l'azote alloué de chaque culture aux différents types de consommateurs + Surplus à exporter == l'azote disponible pour cette culture.
+        # Cette contrainte assure que la somme de l'azote alloué de chaque culture aux différents types de consommateurs + Surplus à exporter + methaniseur == l'azote disponible pour cette culture.
         for p in df_prod.index:
             consumers_with_p = [c for (prod, c) in valid_pairs if prod == p]
-            prodN = df_prod.loc[p, "Available Nitrogen Production (ktN)"]
-            # Egalité : local alloué + surplus = production disponible
+            prodN = float(df_prod.loc[p, "Available Nitrogen Production (ktN)"])
+            x_meth_term = x_meth_prod[p] if p in x_meth_prod else 0
             prob += (
-                lpSum(x_vars[(p, c)] for c in consumers_with_p) + U_vars[p] == prodN,
+                lpSum(x_vars[(p, c)] for c in consumers_with_p)
+                + x_meth_term
+                + U_vars[p]
+                == prodN,
                 f"Bilan_{p}",
             )
+
+        # Contrainte dure sur l'usage des excretions
+        for e in meth_excr_items:
+            avail_excr_soil = float(
+                df_excr.loc[e, "Excretion after volatilization (ktN)"]
+            )
+            prob += (x_meth_excr[e] <= avail_excr_soil, f"Excreta_to_meth_cap_{e}")
 
         for cons, proportion_initiale, products_list in pairs:
             # Récupère le besoin total en azote pour ce consommateur
@@ -2258,109 +2477,178 @@ class NitrogenFlowModel:
                 prob += I_p <= M[p] * y_vars[p], f"NoSwap_I_{p}"
                 prob += U_vars[p] <= M[p] * (1 - y_vars[p]), f"NoSwap_U_{p}"
 
-        # # DEBUG
-        # # 1) Construire explicitement chaque terme (à conserver pour l'analyse)
-        # term_dev = lpSum(delta_vars.values())
-
-        # term_cult = lpSum(penalite_culture_vars.values())
-
-        # term_imp = delta_import  # variable qui capte |net_import_model - import_net|
-
-        # term_imp_brut = lpSum(I_vars.values())
-
-        # term_fair = lpSum(gamma_fair.values())
-
         # Résolution du problème
         prob.solve()
 
-        # from pulp import value
+        if self.debug:
+            # (1) Reconstruire EXACTEMENT les morceaux de l’objectif
+            expr_dev = (poids_penalite_deviation / max(1, len(pairs))) * lpSum(
+                delta_vars.values()
+            )
+            expr_cult = (poids_penalite_culture / max(1, len(df_prod))) * lpSum(
+                penalite_culture_vars.values()
+            )
+            expr_fair = w_fair * (
+                fair_term / max(1, len(df_prod))
+            )  # moyenne par produit (optionnel)
+            expr_meth_energy = W_METH_ENERGY * meth_energy_dev
+            expr_meth_diet = (W_METH_DIET / max(1, len(pairs_meth))) * lpSum(
+                delta_meth.values()
+            )
+            expr_import_brut = (
+                poids_import_brut * raw_import_term
+            )  # Terme d'import brut ajouté
 
-        # raw_dev = value(term_dev)  # somme des déviations (brut)
-        # raw_cult = value(term_cult)  # somme des pénalités cultures (brut)
-        # raw_imp = value(term_imp)  # excès d'import (brut)
-        # raw_imp_brut = value(term_imp_brut)
-        # raw_fair = value(term_fair)
+            # (2) Eval brute
+            raw_dev = float(value(expr_dev))
+            raw_cult = float(value(expr_cult))
+            raw_fair = float(value(expr_fair))
+            raw_meth_energy = float(value(expr_meth_energy))
+            raw_meth_diet = float(value(expr_meth_diet))
+            raw_import_brut = float(
+                value(expr_import_brut)
+            )  # Évaluation brute du terme d'import brut
 
-        # # 5) Versions normalisées (si tu veux comparer des ordres de grandeur homogènes)
-        # norm_dev = raw_dev / n_pairs if n_pairs else None
-        # norm_cult = raw_cult / n_cult if n_cult else None
-        # norm_impv = raw_imp / norm_imp if norm_imp else None
-        # norm_impb = raw_imp_brut / norm_imp if norm_imp else None
-        # norm_fair = raw_fair / n_valid_pairs if n_valid_pairs else None
+            # (3) Somme = valeur de l’objectif
+            obj_val = float(
+                value(
+                    expr_dev
+                    + expr_cult
+                    + expr_fair
+                    + expr_meth_energy
+                    + expr_meth_diet
+                    + expr_import_brut
+                )
+            )
 
-        # # 6) Contributions pondérées dans l’objectif (pour vérifier l’équilibre)
-        # w_dev = (poids_penalite_deviation / n_pairs) * raw_dev if n_pairs else None
-        # w_cult = (poids_penalite_culture / n_cult) * raw_cult if n_cult else None
-        # w_imp = (poids_penalite_import / norm_imp) * raw_imp if norm_imp else None
-        # w_imp_brut = (poids_import_brut / norm_imp) * raw_imp_brut if norm_imp else None
-        # w_fair = (poids_omega_fair / n_valid_pairs) * raw_fair if norm_fair else None
+            # (4) Parts en % (protéger division par zéro)
+            def _share(x, total):
+                return (
+                    (100.0 * x / total)
+                    if total and not math.isclose(total, 0.0)
+                    else None
+                )
 
-        # obj_val = value(prob.objective)
+            shares = {
+                "dev_%": _share(raw_dev, obj_val),
+                "cult_%": _share(raw_cult, obj_val),
+                "fair_%": _share(raw_fair, obj_val),
+                "meth_energy_%": _share(raw_meth_energy, obj_val),
+                "meth_diet_%": _share(raw_meth_diet, obj_val),
+                "import_brut_%": _share(
+                    raw_import_brut, obj_val
+                ),  # Part de l'import brut dans l'objectif total
+            }
 
-        # # DEBUG
-        # # 7) Affichage synthétique
-        # report = {
-        #     "poids": {
-        #         "distribution": poids_penalite_culture,
-        #         "dev": poids_penalite_deviation,
-        #         "import net": poids_penalite_import,
-        #         "import brut": poids_import_brut,
-        #         "fair": poids_omega_fair,
-        #     },
-        #     "raw_terms": {
-        #         "deviation_sum": raw_dev,
-        #         "culture_penalty_sum": raw_cult,
-        #         "import_excess": raw_imp,
-        #         "import_brut": raw_imp_brut,
-        #         "fair": raw_fair,
-        #     },
-        #     "normalized_terms": {
-        #         "deviation_avg_per_pair": norm_dev,
-        #         "culture_avg_per_culture": norm_cult,
-        #         "import_normalized": norm_impv,
-        #         "import_brut_normalized": norm_impb,
-        #         "fair_normalized": norm_fair,
-        #     },
-        #     "weighted_contributions": {
-        #         "dev_contrib": w_dev,
-        #         "cult_contrib": w_cult,
-        #         "imp_contrib": w_imp,
-        #         "imp_brut_contrib": w_imp_brut,
-        #         "fair_contrib": w_fair,
-        #         "objective_total": obj_val,
-        #         "shares_%": {
-        #             "dev": (100 * w_dev / obj_val) if obj_val else None,
-        #             "cult": (100 * w_cult / obj_val) if obj_val else None,
-        #             "imp": (100 * w_imp / obj_val) if obj_val else None,
-        #             "imp_brut": (100 * w_imp_brut / obj_val) if obj_val else None,
-        #             "fair": (100 * w_fair / obj_val) if obj_val else None,
-        #         },
-        #     },
-        # }
+            # (5) État du solveur
+            solver_info = {
+                "status_code": prob.status,
+                "status": LpStatus.get(prob.status, "Unknown"),
+            }
 
-        # import pprint
+            # (6) Rapport complet
+            report = {
+                "solver": solver_info,
+                "objective_total": obj_val,
+                "weighted_contributions": {
+                    "dev": raw_dev,
+                    "cult": raw_cult,
+                    "fair": raw_fair,
+                    "meth_energy": raw_meth_energy,
+                    "meth_diet": raw_meth_diet,
+                    "import_brut": raw_import_brut,  # Contribution de l'import brut
+                },
+                "shares_%": shares,
+                "weights_used": {
+                    "Weight diet": float(poids_penalite_deviation),
+                    "Weight distribution": float(poids_penalite_culture),
+                    "Weight fair local split": float(w_fair),
+                    "Weight methanizer production": float(W_METH_ENERGY),
+                    "Weight methanizer inputs": float(W_METH_DIET),
+                    "Weight import brut": float(
+                        poids_import_brut
+                    ),  # Poids du terme import brut
+                },
+            }
 
-        # pprint.pp(report, sort_dicts=False)
+            # Affichage du rapport complet
+            pprint.pp(report, sort_dicts=False)
 
+        self.methanizer_production = value(E_GWh_total)
+
+        df_excr["Excretion to Methanizer (ktN)"] = 0.0
+        df_excr["Excretion to soil (ktN)"] = 0.0
         allocations = []
+        meth_prod_alloc = {}  # somme ktN -> méthaniseur par produit
+        excr_to_meth = {}  # somme ktN -> méthaniseur par excréta
+        waste_to_meth = 0.0  # ktN waste vers méthaniseur (agrégé)
+
         for var in prob.variables():
-            if var.name.startswith("x") and var.varValue > 0:
-                # Nom de la variable : x_(culture, cons)
+            if not var.varValue or var.varValue <= 0:
+                continue
+
+            name = var.name
+            val = float(var.varValue)
+
+            # Cas 1 : variables classiques x_(product,consumer)
+            if name.startswith("x_") and not name.startswith("x_meth"):
+                # Nom de la variable : x_('culture','cons')
                 chaine = str(var)
                 matches = re.findall(r"'([^']*)'", chaine)
-                parts = [match.replace("_", " ").strip() for match in matches]
-                prod_i = parts[0]
-                cons = parts[1]
-                if any(index in var.name for index in df_elevage.index):
-                    Type = "Local culture feed"
-                else:
-                    Type = "Local culture food"
+                if len(matches) >= 2:
+                    prod_i = matches[0].replace("_", " ").strip()
+                    cons = matches[1].replace("_", " ").strip()
+
+                    # Type (même logique que ton exemple)
+                    if any(idx in name for idx in df_elevage.index):
+                        Type = "Local culture feed"
+                    else:
+                        Type = "Local culture food"
+
+                    allocations.append(
+                        {
+                            "Product": prod_i,
+                            "Consumer": cons,
+                            "Allocated Nitrogen": val,
+                            "Type": Type,
+                        }
+                    )
+            # Cas 2 : produits -> méthaniseur
+            elif name.startswith("x_meth_prod_"):
+                prod_i = name.replace("x_meth_prod_", "").replace("_", " ").strip()
+                meth_prod_alloc[prod_i] = meth_prod_alloc.get(prod_i, 0.0) + val
+
                 allocations.append(
                     {
                         "Product": prod_i,
-                        "Consumer": cons,
-                        "Allocated Nitrogen": var.varValue,
-                        "Type": Type,
+                        "Consumer": "Product to Methanizer",
+                        "Allocated Nitrogen": val,
+                        "Type": "Methanizer",
+                    }
+                )
+            # Cas 3 : excréta -> méthaniseur
+            elif name.startswith("x_meth_excr_"):
+                excr_i = name.replace("x_meth_excr_", "").replace("_", " ").strip()
+                excr_to_meth[excr_i] = excr_to_meth.get(excr_i, 0.0) + val
+
+                allocations.append(
+                    {
+                        "Product": excr_i,
+                        "Consumer": "Excretion to Methanizer",
+                        "Allocated Nitrogen": val,
+                        "Type": "Methanizer",
+                    }
+                )
+            # Cas 4 : waste agrégé -> méthaniseur
+            elif name == "N_waste_meth":
+                waste_to_meth += val
+                # Enregistrement dans allocations (source "Waste (aggregated)")
+                allocations.append(
+                    {
+                        "Product": "waste",
+                        "Consumer": "Green Waste to Methanizer",
+                        "Allocated Nitrogen": val,
+                        "Type": "Methanizer",
                     }
                 )
 
@@ -2432,7 +2720,55 @@ class NitrogenFlowModel:
                     }
                 )
 
-        self.deviations_df = pd.DataFrame(deviations)
+        # deviation methaniseur
+        meth_rows = []
+        meth_diet_df = diets[diets["Consumer"] == METH_DIET_NAME].copy()
+        N_meth_total = 0.0
+        N_meth_total += sum(meth_prod_alloc.values())
+        N_meth_total += sum(excr_to_meth.values())
+        N_meth_total += waste_to_meth
+
+        for _, row in meth_diet_df.iterrows():
+            prop = float(row["Proportion"])
+            exp_pct = prop if prop > 1.0 else (100.0 * prop)
+            prods = tuple(row["Products"])
+            label = ", ".join(prods)
+
+            # N du groupe : somme des items (produits, excréta, et waste s'il apparaît dans le groupe)
+            N_group = 0.0
+            for it in prods:
+                if it in meth_prod_alloc:
+                    N_group += meth_prod_alloc[it]
+                elif it in excr_to_meth:
+                    N_group += excr_to_meth[it]
+                else:
+                    # Si "waste" apparaît dans un groupe de la diète, on affecte la variable agrégée
+                    if it.lower().strip() in {
+                        "waste",
+                        "green waste",
+                        "municipal waste",
+                    }:
+                        N_group += waste_to_meth
+
+            alloc_pct = 100.0 * N_group / N_meth_total if N_meth_total > 0 else 0.0
+            dev_pct = alloc_pct - exp_pct
+
+            meth_rows.append(
+                {
+                    "Consumer": METH_DIET_NAME,
+                    "Type": "Methanizer",
+                    "Expected Proportion (%)": exp_pct,
+                    "Deviation (%)": dev_pct,
+                    "Proportion Allocated (%)": alloc_pct,
+                    "Product": label,
+                }
+            )
+
+        deviations_meth_df = pd.DataFrame(meth_rows)
+        deviations = pd.DataFrame(deviations)
+        deviations = pd.concat([deviations, deviations_meth_df], ignore_index=True)
+
+        self.deviations_df = deviations
 
         # Extraction des importations
         importations = []
@@ -2457,6 +2793,103 @@ class NitrogenFlowModel:
         # Convertir en DataFrame
         self.importations_df = pd.DataFrame(importations)
 
+        # dataframe sur le méthaniseur
+        rows = []
+        eps = 1e-9
+
+        # Produits -> méthaniseur
+        for p in meth_prod_items if len(meth_prod_items) else []:
+            N = float(value(x_meth_prod[p]))
+            if N <= 0:
+                continue
+            # MWh/ktN = (MWh/tFW) * 100000 / (%N)
+            mwh_per_ktn = (
+                float(df_prod.loc[p, "Methanization power (MWh/tFW)"])
+                * 100000.0
+                / max(eps, float(df_prod.loc[p, "Nitrogen Content (%)"]))
+            )
+            E_gwh = N * (mwh_per_ktn / 1000.0)
+            rows.append(
+                {"source": p, "allocation (ktN)": N, "energy production (GWh)": E_gwh}
+            )
+
+        # Excréta -> méthaniseur
+        for e in meth_excr_items if len(meth_excr_items) else []:
+            N = float(value(x_meth_excr[e]))
+            if N <= 0:
+                continue
+            mwh_per_ktn = (
+                float(df_excr.loc[e, "Methanization power (MWh/tFW)"])
+                * 100000.0
+                / max(eps, float(df_excr.loc[e, "Nitrogen Content (%)"]))
+            )
+            E_gwh = N * (mwh_per_ktn / 1000.0)
+            rows.append(
+                {"source": e, "allocation (ktN)": N, "energy production (GWh)": E_gwh}
+            )
+
+        # Waste (agrégé) -> méthaniseur
+        if isinstance(N_waste_meth, LpVariable):
+            N = float(value(N_waste_meth))
+            if N > 0:
+                E_gwh = N * float(WASTE_PWR_MWh_per_ktN) / 1000.0
+                src_name = (
+                    ", ".join(sorted(meth_waste_items))
+                    if len(meth_waste_items)
+                    else "waste"
+                )
+                rows.append(
+                    {
+                        "source": src_name,
+                        "allocation (ktN)": N,
+                        "energy production (GWh)": E_gwh,
+                    }
+                )
+
+        methanizer_overview_df = pd.DataFrame(rows)
+
+        if not methanizer_overview_df.empty:
+            total_alloc = methanizer_overview_df["allocation (ktN)"].sum()
+            total_energy = methanizer_overview_df["energy production (GWh)"].sum()
+
+            methanizer_overview_df["allocation share (%)"] = (
+                100.0 * methanizer_overview_df["allocation (ktN)"] / total_alloc
+                if total_alloc > 0
+                else 0.0
+            )
+            methanizer_overview_df["energy production share (%)"] = (
+                100.0 * methanizer_overview_df["energy production (GWh)"] / total_energy
+                if total_energy > 0
+                else 0.0
+            )
+
+            methanizer_overview_df = methanizer_overview_df.sort_values(
+                "energy production (GWh)", ascending=False
+            ).reset_index(drop=True)
+        else:
+            # DataFrame vide avec les bonnes colonnes
+            methanizer_overview_df = pd.DataFrame(
+                columns=[
+                    "source",
+                    "allocation (ktN)",
+                    "allocation share (%)",
+                    "energy production (GWh)",
+                    "energy production share (%)",
+                ]
+            )
+        methanizer_overview_df = methanizer_overview_df.set_index("source")
+        self.methanizer_overview_df = methanizer_overview_df
+
+        # Mise à jour de df_excr
+        for e in df_excr.index:
+            to_meth = float(excr_to_meth.get(e, 0.0))
+            base = float(df_excr.loc[e, "Excretion after volatilization (ktN)"])
+
+            to_soil = base - to_meth
+
+            df_excr.loc[e, "Excretion to Methanizer (ktN)"] = to_meth
+            df_excr.loc[e, "Excretion to soil (ktN)"] = to_soil
+
         # Mise à jour de df_prod
         for idx, row in df_prod.iterrows():
             prod = row.name
@@ -2464,7 +2897,7 @@ class NitrogenFlowModel:
                 (allocations_df["Product"] == prod)
                 & (
                     allocations_df["Type"].isin(
-                        ["Local culture food", "Local culture feed"]
+                        ["Local culture food", "Local culture feed", "Methanizer"]
                     )
                 )
             ]["Allocated Nitrogen"].sum()
@@ -2476,11 +2909,16 @@ class NitrogenFlowModel:
                 (allocations_df["Product"] == prod)
                 & (allocations_df["Type"] == "Local culture food")
             ]["Allocated Nitrogen"].sum()
+            azote_alloue_meth = allocations_df[
+                (allocations_df["Product"] == prod)
+                & (allocations_df["Type"] == "Methanizer")
+            ]["Allocated Nitrogen"].sum()
             df_prod.loc[idx, "Nitrogen Exported (ktN)"] = (
                 row["Available Nitrogen Production (ktN)"] - azote_alloue
             )
             df_prod.loc[idx, "Nitrogen For Feed (ktN)"] = azote_alloue_feed
             df_prod.loc[idx, "Nitrogen For Food (ktN)"] = azote_alloue_food
+            df_prod.loc[idx, "Nitrogen For Methanizer (ktN)"] = azote_alloue_meth
 
         # Correction des valeurs proches de zéro
         df_prod["Nitrogen Exported (ktN)"] = df_prod["Nitrogen Exported (ktN)"].apply(
@@ -2528,7 +2966,9 @@ class NitrogenFlowModel:
 
         # Génération des flux pour les produits locaux
         allocations_locales = allocations_df[
-            allocations_df["Type"].isin(["Local culture food", "Local culture feed"])
+            allocations_df["Type"].isin(
+                ["Local culture food", "Local culture feed", "Methanizer"]
+            )
         ]
 
         for cons in df_cons.index:
@@ -2610,75 +3050,23 @@ class NitrogenFlowModel:
             .reindex(df_elevage.index, fill_value=0)
         )
 
-        # Calcul des déséquilibres négatifs
-        # for label in df_cultures.index:
-        #     node_index = label_to_index[label]
-        #     row_sum = self.adjacency_matrix[node_index, :].sum()
-        #     col_sum = self.adjacency_matrix[:, node_index].sum()
-        #     imbalance = row_sum - col_sum  # Déséquilibre entre sorties et entrées
-        #     if abs(imbalance) < 10**-6:
-        #         imbalance = 0
+        # Flux pour le méthaniseur
+        target = {"methanizer": 1}
+        source = methanizer_overview_df["allocation (ktN)"].to_dict()
+        if source:
+            flux_generator.generate_flux(source, target)
 
-        #     if (
-        #         imbalance > 0
-        #     ):  # Que conclure si il y a plus de sortie que d'entrée ? Que l'on détériore les réserves du sol ?
-        #         # print(f"pb de balance avec {label}")
-        #         # Plus de sorties que d'entrées, on augmente les entrées
-        #         # new_adjacency_matrix[n, node_index] = imbalance  # Flux du nœud de balance vers la culture
-        #         target = {label: imbalance}
-        #         source = {"soil stock": 1}
-        #         flux_generator.generate_flux(source, target)
-        #     elif imbalance < 0:
-        #         # Plus d'entrées que de sorties, on augmente les sorties
-        #         # adjacency_matrix[node_index, n] = -imbalance  # Flux de la culture vers le nœud de balance
-        #         category = df_cultures.loc[
-        #             df_cultures.index == label, "Category"
-        #         ].item()
-        #         if (
-        #             category != "natural meadows"
-        #         ):  # 99 % de l'excès fini dans les ecosystèmes aquatiques
-        #             source = {label: -imbalance}
-        #             # Ajouter soil stock parmis les surplus de fertilisation.
-        #             target = {
-        #                 "hydro-system": 0.9925,
-        #                 "atmospheric N2O": 0.0075,
-        #             }
-        #         else:
-        #             if (
-        #                 -imbalance
-        #                 * 10**6
-        #                 / df_cultures.loc[
-        #                     df_cultures.index == label, "Area (ha)"
-        #                 ].item()
-        #                 > 100
-        #             ):  # Si c'est une prairie, l'azote est lessivé seulement au dela de 100 kgN/ha
-        #                 source = {
-        #                     label: -imbalance
-        #                     - 100
-        #                     * df_cultures.loc[
-        #                         df_cultures.index == label, "Area (ha)"
-        #                     ].item()
-        #                     / 10**6
-        #                 }
-        #                 target = {
-        #                     "hydro-system": 0.9925,
-        #                     "atmospheric N2O": 0.0075,
-        #                 }
-        #                 flux_generator.generate_flux(source, target)
-        #                 source = {
-        #                     label: 100
-        #                     * df_cultures.loc[
-        #                         df_cultures.index == label, "Area (ha)"
-        #                     ].item()
-        #                     / 10**6
-        #                 }
-        #                 target = {"soil stock": 1}
-        #             else:  # Autrement, l'azote reste dans le sol (cas particulier, est ce que cela a du sens, quid des autres cultures ?)
-        #                 source = {label: -imbalance}
-        #                 target = {"soil stock": 1}
-        #         flux_generator.generate_flux(source, target)
-        #     # Si imbalance == 0, aucun ajustement nécessaire
+        # Redirection des excretions et digestats
+        source = df_excr.loc[
+            df_excr["Type"].isin(["manure", "slurry"]), "Excretion to soil (ktN)"
+        ].to_dict()
+        flux_generator.generate_flux(source, target_epandage, True)
 
+        # digestat
+        source = {"methanizer": methanizer_overview_df["allocation (ktN)"].sum()}
+        flux_generator.generate_flux(source, target_epandage)
+
+        # Equilibrage des cultures
         for label in df_cultures.index:
             node_index = label_to_index.get(label)
             if node_index is None:

@@ -211,7 +211,7 @@ def app_sankey(
     inflows = adjacency_matrix.sum(axis=0)
     node_colors = [index_to_color.get(i, "#AAAAAA") for i in range(n)]
     node_hover = [
-        f"Node: {labels[i]}<br>In: {fmt(inflows[i])}<br>Out: {fmt(outflows[i])}<br>Total: {fmt(inflows[i] + outflows[i])}"
+        f"Node: {labels[i]}<br>Total throughflow: {fmt(inflows[i])}"  # <br>Out: {fmt(outflows[i])}<br>Total: {fmt(inflows[i] + outflows[i])}"
         for i in range(n)
     ]
 
