@@ -7,8 +7,10 @@ import pandas as pd
 import plotly.graph_objects as go
 import seaborn as sns
 from matplotlib.colors import LogNorm
-from pulp import LpContinuous, LpMinimize, LpProblem, LpVariable, lpSum
+from pulp import LpContinuous, LpMinimize, LpProblem, LpVariable, lpSum, value, LpStatus
 import warnings
+import math
+import pprint
 
 # Afficher toutes les colonnes
 pd.set_option("display.max_columns", None)
@@ -276,7 +278,7 @@ class DataLoader:
                 "Sub Type",
                 "Waste (%)",
                 "Other uses (%)",
-                "Methanization power (MWh/tMB)",
+                "Methanization power (MWh/tFW)",
             )
         else:
             categories_needed = (
@@ -501,7 +503,7 @@ class DataLoader:
                 "N-N2O EM (%)",
                 "Type",
                 "Origin compartment",
-                "Methanization power (MWh/tMB)",
+                "Methanization power (MWh/tFW)",
                 "Nitrogen Content (%)",
             )
         else:
@@ -662,6 +664,7 @@ class DataLoader:
                 "coefficient N-NH3 volatilization synthetic fertilization (%)",
                 "coefficient N-N2O emission synthetic fertilization (%)",
                 "Weight diet",
+                "Weight import",
                 "Weight distribution",
                 "Weight fair local split",
                 "Enforce animal share",
@@ -671,7 +674,11 @@ class DataLoader:
                 "Green waste methanization power (MWh/ktN)",
             ]
         else:
-            required_items = ["Total Haber-Bosch methan input (kgC/kgN)"]
+            required_items = [
+                "Total Haber-Bosch methan input (kgC/kgN)",
+                "Share of methan volume in methanizer output (%)",
+                "Green waste C/N",
+            ]
 
         # Weight distribution is given in option and can be computed from other weights
         if "Weight distribution" not in global_df.index:
@@ -682,6 +689,14 @@ class DataLoader:
         if "Weight fair local split" not in global_df.index:
             weight_diet = global_df.loc["Weight diet", "value"]
             global_df.loc["Weight fair local split", "value"] = weight_diet / 20
+
+        if "Share of methan volume in methanizer output (%)" not in global_df.index:
+            global_df.loc[
+                "Share of methan volume in methanizer output (%)", "value"
+            ] = 95
+
+        if "Green waste C/N" not in global_df.index:
+            global_df.loc["Green waste C/N", "value"] = 10
 
         # Check for the presence of each required item
         missing_items = [item for item in required_items if item not in global_df.index]
@@ -902,12 +917,13 @@ class FluxGenerator:
         self.n = len(self.labels)
         self.adjacency_matrix = np.zeros((self.n, self.n))
 
-    def generate_flux(self, source, target):
+    def generate_flux(self, source, target, erase=False):
         """Generates and updates the transition matrix by calculating the flux coefficients between the source and target sectors.
 
         Args:
             source (dict): A dictionary representing the source sector, where keys are sector labels and values are the corresponding flux values.
             target (dict): A dictionary representing the target sector, where keys are sector labels and values are the corresponding flux values.
+            erase (bool): a boolean to add flows to existing flows or to erase previously stored flow and replace it with a new value
 
         This method updates the adjacency matrix by computing the flux between all pairs of source and target sectors.
         A flux coefficient is calculated as the product of the corresponding values from the `source` and `target` dictionaries.
@@ -922,7 +938,14 @@ class FluxGenerator:
                 target_index = self.label_to_index.get(target_label)
                 if target_index is not None:
                     if coefficient > 10**-7:
-                        self.adjacency_matrix[source_index, target_index] = coefficient
+                        if erase:
+                            self.adjacency_matrix[source_index, target_index] = (
+                                coefficient
+                            )
+                        else:
+                            self.adjacency_matrix[source_index, target_index] += (
+                                coefficient
+                            )
                 else:
                     print(f"{target_label} not found in label_to_index")
 
@@ -1021,16 +1044,18 @@ class NitrogenFlowModel:
             Returns a stacked representation of plant production data.
     """
 
-    def __init__(self, data, area, year):
+    def __init__(self, data, area, year, debug=False):
         """Initializes the NitrogenFlowModel class with the necessary data and model parameters.
 
         Args:
             data (DataLoader): An instance of the DataLoader class to load and preprocess the data.
             year (str): The year for which to compute the nitrogen flow model.
             area (str): The area for which to compute the nitrogen flow model.
+            debug (bool): print a report on objective model terms
         """
         self.year = year
         self.area = area
+        self.debug = debug
 
         self.data_loader = data
         self.labels = data.labels
@@ -1957,6 +1982,19 @@ class NitrogenFlowModel:
         poids_penalite_deviation = df_global.loc[df_global.index == "Weight diet"][
             "value"
         ].item()
+        poids_import_brut = df_global.loc[df_global.index == "Weight import"][
+            "value"
+        ].item()
+        raw_import_term = lpSum(I_vars.values()) / max(
+            1,
+            (
+                df_cons["Ingestion (ktN)"].sum()
+                - df_prod.loc[
+                    df_prod["Sub Type"] != "non edible meat",
+                    "Nitrogen Production (ktN)",
+                ].sum()
+            ),
+        )
 
         # Poids pour équilibrer la distribution des cultures dans les categories
         poids_penalite_culture = df_global.loc[
@@ -2102,7 +2140,7 @@ class NitrogenFlowModel:
             lpSum(
                 x_meth_prod[p]
                 * (
-                    float(df_prod.loc[p, "Methanization power (MWh/tMB)"])
+                    float(df_prod.loc[p, "Methanization power (MWh/tFW)"])
                     * 1000
                     / (float(df_prod.loc[p, "Nitrogen Content (%)"]) / 100)
                 )
@@ -2116,7 +2154,7 @@ class NitrogenFlowModel:
             lpSum(
                 x_meth_excr[e]
                 * (
-                    float(df_excr.loc[e, "Methanization power (MWh/tMB)"])
+                    float(df_excr.loc[e, "Methanization power (MWh/tFW)"])
                     * 1000
                     / (float(df_excr.loc[e, "Nitrogen Content (%)"]) / 100)
                 )
@@ -2130,8 +2168,14 @@ class NitrogenFlowModel:
         E_GWh_total = (E_MWh_products + E_MWh_excreta + E_MWh_waste) / 1000.0
 
         meth_energy_dev = LpVariable("meth_energy_dev", lowBound=0, cat=LpContinuous)
-        prob += (meth_energy_dev >= E_GWh_total - TARGET_GWh, "Meth_energy_dev_pos")
-        prob += (meth_energy_dev >= TARGET_GWh - E_GWh_total, "Meth_energy_dev_neg")
+        prob += (
+            meth_energy_dev >= (E_GWh_total - TARGET_GWh) / TARGET_GWh,
+            "Meth_energy_dev_pos",
+        )
+        prob += (
+            meth_energy_dev >= (TARGET_GWh - E_GWh_total) / TARGET_GWh,
+            "Meth_energy_dev_neg",
+        )
 
         # -- Diète du méthaniseur (parts d’azote par groupe)
         pairs_meth = []
@@ -2275,7 +2319,7 @@ class NitrogenFlowModel:
             (poids_penalite_deviation / max(1, len(pairs))) * lpSum(delta_vars.values())
             + (poids_penalite_culture / max(1, len(df_prod)))
             * lpSum(penalite_culture_vars.values())
-            # + poids_import_brut * lpSum(I_vars.values())
+            + poids_import_brut * raw_import_term
             + w_fair * ((fair_term + fair_term_meth) / max(1, len(df_prod)))
             + W_METH_ENERGY * meth_energy_dev
             + (W_METH_DIET / max(1, len(pairs_meth))) * lpSum(delta_meth.values())
@@ -2426,80 +2470,102 @@ class NitrogenFlowModel:
         # Résolution du problème
         prob.solve()
 
-        # # DEBUG
-        from pulp import value, LpStatus
-        import pprint
-        import math
+        if self.debug:
+            # (1) Reconstruire EXACTEMENT les morceaux de l’objectif
+            expr_dev = (poids_penalite_deviation / max(1, len(pairs))) * lpSum(
+                delta_vars.values()
+            )
+            expr_cult = (poids_penalite_culture / max(1, len(df_prod))) * lpSum(
+                penalite_culture_vars.values()
+            )
+            expr_fair = w_fair * (
+                fair_term / max(1, len(df_prod))
+            )  # moyenne par produit (optionnel)
+            expr_meth_energy = W_METH_ENERGY * meth_energy_dev
+            expr_meth_diet = (W_METH_DIET / max(1, len(pairs_meth))) * lpSum(
+                delta_meth.values()
+            )
+            expr_import_brut = (
+                poids_import_brut * raw_import_term
+            )  # Terme d'import brut ajouté
 
-        # (1) Reconstruire EXACTEMENT les morceaux de l’objectif
-        expr_dev = (poids_penalite_deviation / max(1, len(pairs))) * lpSum(
-            delta_vars.values()
-        )
-        expr_cult = (poids_penalite_culture / max(1, len(df_prod))) * lpSum(
-            penalite_culture_vars.values()
-        )
-        expr_fair = w_fair * (
-            fair_term / max(1, len(df_prod))
-        )  # moyenne par produit (optionnel)
-        expr_meth_energy = W_METH_ENERGY * meth_energy_dev
-        expr_meth_diet = (W_METH_DIET / max(1, len(pairs_meth))) * lpSum(
-            delta_meth.values()
-        )
+            # (2) Eval brute
+            raw_dev = float(value(expr_dev))
+            raw_cult = float(value(expr_cult))
+            raw_fair = float(value(expr_fair))
+            raw_meth_energy = float(value(expr_meth_energy))
+            raw_meth_diet = float(value(expr_meth_diet))
+            raw_import_brut = float(
+                value(expr_import_brut)
+            )  # Évaluation brute du terme d'import brut
 
-        # (2) Eval brute
-        raw_dev = float(value(expr_dev))
-        raw_cult = float(value(expr_cult))
-        raw_fair = float(value(expr_fair))
-        raw_meth_energy = float(value(expr_meth_energy))
-        raw_meth_diet = float(value(expr_meth_diet))
-
-        # (3) Somme = valeur de l’objectif
-        obj_val = float(
-            value(expr_dev + expr_cult + expr_fair + expr_meth_energy + expr_meth_diet)
-        )
-
-        # (4) Parts en % (protéger division par zéro)
-        def _share(x, total):
-            return (
-                (100.0 * x / total) if total and not math.isclose(total, 0.0) else None
+            # (3) Somme = valeur de l’objectif
+            obj_val = float(
+                value(
+                    expr_dev
+                    + expr_cult
+                    + expr_fair
+                    + expr_meth_energy
+                    + expr_meth_diet
+                    + expr_import_brut
+                )
             )
 
-        shares = {
-            "dev_%": _share(raw_dev, obj_val),
-            "cult_%": _share(raw_cult, obj_val),
-            "fair_%": _share(raw_fair, obj_val),
-            "meth_energy_%": _share(raw_meth_energy, obj_val),
-            "meth_diet_%": _share(raw_meth_diet, obj_val),
-        }
-        # (5) État du solveur
-        solver_info = {
-            "status_code": prob.status,
-            "status": LpStatus.get(prob.status, "Unknown"),
-        }
-        # (6) Rapport complet
-        report = {
-            "solver": solver_info,
-            "objective_total": obj_val,
-            "weighted_contributions": {
-                "dev": raw_dev,
-                "cult": raw_cult,
-                "fair": raw_fair,
-                "meth_energy": raw_meth_energy,
-                "meth_diet": raw_meth_diet,
-            },
-            "shares_%": shares,
-            "weights_used": {
-                "Weight diet": float(poids_penalite_deviation),
-                "Weight distribution": float(poids_penalite_culture),
-                "Weight fair local split": float(w_fair),
-                "Weight methanizer production": float(W_METH_ENERGY),
-                "Weight methanizer inputs": float(W_METH_DIET),
-            },
-        }
+            # (4) Parts en % (protéger division par zéro)
+            def _share(x, total):
+                return (
+                    (100.0 * x / total)
+                    if total and not math.isclose(total, 0.0)
+                    else None
+                )
 
-        pprint.pp(report, sort_dicts=False)
+            shares = {
+                "dev_%": _share(raw_dev, obj_val),
+                "cult_%": _share(raw_cult, obj_val),
+                "fair_%": _share(raw_fair, obj_val),
+                "meth_energy_%": _share(raw_meth_energy, obj_val),
+                "meth_diet_%": _share(raw_meth_diet, obj_val),
+                "import_brut_%": _share(
+                    raw_import_brut, obj_val
+                ),  # Part de l'import brut dans l'objectif total
+            }
 
-        df_prod["Nitrogen for Methanizer (ktN)"] = 0.0
+            # (5) État du solveur
+            solver_info = {
+                "status_code": prob.status,
+                "status": LpStatus.get(prob.status, "Unknown"),
+            }
+
+            # (6) Rapport complet
+            report = {
+                "solver": solver_info,
+                "objective_total": obj_val,
+                "weighted_contributions": {
+                    "dev": raw_dev,
+                    "cult": raw_cult,
+                    "fair": raw_fair,
+                    "meth_energy": raw_meth_energy,
+                    "meth_diet": raw_meth_diet,
+                    "import_brut": raw_import_brut,  # Contribution de l'import brut
+                },
+                "shares_%": shares,
+                "weights_used": {
+                    "Weight diet": float(poids_penalite_deviation),
+                    "Weight distribution": float(poids_penalite_culture),
+                    "Weight fair local split": float(w_fair),
+                    "Weight methanizer production": float(W_METH_ENERGY),
+                    "Weight methanizer inputs": float(W_METH_DIET),
+                    "Weight import brut": float(
+                        poids_import_brut
+                    ),  # Poids du terme import brut
+                },
+            }
+
+            # Affichage du rapport complet
+            pprint.pp(report, sort_dicts=False)
+
+        self.methanizer_production = value(E_GWh_total)
+
         df_excr["Excretion to Methanizer (ktN)"] = 0.0
         df_excr["Excretion to soil (ktN)"] = 0.0
         allocations = []
@@ -2726,9 +2792,9 @@ class NitrogenFlowModel:
             N = float(value(x_meth_prod[p]))
             if N <= 0:
                 continue
-            # MWh/ktN = (MWh/tMB) * 100000 / (%N)
+            # MWh/ktN = (MWh/tFW) * 100000 / (%N)
             mwh_per_ktn = (
-                float(df_prod.loc[p, "Methanization power (MWh/tMB)"])
+                float(df_prod.loc[p, "Methanization power (MWh/tFW)"])
                 * 100000.0
                 / max(eps, float(df_prod.loc[p, "Nitrogen Content (%)"]))
             )
@@ -2743,7 +2809,7 @@ class NitrogenFlowModel:
             if N <= 0:
                 continue
             mwh_per_ktn = (
-                float(df_excr.loc[e, "Methanization power (MWh/tMB)"])
+                float(df_excr.loc[e, "Methanization power (MWh/tFW)"])
                 * 100000.0
                 / max(eps, float(df_excr.loc[e, "Nitrogen Content (%)"]))
             )
@@ -2981,17 +3047,14 @@ class NitrogenFlowModel:
             flux_generator.generate_flux(source, target)
 
         # Redirection des excretions et digestats
-        source = df_excr["Excretion to soil (ktN)"].to_dict()
-        flux_generator.generate_flux(source, target_epandage)
+        source = df_excr.loc[
+            df_excr["Type"].isin(["manure", "slurry"]), "Excretion to soil (ktN)"
+        ].to_dict()
+        flux_generator.generate_flux(source, target_epandage, True)
 
         # digestat
         source = {"methanizer": methanizer_overview_df["allocation (ktN)"].sum()}
         flux_generator.generate_flux(source, target_epandage)
-
-        # Green waste
-        source = {"waste": waste_to_meth}
-        target = {"methanizer": 1}
-        flux_generator.generate_flux(source, target)
 
         # Equilibrage des cultures
         for label in df_cultures.index:

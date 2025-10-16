@@ -629,6 +629,10 @@ with tab5:
 
         st.dataframe(model.deviations_df)
 
+        st.subheader("Population data")
+
+        st.dataframe(model.df_pop)
+
         st.subheader("Energy data")
 
         st.dataframe(model.methanizer_overview_df)
@@ -660,6 +664,7 @@ with tab5:
             "Products": model.df_prod_display,
             "Allocations": model.allocations_df,
             "Diet deviations": model.deviations_df,
+            "Population": model.df_pop,
             "Energy": model.methanizer_overview_df,
         }
 
