@@ -42,6 +42,14 @@ The **Input Data** sheet contains rows with specific data for each territory, ye
 - **Item**: Concerned compartment (e.g., Wheat) or global parameter
 - **Value**: Value of the data point
 
+Example:
+
+| Area   | Year | category                  | item | value |
+| --------- | ---------- | ------------------------- | ----- | ----- |
+| France | 1961       | Production (kton)    | barley | 15000 |
+
+With this line in your dataset, if you call `NitrogenFlowModel("France", 1961)`, the production of Barley in France in 1961 will be 15 000 kton. See input data page for all input data names.
+
 ### Diet
 
 The **Diet** sheet describes the ideal nitrogen distribution for feeding a consumer (livestock or human). Each diet is defined by:
@@ -63,9 +71,23 @@ This indicates that consumers with the diet `b_2023_fr` consume:
 
 If for a Diet ID the sum of proportions is not 1, the proportion values are normalized.
 
+For each consummers (population, livestock and methanizer), a diet ID must be given as Diet category in "Input data" tab of data file. Give the same diet for all territories for all year to a specific consummer is a valid use of GRAFS-E because the model adapt itself to local production and import availabilities. The weight values `Weight import` and `Weight diet` of optimization model make the model adapt diet to local context or import products for consummers. Here an example of how to give the diet name of a consummer :
+| Area   | Year | category                  | item | value |
+| --------- | ---------- | ------------------------- | ----- | ----- |
+| France | 2023       | Diet    | bovines | b_2023_fr |
+
+#### Methanizer diet
+
+A diet must be given for methanizer on the territory. This is done like diets for populations and livestock with a diet name given in "Input data". Yet Methanizer are allowed to consume excretion compartments and "waste" which represent green waste. 
+If the is no methanizer in the territory, gave it this minimal diet :
+| Diet ID   | Proportion | Products                  |
+| --------- | ---------- | ------------------------- |
+| Methanizer | 1       | waste    |
+
+
 ## Input Data
 
-In this section, we describe the **input data** required for the proper functioning of **GRAFS-E**. The data can be provided by default in the project spreadsheet or in detail in the data spreadsheet (Input data tab). If there is a conflict for a given year and territory between a data point in the project spreadsheet and the data spreadsheet, the data spreadsheet takes precedence.
+In this section, we describe the **Input data** required for the proper functioning of **GRAFS-E**. The data can be provided by default in the project spreadsheet or in detail in the data spreadsheet (Input data tab). If there is a conflict for a given year and territory between a data point in the project spreadsheet and the data spreadsheet, the data spreadsheet takes precedence.
 
 For example, in the **crops** tab of the project spreadsheet, I indicated that the nitrogen content of wheat is 2%. But in the data spreadsheet, I indicated that in France in 2010, the nitrogen content of wheat is 3%, so the value retained for the calculations will be 3%.
 
@@ -80,8 +102,9 @@ Here are the required crop-related input data.
 | **Crops**                            | Name of the crops                                                                                   | str              |                                                                                                                    |
 | **Main Production**                  | Name of the main production of this crop                                                             | str              | Generally, the main product is the commercial product of this crop                                                |
 | **Category**                         | Type of crop                                                                                        | str              | See the list of available types and their specificities below                                                     |
-| **Fertilization Need (kgN/qtl)**     | Nitrogen needs of the crop based on yield                                                           | float (>=0)      | See the complete description in the methodology section                                                          |
-| **Surface Fertilization Need (kgN/ha)** | Nitrogen needs of the crop per unit area                                                            | float (>=0)      | See the complete description in the methodology section                                                          |
+| **Fertilization Need (kgN/qtl)**     | Nitrogen needs of the crop based on yield                                                           | float (>=0)      | Optional. See the complete description in the methodology section                                                          |
+| **Surface Fertilization Need (kgN/ha)** | Nitrogen needs of the crop per unit area                                                            | float (>=0)      | Optional. See the complete description in the methodology section                                                          |
+| **Raw Surface Synthetic Fertilizer Use (kgN/ha)** | Synthetic Nitrogen Fertilizer needs of the crop per unit area                                                            | float (>=0)      | Optional. See the complete description in the methodology section                                                          |
 | **BNF alpha**                        | Alpha coefficient for symbiotic nitrogen fixation                                                   | float            | 0 if the crop does not fix nitrogen symbiotically. Otherwise, refer to data from Anglade et al. (2015)            |
 | **BNF beta**                         | Beta coefficient for symbiotic nitrogen fixation                                                    | float            | 0 if the crop does not fix nitrogen symbiotically. Otherwise, refer to data from Anglade et al. (2015)            |
 | **BNG**                              | Contribution of roots to symbiotic nitrogen fixation                                               | float (>=1)      | 0 if the crop does not fix nitrogen symbiotically. Otherwise, refer to data from Anglade et al. (2015)            |
@@ -132,7 +155,9 @@ As stated in Here are the required input data related to **animal excretion**:
 | **Type**              | Type of excretion (manure, slurry or grasslands excretion)       | str              |                                                                                                         |
 | **N-NH3 EM (%)**             | Ammonia emission factor                                                                  | float ([0, 100]) |
 | **N-N2O EM (%)**            | Nitrous oxide emission factor                                             | float ([0, 100]) | 
-| **N-N2 EM (%)**             | Nitrogen N2 emission factor                                               | float ([0, 100]) | 
+| **N-N2 EM (%)**             | Nitrogen N2 emission factor                                               | float ([0, 100]) |
+| **Methanization power (MWh/tFW)**          | Energy production potential in methanizer by ton of input fresh weight                     | float ([0, 100])              | Put 0 if this is not intended to methanizer                                                                                                          |
+| **Nitrogen Content (%)** | Nitrogen content of the excretion               | float ([0, 100]) | Nitrogen content of the fresh excretion, not in dry matter. Can be set to 0 for grasslands excretion. Only used for manure and slurry.                                                                 |
 
 
 ### Population
@@ -164,6 +189,7 @@ Here is the data related to **products** necessary for GRAFS-E to simulate nitro
 | **Sub Type**          | Subtype of the production                      | str              | See Typology                                                                                                          |
 | **Waste (%)**          | Share of Nitrogen Production wasted                      | float ([0, 100])              | Depending of the focus of the study, this can include transport waste, processing waste, distribution and domestic waste... This describe a flow from product to waste compartment.                                                                                                        |
 | **Other uses (%)**          | Share of Nitrogen Production used outside of Agro-Food system                     | float ([0, 100])              | This can include product for energy production, building material... This describe a flow from product to other sectors.                                                                                                          |
+| **Methanization power (MWh/tFW)**          | Energy production potential in methanizer by ton of input fresh weight                     | float ([0, 100])              | Put 0 if this is not intended to methanizer                                                                                                          |
 
 #### Product Typology
 
@@ -195,7 +221,11 @@ The name and number of global variables are fixed. Any differences from this wil
 
 | **Variable Name**                                            | **Description**                                                                                                                                                                                                                                    | **Type**         | **Comment**                                                                                                          |
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Weight diet**                                              | Weight of the optimization model for the diet constraint                                                                                                                                                                                          | float (>0)       | Adjusts the importance of respecting the proportions defined in the diets                                         |
+| **Methanizer Energy Production (GWh)**                                              | Energy production objective for methanizer.                                                                                                                                                                                          | float (>0)       |                                        |
+| **Weight diet**                                              | Weight of the optimization model for the diet constraint                                                                                                                                                                                          | float (>0)       | Adjusts the importance of respecting the proportions defined in the diets of populations and livestock                                        |
+| **Weight import**                                              | Weight of the optimization model for the import constraint                                                                                                                                                                                          | float (>0)       | The higher is this weight, the more the model will try to limit import and change diet to consumme local production                                         |
+| **Weight methanizer production**                                              | Weight of the optimization model for the energy methanizer production constraint                                                                                                                                                                                          | float (>0)       | Adjusts the importance of respecting the energy production goal                             |
+| **Weight methanizer inputs**                                              | Weight of the optimization model for the constraint on methanizer diet                                                                                                                                                                                        | float (>0)       | Adjusts the importance of respecting the proportions defined in the diet of methanizer. If no value is given in project or data file, the methanizer input weight is Weight diet.                                        |
 | **Weight distribution**                                       |Weight of the optimization model for the constraint on products allocation in diet groups.                                                                                                                                       | float (>0)       | See optimization model section for full definition. This input data is optional. If no value is given in project or data files, the distribution weight is $\text{weight diet}/10$                                                                |
 | **Weight fair local split**                                            | Weight of the optimization model for the constraint on products distribution to consummers.                                                                                                                                                                                           | float (>0)       | See optimization model section for full definition. This input data is optional. If no value is given in project or data files, the distribution weight is $\text{weight diet}/20$                                                             |
 | **Total Synthetic Fertilizer Use on crops (ktN)**            | Total synthetic nitrogen use on crops not in the following categories: "natural meadow", "leguminous", "temporary meadows"                                                                                                                     | float (>0)       | Used to normalize the synthetic fertilizer usage after calculating needs.                                           |
@@ -204,3 +234,4 @@ The name and number of global variables are fixed. Any differences from this wil
 | **coefficient N-NH3 volatilization synthetic fertilization (%)** | Ammonia volatilization coefficient during the application of synthetic fertilizers                                                                                                                                                                 | float ([0, 100]) | Then 1% of this volatilization recombines into nitrous oxide in the atmosphere                                      |
 | **coefficient N-N2O volatilization synthetic fertilization (%)** | Nitrous oxide volatilization coefficient during the application of synthetic fertilizers                                                                                                                                                           | float ([0, 100]) |                                                                                                                      |
 | **Enforce animal share**                                      | If True, the proportions of animal and plant consumption defined in the diets will be set as a hard constraint by the model. The model will not propose substitutions of animal and plant proteins to balance the flows. | Bool             | Set to True if diet data is solid. False will be particularly useful for scenario analysis.                          |
+| **Green waste methanization power (MWh/ktN)**                                      | Methanization energy potential for green waste by ktN of input. | float (>0)             |                          |
