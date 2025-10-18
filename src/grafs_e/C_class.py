@@ -15,6 +15,7 @@ class Dataloader_Carbon:
         """Charger les données nécessaires pour le modèle"""
         # Instancier NitrogenFluxModel avec l'année et la région
         self.data = DataLoader(project_path, data_path)
+        self.df_data = self.data.df_data
         self.nitrogen_model = NitrogenFlowModel(
             self.data, region, year
         )  # Modèle de flux d'azote
@@ -26,9 +27,10 @@ class Dataloader_Carbon:
             "hydrocarbures",
             "fishery products",
             "other sectors",
-            "other losses",
+            "waste",
             "soil stock",
             "seeds",
+            "methanizer",
         ]
 
         trade = [i + " trade" for i in set(self.data.init_df_prod["Sub Type"])]
@@ -66,6 +68,187 @@ class Dataloader_Carbon:
         }
         self.index_to_label = {v: k for k, v in self.label_to_index.items()}
 
+    # Utilitaire : conversion robuste de "value" (virgules → points, etc.)
+    @staticmethod
+    def _to_num(x):
+        return pd.to_numeric(
+            pd.Series(x, dtype="object").astype(str).str.replace(",", ".", regex=False),
+            errors="coerce",
+        ).astype(float)
+
+    def get_columns(
+        self,
+        area: str,
+        year: int,
+        init,
+        categories_needed: tuple,
+        overwrite=False,
+        warn_if_nans=True,
+    ):
+        """
+        Alimente les dataframes avec les colonnes demandées en allant chercher
+        les valeurs dans la feuille 'Input data' de self.df_data.
+
+        - `area` / `year` filtrent la feuille Input data
+        - `categories_needed` : liste des catégories à récupérer
+        """
+        if "Input data" not in self.df_data:
+            raise KeyError("La feuille 'Input data' est absente de data_path.")
+
+        df_in = self.df_data["Input data"].copy()
+
+        # Sélection de la zone/année
+        df_in = df_in[(df_in["Area"] == area) & (df_in["Year"] == year)]
+
+        # Nettoyage numérique de 'value'
+        df_in["value"] = self._to_num(df_in["value"])
+
+        # On ne garde que les catégories d'intérêt
+        df_in = df_in[df_in["category"].isin(categories_needed)]
+
+        # Passage en large : index = Culture, colonnes = category
+        wide = (
+            df_in.pivot_table(
+                index="item",
+                columns="category",
+                values="value",
+                aggfunc="last",  # si doublons, on prend la dernière valeur
+            ).reindex(init.index)  # aligne sur l'index des cultures du modèle
+        )
+
+        # S'assure que toutes les colonnes demandées existent (même si absentes)
+        for col in categories_needed:
+            if col not in wide.columns:
+                wide[col] = np.nan
+
+        wide = wide[list(categories_needed)]
+
+        # Remplissage manquant par 0 (ou garde NaN si tu préfères)
+        # wide = wide[categories_needed].fillna(0.0)
+
+        # --- Merge ---
+        # Option : écraser uniquement si overwrite=True, sinon n'écrase que là où added n'est pas null
+        merged_df = init.copy()
+
+        for col in categories_needed:
+            series_added = wide[col]
+            if overwrite:
+                # On met la colonne telle quelle (même si NaN)
+                merged_df[col] = series_added
+            else:
+                # On n'écrase que les positions où wide a une valeur non-nulle (non-NaN)
+                mask_has_value = series_added.notna()
+                if col not in merged_df.columns:
+                    # créer la colonne si elle n'existe pas
+                    merged_df[col] = np.nan
+                merged_df.loc[mask_has_value, col] = series_added.loc[mask_has_value]
+
+        if warn_if_nans:
+            nan_report = {}
+            for col in categories_needed:
+                missing = merged_df[merged_df[col].isna()].index.tolist()
+                if missing:
+                    nan_report[col] = missing
+
+            if nan_report:
+                # construir un message synthétique
+                lines = []
+                for col, miss in nan_report.items():
+                    count = len(miss)
+                    sample = ", ".join(miss[:5])
+                    more = "" if count <= 5 else f", +{count - 5} autres..."
+                    lines.append(f"- {col}: {count} missing item (ex.: {sample}{more})")
+                msg = (
+                    f"Warning: NaNs remain in the imported columns for year {year}, area {area}.\n"
+                    + "\n".join(lines)
+                    + "\nIf this is expected, set `warn_if_nans=False`. Otherwise check the 'Input data' sheet and the mappings."
+                )
+                warnings.warn(msg)
+
+        merged_df = merged_df.fillna(0)
+        return merged_df
+
+    def get_df_cultures(self, area, year):
+        supp_columns = [
+            "Carbon Mechanisation Intensity (ktC/ha)",
+            "Residue Humification Coefficient (%)",
+            "Root Humification Coefficient (%)",
+            "Surface Root Production (kgC/ha)",
+        ]
+
+        self.df_cultures = self.get_columns(
+            area, year, self.data.init_df_cultures, supp_columns
+        )
+
+        self.df_cultures = self.nitrogen_model.df_cultures.combine_first(
+            self.df_cultures,
+        )
+
+        return self.df_cultures
+
+    def get_df_prod(self, area, year):
+        supp_columns = [
+            "Carbon Content (%)",
+        ]
+
+        self.df_prod = self.get_columns(
+            area, year, self.data.init_df_prod, supp_columns
+        )
+
+        self.df_prod = self.nitrogen_model.df_prod.combine_first(
+            self.df_prod,
+        )
+
+        return self.df_prod
+
+    def get_df_elevage(self, area, year):
+        supp_columns = [
+            "C-CH4 enteric/LU (kgC)",
+            "Infrastructure CO2 emissions/LU (kgC)",
+        ]
+
+        self.df_elevage = self.get_columns(
+            area, year, self.data.init_df_elevage, supp_columns
+        )
+
+        self.df_elevage = self.nitrogen_model.df_elevage.combine_first(
+            self.df_elevage,
+        )
+
+        return self.df_elevage
+
+    def get_df_excr(self, area, year):
+        supp_columns = [
+            "C/N",
+            "CH4 EM (%)",
+            "Humification coefficient (%)",
+        ]
+
+        self.df_excr = self.get_columns(
+            area, year, self.data.init_df_excr, supp_columns
+        )
+
+        self.df_excr = self.nitrogen_model.df_excr.combine_first(
+            self.df_excr,
+        )
+
+        return self.df_excr
+
+    def get_df_pop(self, area, year):
+        supp_columns = [
+            "C/N",
+            "CH4 EM (%)",
+            "Humification coefficient (%)",
+        ]
+
+        self.df_pop = self.get_columns(area, year, self.data.init_df_pop, supp_columns)
+
+        self.df_pop = self.nitrogen_model.df_pop.combine_first(
+            self.df_pop,
+        )
+
+        return self.df_pop
+
 
 # --- Classe FluxModif ---
 class CarbonFlowModel:
@@ -75,13 +258,18 @@ class CarbonFlowModel:
         self.data_loader = data
         self.labels = data.labels
 
-        self.df_elevage = self.data_loader.data.generate_df_elevage(region, year, True)
-        self.df_excr = self.data_loader.data.generate_df_excr(region, year, True)
-        self.df_cultures = self.data_loader.data.generate_df_cultures(
-            region, year, True
-        )
-        self.df_pop = self.data_loader.data.generate_df_pop(region, year, True)
-        self.df_prod = self.data_loader.data.generate_df_prod(region, year, True)
+        # self.df_elevage = self.data_loader.data.generate_df_elevage(region, year, True)
+        # self.df_excr = self.data_loader.data.generate_df_excr(region, year, True)
+        # self.df_cultures = self.data_loader.data.generate_df_cultures(
+        #     region, year, True
+        # )
+        # self.df_pop = self.data_loader.data.generate_df_pop(region, year, True)
+        # self.df_prod = self.data_loader.data.generate_df_prod(region, year, True)
+        self.df_cultures = self.data_loader.get_df_cultures(self.region, self.year)
+        self.df_elevage = self.data_loader.get_df_elevage(self.region, self.year)
+        self.df_prod = self.data_loader.get_df_prod(self.region, self.year)
+        self.df_excr = self.data_loader.get_df_excr(self.region, self.year)
+        self.df_pop = self.data_loader.get_df_pop(self.region, self.year)
         self.df_global = self.data_loader.data.get_global_metrics(region, year, True)
 
         self.flux_generator = FluxGenerator(self.labels)
@@ -289,6 +477,28 @@ class CarbonFlowModel:
                 except:  # noqa: E722
                     pass
 
+        # Ajouter les flux d'import
+        df_import_carbon = self.data_loader.nitrogen_model.importations_df.merge(
+            df_prod[["C/N", "Sub Type"]],
+            left_on="Product",
+            right_index=True,
+            how="left",
+        )
+        df_import_carbon["Imported Carbon (ktC)"] = (
+            df_import_carbon["Imported Nitrogen (ktN)"] * df_import_carbon["C/N"]
+        )
+        df_flux_groupes = (
+            df_import_carbon.groupby(["Sub Type", "Consumer"])[
+                ["Imported Carbon (ktC)"]
+            ]
+            .sum()
+            .reset_index()
+        )
+        # Grouper le résultats par la colonne sub type de df_prod
+        for index, row in df_flux_groupes.iterrows():
+            source = {row["Sub Type"] + " trade": row["Imported Carbon (ktC)"]}
+            target = {row["Consumer"]: 1}
+            flux_generator.generate_flux(source, target)
         ## Flux des graines
 
         df_cultures = df_cultures.join(df_prod["C/N"], on="Main Production", how="left")
@@ -302,28 +512,70 @@ class CarbonFlowModel:
         source = {"seeds": 1}
         flux_generator.generate_flux(source, target)
 
-        # for culture_index, row in df_cultures.iterrows():
-        #     # culture_index est l'index de df_cultures (ce que vous voulez donner à change_flow)
-        #     product_key = row[
-        #         "Main Production"
-        #     ]  # Ceci est la clé à chercher dans df_prod
+        ## Flux liés au méthaniseur
 
-        #     try:
-        #         # Recherche la valeur C/N dans df_prod en utilisant la clé de production
-        #         cn_value = df_prod.loc[product_key, "C/N"]
+        # Intrants
+        df_excr["Excretion to Methanizer (ktC)"] = (
+            df_excr["Excretion to Methanizer (ktN)"] * df_excr["C/N"]
+        )
+        source = df_excr["Excretion to Methanizer (ktC)"].to_dict()
+        target = {"methanizer": 1}
+        flux_generator.generate_flux(source, target)
 
-        #         # Appelle change_flow avec l'index original de df_cultures
-        #         self.change_flow(
-        #             "seeds",
-        #             culture_index,  # <-- C'est l'index de df_cultures
-        #             cn_value,
-        #         )
-        #     except KeyError:
-        #         # Gère les cas où product_key n'existe pas dans df_prod
-        #         pass
-        #     except Exception:
-        #         # Gère d'autres erreurs inattendues
-        #         pass
+        df_prod["Carbon For Methanizer (ktC)"] = (
+            df_prod["Nitrogen For Methanizer (ktN)"] * df_prod["C/N"]
+        )
+
+        # Intrant des produits déjà fait plus haut.
+        # source = df_prod["Carbon For Methanizer (ktC)"].to_dict()
+        # flux_generator.generate_flux(source, target)
+
+        # green waste, on considère un ratio C/N de 10. Comment rendre ceci plus propre ? pas envie de le paramétrer...
+        self.change_flow(
+            "waste", "methanizer", df_global.loc["Green waste C/N", "value"]
+        )
+
+        # Production de gaz
+
+        NCV = 10  # kWh/m3
+        rho_CH4 = 0.717  # kg/m3
+        rho_CO2 = 1.97  # kg/m3
+        V_CH4 = self.data_loader.nitrogen_model.methanizer_production * 1e6 / NCV
+
+        C_CH4_meth = 12 / 16 * V_CH4 * rho_CH4 / 1e6
+        source = {"methanizer": C_CH4_meth}
+        target = {"hydrocarbures": 1}
+        flux_generator.generate_flux(source, target)
+
+        C_CO2_meth = (
+            12
+            / 44
+            * V_CH4
+            * rho_CO2
+            / 1e6
+            * (
+                100
+                - df_global.loc[
+                    "Share of methan volume in methanizer output (%)", "value"
+                ]
+            )
+            / df_global.loc["Share of methan volume in methanizer output (%)", "value"]
+        )
+
+        source = {"methanizer": C_CO2_meth}
+        target = {"atmospheric CO2": 1}
+        flux_generator.generate_flux(source, target)
+
+        # digestat
+        source = {
+            "methanizer": self.carbon_matrix[
+                :, self.data_loader.label_to_index["methanizer"]
+            ].sum()
+            - C_CH4_meth
+            - C_CO2_meth
+        }
+        target = {"soil stock": 1}
+        flux_generator.generate_flux(source, target)
 
         ## Flux des excretions aux cultures (soil stock)
 
@@ -354,8 +606,12 @@ class CarbonFlowModel:
 
         df_excr["Excretion to CO2 (ktC)"] = (
             df_excr["Excretion (ktC)"]
-            * (100 - df_excr["CH4 EM (%)"] - df_excr["Humification coefficient (%)"])
-            / 100
+            * (
+                1
+                - df_excr["CH4 EM (%)"] / 100
+                - df_excr["Humification coefficient (%)"] / 100
+                - df_excr["Excretion to Methanizer (ktC)"] / df_excr["Excretion (ktC)"]
+            )  # On enlève la part envoyer aux méthaniseurs
         )
 
         source = df_excr["Excretion to CO2 (ktC)"].to_dict()
@@ -363,7 +619,6 @@ class CarbonFlowModel:
         flux_generator.generate_flux(source, target)
 
         ## Flux des animaux aux excretions
-
         for i in df_elevage.index:
             source = {i: 1}
             target = df_excr.loc[
@@ -373,7 +628,9 @@ class CarbonFlowModel:
 
         ##flux excretion humaine (même chose sauf que les excretions humaines sont gérées dans df_pop)
         # Humification
-        df_pop["Humification (ktC)"] = df_pop["Excretion to soil (ktN)"] * df_pop["C/N"]
+        df_pop["Humification (ktC)"] = (
+            df_pop["Excretion after volatilization (ktN)"] * df_pop["C/N"]
+        )
         df_pop["Excretion (ktC)"] = df_pop["Humification (ktC)"] / (
             df_pop["Humification coefficient (%)"] / 100
         )
@@ -389,6 +646,7 @@ class CarbonFlowModel:
 
         source = df_pop["Excretion to CH4 (ktC)"].to_dict()
         target = {"atmospheric CH4": 1}
+        flux_generator.generate_flux(source, target)
 
         # CO2
         df_pop["Excretion to CO2 (ktC)"] = (
@@ -508,7 +766,7 @@ class CarbonFlowModel:
                 ]
             )
 
-            cn_details.append(f"    C/N Production Moy. : {cn_mean_str}")
+            cn_details.join(f"    C/N Production Moy. : {cn_mean_str}")
 
             message = (
                 f"La respiration de '{index}' forcée à zéro (Calcul brut: {row['Ingestion (ktC)'] - somme_sorties:.4f} ktC). \n"
@@ -568,26 +826,6 @@ class CarbonFlowModel:
         flux_generator.generate_flux(dict_mecanisation, target)
         source = {"hydrocarbures": 1}
         flux_generator.generate_flux(source, dict_mecanisation)
-
-        ## Import
-
-        df_import = self.data_loader.nitrogen_model.allocations_df[
-            self.data_loader.nitrogen_model.allocations_df["Type"].isin(
-                ["Imported Food", "imported feed"]
-            )
-        ].copy()
-
-        df_import = df_import.join(
-            self.df_prod[["C/N", "Sub Type"]], on="Product", how="left"
-        )
-
-        df_import["Source Value"] = df_import["Allocated Nitrogen"] * df_import["C/N"]
-
-        for consumer, sub_type, value in zip(
-            df_import["Consumer"], df_import["Sub Type"], df_import["Source Value"]
-        ):
-            source_key = f"{sub_type} trade"
-            self.flux_generator.generate_flux({source_key: value}, {consumer: 1})
 
         ## Cultures, photosynthèse
 
