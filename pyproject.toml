@@ -53,3 +53,8 @@ package-dir = {"" = "src"}              # <-- layout src
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["grafs_e*"]
+
+[tool.sphinx]
+source-dir = "docs/source"
+build-dir = "docs/_build"
+# builder = "html"  # optionnel

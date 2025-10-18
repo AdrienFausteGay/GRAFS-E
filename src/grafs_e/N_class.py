@@ -232,6 +232,8 @@ class DataLoader:
 
         for col in categories_needed:
             series_added = wide[col]
+            if col in merged_df.columns and merged_df[col].dtype == np.int64:
+                merged_df[col] = merged_df[col].astype(float)
             if overwrite:
                 # On met la colonne telle quelle (même si NaN)
                 merged_df[col] = series_added
@@ -358,6 +360,7 @@ class DataLoader:
                 "BNF alpha",
                 "BNF beta",
                 "BGN",
+                "Raw Surface Synthetic Fertilizer Use (kgN/ha)",
             )
         else:
             categories_needed = (
@@ -416,6 +419,18 @@ class DataLoader:
             df_cultures.loc[mask, "Fertilization Need (kgN/qtl)"]
             * df_cultures.loc[mask, "Yield (qtl/ha)"]
         )
+
+        if df_cultures["Raw Surface Synthetic Fertilizer Use (kgN/ha)"].eq(0).all():
+            df_cultures = df_cultures.drop(
+                columns=["Raw Surface Synthetic Fertilizer Use (kgN/ha)"]
+            )
+        else:
+            df_cultures = df_cultures.drop(
+                columns=[
+                    "Surface Fertilization Need (kgN/ha)",
+                    "Fertilization Need (kgN/qtl)",
+                ]
+            )
 
         df_cultures = df_cultures.fillna(0)
         self.df_cultures = df_cultures
@@ -1590,19 +1605,19 @@ class NitrogenFlowModel:
             )
         )
 
-        df_prairies["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = (
-            df_prairies.apply(
-                lambda row: row["Surface Fertilization Need (kgN/ha)"]
-                - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"]
-                if row["Area (ha)"] > 0
-                else row["Surface Fertilization Need (kgN/ha)"]
-                - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"],
-                axis=1,
+        if "Raw Surface Synthetic Fertilizer Use (kgN/ha)" not in df_prairies.columns:
+            df_prairies["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = (
+                df_prairies.apply(
+                    lambda row: row["Surface Fertilization Need (kgN/ha)"]
+                    - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"]
+                    if row["Area (ha)"] > 0
+                    else 0,
+                    axis=1,
+                )
             )
-        )
-        df_prairies["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = df_prairies[
-            "Raw Surface Synthetic Fertilizer Use (kgN/ha)"
-        ].apply(lambda x: max(x, 0))
+            df_prairies["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = df_prairies[
+                "Raw Surface Synthetic Fertilizer Use (kgN/ha)"
+            ].apply(lambda x: max(x, 0))
 
         df_prairies["Raw Total Synthetic Fertilizer Use (ktN)"] = (
             df_prairies["Raw Surface Synthetic Fertilizer Use (kgN/ha)"]
@@ -1640,10 +1655,6 @@ class NitrogenFlowModel:
         )
 
         df_leg = df_leg.fillna(0)
-
-        # from IPython import embed
-
-        # embed()
 
         if "Adjusted Total Synthetic Fertilizer Use (ktN)" not in df_leg.columns:
             df_leg["Adjusted Total Synthetic Fertilizer Use (ktN)"] = 0.0
@@ -1778,17 +1789,20 @@ class NitrogenFlowModel:
             axis=1,
         )
 
-        df_champs["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = df_champs.apply(
-            lambda row: row["Surface Fertilization Need (kgN/ha)"]
-            - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"]
-            if row["Area (ha)"] > 0
-            else row["Surface Fertilization Need (kgN/ha)"]
-            - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"],
-            axis=1,
-        )
-        df_champs["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = df_champs[
-            "Raw Surface Synthetic Fertilizer Use (kgN/ha)"
-        ].apply(lambda x: max(x, 0))
+        if "Raw Surface Synthetic Fertilizer Use (kgN/ha)" not in df_champs.columns:
+            df_champs["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = (
+                df_champs.apply(
+                    lambda row: row["Surface Fertilization Need (kgN/ha)"]
+                    - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"]
+                    if row["Area (ha)"] > 0
+                    else row["Surface Fertilization Need (kgN/ha)"]
+                    - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"],
+                    axis=1,
+                )
+            )
+            df_champs["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = df_champs[
+                "Raw Surface Synthetic Fertilizer Use (kgN/ha)"
+            ].apply(lambda x: max(x, 0))
 
         df_champs["Raw Total Synthetic Fertilizer Use (ktN)"] = (
             df_champs["Raw Surface Synthetic Fertilizer Use (kgN/ha)"]

@@ -42,6 +42,14 @@ The **Input Data** sheet contains rows with specific data for each territory, ye
 - **Item**: Concerned compartment (e.g., Wheat) or global parameter
 - **Value**: Value of the data point
 
+Example:
+
+| Area   | Year | category                  | item | value |
+| --------- | ---------- | ------------------------- | ----- | ----- |
+| France | 1961       | Production (kton)    | barley | 15000 |
+
+With this line in your dataset, if you call `NitrogenFlowModel("France", 1961)`, the production of Barley in France in 1961 will be 15 000 kton. See input data page for all input data names.
+
 ### Diet
 
 The **Diet** sheet describes the ideal nitrogen distribution for feeding a consumer (livestock or human). Each diet is defined by:
@@ -63,7 +71,7 @@ This indicates that consumers with the diet `b_2023_fr` consume:
 
 If for a Diet ID the sum of proportions is not 1, the proportion values are normalized.
 
-For each consummers (population, livestock and methanizer), a diet ID must be given as Diet category in "Input data" tab of data file. Give the same diet for all territories for all year to a specific consummer is a valid use of GRAFS-E because the model adapt itself to local production and import availabilities. Here an example of how to give the diet name of a consummer :
+For each consummers (population, livestock and methanizer), a diet ID must be given as Diet category in "Input data" tab of data file. Give the same diet for all territories for all year to a specific consummer is a valid use of GRAFS-E because the model adapt itself to local production and import availabilities. The weight values `Weight import` and `Weight diet` of optimization model make the model adapt diet to local context or import products for consummers. Here an example of how to give the diet name of a consummer :
 | Area   | Year | category                  | item | value |
 | --------- | ---------- | ------------------------- | ----- | ----- |
 | France | 2023       | Diet    | bovines | b_2023_fr |
@@ -94,8 +102,9 @@ Here are the required crop-related input data.
 | **Crops**                            | Name of the crops                                                                                   | str              |                                                                                                                    |
 | **Main Production**                  | Name of the main production of this crop                                                             | str              | Generally, the main product is the commercial product of this crop                                                |
 | **Category**                         | Type of crop                                                                                        | str              | See the list of available types and their specificities below                                                     |
-| **Fertilization Need (kgN/qtl)**     | Nitrogen needs of the crop based on yield                                                           | float (>=0)      | See the complete description in the methodology section                                                          |
-| **Surface Fertilization Need (kgN/ha)** | Nitrogen needs of the crop per unit area                                                            | float (>=0)      | See the complete description in the methodology section                                                          |
+| **Fertilization Need (kgN/qtl)**     | Nitrogen needs of the crop based on yield                                                           | float (>=0)      | Optional. See the complete description in the methodology section                                                          |
+| **Surface Fertilization Need (kgN/ha)** | Nitrogen needs of the crop per unit area                                                            | float (>=0)      | Optional. See the complete description in the methodology section                                                          |
+| **Raw Surface Synthetic Fertilizer Use (kgN/ha)** | Synthetic Nitrogen Fertilizer needs of the crop per unit area                                                            | float (>=0)      | Optional. See the complete description in the methodology section                                                          |
 | **BNF alpha**                        | Alpha coefficient for symbiotic nitrogen fixation                                                   | float            | 0 if the crop does not fix nitrogen symbiotically. Otherwise, refer to data from Anglade et al. (2015)            |
 | **BNF beta**                         | Beta coefficient for symbiotic nitrogen fixation                                                    | float            | 0 if the crop does not fix nitrogen symbiotically. Otherwise, refer to data from Anglade et al. (2015)            |
 | **BNG**                              | Contribution of roots to symbiotic nitrogen fixation                                               | float (>=1)      | 0 if the crop does not fix nitrogen symbiotically. Otherwise, refer to data from Anglade et al. (2015)            |
