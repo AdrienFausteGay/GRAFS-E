@@ -2192,14 +2192,27 @@ class NitrogenFlowModel:
         E_GWh_total = (E_MWh_products + E_MWh_excreta + E_MWh_waste) / 1000.0
 
         meth_energy_dev = LpVariable("meth_energy_dev", lowBound=0, cat=LpContinuous)
-        prob += (
-            meth_energy_dev >= (E_GWh_total - TARGET_GWh) / TARGET_GWh,
-            "Meth_energy_dev_pos",
-        )
-        prob += (
-            meth_energy_dev >= (TARGET_GWh - E_GWh_total) / TARGET_GWh,
-            "Meth_energy_dev_neg",
-        )
+        if TARGET_GWh > 0:
+            prob += (
+                meth_energy_dev >= (E_GWh_total - TARGET_GWh) / TARGET_GWh,
+                "Meth_energy_dev_pos",
+            )
+            prob += (
+                meth_energy_dev >= (TARGET_GWh - E_GWh_total) / TARGET_GWh,
+                "Meth_energy_dev_neg",
+            )
+        else:  # Gestion du cas où la demande d'énergie est nulle.
+            prob += (meth_energy_dev == 0, "Meth_energy_dev_zero_target")
+
+            # Variables de production/utilisation de méthane (dictionnaires)
+            for item in meth_prod_items:
+                prob += (x_meth_prod[item] == 0, f"x_meth_prod_zero__{item}")
+
+            for item in meth_excr_items:
+                prob += (x_meth_excr[item] == 0, f"x_meth_excr_zero__{item}")
+
+            # Variable N_waste_meth
+            prob += (N_waste_meth == 0, "N_waste_meth_zero")
 
         # -- Diète du méthaniseur (parts d’azote par groupe)
         pairs_meth = []
