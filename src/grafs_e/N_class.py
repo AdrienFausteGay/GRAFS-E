@@ -351,7 +351,7 @@ class DataLoader:
             categories_needed = (
                 "Area (ha)",
                 "Spreading Rate (%)",
-                "Seed input (kt seeds/kt Ymax)",
+                "Seed input (ktN/ktN)",
                 "Fertilization Need (kgN/qtl)",
                 "Surface Fertilization Need (kgN/ha)",
                 "Harvest Index",
@@ -367,7 +367,7 @@ class DataLoader:
                 "Main Production",
                 "Harvest Index",
                 "Area (ha)",
-                "Seed input (kt seeds/kt Ymax)",
+                "Seed input (ktN/ktN)",
                 "Carbon Mechanisation Intensity (ktC/ha)",
                 "Residue Humification Coefficient (%)",
                 "Root Humification Coefficient (%)",
@@ -391,7 +391,7 @@ class DataLoader:
         )
 
         df_cultures["Seeds Input (ktN)"] = (
-            df_cultures["Seed input (kt seeds/kt Ymax)"]
+            df_cultures["Seed input (ktN/ktN)"]
             * df_cultures["Main Nitrogen Production (ktN)"]
         )
         if carbon:
@@ -467,31 +467,43 @@ class DataLoader:
 
         df_prod = self.generate_df_prod(area, year)
         df_elevage["Edible Nitrogen (ktN)"] = (
-            df_prod.loc[df_prod["Sub Type"] == "edible meat", :].set_index(
-                "Origin compartment"
-            )["Nitrogen Content (%)"]
-            * df_prod.loc[df_prod["Sub Type"] == "edible meat", :].set_index(
-                "Origin compartment"
-            )["Production (kton)"]
-            / 100
+            (
+                df_prod.loc[df_prod["Sub Type"] == "edible meat", :].set_index(
+                    "Origin compartment"
+                )["Nitrogen Content (%)"]
+                * df_prod.loc[df_prod["Sub Type"] == "edible meat", :].set_index(
+                    "Origin compartment"
+                )["Production (kton)"]
+                / 100
+            )
+            .groupby("Origin compartment")
+            .sum()
         )
         df_elevage["Non Edible Nitrogen (ktN)"] = (
-            df_prod.loc[df_prod["Sub Type"] == "non edible meat", :].set_index(
-                "Origin compartment"
-            )["Nitrogen Content (%)"]
-            * df_prod.loc[df_prod["Sub Type"] == "non edible meat", :].set_index(
-                "Origin compartment"
-            )["Production (kton)"]
-            / 100
+            (
+                df_prod.loc[df_prod["Sub Type"] == "non edible meat", :].set_index(
+                    "Origin compartment"
+                )["Nitrogen Content (%)"]
+                * df_prod.loc[df_prod["Sub Type"] == "non edible meat", :].set_index(
+                    "Origin compartment"
+                )["Production (kton)"]
+                / 100
+            )
+            .groupby("Origin compartment")
+            .sum()
         )
         df_elevage["Dairy Nitrogen (ktN)"] = (
-            df_prod.loc[df_prod["Sub Type"] == "dairy", :].set_index(
-                "Origin compartment"
-            )["Nitrogen Content (%)"]
-            * df_prod.loc[df_prod["Sub Type"] == "dairy", :].set_index(
-                "Origin compartment"
-            )["Production (kton)"]
-            / 100
+            (
+                df_prod.loc[df_prod["Sub Type"] == "dairy", :].set_index(
+                    "Origin compartment"
+                )["Nitrogen Content (%)"]
+                * df_prod.loc[df_prod["Sub Type"] == "dairy", :].set_index(
+                    "Origin compartment"
+                )["Production (kton)"]
+                / 100
+            )
+            .groupby("Origin compartment")
+            .sum()
         )
 
         df_elevage["Excreted nitrogen (ktN)"] = (
@@ -616,7 +628,7 @@ class DataLoader:
                 "N-N2 EM excretion (%)",
                 "N-N2O EM excretion (%)",
                 "Total ingestion per capita (kgN)",
-                "Fischery ingestion per capita (kgN)",
+                "Fishery ingestion per capita (kgN)",
                 "Excretion recycling (%)",
             )
         else:
@@ -626,7 +638,7 @@ class DataLoader:
                 "N-N2 EM excretion (%)",
                 "N-N2O EM excretion (%)",
                 "Total ingestion per capita (kgN)",
-                "Fischery ingestion per capita (kgN)",
+                "Fishery ingestion per capita (kgN)",
                 "Excretion recycling (%)",
                 "C/N",
                 "CH4 EM (%)",
@@ -646,7 +658,7 @@ class DataLoader:
             df_pop["Inhabitants"] * df_pop["Total ingestion per capita (kgN)"] / 1e6
         )
         df_pop["Fishery Ingestion (ktN)"] = (
-            df_pop["Inhabitants"] * df_pop["Fischery ingestion per capita (kgN)"] / 1e6
+            df_pop["Inhabitants"] * df_pop["Fishery ingestion per capita (kgN)"] / 1e6
         )
 
         df_pop["Excretion after volatilization (ktN)"] = (
@@ -695,15 +707,17 @@ class DataLoader:
                 "Green waste C/N",
             ]
 
+        weight_diet = global_df.loc["Weight diet", "value"]
+        weight_import = global_df.loc["Weight import", "value"]
+        non_zero_weights = [w for w in [weight_diet, weight_import] if w > 0]
         # Weight distribution is given in option and can be computed from other weights
         if "Weight distribution" not in global_df.index:
-            weight_diet = global_df.loc["Weight diet", "value"]
-            global_df.loc["Weight distribution", "value"] = weight_diet / 10
-
+            global_df.loc["Weight distribution", "value"] = min(non_zero_weights) / 10
         # Weight distribution is given in option and can be computed from other weights
         if "Weight fair local split" not in global_df.index:
-            weight_diet = global_df.loc["Weight diet", "value"]
-            global_df.loc["Weight fair local split", "value"] = weight_diet / 20
+            global_df.loc["Weight fair local split", "value"] = (
+                min(non_zero_weights) / 20
+            )
 
         if "Share of methan volume in methanizer output (%)" not in global_df.index:
             global_df.loc[
@@ -3180,7 +3194,7 @@ class NitrogenFlowModel:
         colonnes_a_exclure = [
             "Spreading Rate (%)",
             "Nitrogen Content (%)",
-            "Seed input (kt seeds/kt Ymax)",
+            "Seed input (ktN/ktN)",
             "Category",
             "Main Production",
             "Harvest Index",

@@ -418,6 +418,8 @@ with tab4:
             env_candidates = [
                 "atmospheric NH3",
                 "atmospheric N2O",
+                "atmospheric N2",
+                "soil stock",
                 "hydro-system",
                 "other losses",
             ]
@@ -556,6 +558,8 @@ with tab4:
             env_candidates = [
                 "atmospheric NH3",
                 "atmospheric N2O",
+                "atmospheric N2",
+                "soil stock",
                 "hydro-system",
                 "other losses",
             ]
