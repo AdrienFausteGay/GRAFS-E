@@ -109,6 +109,9 @@ class DataLoader:
         # Creation df_prod
         self.init_df_prod = self.metadata["prod"].set_index("Product")
 
+        # Creation df_energy
+        self.init_df_energy = self.metadata["energy"].set_index("Facility")
+
         fixed_compartments = [
             "Haber-Bosch",
             "hydro-system",
@@ -120,7 +123,6 @@ class DataLoader:
             "waste",
             "soil stock",
             "seeds",
-            "methanizer",
         ]
 
         trade = [
@@ -137,6 +139,7 @@ class DataLoader:
             + list(self.init_df_excr.index)
             + list(self.init_df_prod.index)
             + list(self.init_df_pop.index)
+            + list(self.init_df_energy.index)
             + fixed_compartments
             + trade
         )
@@ -198,7 +201,11 @@ class DataLoader:
         df_in = self.df_data["Input data"].copy()
 
         # Sélection de la zone/année
-        df_in = df_in[(df_in["Area"] == area) & (df_in["Year"] == year)]
+        df_in = df_in[
+            (df_in["Area"] == area)
+            & (df_in["Year"] == year)
+            & (df_in["item"].isin(init.index))
+        ]
 
         # Nettoyage numérique de 'value'
         df_in["value"] = self._to_num(df_in["value"])
@@ -671,6 +678,23 @@ class DataLoader:
         self.df_pop = df_pop
         return df_pop
 
+    def generate_df_energy(self, area, year, carbon=False):
+        if carbon is False:
+            categories_needed = (
+                "Energy Production (GWh)",
+                "Weight production",
+                "Weight inputs",
+                "Diet",
+            )
+        else:
+            categories_needed = ()
+        df_energy = self.get_columns(
+            area, year, self.init_df_energy, categories_needed=categories_needed
+        )
+        df_energy = df_energy[list(categories_needed)].copy()
+        self.df_energy = df_energy
+        return df_energy
+
     def get_global_metrics(self, area, year, carbon=False):
         input_df = self.df_data["Input data"].copy()
         mask_global = (
@@ -697,15 +721,12 @@ class DataLoader:
                 "Weight distribution",
                 "Weight fair local split",
                 "Enforce animal share",
-                "Methanizer Energy Production (GWh)",
-                "Weight methanizer production",
-                "Weight methanizer inputs",
-                "Green waste methanization power (MWh/ktN)",
             ]
         else:
             required_items = [
                 "Total Haber-Bosch methan input (kgC/kgN)",
                 "Share of methan volume in methanizer output (%)",
+                "Green waste methanization power (MWh/ktN)",
                 "Green waste C/N",
             ]
 
@@ -874,28 +895,30 @@ class DataLoader:
         #         )
         #     consumer_to_diet[consumer] = str(diet_id_val).strip()
 
-        for e in self.df_elevage.iterrows():
-            consumer_to_diet[e.index] = e["Diet"]
-        for p in self.df_pop.iterrows():
-            consumer_to_diet[p.index] = p["Diet"]
+        for index, row in self.df_elevage.iterrows():
+            consumer_to_diet[index] = row["Diet"]
+        for index, row in self.df_pop.iterrows():
+            consumer_to_diet[index] = row["Diet"]
+        for index, row in self.df_energy.iterrows():
+            consumer_to_diet[index] = row["Diet"]
 
-        # --- 4) Vérifier que chaque index de df_elevage et df_pop a un mapping ---
-        # on normalise casse pour comparaison facile : on compare en minuscules des deux côtés
-        consumers_expected = set(
-            [
-                c.lower()
-                for c in list(self.init_df_elevage.index) + list(self.init_df_pop.index)
-            ]
-            + ["methanizer"]
-        )
-        consumers_found = set([k.lower() for k in consumer_to_diet.keys()])
+        # # --- 4) Vérifier que chaque index de df_elevage et df_pop a un mapping ---
+        # # on normalise casse pour comparaison facile : on compare en minuscules des deux côtés
+        # consumers_expected = set(
+        #     [
+        #         c.lower()
+        #         for c in list(self.init_df_elevage.index) + list(self.init_df_pop.index)
+        #     ]
+        #     + ["methanizer"]
+        # )
+        # consumers_found = set([k.lower() for k in consumer_to_diet.keys()])
 
-        missing_consumers = sorted(list(consumers_expected - consumers_found))
-        if missing_consumers:
-            raise ValueError(
-                "Missing diet mapping for the following consumers (indexes in df_elevage, df_pop or 'mathanizer') for "
-                f"{area}/{year}:\n" + "\n".join(missing_consumers)
-            )
+        # missing_consumers = sorted(list(consumers_expected - consumers_found))
+        # if missing_consumers:
+        #     raise ValueError(
+        #         "Missing diet mapping for the following consumers (indexes in df_elevage, df_pop or 'mathanizer') for "
+        #         f"{area}/{year}:\n" + "\n".join(missing_consumers)
+        #     )
 
         # --- 5) Construire diet_by_consumer : consumer -> expanded DataFrame with proportions and products ---
         diet_by_consumer = {}
