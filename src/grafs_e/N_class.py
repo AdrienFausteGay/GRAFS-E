@@ -443,6 +443,7 @@ class DataLoader:
                 "Excreted indoor as manure (%)",
                 "Excretion / LU (kgN)",
                 "LU",
+                "Diet",
             )
         else:
             categories_needed = (
@@ -630,6 +631,7 @@ class DataLoader:
                 "Total ingestion per capita (kgN)",
                 "Fishery ingestion per capita (kgN)",
                 "Excretion recycling (%)",
+                "Diet",
             )
         else:
             categories_needed = (
@@ -761,9 +763,9 @@ class DataLoader:
             raise ValueError("No 'Diet' sheet found in self.df_data")
 
         diet_table = self.df_data["Diet"].copy()
-        input_df = self.df_data.get("Input data", None)
-        if input_df is None:
-            raise ValueError("No 'Input data' sheet found in self.df_data")
+        # input_df = self.df_data.get("Input data", None)
+        # if input_df is None:
+        #     raise ValueError("No 'Input data' sheet found in self.df_data")
 
         # s'assurer que Proportion est numérique
         diet_table["Proportion"] = pd.to_numeric(
@@ -841,35 +843,41 @@ class DataLoader:
         # On suppose Input data a colonnes: Area, Year, category, item, value  (value = Diet ID)
         # on sélectionne les lignes où category == 'Diet' (insensible à la casse)
         # et Area==area and Year==year
-        input_df2 = input_df.copy()
+        # input_df2 = input_df.copy()
 
         # item and value
         # item = consumer (e.g. 'bovines'), value = diet id
-        col_item = "item"
-        col_value = "value"
+        # col_item = "item"
+        # col_value = "value"
 
         # filter relevant rows
-        mask = (
-            (input_df2["Area"] == area)
-            & (input_df2["Year"] == year)
-            & (input_df2["category"] == "Diet")
-        )
-        mapping_rows = input_df2.loc[mask, [col_item, col_value]].copy()
-        if mapping_rows.empty:
-            raise ValueError(
-                f"No Diet mapping found in Input data for area={area}, year={year}"
-            )
+        # mask = (
+        #     (input_df2["Area"] == area)
+        #     & (input_df2["Year"] == year)
+        #     & (input_df2["category"] == "Diet")
+        # )
 
-        # build dict consumer -> diet_id (string)
+        # mapping_rows = input_df2.loc[mask, [col_item, col_value]].copy()
+        # if mapping_rows.empty:
+        #     raise ValueError(
+        #         f"No Diet mapping found in Input data for area={area}, year={year}"
+        #     )
+
+        # # build dict consumer -> diet_id (string)
         consumer_to_diet = {}
-        for _, r in mapping_rows.iterrows():
-            consumer = str(r[col_item]).strip()
-            diet_id_val = r[col_value]
-            if pd.isna(diet_id_val):
-                raise ValueError(
-                    f"Empty diet id for consumer '{consumer}' in Input data for {area}/{year}"
-                )
-            consumer_to_diet[consumer] = str(diet_id_val).strip()
+        # for _, r in mapping_rows.iterrows():
+        #     consumer = str(r[col_item]).strip()
+        #     diet_id_val = r[col_value]
+        #     if pd.isna(diet_id_val):
+        #         raise ValueError(
+        #             f"Empty diet id for consumer '{consumer}' in Input data for {area}/{year}"
+        #         )
+        #     consumer_to_diet[consumer] = str(diet_id_val).strip()
+
+        for e in self.df_elevage.iterrows():
+            consumer_to_diet[e.index] = e["Diet"]
+        for p in self.df_pop.iterrows():
+            consumer_to_diet[p.index] = p["Diet"]
 
         # --- 4) Vérifier que chaque index de df_elevage et df_pop a un mapping ---
         # on normalise casse pour comparaison facile : on compare en minuscules des deux côtés
