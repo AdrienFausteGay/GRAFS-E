@@ -93,17 +93,19 @@ For example, in the **crops** tab of the project spreadsheet, I indicated that t
 
 It is not possible to have two compartments with the same name. For example, it is forbidden to have a crop compartment called "Wheat" and a product called "Wheat".
 
+Compartment name can use space (' ') or semicolon (';') but do not use other special characters. "meat; other" is a valid name, "meat, other" will raise error.
+
 ### Crops
 
-Here are the required crop-related input data.
+Here are the required crop-related input data. Fertilization input can be given by a mix of [**Fertilization Need (kgN/qtl)** and **Surface Fertilization Need (kgN/ha)**] or with **Raw Surface Synthetic Fertilizer Use (kgN/ha)** for all crops. Using **Fertilization Need (kgN/qtl)** and **Surface Fertilization Need (kgN/ha)** will compute a Nitrogen balance on crops but using **Raw Surface Synthetic Fertilizer Use (kgN/ha)** will give a proxy for synthetic fertilizer use.
 
 | Column Name                         | Description                                                                                          | Type             | Comment                                                                                                            |
 | -----------------------------------  | ---------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------ |
 | **Crops**                            | Name of the crops                                                                                   | str              |                                                                                                                    |
 | **Main Production**                  | Name of the main production of this crop                                                             | str              | Generally, the main product is the commercial product of this crop                                                |
 | **Category**                         | Type of crop                                                                                        | str              | See the list of available types and their specificities below                                                     |
-| **Fertilization Need (kgN/qtl)**     | Nitrogen needs of the crop based on yield                                                           | float (>=0)      | Optional. See the complete description in the methodology section                                                          |
-| **Surface Fertilization Need (kgN/ha)** | Nitrogen needs of the crop per unit area                                                            | float (>=0)      | Optional. See the complete description in the methodology section                                                          |
+| **Fertilization Need (kgN/qtl)**     | Total Nitrogen needs of the crop based on yield. Not only synthetic fertilization but total fertilization. Use       **Raw Surface Synthetic Fertilizer Use (kgN/ha)** to give synthetic fertilization only.                                                     | float (>=0)      | Optional. See the complete description in the methodology section                                                          |
+| **Surface Fertilization Need (kgN/ha)** | Nitrogen needs of the crop per unit area. Not only synthetic fertilization but total fertilization. Use       **Raw Surface Synthetic Fertilizer Use (kgN/ha)** to give synthetic fertilization only.                                                             | float (>=0)      | Optional. See the complete description in the methodology section                                                          |
 | **Raw Surface Synthetic Fertilizer Use (kgN/ha)** | Synthetic Nitrogen Fertilizer needs of the crop per unit area                                                            | float (>=0)      | Optional. See the complete description in the methodology section                                                          |
 | **BNF alpha**                        | Alpha coefficient for symbiotic nitrogen fixation                                                   | float            | 0 if the crop does not fix nitrogen symbiotically. Otherwise, refer to data from Anglade et al. (2015)            |
 | **BNF beta**                         | Beta coefficient for symbiotic nitrogen fixation                                                    | float            | 0 if the crop does not fix nitrogen symbiotically. Otherwise, refer to data from Anglade et al. (2015)            |
@@ -111,7 +113,7 @@ Here are the required crop-related input data.
 | **Harvest index**                    | Part of the crop harvested. Useful only for calculating symbiotic nitrogen fixation                | float ([0,1])    |                                                                                                                    |
 | **Area (ha)**                        | Area occupied by this crop in the considered territory                                              | float (>=0)      |                                                                                                                    |
 | **Spreading Rate (%)**               | Proportion of the area of this crop benefiting from manure, slurry, fertilizer, etc.                | float ([0, 100]) | If no data is available, use 100 by default for all crops.                                                        |
-| **Seed input (kt seeds/kt Ymax)**    | Amount of seeds to be sown per unit of yield                                                        | float (>=0)      | Used to calculate the portion of production reinvested into the crop for the next year.                           |
+| **Seed input (ktN/ktN)**    | Amount of seeds to be sown per unit of Main Nitrogen Production                                                        | float (>=0)      |                           |
 
 The **Categories** available in GRAFS-E are:
 - **cereal (excluding rice)**: This category groups all cereals except rice. This distinction is made to determine which crops to direct excess symbiotic fixation toward.
@@ -193,14 +195,22 @@ Here is the data related to **products** necessary for GRAFS-E to simulate nitro
 
 #### Product Typology
 
-To handle products and the flows associated with them, GRAFS-E uses a standardized two-level typology (Type and Sub Type). Each Sub Type 'i' defines a "Trade i" compartment. This means that trade exchanges are categorized by Sub Type. The Sub Type of plants products are freely defined by the user. Only the **grazing** Sub Type has a special rule. **grazing** products cannot be imported or exported.
+To handle products and the flows associated with them, GRAFS-E uses a standardized two-level typology (Type and Sub Type).
 
-The Sub Types for **animals** products are fixed and include 3 categories.
+##### Type
+
+Two type of products are handle by GRAFS-E. Each product must be 'animal' or 'plant'. Product in none of these type might compromise GRAFS-E functionning.
+
+##### Sub Type
+Each Sub Type 'i' defines a "Trade i" compartment. This means that trade exchanges are categorized by Sub Type.
+The Sub Type of plant products are freely defined by the user. Only the **grazing** Sub Type has a special rule: **grazing** products cannot be imported or exported. Avoid diet groups with only grazing products, add at least one tradable product to prevent abnormal behaviour of the model.
+
+The Sub Types for **animal** products are fixed and include 3 categories.
 
 - **Animal**: Includes all products derived from animals:
     - **edible meat**: Consumable meat
     - **dairy**: Dairy products and eggs
-    - **non edible meat**: Non-consumable meat. All production in this sub-type is directed to the 'other sector' (used in other industries or burned).
+    - **non edible meat**: Non-consumable meat. All production in this sub-type is directed to the 'other sector' (used in other industries or burned). Cannot be traded or consummed.
 
 ```{warning}
 **Warning**: The Sub types must be different than **crops** categories.
