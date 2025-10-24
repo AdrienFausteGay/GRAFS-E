@@ -1,8 +1,5 @@
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
-from matplotlib.colors import LogNorm
 import plotly.graph_objects as go
 import warnings
 
@@ -88,72 +85,186 @@ class Dataloader_Carbon:
         warn_if_nans=True,
     ):
         """
-        Alimente les dataframes avec les colonnes demandées en allant chercher
-        les valeurs dans la feuille 'Input data' de self.df_data.
+        Fusionne 3 sources pour alimenter les colonnes demandées :
+        (1) init (table de la couche azote) – base
+        (2) colonnes du fichier projet – priorité (écrase)
+        (3) données carbone 'Input data' (fichier carbone) – comble les trous
 
-        - `area` / `year` filtrent la feuille Input data
-        - `categories_needed` : liste des catégories à récupérer
+        - area / year filtrent les feuilles 'Input data' (si ces colonnes existent)
+        - categories_needed : colonnes à récupérer
+        - overwrite : s'applique uniquement à la source (3) 'Input data' carbone.
+        La source projet a toujours priorité (elle écrase si elle fournit une valeur).
         """
-        if "Input data" not in self.df_data:
-            raise KeyError("La feuille 'Input data' est absente de data_path.")
 
-        df_in = self.df_data["Input data"].copy()
+        import numpy as np
+        import warnings
+        import pandas as pd
 
-        # Sélection de la zone/année
-        df_in = df_in[(df_in["Area"] == area) & (df_in["Year"] == year)]
-
-        # Nettoyage numérique de 'value'
-        df_in["value"] = self._to_num(df_in["value"])
-
-        # On ne garde que les catégories d'intérêt
-        df_in = df_in[df_in["category"].isin(categories_needed)]
-
-        # Passage en large : index = Culture, colonnes = category
-        wide = (
-            df_in.pivot_table(
-                index="item",
+        def _pivot_long_to_wide(
+            df_long, idx_name="item", cols=("item", "category", "value")
+        ):
+            """Pivot générique item/category/value -> wide, sans crasher si colonnes manquent."""
+            if df_long is None or not isinstance(df_long, pd.DataFrame):
+                return None
+            expected = set(cols)
+            if not expected.issubset(df_long.columns):
+                return None
+            wide = df_long.pivot_table(
+                index=idx_name,
                 columns="category",
                 values="value",
-                aggfunc="last",  # si doublons, on prend la dernière valeur
-            ).reindex(init.index)  # aligne sur l'index des cultures du modèle
-        )
+                aggfunc="last",
+            )
+            return wide
 
-        # S'assure que toutes les colonnes demandées existent (même si absentes)
-        for col in categories_needed:
-            if col not in wide.columns:
-                wide[col] = np.nan
+        # ---------------------------------------------------------------------
+        # (A) Source (3): données carbone depuis self.df_data["Input data"]
+        # ---------------------------------------------------------------------
+        if "Input data" not in self.df_data:
+            raise KeyError(
+                "La feuille 'Input data' est absente de data_path (couche carbone)."
+            )
 
-        wide = wide[list(categories_needed)]
+        df_in_carbon = self.df_data["Input data"].copy()
 
-        # Remplissage manquant par 0 (ou garde NaN si tu préfères)
-        # wide = wide[categories_needed].fillna(0.0)
+        # Filtrage area/year seulement si ces colonnes existent (flexible)
+        if "Area" in df_in_carbon.columns:
+            df_in_carbon = df_in_carbon[df_in_carbon["Area"] == area]
+        if "Year" in df_in_carbon.columns:
+            df_in_carbon = df_in_carbon[df_in_carbon["Year"] == year]
 
-        # --- Merge ---
-        # Option : écraser uniquement si overwrite=True, sinon n'écrase que là où added n'est pas null
+        df_in_carbon = df_in_carbon[df_in_carbon["category"].isin(categories_needed)]
+        wide_carbon = _pivot_long_to_wide(df_in_carbon)
+
+        # ---------------------------------------------------------------------
+        # (B) Source (2): colonnes du fichier projet (si dispo)
+        #    On accepte plusieurs formes :
+        #    - self.df_project est un dict de feuilles (ex: {"Input data": df, ...})
+        #    - self.df_project est un DataFrame déjà "long" (item/category/value)
+        #    - sinon, on tente self.data_loader.df_project si disponible
+        # ---------------------------------------------------------------------
+        wide_project = None
+
+        def _try_build_project_wide(container):
+            if container is None:
+                return None
+            # Cas dict de feuilles (Excel chargé en dict)
+            if isinstance(container, dict):
+                # on cherche d'abord une feuille au nom "Input data" (projet),
+                # sinon on tente "Project data", sinon on tente toutes
+                candidates = []
+                for k in ("Input data", "Project data", "Project", "project", "input"):
+                    if k in container:
+                        candidates.append(container[k])
+                if not candidates:
+                    # fallback: concat de toutes les feuilles compatibles
+                    candidates = [
+                        v
+                        for v in container.values()
+                        if isinstance(v, pd.DataFrame)
+                        and {"item", "category", "value"}.issubset(v.columns)
+                    ]
+                if not candidates:
+                    return None
+                df_proj_long = pd.concat(candidates, ignore_index=True)
+                # filtre area/year si présents
+                if "Area" in df_proj_long.columns:
+                    df_proj_long = df_proj_long[df_proj_long["Area"] == area]
+                if "Year" in df_proj_long.columns:
+                    df_proj_long = df_proj_long[df_proj_long["Year"] == year]
+                df_proj_long = df_proj_long[
+                    df_proj_long["category"].isin(categories_needed)
+                ]
+                return _pivot_long_to_wide(df_proj_long)
+
+            # Cas DataFrame long
+            if isinstance(container, pd.DataFrame):
+                df_proj_long = container.copy()
+                if "Area" in df_proj_long.columns:
+                    df_proj_long = df_proj_long[df_proj_long["Area"] == area]
+                if "Year" in df_proj_long.columns:
+                    df_proj_long = df_proj_long[df_proj_long["Year"] == year]
+                if (
+                    "category" in df_proj_long.columns
+                    and "item" in df_proj_long.columns
+                    and "value" in df_proj_long.columns
+                ):
+                    df_proj_long = df_proj_long[
+                        df_proj_long["category"].isin(categories_needed)
+                    ]
+                    return _pivot_long_to_wide(df_proj_long)
+            return None
+
+        # 1) self.df_project si présent
+        if hasattr(self, "df_project"):
+            wide_project = _try_build_project_wide(getattr(self, "df_project"))
+
+        # 2) sinon, tenter via data_loader si présent
+        if (
+            wide_project is None
+            and hasattr(self, "data_loader")
+            and hasattr(self.data_loader, "df_project")
+        ):
+            wide_project = _try_build_project_wide(
+                getattr(self.data_loader, "df_project")
+            )
+
+        # ---------------------------------------------------------------------
+        # (C) Merge des 3 sources sur l'index de init
+        #     - on s’assure que toutes les colonnes demandées existent dans chaque source
+        #     - on applique la priorité : init (base) -> carbone (remplit) -> projet (écrase)
+        # ---------------------------------------------------------------------
         merged_df = init.copy()
+        # s'assurer que l'index est aligné
+        if wide_carbon is not None:
+            wide_carbon = wide_carbon.reindex(merged_df.index)
+        if wide_project is not None:
+            wide_project = wide_project.reindex(merged_df.index)
 
+        # s'assurer que toutes les colonnes existent dans chaque source
+        def _ensure_cols(dfw):
+            if dfw is None:
+                return None
+            for col in categories_needed:
+                if col not in dfw.columns:
+                    dfw[col] = np.nan
+            return dfw[categories_needed]
+
+        wide_carbon = _ensure_cols(wide_carbon)
+        wide_project = _ensure_cols(wide_project)
+
+        # 1) ajouter les colonnes manquantes dans merged_df
         for col in categories_needed:
-            series_added = wide[col]
-            if overwrite:
-                # On met la colonne telle quelle (même si NaN)
-                merged_df[col] = series_added
-            else:
-                # On n'écrase que les positions où wide a une valeur non-nulle (non-NaN)
+            if col not in merged_df.columns:
+                merged_df[col] = np.nan
+
+        # 2) intégrer la source carbone (remplissage, pas d'écrasement si overwrite=False)
+        if wide_carbon is not None:
+            for col in categories_needed:
+                series_added = wide_carbon[col]
+                if overwrite:
+                    merged_df[col] = series_added
+                else:
+                    mask_has_value = series_added.notna()
+                    merged_df.loc[mask_has_value, col] = series_added.loc[
+                        mask_has_value
+                    ]
+
+        # 3) intégrer la source projet (toujours prioritaire, elle écrase si valeur non-NaN)
+        if wide_project is not None:
+            for col in categories_needed:
+                series_added = wide_project[col]
                 mask_has_value = series_added.notna()
-                if col not in merged_df.columns:
-                    # créer la colonne si elle n'existe pas
-                    merged_df[col] = np.nan
                 merged_df.loc[mask_has_value, col] = series_added.loc[mask_has_value]
 
+        # Rapport NaN éventuel
         if warn_if_nans:
             nan_report = {}
             for col in categories_needed:
                 missing = merged_df[merged_df[col].isna()].index.tolist()
                 if missing:
                     nan_report[col] = missing
-
             if nan_report:
-                # construir un message synthétique
                 lines = []
                 for col, miss in nan_report.items():
                     count = len(miss)
@@ -163,12 +274,11 @@ class Dataloader_Carbon:
                 msg = (
                     f"Warning: NaNs remain in the imported columns for year {year}, area {area}.\n"
                     + "\n".join(lines)
-                    + "\nIf this is expected, set `warn_if_nans=False`. Otherwise check the 'Input data' sheet and the mappings."
+                    + "\nIf this is expected, set `warn_if_nans=False`. Otherwise check 'Input data' and project inputs."
                 )
                 warnings.warn(msg)
 
-        merged_df = merged_df.fillna(0)
-        return merged_df
+        return merged_df.fillna(0.0)
 
     def get_df_cultures(self):
         supp_columns = [
@@ -178,13 +288,15 @@ class Dataloader_Carbon:
             "Surface Root Production (kgC/ha)",
         ]
 
-        self.df_cultures = self.get_columns(
-            self.region, self.year, self.nitrogen_model.df_cultures, supp_columns
+        self.df_cultures = self.data.init_df_cultures.copy()
+
+        self.df_cultures = self.data.get_columns(
+            self.region, self.year, self.df_cultures, supp_columns
         )
 
-        # self.df_cultures = self.nitrogen_model.df_cultures.combine_first(
-        #     self.df_cultures,
-        # )
+        self.df_cultures = self.nitrogen_model.df_cultures.combine_first(
+            self.df_cultures,
+        )
 
         return self.df_cultures
 
@@ -193,13 +305,15 @@ class Dataloader_Carbon:
             "Carbon Content (%)",
         ]
 
-        self.df_prod = self.get_columns(
-            self.region, self.year, self.nitrogen_model.df_prod, supp_columns
+        self.df_prod = self.data.init_df_prod.copy()
+
+        self.df_prod = self.data.get_columns(
+            self.region, self.year, self.df_prod, supp_columns
         )
 
-        # self.df_prod = self.nitrogen_model.df_prod.combine_first(
-        #     self.df_prod,
-        # )
+        self.df_prod = self.nitrogen_model.df_prod.combine_first(
+            self.df_prod,
+        )
 
         return self.df_prod
 
@@ -209,13 +323,15 @@ class Dataloader_Carbon:
             "Infrastructure CO2 emissions/LU (kgC)",
         ]
 
-        self.df_elevage = self.get_columns(
-            self.region, self.year, self.nitrogen_model.df_elevage, supp_columns
+        self.df_elevage = self.data.init_df_elevage.copy()
+
+        self.df_elevage = self.data.get_columns(
+            self.region, self.year, self.df_elevage, supp_columns
         )
 
-        # self.df_elevage = self.nitrogen_model.df_elevage.combine_first(
-        #     self.df_elevage,
-        # )
+        self.df_elevage = self.nitrogen_model.df_elevage.combine_first(
+            self.df_elevage,
+        )
 
         return self.df_elevage
 
@@ -226,13 +342,15 @@ class Dataloader_Carbon:
             "Humification coefficient (%)",
         ]
 
-        self.df_excr = self.get_columns(
-            self.region, self.year, self.nitrogen_model.df_excr, supp_columns
+        self.df_excr = self.data.init_df_excr.copy()
+
+        self.df_excr_supp = self.data.get_columns(
+            self.region, self.year, self.df_excr, supp_columns
         )
 
-        # self.df_excr = self.nitrogen_model.df_excr.combine_first(
-        #     self.df_excr,
-        # )
+        self.df_excr = self.nitrogen_model.df_excr.combine_first(
+            self.df_excr,
+        )
 
         return self.df_excr
 
@@ -243,23 +361,31 @@ class Dataloader_Carbon:
             "Humification coefficient (%)",
         ]
 
-        self.df_pop = self.get_columns(
-            self.region, self.year, self.nitrogen_model.df_pop, supp_columns
+        self.df_pop = self.data.init_df_pop.copy()
+
+        self.df_pop = self.data.get_columns(
+            self.region, self.year, self.df_pop, supp_columns
         )
 
-        # self.df_pop = self.nitrogen_model.df_pop.combine_first(
-        #     self.df_pop,
-        # )
+        self.df_pop = self.nitrogen_model.df_pop.combine_first(
+            self.df_pop,
+        )
 
         return self.df_pop
 
     def get_df_energy(self):
         supp_columns = [
-            "CO2 share (%)",
+            "Share CO2 (%)",
         ]
 
-        self.df_energy = self.get_columns(
-            self.region, self.year, self.nitrogen_model.df_energy, supp_columns
+        self.df_energy = self.data.init_df_energy.copy()
+
+        self.df_energy = self.data.get_columns(
+            self.region, self.year, self.df_energy, supp_columns
+        )
+
+        self.df_energy = self.nitrogen_model.df_energy.combine_first(
+            self.df_energy,
         )
 
         return self.df_energy
@@ -278,7 +404,9 @@ class CarbonFlowModel:
         self.df_prod = self.data_loader.get_df_prod()
         self.df_excr = self.data_loader.get_df_excr()
         self.df_pop = self.data_loader.get_df_pop()
-        self.df_global = self.data_loader.data.get_global_metrics(True)
+        self.df_global = self.data_loader.data.get_global_metrics(
+            self.region, self.year, True
+        )
         self.df_energy = self.data_loader.get_df_energy()
         self.df_energy_display = self.data_loader.nitrogen_model.df_energy_display
 
@@ -480,44 +608,6 @@ class CarbonFlowModel:
             target = {i: row["Carbon Production (ktC)"]}
             flux_generator.generate_flux(source, target)
 
-        # # Modifier tous les flux où la source ou la target est un produit
-        # # en multipliant par le C/N de la culture de base.
-
-        # for i in df_prod.index:
-        #     for j in self.data_loader.nitrogen_model.labels:
-        #         try:
-        #             self.change_flow(
-        #                 i, j, df_prod.loc[df_prod.index == i, "C/N"].item()
-        #             )
-        #             self.change_flow(
-        #                 j, i, df_prod.loc[df_prod.index == i, "C/N"].item()
-        #             )
-        #         except:  # noqa: E722
-        #             pass
-
-        # # Ajouter les flux d'import
-        # df_import_carbon = self.data_loader.nitrogen_model.importations_df.merge(
-        #     df_prod[["C/N", "Sub Type"]],
-        #     left_on="Product",
-        #     right_index=True,
-        #     how="left",
-        # )
-        # df_import_carbon["Imported Carbon (ktC)"] = (
-        #     df_import_carbon["Imported Nitrogen (ktN)"] * df_import_carbon["C/N"]
-        # )
-        # df_flux_groupes = (
-        #     df_import_carbon.groupby(["Sub Type", "Consumer"])[
-        #         ["Imported Carbon (ktC)"]
-        #     ]
-        #     .sum()
-        #     .reset_index()
-        # )
-        # # Grouper le résultats par la colonne sub type de df_prod
-        # for index, row in df_flux_groupes.iterrows():
-        #     source = {row["Sub Type"] + " trade": row["Imported Carbon (ktC)"]}
-        #     target = {row["Consumer"]: 1}
-        #     flux_generator.generate_flux(source, target)
-
         ## Générer les flux du modèle d'allocation
 
         # C/N des sources
@@ -596,7 +686,7 @@ class CarbonFlowModel:
         for fac in df_energy.index:
             fac_type = str(df_energy.loc[fac, "Type"])
             share_co2 = float(df_energy.loc[fac, "Share CO2 (%)"]) / 100.0
-            E_kWh = float(df_energy.loc[fac, "Energy Production (kWh)"])
+            E_kWh = float(df_energy.loc[fac, "Energy Production (GWh)"])
             C_in = float(C_in_by_fac.get(fac, 0.0))  # ktC
 
             # CO2 direct (fraction des intrants)
@@ -675,13 +765,17 @@ class CarbonFlowModel:
 
         # CO2
 
+        df_excr["Excretion to Energy (ktC)"] = (
+            df_excr["Excretion to Energy (ktN)"] * df_excr["C/N"]
+        )
+
         df_excr["Excretion to CO2 (ktC)"] = (
             df_excr["Excretion (ktC)"]
             * (
                 1
                 - df_excr["CH4 EM (%)"] / 100
                 - df_excr["Humification coefficient (%)"] / 100
-                - df_excr["Excretion to Methanizer (ktC)"] / df_excr["Excretion (ktC)"]
+                - df_excr["Excretion to Energy (ktC)"] / df_excr["Excretion (ktC)"]
             )  # On enlève la part envoyer aux méthaniseurs
         )
 
@@ -911,17 +1005,21 @@ class CarbonFlowModel:
         df_cultures = df_cultures.join(carbon_prod_agg, how="left")
 
         # Calcul des Résidus
-        df_cultures["Residue Production (ktC)"] = (
-            df_cultures["Carbon Production (ktC)"]
-            * (1 - df_cultures["Harvest Index"])
-            / df_cultures["Harvest Index"]
-        )
+        df_cultures["Residue Production (ktC)"] = 0.0
+        mask_hi = df_cultures["Harvest Index"] != 0
+        df_cultures.loc[mask_hi, "Residue Production (ktC)"] = (
+            df_cultures.loc[mask_hi, "Carbon Production (ktC)"]
+            * (1 - df_cultures.loc[mask_hi, "Harvest Index"])
+            / df_cultures.loc[mask_hi, "Harvest Index"]
+        ).astype(float)
 
-        df_cultures["Root Production (ktC)"] = (
-            df_cultures["Surface Root Production (kgC/ha)"]
-            * df_cultures["Area (ha)"]
+        df_cultures["Root Production (ktC)"] = 0.0
+        mask_area = df_cultures["Area (ha)"] != 0
+        df_cultures.loc[mask_area, "Root Production (ktC)"] = (
+            df_cultures.loc[mask_area, "Surface Root Production (kgC/ha)"]
+            * df_cultures.loc[mask_area, "Area (ha)"]
             / 1e6
-        )
+        ).astype(float)
 
         target = (
             df_cultures["Carbon Production (ktC)"]

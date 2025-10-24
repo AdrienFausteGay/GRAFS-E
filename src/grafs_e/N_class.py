@@ -684,7 +684,7 @@ class DataLoader:
                 "Type",
             )
         else:
-            categories_needed = ("Type", "CO2 share (%)")
+            categories_needed = ("Type", "Share CO2 (%)")
         df_energy = self.get_columns(
             area, year, self.init_df_energy, categories_needed=categories_needed
         )
@@ -723,6 +723,18 @@ class DataLoader:
             ]
         else:
             required_items = [
+                "Total Synthetic Fertilizer Use on crops (ktN)",
+                "Total Synthetic Fertilizer Use on grasslands (ktN)",
+                "Atmospheric deposition coef (kgN/ha)",
+                "coefficient N-NH3 volatilization synthetic fertilization (%)",
+                "coefficient N-N2O emission synthetic fertilization (%)",
+                "Weight diet",
+                "Weight import",
+                "Weight distribution",
+                "Weight fair local split",
+                "Weight energy production",
+                "Weight energy inputs",
+                "Enforce animal share",
                 "Total Haber-Bosch methan input (kgC/kgN)",
                 "Share of methan volume in methanizer output (%)",
                 "Green waste methanization power (MWh/ktN)",
@@ -3653,7 +3665,7 @@ class NitrogenFlowModel:
         colonnes_a_exclure = [
             "Type",
             "Diet",
-            "CO2 share (%)",
+            "Share CO2 (%)",
         ]
         colonnes_a_sommer = df_energy.columns.difference(colonnes_a_exclure)
         total = df_energy[colonnes_a_sommer].sum()
