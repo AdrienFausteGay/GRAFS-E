@@ -275,35 +275,23 @@ class DataLoader:
         merged_df = merged_df.fillna(0)
         return merged_df
 
-    def generate_df_prod(self, area, year, carbon=False):
-        if carbon is False:
-            categories_needed = (
-                "Production (kton)",
-                "Nitrogen Content (%)",
-                "Origin compartment",
-                "Type",
-                "Sub Type",
-                "Waste (%)",
-                "Other uses (%)",
-                "Energy Production (MWh/tFW)",
-            )
-        else:
-            categories_needed = (
-                "Production (kton)",
-                "Sub Type",
-                "Origin compartment",
-                "Nitrogen Content (%)",
-                "Carbon Content (%)",
-            )
+    def generate_df_prod(self, area, year):
+        categories_needed = (
+            "Production (kton)",
+            "Nitrogen Content (%)",
+            "Origin compartment",
+            "Type",
+            "Sub Type",
+            "Waste (%)",
+            "Other uses (%)",
+            "Energy Production (MWh/tFW)",
+        )
 
         df_prod = self.get_columns(
             area, year, self.init_df_prod, categories_needed=categories_needed
         )
 
         df_prod = df_prod[list(categories_needed)].copy()
-
-        if carbon:
-            return df_prod.fillna(0)
 
         # Calcul de l'azote disponible pour les cultures
         df_prod["Nitrogen Production (ktN)"] = (
@@ -351,33 +339,21 @@ class DataLoader:
         self.df_prod = df_prod
         return df_prod
 
-    def generate_df_cultures(self, area, year, carbon=False):
-        if carbon is False:
-            categories_needed = (
-                "Area (ha)",
-                "Spreading Rate (%)",
-                "Seed input (ktN/ktN)",
-                "Fertilization Need (kgN/qtl)",
-                "Surface Fertilization Need (kgN/ha)",
-                "Harvest Index",
-                "Main Production",
-                "Category",
-                "BNF alpha",
-                "BNF beta",
-                "BGN",
-                "Raw Surface Synthetic Fertilizer Use (kgN/ha)",
-            )
-        else:
-            categories_needed = (
-                "Main Production",
-                "Harvest Index",
-                "Area (ha)",
-                "Seed input (ktN/ktN)",
-                "Carbon Mechanisation Intensity (ktC/ha)",
-                "Residue Humification Coefficient (%)",
-                "Root Humification Coefficient (%)",
-                "Surface Root Production (kgC/ha)",
-            )
+    def generate_df_cultures(self, area, year):
+        categories_needed = (
+            "Area (ha)",
+            "Spreading Rate (%)",
+            "Seed input (ktN/ktN)",
+            "Fertilization Need (kgN/qtl)",
+            "Surface Fertilization Need (kgN/ha)",
+            "Harvest Index",
+            "Main Production",
+            "Category",
+            "BNF alpha",
+            "BNF beta",
+            "BGN",
+            "Raw Surface Synthetic Fertilizer Use (kgN/ha)",
+        )
         df_cultures = self.get_columns(
             area, year, self.init_df_cultures, categories_needed=categories_needed
         )
@@ -399,8 +375,6 @@ class DataLoader:
             df_cultures["Seed input (ktN/ktN)"]
             * df_cultures["Main Nitrogen Production (ktN)"]
         )
-        if carbon:
-            return df_cultures.fillna(0)
 
         mask = df_cultures["Area (ha)"] != 0
 
@@ -441,28 +415,18 @@ class DataLoader:
         self.df_cultures = df_cultures
         return df_cultures
 
-    def generate_df_elevage(self, area, year, carbon=False):
-        if carbon is False:
-            categories_needed = (
-                "Excreted indoor (%)",
-                "Excreted indoor as manure (%)",
-                "Excretion / LU (kgN)",
-                "LU",
-                "Diet",
-            )
-        else:
-            categories_needed = (
-                "Excretion / LU (kgN)",
-                "LU",
-                "C-CH4 enteric/LU (kgC)",
-                "Infrastructure CO2 emissions/LU (kgC)",
-            )
+    def generate_df_elevage(self, area, year):
+        categories_needed = (
+            "Excreted indoor (%)",
+            "Excreted indoor as manure (%)",
+            "Excretion / LU (kgN)",
+            "LU",
+            "Diet",
+        )
         df_elevage = self.get_columns(
             area, year, self.init_df_elevage, categories_needed=categories_needed
         )
         df_elevage = df_elevage[list(categories_needed)].copy()
-        if carbon:
-            return df_elevage.fillna(0)
 
         df_elevage["Excreted indoor as slurry (%)"] = (
             100 - df_elevage["Excreted indoor as manure (%)"]
@@ -527,29 +491,17 @@ class DataLoader:
         self.df_elevage = df_elevage
         return df_elevage
 
-    def generate_df_excr(self, area, year, carbon=False):
-        _ = self.generate_df_elevage(area, year, False)
-        if carbon is False:
-            categories_needed = (
-                "N-NH3 EM (%)",
-                "N-N2 EM (%)",
-                "N-N2O EM (%)",
-                "Type",
-                "Origin compartment",
-                "Energy Production (MWh/tFW)",
-                "Nitrogen Content (%)",
-            )
-        else:
-            categories_needed = (
-                "N-NH3 EM (%)",
-                "N-N2 EM (%)",
-                "N-N2O EM (%)",
-                "Type",
-                "Origin compartment",
-                "C/N",
-                "CH4 EM (%)",
-                "Humification coefficient (%)",
-            )
+    def generate_df_excr(self, area, year):
+        _ = self.generate_df_elevage(area, year)
+        categories_needed = (
+            "N-NH3 EM (%)",
+            "N-N2 EM (%)",
+            "N-N2O EM (%)",
+            "Type",
+            "Origin compartment",
+            "Energy Production (MWh/tFW)",
+            "Nitrogen Content (%)",
+        )
         df_excr = self.get_columns(
             area, year, self.init_df_excr, categories_needed=categories_needed
         )
@@ -626,31 +578,17 @@ class DataLoader:
         df_excr = df_excr.fillna(0)
         return df_excr
 
-    def generate_df_pop(self, area, year, carbon=False):
-        if carbon is False:
-            categories_needed = (
-                "Inhabitants",
-                "N-NH3 EM excretion (%)",
-                "N-N2 EM excretion (%)",
-                "N-N2O EM excretion (%)",
-                "Total ingestion per capita (kgN)",
-                "Fishery ingestion per capita (kgN)",
-                "Excretion recycling (%)",
-                "Diet",
-            )
-        else:
-            categories_needed = (
-                "Inhabitants",
-                "N-NH3 EM excretion (%)",
-                "N-N2 EM excretion (%)",
-                "N-N2O EM excretion (%)",
-                "Total ingestion per capita (kgN)",
-                "Fishery ingestion per capita (kgN)",
-                "Excretion recycling (%)",
-                "C/N",
-                "CH4 EM (%)",
-                "Humification coefficient (%)",
-            )
+    def generate_df_pop(self, area, year):
+        categories_needed = (
+            "Inhabitants",
+            "N-NH3 EM excretion (%)",
+            "N-N2 EM excretion (%)",
+            "N-N2O EM excretion (%)",
+            "Total ingestion per capita (kgN)",
+            "Fishery ingestion per capita (kgN)",
+            "Excretion recycling (%)",
+            "Diet",
+        )
         df_pop = self.get_columns(
             area, year, self.init_df_pop, categories_needed=categories_needed
         )
@@ -676,15 +614,12 @@ class DataLoader:
         self.df_pop = df_pop
         return df_pop
 
-    def generate_df_energy(self, area, year, carbon=False):
-        if carbon is False:
-            categories_needed = (
-                "Target Energy Production (GWh)",
-                "Diet",
-                "Type",
-            )
-        else:
-            categories_needed = ("Type", "Share CO2 (%)")
+    def generate_df_energy(self, area, year):
+        categories_needed = (
+            "Target Energy Production (GWh)",
+            "Diet",
+            "Type",
+        )
         df_energy = self.get_columns(
             area, year, self.init_df_energy, categories_needed=categories_needed
         )
