@@ -30,7 +30,6 @@ class Dataloader_Carbon:
             "waste",
             "soil stock",
             "seeds",
-            "methanizer",
         ]
 
         trade = [i + " trade" for i in set(self.data.init_df_prod["Sub Type"])]
@@ -54,6 +53,7 @@ class Dataloader_Carbon:
             + mechanization
             + list(self.data.init_df_prod.index)
             + list(self.data.init_df_pop.index)
+            + list(self.data.init_df_energy.index)
             + fixed_compartments
             + trade
         )
@@ -177,12 +177,12 @@ class Dataloader_Carbon:
         ]
 
         self.df_cultures = self.get_columns(
-            area, year, self.data.init_df_cultures, supp_columns
+            area, year, self.nitrogen_model.df_cultures, supp_columns
         )
 
-        self.df_cultures = self.nitrogen_model.df_cultures.combine_first(
-            self.df_cultures,
-        )
+        # self.df_cultures = self.nitrogen_model.df_cultures.combine_first(
+        #     self.df_cultures,
+        # )
 
         return self.df_cultures
 
@@ -192,12 +192,12 @@ class Dataloader_Carbon:
         ]
 
         self.df_prod = self.get_columns(
-            area, year, self.data.init_df_prod, supp_columns
+            area, year, self.nitrogen_model.df_prod, supp_columns
         )
 
-        self.df_prod = self.nitrogen_model.df_prod.combine_first(
-            self.df_prod,
-        )
+        # self.df_prod = self.nitrogen_model.df_prod.combine_first(
+        #     self.df_prod,
+        # )
 
         return self.df_prod
 
@@ -208,12 +208,12 @@ class Dataloader_Carbon:
         ]
 
         self.df_elevage = self.get_columns(
-            area, year, self.data.init_df_elevage, supp_columns
+            area, year, self.nitrogen_model.df_elevage, supp_columns
         )
 
-        self.df_elevage = self.nitrogen_model.df_elevage.combine_first(
-            self.df_elevage,
-        )
+        # self.df_elevage = self.nitrogen_model.df_elevage.combine_first(
+        #     self.df_elevage,
+        # )
 
         return self.df_elevage
 
@@ -225,12 +225,12 @@ class Dataloader_Carbon:
         ]
 
         self.df_excr = self.get_columns(
-            area, year, self.data.init_df_excr, supp_columns
+            area, year, self.nitrogen_model.df_excr, supp_columns
         )
 
-        self.df_excr = self.nitrogen_model.df_excr.combine_first(
-            self.df_excr,
-        )
+        # self.df_excr = self.nitrogen_model.df_excr.combine_first(
+        #     self.df_excr,
+        # )
 
         return self.df_excr
 
@@ -241,13 +241,26 @@ class Dataloader_Carbon:
             "Humification coefficient (%)",
         ]
 
-        self.df_pop = self.get_columns(area, year, self.data.init_df_pop, supp_columns)
-
-        self.df_pop = self.nitrogen_model.df_pop.combine_first(
-            self.df_pop,
+        self.df_pop = self.get_columns(
+            area, year, self.nitrogen_model.df_pop, supp_columns
         )
 
+        # self.df_pop = self.nitrogen_model.df_pop.combine_first(
+        #     self.df_pop,
+        # )
+
         return self.df_pop
+
+    def get_df_energy(self, area, year):
+        supp_columns = [
+            "CO2 share (%)",
+        ]
+
+        self.df_energy = self.get_columns(
+            area, year, self.nitrogen_model.df_energy, supp_columns
+        )
+
+        return self.df_energy
 
 
 # --- Classe FluxModif ---
@@ -258,19 +271,14 @@ class CarbonFlowModel:
         self.data_loader = data
         self.labels = data.labels
 
-        # self.df_elevage = self.data_loader.data.generate_df_elevage(region, year, True)
-        # self.df_excr = self.data_loader.data.generate_df_excr(region, year, True)
-        # self.df_cultures = self.data_loader.data.generate_df_cultures(
-        #     region, year, True
-        # )
-        # self.df_pop = self.data_loader.data.generate_df_pop(region, year, True)
-        # self.df_prod = self.data_loader.data.generate_df_prod(region, year, True)
         self.df_cultures = self.data_loader.get_df_cultures(self.region, self.year)
         self.df_elevage = self.data_loader.get_df_elevage(self.region, self.year)
         self.df_prod = self.data_loader.get_df_prod(self.region, self.year)
         self.df_excr = self.data_loader.get_df_excr(self.region, self.year)
         self.df_pop = self.data_loader.get_df_pop(self.region, self.year)
         self.df_global = self.data_loader.data.get_global_metrics(region, year, True)
+        self.df_energy = self.data_loader.get_df_energy(self.region, self.year)
+        self.df_energy_display = self.data_loader.nitrogen_model.df_energy_display
 
         self.flux_generator = FluxGenerator(self.labels)
         self.carbon_matrix = self.flux_generator.adjacency_matrix
@@ -448,6 +456,8 @@ class CarbonFlowModel:
         df_pop = self.df_pop
         df_global = self.df_global
         df_prod = self.df_prod
+        df_energy = self.df_energy
+        df_energy_display = self.df_energy_display
 
         flux_generator = self.flux_generator
 
@@ -462,43 +472,87 @@ class CarbonFlowModel:
             df_prod["Production (kton)"] * df_prod["Carbon Content (%)"] / 100
         )
 
-        # Modifier tous les flux où la source ou la target est un produit
-        # en multipliant par le C/N de la culture de base.
-
-        for i in df_prod.index:
-            for j in self.data_loader.nitrogen_model.labels:
-                try:
-                    self.change_flow(
-                        i, j, df_prod.loc[df_prod.index == i, "C/N"].item()
-                    )
-                    self.change_flow(
-                        j, i, df_prod.loc[df_prod.index == i, "C/N"].item()
-                    )
-                except:  # noqa: E722
-                    pass
-
-        # Ajouter les flux d'import
-        df_import_carbon = self.data_loader.nitrogen_model.importations_df.merge(
-            df_prod[["C/N", "Sub Type"]],
-            left_on="Product",
-            right_index=True,
-            how="left",
-        )
-        df_import_carbon["Imported Carbon (ktC)"] = (
-            df_import_carbon["Imported Nitrogen (ktN)"] * df_import_carbon["C/N"]
-        )
-        df_flux_groupes = (
-            df_import_carbon.groupby(["Sub Type", "Consumer"])[
-                ["Imported Carbon (ktC)"]
-            ]
-            .sum()
-            .reset_index()
-        )
-        # Grouper le résultats par la colonne sub type de df_prod
-        for index, row in df_flux_groupes.iterrows():
-            source = {row["Sub Type"] + " trade": row["Imported Carbon (ktC)"]}
-            target = {row["Consumer"]: 1}
+        # Flux des cultures/livestocks vers les produits
+        for i, row in df_prod.iterrows():
+            source = {row["Origin compartment"]: 1}
+            target = {i: row["Carbon Production (ktC)"]}
             flux_generator.generate_flux(source, target)
+
+        # # Modifier tous les flux où la source ou la target est un produit
+        # # en multipliant par le C/N de la culture de base.
+
+        # for i in df_prod.index:
+        #     for j in self.data_loader.nitrogen_model.labels:
+        #         try:
+        #             self.change_flow(
+        #                 i, j, df_prod.loc[df_prod.index == i, "C/N"].item()
+        #             )
+        #             self.change_flow(
+        #                 j, i, df_prod.loc[df_prod.index == i, "C/N"].item()
+        #             )
+        #         except:  # noqa: E722
+        #             pass
+
+        # # Ajouter les flux d'import
+        # df_import_carbon = self.data_loader.nitrogen_model.importations_df.merge(
+        #     df_prod[["C/N", "Sub Type"]],
+        #     left_on="Product",
+        #     right_index=True,
+        #     how="left",
+        # )
+        # df_import_carbon["Imported Carbon (ktC)"] = (
+        #     df_import_carbon["Imported Nitrogen (ktN)"] * df_import_carbon["C/N"]
+        # )
+        # df_flux_groupes = (
+        #     df_import_carbon.groupby(["Sub Type", "Consumer"])[
+        #         ["Imported Carbon (ktC)"]
+        #     ]
+        #     .sum()
+        #     .reset_index()
+        # )
+        # # Grouper le résultats par la colonne sub type de df_prod
+        # for index, row in df_flux_groupes.iterrows():
+        #     source = {row["Sub Type"] + " trade": row["Imported Carbon (ktC)"]}
+        #     target = {row["Consumer"]: 1}
+        #     flux_generator.generate_flux(source, target)
+
+        ## Générer les flux du modèle d'allocation
+
+        # C/N des sources
+        CN_waste = float(self.df_global.loc["Green waste C/N", "value"])
+
+        def _cn_of_source(src: str) -> float:
+            if src in self.df_prod.index:
+                return float(self.df_prod.loc[src, "C/N"])
+            if src in self.df_excr.index:
+                return float(self.df_excr.loc[src, "C/N"])
+            if src.lower().strip() == "waste":
+                return CN_waste
+            # Les flux “trade → facility” sont traités plus bas via importations_df, donc pas ici.
+            raise KeyError(f"C/N inconnu pour la source énergie: {src}")
+
+        for index, row in self.data_loader.nitrogen_model.allocations_df.iterrows():
+            p = row["Product"]
+            cons = row["Consumer"]
+            v = row["Allocated Nitrogen"]
+            typ = str(row["Type"])
+
+            # Récupérer le C/N du produit
+            CN = _cn_of_source(p)
+
+            # Cas import : on reroute depuis la "boîte trade" de la sous-catégorie du produit
+            if typ.startswith("Imported"):
+                # Ici on suppose que seuls des PRODUITS sont importés (pas d'excréta/waste)
+                sub = str(self.df_prod.loc[p, "Sub Type"])
+                source_label = f"{sub} trade"
+            else:
+                # Flux domestique (produit/excréta/waste) depuis la source elle-même
+                source_label = p
+
+            source = {source_label: v * CN}
+            target = {cons: 1}
+            flux_generator.generate_flux(source, target)
+
         ## Flux des graines
 
         df_cultures = df_cultures.join(df_prod["C/N"], on="Main Production", how="left")
@@ -512,28 +566,7 @@ class CarbonFlowModel:
         source = {"seeds": 1}
         flux_generator.generate_flux(source, target)
 
-        ## Flux liés au méthaniseur
-
-        # Intrants
-        df_excr["Excretion to Methanizer (ktC)"] = (
-            df_excr["Excretion to Methanizer (ktN)"] * df_excr["C/N"]
-        )
-        source = df_excr["Excretion to Methanizer (ktC)"].to_dict()
-        target = {"methanizer": 1}
-        flux_generator.generate_flux(source, target)
-
-        df_prod["Carbon For Methanizer (ktC)"] = (
-            df_prod["Nitrogen For Methanizer (ktN)"] * df_prod["C/N"]
-        )
-
-        # Intrant des produits déjà fait plus haut.
-        # source = df_prod["Carbon For Methanizer (ktC)"].to_dict()
-        # flux_generator.generate_flux(source, target)
-
-        # green waste, on considère un ratio C/N de 10. Comment rendre ceci plus propre ? pas envie de le paramétrer...
-        self.change_flow(
-            "waste", "methanizer", df_global.loc["Green waste C/N", "value"]
-        )
+        ## Flux de sortie des infrastructures énergétiques
 
         # Production de gaz
 

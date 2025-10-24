@@ -681,12 +681,12 @@ class DataLoader:
     def generate_df_energy(self, area, year, carbon=False):
         if carbon is False:
             categories_needed = (
-                "Energy Production (GWh)",
+                "Target Energy Production (GWh)",
                 "Diet",
                 "Type",
             )
         else:
-            categories_needed = ()
+            categories_needed = ("Type", "CO2 share (%)")
         df_energy = self.get_columns(
             area, year, self.init_df_energy, categories_needed=categories_needed
         )
@@ -2196,7 +2196,7 @@ class NitrogenFlowModel:
         }
 
         for facility, row in df_energy.iterrows():
-            TARGET_GWh = float(row["Energy Production (GWh)"])
+            TARGET_GWh = float(row["Target Energy Production (GWh)"])
             # IMPORTANT : la diète d'une infrastructure se récupère par le NOM DE L'INFRA, pas l'ID de diète
             fac_diet_df = diets[diets["Consumer"] == facility].copy()
 
@@ -2904,7 +2904,7 @@ class NitrogenFlowModel:
                     "Product": p,
                     "Consumer": fac2,
                     "Allocated Nitrogen": v,
-                    "Type": f"Imported Energy/{fac_type2}",
+                    "Type": "Imported Energy",
                 }
             )
 
@@ -2920,7 +2920,7 @@ class NitrogenFlowModel:
                             "Product": p,
                             "Consumer": fac,
                             "Allocated Nitrogen": v,
-                            "Type": f"Energy/{fac_type}",
+                            "Type": "Energy",
                         }
                     )
             # excréta
@@ -2932,7 +2932,7 @@ class NitrogenFlowModel:
                             "Product": e,
                             "Consumer": fac,
                             "Allocated Nitrogen": v,
-                            "Type": f"Energy/{fac_type}",
+                            "Type": "Energy",
                         }
                     )
             # waste agrégé
@@ -2947,7 +2947,7 @@ class NitrogenFlowModel:
                             "Product": "waste",
                             "Consumer": fac,
                             "Allocated Nitrogen": v,
-                            "Type": f"Energy/{fac_type}",
+                            "Type": "Energy",
                         }
                     )
             for (p, fac), var in I_energy_vars.items():
@@ -2960,7 +2960,7 @@ class NitrogenFlowModel:
                         "Product": p,
                         "Consumer": fac,
                         "Allocated Nitrogen": v,
-                        "Type": f"Imported Energy/{fac_type}",
+                        "Type": "Imported Energy",
                     }
                 )
 

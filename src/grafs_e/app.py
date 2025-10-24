@@ -625,7 +625,9 @@ with tab5:
 
         st.dataframe(model.df_prod_display)
 
-        st.subheader("Products allocation to livestock and population")
+        st.subheader(
+            "Products allocation to livestock, population and bioenergy facilities"
+        )
 
         st.dataframe(model.allocations_df)
 
