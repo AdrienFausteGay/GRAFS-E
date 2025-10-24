@@ -625,6 +625,10 @@ with tab5:
 
         st.dataframe(model.df_prod_display)
 
+        st.subheader("Energy data")
+
+        st.dataframe(model.df_energy_display)
+
         st.subheader(
             "Products allocation to livestock, population and bioenergy facilities"
         )
@@ -641,7 +645,7 @@ with tab5:
 
         st.subheader("Energy data")
 
-        st.dataframe(model.df_energy_display)
+        st.dataframe(model.df_energy_flows)
 
         # --- Boutons de téléchargement ---
         st.markdown("### Download")

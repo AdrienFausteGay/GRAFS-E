@@ -16,6 +16,8 @@ class Dataloader_Carbon:
         # Instancier NitrogenFluxModel avec l'année et la région
         self.data = DataLoader(project_path, data_path)
         self.df_data = self.data.df_data
+        self.year = year
+        self.region = region
         self.nitrogen_model = NitrogenFlowModel(
             self.data, region, year
         )  # Modèle de flux d'azote
@@ -168,7 +170,7 @@ class Dataloader_Carbon:
         merged_df = merged_df.fillna(0)
         return merged_df
 
-    def get_df_cultures(self, area, year):
+    def get_df_cultures(self):
         supp_columns = [
             "Carbon Mechanisation Intensity (ktC/ha)",
             "Residue Humification Coefficient (%)",
@@ -177,7 +179,7 @@ class Dataloader_Carbon:
         ]
 
         self.df_cultures = self.get_columns(
-            area, year, self.nitrogen_model.df_cultures, supp_columns
+            self.region, self.year, self.nitrogen_model.df_cultures, supp_columns
         )
 
         # self.df_cultures = self.nitrogen_model.df_cultures.combine_first(
@@ -186,13 +188,13 @@ class Dataloader_Carbon:
 
         return self.df_cultures
 
-    def get_df_prod(self, area, year):
+    def get_df_prod(self):
         supp_columns = [
             "Carbon Content (%)",
         ]
 
         self.df_prod = self.get_columns(
-            area, year, self.nitrogen_model.df_prod, supp_columns
+            self.region, self.year, self.nitrogen_model.df_prod, supp_columns
         )
 
         # self.df_prod = self.nitrogen_model.df_prod.combine_first(
@@ -201,14 +203,14 @@ class Dataloader_Carbon:
 
         return self.df_prod
 
-    def get_df_elevage(self, area, year):
+    def get_df_elevage(self):
         supp_columns = [
             "C-CH4 enteric/LU (kgC)",
             "Infrastructure CO2 emissions/LU (kgC)",
         ]
 
         self.df_elevage = self.get_columns(
-            area, year, self.nitrogen_model.df_elevage, supp_columns
+            self.region, self.year, self.nitrogen_model.df_elevage, supp_columns
         )
 
         # self.df_elevage = self.nitrogen_model.df_elevage.combine_first(
@@ -217,7 +219,7 @@ class Dataloader_Carbon:
 
         return self.df_elevage
 
-    def get_df_excr(self, area, year):
+    def get_df_excr(self):
         supp_columns = [
             "C/N",
             "CH4 EM (%)",
@@ -225,7 +227,7 @@ class Dataloader_Carbon:
         ]
 
         self.df_excr = self.get_columns(
-            area, year, self.nitrogen_model.df_excr, supp_columns
+            self.region, self.year, self.nitrogen_model.df_excr, supp_columns
         )
 
         # self.df_excr = self.nitrogen_model.df_excr.combine_first(
@@ -234,7 +236,7 @@ class Dataloader_Carbon:
 
         return self.df_excr
 
-    def get_df_pop(self, area, year):
+    def get_df_pop(self):
         supp_columns = [
             "C/N",
             "CH4 EM (%)",
@@ -242,7 +244,7 @@ class Dataloader_Carbon:
         ]
 
         self.df_pop = self.get_columns(
-            area, year, self.nitrogen_model.df_pop, supp_columns
+            self.region, self.year, self.nitrogen_model.df_pop, supp_columns
         )
 
         # self.df_pop = self.nitrogen_model.df_pop.combine_first(
@@ -251,13 +253,13 @@ class Dataloader_Carbon:
 
         return self.df_pop
 
-    def get_df_energy(self, area, year):
+    def get_df_energy(self):
         supp_columns = [
             "CO2 share (%)",
         ]
 
         self.df_energy = self.get_columns(
-            area, year, self.nitrogen_model.df_energy, supp_columns
+            self.region, self.year, self.nitrogen_model.df_energy, supp_columns
         )
 
         return self.df_energy
@@ -265,19 +267,19 @@ class Dataloader_Carbon:
 
 # --- Classe FluxModif ---
 class CarbonFlowModel:
-    def __init__(self, data, region, year):
-        self.year = year
-        self.region = region
+    def __init__(self, data):
+        self.year = data.year
+        self.region = data.region
         self.data_loader = data
         self.labels = data.labels
 
-        self.df_cultures = self.data_loader.get_df_cultures(self.region, self.year)
-        self.df_elevage = self.data_loader.get_df_elevage(self.region, self.year)
-        self.df_prod = self.data_loader.get_df_prod(self.region, self.year)
-        self.df_excr = self.data_loader.get_df_excr(self.region, self.year)
-        self.df_pop = self.data_loader.get_df_pop(self.region, self.year)
-        self.df_global = self.data_loader.data.get_global_metrics(region, year, True)
-        self.df_energy = self.data_loader.get_df_energy(self.region, self.year)
+        self.df_cultures = self.data_loader.get_df_cultures()
+        self.df_elevage = self.data_loader.get_df_elevage()
+        self.df_prod = self.data_loader.get_df_prod()
+        self.df_excr = self.data_loader.get_df_excr()
+        self.df_pop = self.data_loader.get_df_pop()
+        self.df_global = self.data_loader.data.get_global_metrics(True)
+        self.df_energy = self.data_loader.get_df_energy()
         self.df_energy_display = self.data_loader.nitrogen_model.df_energy_display
 
         self.flux_generator = FluxGenerator(self.labels)
@@ -531,7 +533,9 @@ class CarbonFlowModel:
             # Les flux “trade → facility” sont traités plus bas via importations_df, donc pas ici.
             raise KeyError(f"C/N inconnu pour la source énergie: {src}")
 
-        for index, row in self.data_loader.nitrogen_model.allocations_df.iterrows():
+        alloc_df = self.data_loader.nitrogen_model.allocations_df
+
+        for index, row in alloc_df.iterrows():
             p = row["Product"]
             cons = row["Consumer"]
             v = row["Allocated Nitrogen"]
@@ -568,47 +572,81 @@ class CarbonFlowModel:
 
         ## Flux de sortie des infrastructures énergétiques
 
-        # Production de gaz
+        # Hypothèses physico-énergétiques pour CH4 (constants)
+        NCV_kWh_per_m3 = 10.0  # kWh/m3 (pouvoir calorifique inf. du CH4)
+        rho_CH4_kg_m3 = 0.717  # kg/m3
+        Cfrac_CH4 = 12.0 / 16.0  # fraction massique de C dans CH4
+        # ktC par kWh de CH4
+        KT_C_PER_KWH_CH4 = (1.0 / NCV_kWh_per_m3) * rho_CH4_kg_m3 * Cfrac_CH4 / 1e6
 
-        NCV = 10  # kWh/m3
-        rho_CH4 = 0.717  # kg/m3
-        rho_CO2 = 1.97  # kg/m3
-        V_CH4 = self.data_loader.nitrogen_model.methanizer_production * 1e6 / NCV
+        # somme des intrants C vers chaque facility
+        C_in_by_fac = {fac: 0.0 for fac in df_energy.index}
 
-        C_CH4_meth = 12 / 16 * V_CH4 * rho_CH4 / 1e6
-        source = {"methanizer": C_CH4_meth}
-        target = {"hydrocarbures": 1}
-        flux_generator.generate_flux(source, target)
+        for _, r in alloc_df.iterrows():
+            cons = str(r["Consumer"])
+            if cons not in C_in_by_fac:
+                continue  # pas une infrastructure énergie
+            src = str(r["Product"])
+            N_kt = float(r["Allocated Nitrogen"])
+            if N_kt <= 0:
+                continue
+            C_in_by_fac[cons] += N_kt * _cn_of_source(src)
 
-        C_CO2_meth = (
-            12
-            / 44
-            * V_CH4
-            * rho_CO2
-            / 1e6
-            * (
-                100
-                - df_global.loc[
-                    "Share of methan volume in methanizer output (%)", "value"
-                ]
-            )
-            / df_global.loc["Share of methan volume in methanizer output (%)", "value"]
-        )
+        # 2) Routage des sorties par facility
+        for fac in df_energy.index:
+            fac_type = str(df_energy.loc[fac, "Type"])
+            share_co2 = float(df_energy.loc[fac, "Share CO2 (%)"]) / 100.0
+            E_kWh = float(df_energy.loc[fac, "Energy Production (kWh)"])
+            C_in = float(C_in_by_fac.get(fac, 0.0))  # ktC
 
-        source = {"methanizer": C_CO2_meth}
-        target = {"atmospheric CO2": 1}
-        flux_generator.generate_flux(source, target)
+            # CO2 direct (fraction des intrants)
+            C_to_CO2 = max(0.0, share_co2 * C_in)
 
-        # digestat
-        source = {
-            "methanizer": self.carbon_matrix[
-                :, self.data_loader.label_to_index["methanizer"]
-            ].sum()
-            - C_CH4_meth
-            - C_CO2_meth
-        }
-        target = {"soil stock": 1}
-        flux_generator.generate_flux(source, target)
+            if fac_type == "Methanizer":
+                # Carbone vers hydrocarbures = C_CH4 dérivé de l'énergie
+                C_to_HC = max(0.0, E_kWh * KT_C_PER_KWH_CH4)
+
+                # Digestat = le reste (contrôle de cohérence)
+                C_digest = C_in - C_to_CO2 - C_to_HC
+                if C_digest < -1e-6:
+                    warnings.warn(
+                        f"[{fac}] Negative digestate carbon ({C_digest:.3f} ktC). "
+                        f"Energy demand too high w.r.t. inputs or wrong 'Share CO2 (%)'. "
+                        f"Clamped to 0."
+                    )
+                C_digest = max(0.0, C_digest)
+
+                # Flows
+                if C_to_HC > 0:
+                    self.flux_generator.generate_flux(
+                        {fac: C_to_HC}, {"hydrocarbures": 1}
+                    )
+                if C_to_CO2 > 0:
+                    self.flux_generator.generate_flux(
+                        {fac: C_to_CO2}, {"atmospheric CO2": 1}
+                    )
+                if C_digest > 0:
+                    self.flux_generator.generate_flux(
+                        {fac: C_digest}, {"soil stock": 1}
+                    )
+
+            elif fac_type == "Bioraffinery":
+                # Pas de digestat: le reste des intrants (hors CO2) = hydrocarbures
+                C_to_HC = max(0.0, C_in - C_to_CO2)
+
+                if C_to_HC > 0:
+                    self.flux_generator.generate_flux(
+                        {fac: C_to_HC}, {"hydrocarbures": 1}
+                    )
+                if C_to_CO2 > 0:
+                    self.flux_generator.generate_flux(
+                        {fac: C_to_CO2}, {"atmospheric CO2": 1}
+                    )
+
+            else:
+                raise ValueError(
+                    f"Unknown energy facility Type for '{fac}': {fac_type}"
+                )
 
         ## Flux des excretions aux cultures (soil stock)
 

@@ -207,9 +207,6 @@ class DataLoader:
             & (df_in["item"].isin(init.index))
         ]
 
-        # Nettoyage numérique de 'value'
-        df_in["value"] = self._to_num(df_in["value"])
-
         # On ne garde que les catégories d'intérêt
         df_in = df_in[df_in["category"].isin(categories_needed)]
 
@@ -239,8 +236,8 @@ class DataLoader:
 
         for col in categories_needed:
             series_added = wide[col]
-            if col in merged_df.columns and merged_df[col].dtype == np.int64:
-                merged_df[col] = merged_df[col].astype(float)
+            if col in merged_df.columns and merged_df[col].dtype != object:
+                merged_df[col] = merged_df[col].astype(object)
             if overwrite:
                 # On met la colonne telle quelle (même si NaN)
                 merged_df[col] = series_added
@@ -250,6 +247,7 @@ class DataLoader:
                 if col not in merged_df.columns:
                     # créer la colonne si elle n'existe pas
                     merged_df[col] = np.nan
+                    merged_df[col] = merged_df[col].astype(object)
                 merged_df.loc[mask_has_value, col] = series_added.loc[mask_has_value]
 
         if warn_if_nans:
@@ -425,7 +423,7 @@ class DataLoader:
         df_cultures.loc[mask, "Surface Fertilization Need (kgN/ha)"] = (
             df_cultures.loc[mask, "Fertilization Need (kgN/qtl)"]
             * df_cultures.loc[mask, "Yield (qtl/ha)"]
-        )
+        ).astype("float64", copy=False)
 
         if df_cultures["Raw Surface Synthetic Fertilizer Use (kgN/ha)"].eq(0).all():
             df_cultures = df_cultures.drop(
@@ -1612,17 +1610,21 @@ class NitrogenFlowModel:
             )
             return adj_matrix_df.loc[:, culture].sum().item()
 
+        HI_safe = df_cultures["Harvest Index"].replace(0, np.nan)
+
         target_fixation = (
             (
-                df_cultures["BNF alpha"]
-                * df_cultures["Yield (kgN/ha)"]
-                / df_cultures["Harvest Index"]
-                + df_cultures["BNF beta"]
+                (
+                    df_cultures["BNF alpha"] * df_cultures["Yield (kgN/ha)"] / HI_safe
+                    + df_cultures["BNF beta"]
+                )
+                * df_cultures["BGN"]
+                * df_cultures["Area (ha)"]
+                / 1e6
             )
-            * df_cultures["BGN"]
-            * df_cultures["Area (ha)"]
-            / 1e6
-        ).to_dict()
+            .fillna(0)
+            .to_dict()
+        )
         source_fixation = {"atmospheric N2": 1}
         flux_generator.generate_flux(source_fixation, target_fixation)
         df_cultures["Symbiotic Fixation (ktN)"] = df_cultures.index.map(
@@ -1721,9 +1723,11 @@ class NitrogenFlowModel:
             - df_leg["Organic Fertilization (ktN)"]
         )
 
-        df_leg["Residues Production (ktN)"] = (
-            df_leg["Total Nitrogen Production (ktN)"] / df_leg["Harvest Index"]
-            - df_leg["Total Nitrogen Production (ktN)"]
+        df_leg["Residues Production (ktN)"] = np.where(
+            df_leg["Harvest Index"] > 0,
+            (df_leg["Total Nitrogen Production (ktN)"] / df_leg["Harvest Index"])
+            - df_leg["Total Nitrogen Production (ktN)"],
+            0.0,
         )
 
         df_leg["Roots Production (ktN)"] = (
@@ -1785,7 +1789,7 @@ class NitrogenFlowModel:
             ]
             / total_surface_cereales
             * total_surplus_azote
-        )
+        ).astype(float)
 
         # Génération des flux pour l'héritage des légumineuses et prairies temporaires
         source_leg = (
@@ -1888,10 +1892,10 @@ class NitrogenFlowModel:
 
         mask = df_cultures["Area (ha)"] != 0
         df_cultures.loc[mask, "Adjusted Surface Synthetic Fertilizer Use (kgN/ha)"] = (
-            df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"]
-            / df_cultures["Area (ha)"]
+            df_cultures.loc[mask, "Adjusted Total Synthetic Fertilizer Use (ktN)"]
+            / df_cultures.loc[mask, "Area (ha)"]
             * 1e6
-        )
+        ).astype(float)
 
         ## Azote synthétique volatilisé par les terres
         # Est ce qu'il n'y a que l'azote synthétique qui est volatilisé ?
@@ -2187,6 +2191,9 @@ class NitrogenFlowModel:
         energy_prod_vars_by_p = {p: [] for p in df_prod.index}
         energy_excr_vars_by_e = {e: [] for e in df_excr.index}
 
+        # Production par infra
+        energy_E_GWh_expr = {}
+
         # Conversion produit (MWh/ktN) réutilisée plus bas (et dans la table énergie)
         conv_prod_MWh_per_ktN = {
             p: float(df_prod.loc[p, "Energy Production (MWh/tFW)"])
@@ -2312,6 +2319,8 @@ class NitrogenFlowModel:
             E_GWh_total_fac = (
                 E_MWh_products + E_MWh_products_import + E_MWh_excreta + E_MWh_waste
             ) / 1000.0
+
+            energy_E_GWh_expr[facility] = E_GWh_total_fac
 
             # Déviation d'énergie normalisée
             dev_fac = LpVariable(f"{facility}_energy_dev", lowBound=0, cat=LpContinuous)
@@ -2551,9 +2560,8 @@ class NitrogenFlowModel:
             * lpSum(penalite_culture_vars.values())
             + poids_import_brut * raw_import_term
             + w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
-            + W_ENERGY_PROD * energy_inputs_total
-            + (W_ENERGY_INPUT / max(1, len(fac_prod_items) + len(fac_excr_items)))
-            * energy_dev_total
+            + W_ENERGY_INPUT * energy_inputs_total
+            + (W_ENERGY_PROD / max(1, len(delta_energy_terms))) * energy_dev_total
             + penalite_culture_energy_term
         )
         prob += objective
@@ -2691,6 +2699,14 @@ class NitrogenFlowModel:
             from pulp import value, LpStatus
             import math, pprint, re
 
+            def _val0(v):
+                # renvoie 0.0 si v n’a pas été valorisée
+                try:
+                    vv = v.varValue  # plus fiable que value(v) pour une variable
+                except AttributeError:
+                    vv = None
+                return 0.0 if vv is None else float(vv)
+
             # ---- Normaliseurs identiques à l'objectif ----
             n_pairs = max(1, len(pairs))
             n_prod = max(1, len(df_prod))
@@ -2722,8 +2738,8 @@ class NitrogenFlowModel:
 
             # Distribution intra-groupe (produits -> consommateurs)
             raw_cult = (
-                float(value(lpSum(penalite_culture_vars.values())))
-                if len(penalite_culture_vars)
+                sum(_val0(v) for v in penalite_culture_vars.values())
+                if penalite_culture_vars
                 else 0.0
             )
             norm_cult = raw_cult / n_prod
@@ -3094,7 +3110,12 @@ class NitrogenFlowModel:
                 )
 
         # Convertir en DataFrame
-        self.importations_df = pd.DataFrame(importations)
+        if importations is None or len(importations) == 0:
+            self.importations_df = pd.DataFrame(
+                columns=["Consumer", "Product", "Type", "Imported Nitrogen (ktN)"]
+            )
+        else:
+            self.importations_df = pd.DataFrame(importations)
 
         # ---------- D) Tableau énergie (source -> target) + parts par infrastructure
         rows_energy = []
@@ -3212,7 +3233,39 @@ class NitrogenFlowModel:
             )
 
         # Remplacer df_energy par la vue "source->target" demandée
-        self.df_energy_display = df_energy_flows.copy()
+        self.df_energy_flows = df_energy_flows.copy()
+
+        # Mise à jour de df_energy
+        df_energy["Energy Production (GWh)"] = 0.0
+
+        for fac, E_expr_GWh in energy_E_GWh_expr.items():
+            # evaluate the PuLP expression at the optimum
+            E_GWh = float(value(E_expr_GWh))
+            # store in GWh
+            df_energy.loc[fac, "Energy Production (GWh)"] = E_GWh
+
+        df_energy["Nitrogen Input to Energy (ktN)"] = 0.0
+        for fac in df_energy.index:
+            N_input = 0.0
+            for p, var in energy_vars[fac]["prod"].items():
+                v = float(var.varValue or 0.0)
+                if v > 1e-6:
+                    N_input += v
+            for e, var in energy_vars[fac]["excr"].items():
+                v = float(var.varValue or 0.0)
+                if v > 1e-6:
+                    N_input += v
+            wvar = energy_vars[fac]["waste"]
+            if wvar is not None:
+                v = float(value(wvar) or 0.0)
+                if v > 1e-6:
+                    N_input += v
+            for (p, f), var in I_energy_vars.items():
+                if f == fac:
+                    v = float(var.varValue or 0.0)
+                    if v > 1e-6:
+                        N_input += v
+            df_energy.loc[fac, "Nitrogen Input to Energy (ktN)"] = N_input
 
         # ---------- E) Mettre à jour df_excr : "Excretion to Energy (ktN)" / "Excretion to soil (ktN)"
         df_excr["Excretion to Energy (ktN)"] = 0.0
@@ -3391,12 +3444,12 @@ class NitrogenFlowModel:
 
         # ---------- G) Flux vers les infrastructures énergie
         # source (produits/excréta/waste) -> infrastructure
-        if not self.df_energy_display.empty:
+        if not self.df_energy_flows.empty:
             for fac in df_energy.index:
                 target = {fac: 1}
                 # agrège N(allocation) par source pour cette infra
-                src = self.df_energy_display.loc[
-                    self.df_energy_display["target"] == fac,
+                src = self.df_energy_flows.loc[
+                    self.df_energy_flows["target"] == fac,
                     ["source", "allocation (ktN)"],
                 ]
                 if not src.empty:
@@ -3407,12 +3460,12 @@ class NitrogenFlowModel:
         # ---------- H) Sorties des infrastructures :
         # - Si Type == "Methanizer" : tout l'azote va vers l'épandage (digestats)
         # - Sinon (ex. "Bioraffinery") : vers "other sectors"
-        if not self.df_energy_display.empty:
+        if not self.df_energy_flows.empty:
             for fac in df_energy.index:
                 fac_type = str(df_energy.loc[fac, "Type"])
                 N_alloc_fac = float(
-                    self.df_energy_display.loc[
-                        self.df_energy_display["target"] == fac, "allocation (ktN)"
+                    self.df_energy_flows.loc[
+                        self.df_energy_flows["target"] == fac, "allocation (ktN)"
                     ].sum()
                 )
                 if N_alloc_fac <= 1e-6:
@@ -3500,10 +3553,14 @@ class NitrogenFlowModel:
         source = {"atmospheric N2": 1}
         flux_generator.generate_flux(source, target)
 
-        df_elevage["Conversion factor (%)"] = (
-            (df_elevage["Edible Nitrogen (ktN)"] + df_elevage["Dairy Nitrogen (ktN)"])
+        mask = df_elevage["Ingestion (ktN)"] > 0
+        df_elevage.loc[mask, "Conversion factor (%)"] = (
+            (
+                df_elevage.loc[mask, "Edible Nitrogen (ktN)"]
+                + df_elevage.loc[mask, "Dairy Nitrogen (ktN)"]
+            )
             * 100
-            / df_elevage["Ingestion (ktN)"]
+            / df_elevage.loc[mask, "Ingestion (ktN)"]
         )
 
         # On ajoute une ligne total à df_cultures et df_elevage et df_prod
@@ -3550,6 +3607,7 @@ class NitrogenFlowModel:
             "N-NH3 EM slurry (%)",
             "Conversion factor (%)",
             "Excretion / LU (kgN)",
+            "Diet",
         ]
         colonnes_a_sommer = df_elevage.columns.difference(colonnes_a_exclure)
         total = df_elevage[colonnes_a_sommer].sum()
@@ -3592,9 +3650,24 @@ class NitrogenFlowModel:
             self.df_excr_display["Excretion to soil (ktN)"] != 0
         ]
 
+        colonnes_a_exclure = [
+            "Type",
+            "Diet",
+            "CO2 share (%)",
+        ]
+        colonnes_a_sommer = df_energy.columns.difference(colonnes_a_exclure)
+        total = df_energy[colonnes_a_sommer].sum()
+        total.name = "Total"
+        self.df_energy_display = pd.concat([df_energy, total.to_frame().T])
+        self.df_energy_display = self.df_energy_display.loc[
+            self.df_energy_display["Target Energy Production (GWh)"] != 0
+        ]
+
         self.df_cultures = df_cultures
         self.df_elevage = df_elevage
         self.df_prod = df_prod
+        self.df_excr = df_excr
+        self.df_energy = df_energy
         # self.adjacency_matrix = adjacency_matrix
 
     def get_df_culture(self):
