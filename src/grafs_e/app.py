@@ -410,7 +410,7 @@ with tab4:
             # 5) Industry (si présents)
             industry_candidates = [
                 lbl for lbl in ["Haber-Bosch", "other sectors"] if lbl in model.labels
-            ]
+            ] + model.df_energy.index.tolist()
             if industry_candidates:
                 merges["Industry"] = industry_candidates
 
@@ -569,7 +569,7 @@ with tab4:
 
             industry_candidates = [
                 lbl for lbl in ["Haber-Bosch", "other sectors"] if lbl in model.labels
-            ]
+            ] + model.df_energy.index.tolist()
             if industry_candidates:
                 merges["Industry"] = industry_candidates
 
@@ -625,7 +625,13 @@ with tab5:
 
         st.dataframe(model.df_prod_display)
 
-        st.subheader("Products allocation to livestock and population")
+        st.subheader("Energy data")
+
+        st.dataframe(model.df_energy_display)
+
+        st.subheader(
+            "Products allocation to livestock, population and bioenergy facilities"
+        )
 
         st.dataframe(model.allocations_df)
 
@@ -639,7 +645,7 @@ with tab5:
 
         st.subheader("Energy data")
 
-        st.dataframe(model.methanizer_overview_df)
+        st.dataframe(model.df_energy_flows)
 
         # --- Boutons de téléchargement ---
         st.markdown("### Download")
@@ -669,7 +675,7 @@ with tab5:
             "Allocations": model.allocations_df,
             "Diet deviations": model.deviations_df,
             "Population": model.df_pop,
-            "Energy": model.methanizer_overview_df,
+            "Energy": model.df_energy_display,
         }
 
         buffer = BytesIO()
