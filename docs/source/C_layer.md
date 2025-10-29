@@ -48,17 +48,22 @@ Crops and Livestock compartment have a Machine and livestock Carbon intensity fa
 
 Haber-Bosch process include a methan consumption factor for synthetic fertilizer production. This include direct ($CH_4$ for chemical reaction) and indirect ($CH_4$ to heat and pressure chemical reactor) consumption.
 
-For methanization, the inputs fluxes are computed based on nitrogen input flows and C/N ratio. The carbon production in methan ($CH_4$) is computed as follow:
+For bioenergy facilities, the inputs fluxes are computed based on nitrogen input flows and C/N ratio.
+
+Output fluxes of bioenergy facilities are different according to the type of the facility.
+For Methanizer type, the carbon production in methan ($CH_4$) is computed as follow:
 ```{math}
-C CH_4 = \frac{12}{16}*\rho_{CH_4}*\frac{E}{NCV}
+C\_CH_4 = \frac{12}{16}*\rho_{CH_4}*\frac{E}{NCV}
 ```
 With $\rho_{CH_4}$ the volume weight of methan gas (0.717 $kg/m^3$), $E$ the production energy by methanizer in kWh, $NCV$ the Net Calorific Value of methan gas (10 $kWh/m^3$). 12/16 factor is to convert methan mass to carbon mass.
 
 Then the methanizer $CO_2$ production is computed as follow:
 ```{math}
-C CO_2 = \frac{12}{44}*\rho_{CH_4}*\frac{E}{NCV}\frac{1-s}{s}
+C\_CO_2 = \frac{12}{44}*\rho_{CH_4}*\frac{E}{NCV}s
 ```
-With $s$ the volume share of methan gas in total mathanizer gas production and $12/44$ to convert $CO_2$ mass to carbon mass.
+With $s$ the volume share of CO2 losses in total mathanizer gas production ('Share CO2 (%)') and $12/44$ to convert $CO_2$ mass to carbon mass.
+
+For Bioraffinery type, losses of carbon inputs as $CO_2$ losses are computed using 'Share CO2 (%)' input data. Remaining outputs are directed toward hydrocarbure using C/N ratio.
 
 ## Input data
 
@@ -104,10 +109,15 @@ Similar data than Excretion compartments.
 | **CH4 EM (%)**                            | Methan emission factor for animal excretion                                                                                   | float ([0,100])              |                                                                                                                   |
 | **Humification Coefficient (%)**                  | Share of Carbon excreted being stabilized in soil                                                             | float ([0,100])              | Draw the flows from excretion to soil stock and to atmospheric $CO_2$                                                |
 
+### Bioenergy
+
+| Column Name                         | Description                                                                                          | Type             | Comment                                                                                                            |
+| -----------------------------------  | ---------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Share CO2 (%)**                            | Share of carbon input in bioenergy facility lost as atmospheric CO2 during process.                                                                                   | float ([0,100])              |                                                                                                                   |
+
 ### Global data
 
 | **Variable Name**                                            | **Description**                                                                                                                                                                                                                                    | **Type**         | **Comment**                                                                                                          |
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Total Haber-Bosch methan input (kgC/kgN)**                                         | Total methan consumption of methan (direct and indirect) for Haber bosch process                                                                                                                                                                                                     | float (>0)       |                                                                  |
-| **Share of methan volume in methanizer output (%)**                                         | Volume share of methan gas in methanizer production                                                                                                                                                                                                      | float (>0)       | The rest of gas production is supposed to be CO2. If no data for this input data, the model set it to 95%                                                                 |
-| **Green waste C/N**                                         | C/N ratio of green waste                                                                                                         | float (>0)       | If no data for this input data, the model set it to 10                                                                  |
+| **Total Haber-Bosch methan input (kgC/kgN)**                                         | Total methan consumption of hydrocarbures (direct and indirect) for Haber bosch process                                                                                                                                                                                                     | float (>0)       |                                                                  |
+| **Green waste C/N**                                         | C/N ratio of green waste                                                                                                         | float (>0)       | If no input data is provided, default value is 10.                                                                  |

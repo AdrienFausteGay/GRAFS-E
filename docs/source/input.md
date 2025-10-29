@@ -76,14 +76,18 @@ For each consummers (population, livestock and methanizer), a diet ID must be gi
 | --------- | ---------- | ------------------------- | ----- | ----- |
 | France | 2023       | Diet    | bovines | b_2023_fr |
 
-#### Methanizer diet
+#### Bioenergy facilities diets
 
-A diet must be given for methanizer on the territory. This is done like diets for populations and livestock with a diet name given in "Input data". Yet Methanizer are allowed to consume excretion compartments and "waste" which represent green waste. 
-If the is no methanizer in the territory, gave it this minimal diet :
-| Diet ID   | Proportion | Products                  |
-| --------- | ---------- | ------------------------- |
-| Methanizer | 1       | waste    |
+A diet must be given for each bioenergy ficilities on the territory. This is done like diets for populations and livestock with a diet name given in "Input data". Yet Methanizer type are allowed to consume products, excretion compartments and "waste" which represent green waste. 
+Bioraffinery type can anly use products compartments and waste as inputs.
 
+### Energy power
+
+The **Energy power** tab is used to give the power potential of each item (product, excretion, waste) for each bioenergy facility. It's structure is composed of 3 columns :
+
+- **Facility**: Name of the bioenergy facility (from Facility column in energy tab)
+- **Items**: list of items concerned by the definition of energy power. Each item must be coma separated
+- **Energy Power (MWh/tFW)**: Energy production by ton of Fresh Weight in the facility.
 
 ## Input Data
 
@@ -215,6 +219,24 @@ The Sub Types for **animal** products are fixed and include 3 categories.
 ```{warning}
 **Warning**: The Sub types must be different than **crops** categories.
 ```
+
+### Bioenergy Data
+
+The tab 'energy' is used to define the bioenergy facilities related to the territory. This tab can be left empty (just columns name) if no facilities are linked to the territory. A bioenergy facility is considered as a consummer and must therefore have a diet defined in Diet tab of data file. Unlike other consummers, bioenergy facilities can have products and excretion compartments and 'waste' compartment.
+
+| **Column Name**       | **Description**                                 | **Type**         | **Comment**                                                                                                           |
+| --------------------- | ----------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Facility** | Name of the bioenergy facility                    | str       |                                                                |
+| **Diet** | Name of the diet to use in Diet tab of data file                    | str       |                                                                |
+| **Target Energy Production (GWh)** | Target of energy production in this bioenergy facility                    | float (>0)       |                                                                |
+| **Type** | Type of bioenergy facility                    | str       |  Only two types available : 'Methanizer' or 'Bioreffinery'. See bellow definition of types.                                                              |
+
+#### Bioenergy Facilities Typology
+
+Two Types are available for bioenergy facilities :
+- 'Methanizer': The Methanizer can have inputs from product, excretion or waste compartments. All Nitrogen inputs goes to digestat and is spread on crops with the same rules as excretions or sludges (see GRAFS-E engine page). 
+- 'Bioreffinery': The Bioreffinery can have inputs only from products or waste. All input nitrogen is directed to 'hydrocarbures' compartment. 
+
     
 ### Global Data
 
@@ -234,14 +256,14 @@ The name and number of global variables are fixed. Any differences from this wil
 | **Methanizer Energy Production (GWh)**                                              | Energy production objective for methanizer.                                                                                                                                                                                          | float (>0)       |                                        |
 | **Weight diet**                                              | Weight of the optimization model for the diet constraint                                                                                                                                                                                          | float (>0)       | Adjusts the importance of respecting the proportions defined in the diets of populations and livestock                                        |
 | **Weight import**                                              | Weight of the optimization model for the import constraint                                                                                                                                                                                          | float (>0)       | The higher is this weight, the more the model will try to limit import and change diet to consumme local production                                         |
-| **Weight methanizer production**                                              | Weight of the optimization model for the energy methanizer production constraint                                                                                                                                                                                          | float (>0)       | Adjusts the importance of respecting the energy production goal                             |
-| **Weight methanizer inputs**                                              | Weight of the optimization model for the constraint on methanizer diet                                                                                                                                                                                        | float (>0)       | Adjusts the importance of respecting the proportions defined in the diet of methanizer. If no value is given in project or data file, the methanizer input weight is Weight diet.                                        |
+| **Weight energy production**                                              | Weight of the optimization model to stick to the sum of energy production target by bioenergy facilities                                                                                                                                                                                          | float (>0)       | Adjusts the importance of respecting the energy production goal. Default value is 0 is no energy facilities.                             |
+| **Weight energy inputs**                                              | Weight of the optimization model for the constraint on bioenergy facilities diets                                                                                                                                                                                        | float (>0)       | Adjusts the importance of respecting the proportions of the bioenergy facilities diets. Default value is 0 if no energy facilities.                                        |
 | **Weight distribution**                                       |Weight of the optimization model for the constraint on products allocation in diet groups.                                                                                                                                       | float (>0)       | See optimization model section for full definition. This input data is optional. If no value is given in project or data files, the distribution weight is $\text{weight diet}/10$                                                                |
-| **Weight fair local split**                                            | Weight of the optimization model for the constraint on products distribution to consummers.                                                                                                                                                                                           | float (>0)       | See optimization model section for full definition. This input data is optional. If no value is given in project or data files, the distribution weight is $\text{weight diet}/20$                                                             |
+| **Weight fair local split**                                            | Weight of the optimization model for the constraint on products distribution to consummers (livestock, population and bioenergy facilities).                                                                                                                                                                                           | float (>0)       | See optimization model section for full definition. This input data is optional. If no value is given in project or data files, the distribution weight is $\text{weight diet}/20$                                                             |
 | **Total Synthetic Fertilizer Use on crops (ktN)**            | Total synthetic nitrogen use on crops not in the following categories: "natural meadow", "leguminous", "temporary meadows"                                                                                                                     | float (>0)       | Used to normalize the synthetic fertilizer usage after calculating needs.                                           |
 | **Total Synthetic Fertilizer Use on grasslands (ktN)**       | Total synthetic nitrogen use on grasslands not in the following categories: "natural meadow", "temporary meadows"                                                                                                                                | float (>0)       | Used to normalize the synthetic fertilizer usage after calculating needs.                                           |
 | **Atmospheric deposition coef (kgN/ha)**                     | Atmospheric deposition coefficient per unit of area                                                                                                                                                                                               | float (>0)       | This flux is considered to originate from ammonia and nitrous oxide present in the atmosphere                         |
 | **coefficient N-NH3 volatilization synthetic fertilization (%)** | Ammonia volatilization coefficient during the application of synthetic fertilizers                                                                                                                                                                 | float ([0, 100]) | Then 1% of this volatilization recombines into nitrous oxide in the atmosphere                                      |
 | **coefficient N-N2O volatilization synthetic fertilization (%)** | Nitrous oxide volatilization coefficient during the application of synthetic fertilizers                                                                                                                                                           | float ([0, 100]) |                                                                                                                      |
 | **Enforce animal share**                                      | If True, the proportions of animal and plant consumption defined in the diets will be set as a hard constraint by the model. The model will not propose substitutions of animal and plant proteins to balance the flows. | Bool             | Set to True if diet data is solid. False will be particularly useful for scenario analysis.                          |
-| **Green waste methanization power (MWh/ktN)**                                      | Methanization energy potential for green waste by ktN of input. | float (>0)             |                          |
+| **Green waste nitrogen content (%)**                                      | Nitrogen content of green waste. | float (>0)             |  Compartment "waste". Used to compute Nitrogen input in bioenergy facilities. Default value is 0 if no energy facilities.                        |

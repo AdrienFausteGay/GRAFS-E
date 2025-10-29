@@ -11,6 +11,7 @@ from pulp import LpContinuous, LpMinimize, LpProblem, LpVariable, lpSum, value, 
 import warnings
 import math
 import pprint
+import hashlib
 
 # Afficher toutes les colonnes
 pd.set_option("display.max_columns", None)
@@ -109,6 +110,9 @@ class DataLoader:
         # Creation df_prod
         self.init_df_prod = self.metadata["prod"].set_index("Product")
 
+        # Creation df_energy
+        self.init_df_energy = self.metadata["energy"].set_index("Facility")
+
         fixed_compartments = [
             "Haber-Bosch",
             "hydro-system",
@@ -120,7 +124,7 @@ class DataLoader:
             "waste",
             "soil stock",
             "seeds",
-            "methanizer",
+            "hydrocarbures",
         ]
 
         trade = [
@@ -137,6 +141,7 @@ class DataLoader:
             + list(self.init_df_excr.index)
             + list(self.init_df_prod.index)
             + list(self.init_df_pop.index)
+            + list(self.init_df_energy.index)
             + fixed_compartments
             + trade
         )
@@ -198,10 +203,11 @@ class DataLoader:
         df_in = self.df_data["Input data"].copy()
 
         # Sélection de la zone/année
-        df_in = df_in[(df_in["Area"] == area) & (df_in["Year"] == year)]
-
-        # Nettoyage numérique de 'value'
-        df_in["value"] = self._to_num(df_in["value"])
+        df_in = df_in[
+            (df_in["Area"] == area)
+            & (df_in["Year"] == year)
+            & (df_in["item"].isin(init.index))
+        ]
 
         # On ne garde que les catégories d'intérêt
         df_in = df_in[df_in["category"].isin(categories_needed)]
@@ -232,8 +238,8 @@ class DataLoader:
 
         for col in categories_needed:
             series_added = wide[col]
-            if col in merged_df.columns and merged_df[col].dtype == np.int64:
-                merged_df[col] = merged_df[col].astype(float)
+            if col in merged_df.columns and merged_df[col].dtype != object:
+                merged_df[col] = merged_df[col].astype(object)
             if overwrite:
                 # On met la colonne telle quelle (même si NaN)
                 merged_df[col] = series_added
@@ -243,6 +249,7 @@ class DataLoader:
                 if col not in merged_df.columns:
                     # créer la colonne si elle n'existe pas
                     merged_df[col] = np.nan
+                    merged_df[col] = merged_df[col].astype(object)
                 merged_df.loc[mask_has_value, col] = series_added.loc[mask_has_value]
 
         if warn_if_nans:
@@ -270,35 +277,22 @@ class DataLoader:
         merged_df = merged_df.fillna(0)
         return merged_df
 
-    def generate_df_prod(self, area, year, carbon=False):
-        if carbon is False:
-            categories_needed = (
-                "Production (kton)",
-                "Nitrogen Content (%)",
-                "Origin compartment",
-                "Type",
-                "Sub Type",
-                "Waste (%)",
-                "Other uses (%)",
-                "Methanization power (MWh/tFW)",
-            )
-        else:
-            categories_needed = (
-                "Production (kton)",
-                "Sub Type",
-                "Origin compartment",
-                "Nitrogen Content (%)",
-                "Carbon Content (%)",
-            )
+    def generate_df_prod(self, area, year):
+        categories_needed = (
+            "Production (kton)",
+            "Nitrogen Content (%)",
+            "Origin compartment",
+            "Type",
+            "Sub Type",
+            "Waste (%)",
+            "Other uses (%)",
+        )
 
         df_prod = self.get_columns(
             area, year, self.init_df_prod, categories_needed=categories_needed
         )
 
         df_prod = df_prod[list(categories_needed)].copy()
-
-        if carbon:
-            return df_prod.fillna(0)
 
         # Calcul de l'azote disponible pour les cultures
         df_prod["Nitrogen Production (ktN)"] = (
@@ -346,33 +340,21 @@ class DataLoader:
         self.df_prod = df_prod
         return df_prod
 
-    def generate_df_cultures(self, area, year, carbon=False):
-        if carbon is False:
-            categories_needed = (
-                "Area (ha)",
-                "Spreading Rate (%)",
-                "Seed input (ktN/ktN)",
-                "Fertilization Need (kgN/qtl)",
-                "Surface Fertilization Need (kgN/ha)",
-                "Harvest Index",
-                "Main Production",
-                "Category",
-                "BNF alpha",
-                "BNF beta",
-                "BGN",
-                "Raw Surface Synthetic Fertilizer Use (kgN/ha)",
-            )
-        else:
-            categories_needed = (
-                "Main Production",
-                "Harvest Index",
-                "Area (ha)",
-                "Seed input (ktN/ktN)",
-                "Carbon Mechanisation Intensity (ktC/ha)",
-                "Residue Humification Coefficient (%)",
-                "Root Humification Coefficient (%)",
-                "Surface Root Production (kgC/ha)",
-            )
+    def generate_df_cultures(self, area, year):
+        categories_needed = (
+            "Area (ha)",
+            "Spreading Rate (%)",
+            "Seed input (ktN/ktN)",
+            "Fertilization Need (kgN/qtl)",
+            "Surface Fertilization Need (kgN/ha)",
+            "Harvest Index",
+            "Main Production",
+            "Category",
+            "BNF alpha",
+            "BNF beta",
+            "BGN",
+            "Raw Surface Synthetic Fertilizer Use (kgN/ha)",
+        )
         df_cultures = self.get_columns(
             area, year, self.init_df_cultures, categories_needed=categories_needed
         )
@@ -394,8 +376,6 @@ class DataLoader:
             df_cultures["Seed input (ktN/ktN)"]
             * df_cultures["Main Nitrogen Production (ktN)"]
         )
-        if carbon:
-            return df_cultures.fillna(0)
 
         mask = df_cultures["Area (ha)"] != 0
 
@@ -418,7 +398,7 @@ class DataLoader:
         df_cultures.loc[mask, "Surface Fertilization Need (kgN/ha)"] = (
             df_cultures.loc[mask, "Fertilization Need (kgN/qtl)"]
             * df_cultures.loc[mask, "Yield (qtl/ha)"]
-        )
+        ).astype("float64", copy=False)
 
         if df_cultures["Raw Surface Synthetic Fertilizer Use (kgN/ha)"].eq(0).all():
             df_cultures = df_cultures.drop(
@@ -436,27 +416,18 @@ class DataLoader:
         self.df_cultures = df_cultures
         return df_cultures
 
-    def generate_df_elevage(self, area, year, carbon=False):
-        if carbon is False:
-            categories_needed = (
-                "Excreted indoor (%)",
-                "Excreted indoor as manure (%)",
-                "Excretion / LU (kgN)",
-                "LU",
-            )
-        else:
-            categories_needed = (
-                "Excretion / LU (kgN)",
-                "LU",
-                "C-CH4 enteric/LU (kgC)",
-                "Infrastructure CO2 emissions/LU (kgC)",
-            )
+    def generate_df_elevage(self, area, year):
+        categories_needed = (
+            "Excreted indoor (%)",
+            "Excreted indoor as manure (%)",
+            "Excretion / LU (kgN)",
+            "LU",
+            "Diet",
+        )
         df_elevage = self.get_columns(
             area, year, self.init_df_elevage, categories_needed=categories_needed
         )
         df_elevage = df_elevage[list(categories_needed)].copy()
-        if carbon:
-            return df_elevage.fillna(0)
 
         df_elevage["Excreted indoor as slurry (%)"] = (
             100 - df_elevage["Excreted indoor as manure (%)"]
@@ -521,29 +492,16 @@ class DataLoader:
         self.df_elevage = df_elevage
         return df_elevage
 
-    def generate_df_excr(self, area, year, carbon=False):
-        _ = self.generate_df_elevage(area, year, False)
-        if carbon is False:
-            categories_needed = (
-                "N-NH3 EM (%)",
-                "N-N2 EM (%)",
-                "N-N2O EM (%)",
-                "Type",
-                "Origin compartment",
-                "Methanization power (MWh/tFW)",
-                "Nitrogen Content (%)",
-            )
-        else:
-            categories_needed = (
-                "N-NH3 EM (%)",
-                "N-N2 EM (%)",
-                "N-N2O EM (%)",
-                "Type",
-                "Origin compartment",
-                "C/N",
-                "CH4 EM (%)",
-                "Humification coefficient (%)",
-            )
+    def generate_df_excr(self, area, year):
+        _ = self.generate_df_elevage(area, year)
+        categories_needed = (
+            "N-NH3 EM (%)",
+            "N-N2 EM (%)",
+            "N-N2O EM (%)",
+            "Type",
+            "Origin compartment",
+            "Nitrogen Content (%)",
+        )
         df_excr = self.get_columns(
             area, year, self.init_df_excr, categories_needed=categories_needed
         )
@@ -620,30 +578,17 @@ class DataLoader:
         df_excr = df_excr.fillna(0)
         return df_excr
 
-    def generate_df_pop(self, area, year, carbon=False):
-        if carbon is False:
-            categories_needed = (
-                "Inhabitants",
-                "N-NH3 EM excretion (%)",
-                "N-N2 EM excretion (%)",
-                "N-N2O EM excretion (%)",
-                "Total ingestion per capita (kgN)",
-                "Fishery ingestion per capita (kgN)",
-                "Excretion recycling (%)",
-            )
-        else:
-            categories_needed = (
-                "Inhabitants",
-                "N-NH3 EM excretion (%)",
-                "N-N2 EM excretion (%)",
-                "N-N2O EM excretion (%)",
-                "Total ingestion per capita (kgN)",
-                "Fishery ingestion per capita (kgN)",
-                "Excretion recycling (%)",
-                "C/N",
-                "CH4 EM (%)",
-                "Humification coefficient (%)",
-            )
+    def generate_df_pop(self, area, year):
+        categories_needed = (
+            "Inhabitants",
+            "N-NH3 EM excretion (%)",
+            "N-N2 EM excretion (%)",
+            "N-N2O EM excretion (%)",
+            "Total ingestion per capita (kgN)",
+            "Fishery ingestion per capita (kgN)",
+            "Excretion recycling (%)",
+            "Diet",
+        )
         df_pop = self.get_columns(
             area, year, self.init_df_pop, categories_needed=categories_needed
         )
@@ -668,6 +613,19 @@ class DataLoader:
         df_pop = df_pop.fillna(0)
         self.df_pop = df_pop
         return df_pop
+
+    def generate_df_energy(self, area, year):
+        categories_needed = (
+            "Target Energy Production (GWh)",
+            "Diet",
+            "Type",
+        )
+        df_energy = self.get_columns(
+            area, year, self.init_df_energy, categories_needed=categories_needed
+        )
+        df_energy = df_energy[list(categories_needed)].copy()
+        self.df_energy = df_energy
+        return df_energy
 
     def get_global_metrics(self, area, year, carbon=False):
         input_df = self.df_data["Input data"].copy()
@@ -694,16 +652,27 @@ class DataLoader:
                 "Weight import",
                 "Weight distribution",
                 "Weight fair local split",
+                "Weight energy production",
+                "Weight energy inputs",
                 "Enforce animal share",
-                "Methanizer Energy Production (GWh)",
-                "Weight methanizer production",
-                "Weight methanizer inputs",
-                "Green waste methanization power (MWh/ktN)",
+                "Green waste nitrogen content (%)",
             ]
         else:
             required_items = [
+                "Total Synthetic Fertilizer Use on crops (ktN)",
+                "Total Synthetic Fertilizer Use on grasslands (ktN)",
+                "Atmospheric deposition coef (kgN/ha)",
+                "coefficient N-NH3 volatilization synthetic fertilization (%)",
+                "coefficient N-N2O emission synthetic fertilization (%)",
+                "Weight diet",
+                "Weight import",
+                "Weight distribution",
+                "Weight fair local split",
+                "Weight energy production",
+                "Weight energy inputs",
+                "Enforce animal share",
                 "Total Haber-Bosch methan input (kgC/kgN)",
-                "Share of methan volume in methanizer output (%)",
+                "Green waste nitrogen content (%)",
                 "Green waste C/N",
             ]
 
@@ -719,14 +688,14 @@ class DataLoader:
                 min(non_zero_weights) / 20
             )
 
-        if "Share of methan volume in methanizer output (%)" not in global_df.index:
-            global_df.loc[
-                "Share of methan volume in methanizer output (%)", "value"
-            ] = 95
+        if carbon:
+            if "Green waste C/N" not in global_df.index:
+                global_df.loc["Green waste C/N", "value"] = 10
 
-        if "Green waste C/N" not in global_df.index:
-            global_df.loc["Green waste C/N", "value"] = 10
-
+        if len(self.init_df_energy) == 0:
+            global_df.loc["Green waste nitrogen content (%)", "value"] = 0
+            global_df.loc["Weight energy production", "value"] = 0
+            global_df.loc["Weight energy inputs", "value"] = 0
         # Check for the presence of each required item
         missing_items = [item for item in required_items if item not in global_df.index]
 
@@ -761,9 +730,9 @@ class DataLoader:
             raise ValueError("No 'Diet' sheet found in self.df_data")
 
         diet_table = self.df_data["Diet"].copy()
-        input_df = self.df_data.get("Input data", None)
-        if input_df is None:
-            raise ValueError("No 'Input data' sheet found in self.df_data")
+        # input_df = self.df_data.get("Input data", None)
+        # if input_df is None:
+        #     raise ValueError("No 'Input data' sheet found in self.df_data")
 
         # s'assurer que Proportion est numérique
         diet_table["Proportion"] = pd.to_numeric(
@@ -841,53 +810,61 @@ class DataLoader:
         # On suppose Input data a colonnes: Area, Year, category, item, value  (value = Diet ID)
         # on sélectionne les lignes où category == 'Diet' (insensible à la casse)
         # et Area==area and Year==year
-        input_df2 = input_df.copy()
+        # input_df2 = input_df.copy()
 
         # item and value
         # item = consumer (e.g. 'bovines'), value = diet id
-        col_item = "item"
-        col_value = "value"
+        # col_item = "item"
+        # col_value = "value"
 
         # filter relevant rows
-        mask = (
-            (input_df2["Area"] == area)
-            & (input_df2["Year"] == year)
-            & (input_df2["category"] == "Diet")
-        )
-        mapping_rows = input_df2.loc[mask, [col_item, col_value]].copy()
-        if mapping_rows.empty:
-            raise ValueError(
-                f"No Diet mapping found in Input data for area={area}, year={year}"
-            )
+        # mask = (
+        #     (input_df2["Area"] == area)
+        #     & (input_df2["Year"] == year)
+        #     & (input_df2["category"] == "Diet")
+        # )
 
-        # build dict consumer -> diet_id (string)
+        # mapping_rows = input_df2.loc[mask, [col_item, col_value]].copy()
+        # if mapping_rows.empty:
+        #     raise ValueError(
+        #         f"No Diet mapping found in Input data for area={area}, year={year}"
+        #     )
+
+        # # build dict consumer -> diet_id (string)
         consumer_to_diet = {}
-        for _, r in mapping_rows.iterrows():
-            consumer = str(r[col_item]).strip()
-            diet_id_val = r[col_value]
-            if pd.isna(diet_id_val):
-                raise ValueError(
-                    f"Empty diet id for consumer '{consumer}' in Input data for {area}/{year}"
-                )
-            consumer_to_diet[consumer] = str(diet_id_val).strip()
+        # for _, r in mapping_rows.iterrows():
+        #     consumer = str(r[col_item]).strip()
+        #     diet_id_val = r[col_value]
+        #     if pd.isna(diet_id_val):
+        #         raise ValueError(
+        #             f"Empty diet id for consumer '{consumer}' in Input data for {area}/{year}"
+        #         )
+        #     consumer_to_diet[consumer] = str(diet_id_val).strip()
 
-        # --- 4) Vérifier que chaque index de df_elevage et df_pop a un mapping ---
-        # on normalise casse pour comparaison facile : on compare en minuscules des deux côtés
-        consumers_expected = set(
-            [
-                c.lower()
-                for c in list(self.init_df_elevage.index) + list(self.init_df_pop.index)
-            ]
-            + ["methanizer"]
-        )
-        consumers_found = set([k.lower() for k in consumer_to_diet.keys()])
+        for index, row in self.df_elevage.iterrows():
+            consumer_to_diet[index] = row["Diet"]
+        for index, row in self.df_pop.iterrows():
+            consumer_to_diet[index] = row["Diet"]
+        for index, row in self.df_energy.iterrows():
+            consumer_to_diet[index] = row["Diet"]
 
-        missing_consumers = sorted(list(consumers_expected - consumers_found))
-        if missing_consumers:
-            raise ValueError(
-                "Missing diet mapping for the following consumers (indexes in df_elevage, df_pop or 'mathanizer') for "
-                f"{area}/{year}:\n" + "\n".join(missing_consumers)
-            )
+        # # --- 4) Vérifier que chaque index de df_elevage et df_pop a un mapping ---
+        # # on normalise casse pour comparaison facile : on compare en minuscules des deux côtés
+        # consumers_expected = set(
+        #     [
+        #         c.lower()
+        #         for c in list(self.init_df_elevage.index) + list(self.init_df_pop.index)
+        #     ]
+        #     + ["methanizer"]
+        # )
+        # consumers_found = set([k.lower() for k in consumer_to_diet.keys()])
+
+        # missing_consumers = sorted(list(consumers_expected - consumers_found))
+        # if missing_consumers:
+        #     raise ValueError(
+        #         "Missing diet mapping for the following consumers (indexes in df_elevage, df_pop or 'mathanizer') for "
+        #         f"{area}/{year}:\n" + "\n".join(missing_consumers)
+        #     )
 
         # --- 5) Construire diet_by_consumer : consumer -> expanded DataFrame with proportions and products ---
         diet_by_consumer = {}
@@ -1098,12 +1075,106 @@ class NitrogenFlowModel:
         self.df_excr = data.generate_df_excr(self.area, self.year)
         self.df_prod = data.generate_df_prod(self.area, self.year)
         self.df_pop = data.generate_df_pop(self.area, self.year)
+        self.df_energy = data.generate_df_energy(self.area, self.year)
         self.df_global = data.get_global_metrics(self.area, self.year)
         self.diets = data.load_diets_for_area_year(self.area, self.year)
+
+        self._build_energy_power_map()
 
         self.adjacency_matrix = self.flux_generator.adjacency_matrix
 
         self.compute_fluxes()
+
+    @staticmethod
+    def _slug(s: str, maxlen: int = 40) -> str:
+        s = re.sub(r"[^A-Za-z0-9]+", "_", str(s)).strip("_")
+        if len(s) <= maxlen:
+            return s
+        h = hashlib.md5(s.encode()).hexdigest()[:8]
+        return s[: maxlen - 9] + "_" + h
+
+    def _build_energy_power_map(self):
+        """
+        Construit un dict {facility: {item: power_MWh_per_ktN}}
+        à partir de l'onglet 'Energy power' (MWh/tFW) + %N.
+        Pour 'waste', on utilise df_global['Green waste nitrogen content (%)'].
+        """
+        from collections import defaultdict
+
+        power_map = defaultdict(dict)
+
+        tbl_name = "Energy power"
+        if tbl_name not in self.data_loader.df_data:
+            self.energy_power_map = power_map
+            return power_map
+
+        tbl = self.data_loader.df_data[tbl_name].copy()
+
+        # Filtres optionnels si présents
+        if "Area" in tbl.columns:
+            tbl = tbl[(tbl["Area"].isna()) | (tbl["Area"] == self.area)]
+        if "Year" in tbl.columns:
+            tbl = tbl[(tbl["Year"].isna()) | (tbl["Year"] == self.year)]
+
+        required = {"Facility", "Items", "Energy Power (MWh/tFW)"}
+        missing = required - set(tbl.columns)
+        if missing:
+            raise KeyError(f"'Energy power' sheet missing columns: {missing}")
+
+        # %N pour les wastes
+        green_waste_n_pct = float(
+            self.df_global.loc["Green waste nitrogen content (%)", "value"]
+        )
+
+        for _, r in tbl.iterrows():
+            fac = str(r["Facility"]).strip()
+            items_cell = r["Items"]
+            pw_tf = float(r["Energy Power (MWh/tFW)"])  # MWh/tFW
+
+            if not fac or not np.isfinite(pw_tf):
+                continue
+
+            # split multi-items "a, b, c"
+            if pd.isna(items_cell):
+                items = []
+            elif isinstance(items_cell, (list, tuple)):
+                items = [str(x).strip() for x in items_cell]
+            else:
+                items = [s.strip() for s in str(items_cell).split(",") if s.strip()]
+
+            for it in items:
+                # convertir MWh/tFW -> MWh/ktN avec le %N
+                if it in self.df_prod.index:
+                    n_pct = float(self.df_prod.loc[it, "Nitrogen Content (%)"])
+                elif it in self.df_excr.index:
+                    n_pct = float(self.df_excr.loc[it, "Nitrogen Content (%)"])
+                elif it == "waste":
+                    n_pct = green_waste_n_pct
+                else:
+                    warnings.warn(
+                        f"[Energy power] Item '{it}' inconnu ; ignoré pour facility '{fac}'."
+                    )
+                    continue
+
+                if n_pct <= 0:
+                    warnings.warn(
+                        f"[Energy power] %N=0 pour '{it}' ; MWh/tFW pas convertible -> ignoré."
+                    )
+                    continue
+
+                mwh_per_ktn = pw_tf * 1000 / (n_pct / 100.0)
+                power_map[fac][it] = mwh_per_ktn
+
+        self.energy_power_map = power_map
+        return power_map
+
+    def _conv_MWh_per_ktN(self, facility: str, item: str) -> float:
+        """
+        Retourne le pouvoir énergétique spécifique (MWh/ktN) pour (facility,item).
+        0.0 si non défini (ce qui forcera énergie=0 pour cet item dans cette facility).
+        """
+        pm = getattr(self, "energy_power_map", {}) or {}
+        return float(pm.get(facility, {}).get(item, 0.0))
 
     def plot_heatmap(self):
         """
@@ -1355,6 +1426,7 @@ class NitrogenFlowModel:
         df_excr = self.df_excr
         df_prod = self.df_prod
         df_pop = self.df_pop
+        df_energy = self.df_energy
         df_global = self.df_global
         diets = self.diets
         label_to_index = self.label_to_index
@@ -1577,17 +1649,21 @@ class NitrogenFlowModel:
             )
             return adj_matrix_df.loc[:, culture].sum().item()
 
+        HI_safe = df_cultures["Harvest Index"].replace(0, np.nan)
+
         target_fixation = (
             (
-                df_cultures["BNF alpha"]
-                * df_cultures["Yield (kgN/ha)"]
-                / df_cultures["Harvest Index"]
-                + df_cultures["BNF beta"]
+                (
+                    df_cultures["BNF alpha"] * df_cultures["Yield (kgN/ha)"] / HI_safe
+                    + df_cultures["BNF beta"]
+                )
+                * df_cultures["BGN"]
+                * df_cultures["Area (ha)"]
+                / 1e6
             )
-            * df_cultures["BGN"]
-            * df_cultures["Area (ha)"]
-            / 1e6
-        ).to_dict()
+            .fillna(0)
+            .to_dict()
+        )
         source_fixation = {"atmospheric N2": 1}
         flux_generator.generate_flux(source_fixation, target_fixation)
         df_cultures["Symbiotic Fixation (ktN)"] = df_cultures.index.map(
@@ -1686,9 +1762,11 @@ class NitrogenFlowModel:
             - df_leg["Organic Fertilization (ktN)"]
         )
 
-        df_leg["Residues Production (ktN)"] = (
-            df_leg["Total Nitrogen Production (ktN)"] / df_leg["Harvest Index"]
-            - df_leg["Total Nitrogen Production (ktN)"]
+        df_leg["Residues Production (ktN)"] = np.where(
+            df_leg["Harvest Index"] > 0,
+            (df_leg["Total Nitrogen Production (ktN)"] / df_leg["Harvest Index"])
+            - df_leg["Total Nitrogen Production (ktN)"],
+            0.0,
         )
 
         df_leg["Roots Production (ktN)"] = (
@@ -1750,7 +1828,7 @@ class NitrogenFlowModel:
             ]
             / total_surface_cereales
             * total_surplus_azote
-        )
+        ).astype(float)
 
         # Génération des flux pour l'héritage des légumineuses et prairies temporaires
         source_leg = (
@@ -1853,10 +1931,10 @@ class NitrogenFlowModel:
 
         mask = df_cultures["Area (ha)"] != 0
         df_cultures.loc[mask, "Adjusted Surface Synthetic Fertilizer Use (kgN/ha)"] = (
-            df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"]
-            / df_cultures["Area (ha)"]
+            df_cultures.loc[mask, "Adjusted Total Synthetic Fertilizer Use (ktN)"]
+            / df_cultures.loc[mask, "Area (ha)"]
             * 1e6
-        )
+        ).astype(float)
 
         ## Azote synthétique volatilisé par les terres
         # Est ce qu'il n'y a que l'azote synthétique qui est volatilisé ?
@@ -2023,21 +2101,37 @@ class NitrogenFlowModel:
         poids_import_brut = df_global.loc[df_global.index == "Weight import"][
             "value"
         ].item()
-        raw_import_term = lpSum(I_vars.values()) / max(
-            1,
-            (
-                df_cons["Ingestion (ktN)"].sum()
-                - df_prod.loc[
-                    df_prod["Sub Type"] != "non edible meat",
-                    "Nitrogen Production (ktN)",
-                ].sum()
-            ),
-        )
 
         # Poids pour équilibrer la distribution des cultures dans les categories
         poids_penalite_culture = df_global.loc[
             df_global.index == "Weight distribution"
         ]["value"].item()
+
+        # Contrainte sur l'écart aux diètes
+        for cons, proportion_initiale, products_list in pairs:
+            # Récupère le besoin total en azote pour ce consommateur
+            besoin = df_cons.loc[cons, "Ingestion (ktN)"]
+
+            azote_cultures = lpSum(
+                x_vars.get((prod_i, cons), 0) for prod_i in products_list
+            ) + lpSum(I_vars.get((prod_i, cons), 0) for prod_i in products_list)
+
+            # Assure que le besoin n'est pas nul avant de calculer la proportion effective
+            if besoin > 0:
+                proportion_effective = azote_cultures / besoin
+
+                # Récupère la variable de déviation
+                delta_var = delta_vars[(cons, tuple(products_list))]
+
+                # Ajoute les contraintes pour la déviation
+                prob += (
+                    proportion_effective - proportion_initiale <= delta_var,
+                    f"Deviation_Plus_{cons}_{products_list}",
+                )
+                prob += (
+                    proportion_initiale - proportion_effective <= delta_var,
+                    f"Deviation_Moins_{cons}_{products_list}",
+                )
 
         # Contrainte sur la distribution d'un produit à tous ses consommateurs.
         # 0) Construire les parts de référence s_ref[(p, c)]
@@ -2120,262 +2214,447 @@ class NitrogenFlowModel:
             "U", list(df_prod.index), lowBound=0, cat=LpContinuous
         )
 
-        # (Option MILP) binaire no-swap import/surplus par produit
-        use_milp_no_swap = True  # mets False pour rester LP 100%
-        if use_milp_no_swap:
-            y_vars = LpVariable.dicts(
-                "y", list(df_prod.index), lowBound=0, upBound=1, cat="Binary"
+        W_ENERGY_PROD = float(df_global.loc["Weight energy production", "value"])
+        W_ENERGY_INPUT = float(df_global.loc["Weight energy inputs", "value"])
+
+        energy_vars = {}  # fac -> {"prod": {p: var}, "excr": {e: var}, "waste": var}
+        I_energy_vars = {}  # (product, facility) -> var  (imports autorisés pour bioraffineries)
+
+        energy_dev_terms = []  # déviations d'énergie (|E - cible|/cible par fac)
+        delta_fac = {}  # Penalité déviation diète
+        fair_term_energy_parts = []  # parts fair-share "produits -> infrastructures"
+        penalite_energy_terms = []  # pénalités intra-groupes des diètes d'infras
+
+        # Pour les bilans
+        energy_prod_vars_by_p = {p: [] for p in df_prod.index}
+        energy_excr_vars_by_e = {e: [] for e in df_excr.index}
+
+        # Production par infra
+        energy_E_GWh_expr = {}
+
+        pairs_fac_all = []
+        energy_inputs_terms = []
+        Nhat_by_fac = {}
+        fac_norm = {}
+
+        for facility, row in df_energy.iterrows():
+            TARGET_GWh = float(row["Target Energy Production (GWh)"])
+            # IMPORTANT : la diète d'une infrastructure se récupère par le NOM DE L'INFRA, pas l'ID de diète
+            fac_diet_df = diets[diets["Consumer"] == facility].copy()
+
+            # Items autorisés par la diète de l’infrastructure
+            fac_prod_items = set()
+            fac_excr_items = set()
+
+            allow_waste = False
+            for _, r in fac_diet_df.iterrows():
+                for it in r["Products"]:
+                    if it in df_prod.index:
+                        fac_prod_items.add(it)
+                    elif it in df_excr.index:
+                        fac_excr_items.add(it)
+                    elif it == "waste":
+                        allow_waste = True
+                    else:
+                        # produit inconnu → on l'ignore (on n'assimile plus à "waste")
+                        pass
+
+            # Variables d’allocation vers l’infra (seulement pour les items autorisés)
+            x_fac_prod = LpVariable.dicts(
+                f"x_{facility}_prod", list(fac_prod_items), lowBound=0, cat=LpContinuous
+            )
+            x_fac_excr = LpVariable.dicts(
+                f"x_{facility}_excr", list(fac_excr_items), lowBound=0, cat=LpContinuous
+            )
+            # Ne créer 'waste' QUE si la diète l'autorise explicitement
+            N_waste_fac = (
+                LpVariable(f"N_{facility}_waste", lowBound=0, cat=LpContinuous)
+                if allow_waste
+                else None
             )
 
-        # Big-M par produit (borne supérieure serrée = plus rapide)
-        M = {}
-        for p in df_prod.index:
-            prodN = float(df_prod.loc[p, "Available Nitrogen Production (ktN)"])
-            # borne import plausible = somme des besoins des consommateurs qui ont p dans leur diète
-            cons_with_p = [c for (prod, c) in valid_pairs if prod == p]
-            need_with_p = (
-                sum(float(df_cons.loc[c, "Ingestion (ktN)"]) for c in cons_with_p)
-                if cons_with_p
-                else 0.0
-            )
-            M[p] = max(prodN, need_with_p) + 1e-6  # marge min
+            energy_vars[facility] = {
+                "prod": x_fac_prod,
+                "excr": x_fac_excr,
+                "waste": N_waste_fac,
+            }
 
-        # Contraintes sur la méthanisation
-        METH_DIET_NAME = "Methanizer"
-        TARGET_GWh = df_global.loc["Methanizer Energy Production (GWh)", "value"]
-        W_METH_ENERGY = df_global.loc["Weight methanizer production", "value"]
-        W_METH_DIET = df_global.loc["Weight methanizer inputs", "value"]
-        WASTE_PWR_MWh_per_ktN = df_global.loc[
-            "Green waste methanization power (MWh/ktN)", "value"
-        ]
+            # IMPORTS autorisés UNIQUEMENT pour les bioraffineries, et UNIQUEMENT si le produit est dans la diète
+            if str(row["Type"]).lower() == "bioraffinery":
+                allowed_import_products = {
+                    it
+                    for _, r in fac_diet_df.iterrows()
+                    for it in r["Products"]
+                    if it in df_prod.index
+                }
+                for p in allowed_import_products:
+                    I_energy_vars[(p, facility)] = LpVariable(
+                        f"I_energy_{p}_{facility}", lowBound=0, cat=LpContinuous
+                    )
 
-        meth_diet_df = diets[diets["Consumer"] == METH_DIET_NAME].copy()
-
-        meth_prod_items = set()
-        meth_excr_items = set()
-        meth_waste_items = set(["waste"])
-
-        for _, row in meth_diet_df.iterrows():
-            for it in row["Products"]:
-                if it in df_prod.index:
-                    meth_prod_items.add(it)
-                elif it in df_excr.index:
-                    meth_excr_items.add(it)
-                else:
-                    # tout item non trouvé dans df_prod/df_excr est interprété comme "waste"
-                    meth_waste_items.add(it)
-
-        x_meth_prod = LpVariable.dicts(
-            "x_meth_prod", list(meth_prod_items), lowBound=0, cat=LpContinuous
-        )
-        x_meth_excr = LpVariable.dicts(
-            "x_meth_excr", list(meth_excr_items), lowBound=0, cat=LpContinuous
-        )
-        N_waste_meth = LpVariable("N_waste_meth", lowBound=0, cat=LpContinuous)
-
-        # Production d'énergie
-        E_MWh_products = (
-            lpSum(
-                x_meth_prod[p]
-                * (
-                    float(df_prod.loc[p, "Methanization power (MWh/tFW)"])
-                    * 1000
-                    / (float(df_prod.loc[p, "Nitrogen Content (%)"]) / 100)
+            # -- Énergie produite (MWh) puis conversion en GWh
+            # Énergie (MWh), puis conversion GWh
+            # PRODUITS → facility
+            E_MWh_products = (
+                lpSum(
+                    x_fac_prod[p] * self._conv_MWh_per_ktN(facility, p)
+                    for p in fac_prod_items
                 )
-                for p in meth_prod_items
+                if len(fac_prod_items)
+                else 0
             )
-            if len(meth_prod_items)
-            else 0
-        )
 
-        E_MWh_excreta = (
-            lpSum(
-                x_meth_excr[e]
-                * (
-                    float(df_excr.loc[e, "Methanization power (MWh/tFW)"])
-                    * 1000
-                    / (float(df_excr.loc[e, "Nitrogen Content (%)"]) / 100)
+            # EXCRETA → facility
+            E_MWh_excreta = (
+                lpSum(
+                    x_fac_excr[e] * self._conv_MWh_per_ktN(facility, e)
+                    for e in fac_excr_items
                 )
-                for e in meth_excr_items
-            )
-            if len(meth_excr_items)
-            else 0
-        )
-
-        E_MWh_waste = N_waste_meth * WASTE_PWR_MWh_per_ktN
-        E_GWh_total = (E_MWh_products + E_MWh_excreta + E_MWh_waste) / 1000.0
-
-        meth_energy_dev = LpVariable("meth_energy_dev", lowBound=0, cat=LpContinuous)
-        if TARGET_GWh > 0:
-            prob += (
-                meth_energy_dev >= (E_GWh_total - TARGET_GWh) / TARGET_GWh,
-                "Meth_energy_dev_pos",
-            )
-            prob += (
-                meth_energy_dev >= (TARGET_GWh - E_GWh_total) / TARGET_GWh,
-                "Meth_energy_dev_neg",
-            )
-        else:  # Gestion du cas où la demande d'énergie est nulle.
-            prob += (meth_energy_dev == 0, "Meth_energy_dev_zero_target")
-
-            # Variables de production/utilisation de méthane (dictionnaires)
-            for item in meth_prod_items:
-                prob += (x_meth_prod[item] == 0, f"x_meth_prod_zero__{item}")
-
-            for item in meth_excr_items:
-                prob += (x_meth_excr[item] == 0, f"x_meth_excr_zero__{item}")
-
-            # Variable N_waste_meth
-            prob += (N_waste_meth == 0, "N_waste_meth_zero")
-
-        # -- Diète du méthaniseur (parts d’azote par groupe)
-        pairs_meth = []
-        for _, row in meth_diet_df.iterrows():
-            prop = float(row["Proportion"])
-            prop = prop / 100.0 if prop > 1.0 else prop
-            pairs_meth.append((METH_DIET_NAME, prop, tuple(row["Products"])))
-
-        delta_meth = LpVariable.dicts(
-            "delta_meth",
-            [(METH_DIET_NAME, tuple(pL)) for _, _, pL in pairs_meth],
-            lowBound=0,
-            cat=LpContinuous,
-        )
-
-        N_to_meth_total = (
-            (lpSum(x_meth_prod.values()) if len(meth_prod_items) else 0)
-            + (lpSum(x_meth_excr.values()) if len(meth_excr_items) else 0)
-            + (N_waste_meth if isinstance(N_waste_meth, LpVariable) else 0)
-        )
-
-        for _, prop, prod_list in pairs_meth:
-            N_group = 0
-            for it in prod_list:
-                if it in x_meth_prod:
-                    N_group += x_meth_prod[it]
-                elif it in x_meth_excr:
-                    N_group += x_meth_excr[it]
-                elif isinstance(N_waste_meth, LpVariable) and it in meth_waste_items:
-                    N_group += N_waste_meth  # agrégat waste
-
-            dv = delta_meth[(METH_DIET_NAME, tuple(prod_list))]
-
-            # ----- LINEARISATION (pas de division) -----
-            # N_group - prop * N_to_meth_total <= dv
-            prob += (
-                N_group - prop * N_to_meth_total <= dv,
-                f"METH_Diet_plus_{hash(tuple(prod_list))}",
+                if len(fac_excr_items)
+                else 0
             )
 
-            # prop * N_to_meth_total - N_group <= dv
-            prob += (
-                prop * N_to_meth_total - N_group <= dv,
-                f"METH_Diet_moins_{hash(tuple(prod_list))}",
+            # WASTE → facility (si 'waste' est autorisé dans la diète)
+            E_MWh_waste = (
+                N_waste_fac * self._conv_MWh_per_ktN(facility, "waste")
+                if isinstance(N_waste_fac, LpVariable)
+                else 0
             )
 
-        # ----- Fair-share méthaniseur (produits) -----
-        # Contribution du méthaniseur aux parts de référence par produit (comme raw_ref pour les autres cons.)
-        raw_ref_meth = defaultdict(float)
-        for _, prop, products_list in pairs_meth:
-            if len(products_list) == 0:
-                continue
-            share_each = prop / len(products_list)
-            for p in products_list:
-                if (
-                    p in df_prod.index
-                ):  # fair-share seulement pour les PRODUITS (pas excréta/waste)
-                    raw_ref_meth[p] += share_each
-
-        # Variables de déviation pour le fair-share du méthaniseur sur chaque produit éligible
-        gamma_fair_abs_meth = LpVariable.dicts(
-            "gamma_fair_abs_meth",
-            list(
-                meth_prod_items
-            ),  # seulement les produits présents dans la diète méthaniseur
-            lowBound=0,
-            cat=LpContinuous,
-        )
-
-        # Cibles par produit : s_ref(total incluant +METH) * Prod_p
-        for p in meth_prod_items:
-            # dénominateur = parts (autres consommateurs) + part méthaniseur
-            s_den = sum(raw_ref[(p, c)] for c in df_cons.index) + raw_ref_meth.get(
-                p, 0.0
-            )
-            if s_den <= 0:
-                continue  # rien à faire si le produit n'apparaît dans aucune diète
-            s_ref_meth_p = raw_ref_meth.get(p, 0.0) / s_den
-            prodN = float(df_prod.loc[p, "Nitrogen Production (ktN)"])
-            x_cible_meth = s_ref_meth_p * prodN
-
-            # | x_meth_prod[p] - x_cible_meth | <= gamma_fair_abs_meth[p]
-            prob += (
-                x_meth_prod[p] - x_cible_meth <= gamma_fair_abs_meth[p],
-                f"FairAbsMeth_plus_{p}",
-            )
-            prob += (
-                x_cible_meth - x_meth_prod[p] <= gamma_fair_abs_meth[p],
-                f"FairAbsMeth_moins_{p}",
+            # (si tu as des imports de produits vers les facilities)
+            E_MWh_products_import = (
+                lpSum(
+                    I_energy_vars[(p, facility)] * self._conv_MWh_per_ktN(facility, p)
+                    for (p, f) in I_energy_vars
+                    if f == facility
+                )
+                if len(I_energy_vars)
+                else 0
             )
 
-        # Terme fair-share additionnel (même normalisation par produit)
-        fair_term_meth = lpSum(
-            gamma_fair_abs_meth[p] / prod_scale(p) for p in meth_prod_items
-        )
+            E_GWh_total_fac = (
+                E_MWh_products + E_MWh_excreta + E_MWh_waste + E_MWh_products_import
+            ) / 1000.0
 
-        # ----- Répartition intra-groupe du méthaniseur (linéaire) -----
-        # Pénalités comme 'penalite_culture_vars' mais sans division par une variable
-        penalite_culture_meth = LpVariable.dicts(
-            "penalite_culture_meth",
-            [(METH_DIET_NAME, prop, it) for _, prop, L in pairs_meth for it in L],
-            lowBound=0,
-            cat=LpContinuous,
-        )
+            # #Contrainte pour interdire de donner 0 à une infrastructure énergétique (si son besoin est >0). Evite les solutions corners où le terme de diète est nul
+            # prob += E_GWh_total_fac >=
 
-        for _, prop, products_list in pairs_meth:
-            k = max(1, len(products_list))
-            # cible pour CHAQUE item du groupe : (prop * N_total_meth) / k
-            cible_item = (prop * N_to_meth_total) / k  # linéaire (prop et k constants)
+            energy_E_GWh_expr[facility] = E_GWh_total_fac
 
-            for it in products_list:
-                # allocation réelle de l'item vers le méthaniseur
-                if it in x_meth_prod:
-                    alloc_it = x_meth_prod[it]
-                elif it in x_meth_excr:
-                    alloc_it = x_meth_excr[it]
-                elif isinstance(N_waste_meth, LpVariable) and it in meth_waste_items:
-                    alloc_it = N_waste_meth
-                else:
+            # Total N envoyé vers la facility (ktN)
+            N_to_fac_total = 0
+            if len(x_fac_prod):
+                N_to_fac_total += lpSum(x_fac_prod.values())
+            if len(x_fac_excr):
+                N_to_fac_total += lpSum(x_fac_excr.values())
+            if N_waste_fac is not None:
+                N_to_fac_total += N_waste_fac
+            # Imports dédiés à CETTE facility (bioraffinerie)
+            N_to_fac_total += (
+                lpSum(
+                    I_energy_vars[(p, facility)]
+                    for (p, f) in I_energy_vars
+                    if f == facility
+                )
+                if len(I_energy_vars)
+                else 0
+            )
+
+            # Déviation d'énergie normalisée
+            dev_fac = LpVariable(f"{facility}_energy_dev", lowBound=0, cat=LpContinuous)
+            if TARGET_GWh > 0:
+                prob += dev_fac >= (E_GWh_total_fac - TARGET_GWh) / TARGET_GWh
+                prob += dev_fac >= (TARGET_GWh - E_GWh_total_fac) / TARGET_GWh
+            else:
+                prob += dev_fac == 0
+            energy_dev_terms.append(dev_fac)
+
+            # --- DIETE DE LA FACILITE : paires LOCALES ---
+            pairs_fac_fac = []
+            for _, r in fac_diet_df.iterrows():
+                prop = float(r["Proportion"])
+                prop = prop / 100.0 if prop > 1.0 else prop
+                pairs_fac_fac.append((facility, prop, tuple(r["Products"])))
+
+            # variables delta SEULEMENT pour les paires de CETTE facility
+            for k, (_, _, pL) in enumerate(pairs_fac_fac):
+                key = (facility, tuple(pL))  # clé logique inchangée
+                delta_fac[key] = LpVariable(
+                    f"delta_{facility}_{k}",  # nom court pour le LP
+                    lowBound=0,
+                    cat=LpContinuous,
+                )
+
+            # --- 1) Puissance moyenne attendue selon la diète déclarée (MWh/ktN) ---
+            P_avg = 0.0
+            w_sum = 0.0
+            for _, r in diets[diets["Consumer"] == facility].iterrows():
+                prop = float(r["Proportion"])
+                prop = prop / 100.0 if prop > 1.0 else prop
+                items = list(r["Products"])
+                if not items:
                     continue
+                share_each = prop / len(items)
+                for it in items:
+                    # puissance par item pour CETTE infra, en MWh/ktN (tu l’as dans energy_power_map)
+                    p_item = float(self.energy_power_map.get(facility, {}).get(it, 0.0))
+                    P_avg += share_each * p_item
+                    w_sum += share_each
 
-                pv = penalite_culture_meth[(METH_DIET_NAME, prop, it)]
-                # |alloc_it - cible_item| <= pv
+            P_avg = P_avg / w_sum if w_sum > 0 else 0.0
+
+            # --- 2) Nhat_fac: intrant attendu (ktN) pour atteindre Target (GWh) ---
+            Target_GWh = float(
+                df_energy.loc[facility, "Target Energy Production (GWh)"]
+            )
+            Nhat_fac = (
+                (Target_GWh * 1000.0 / max(P_avg, 1e-6)) if Target_GWh > 0 else 0.0
+            )
+
+            Nhat_by_fac[facility] = Nhat_fac
+
+            # --- Lier delta_fac à l'écart absolu entre l'allocation du groupe et sa cible ---
+            for _, prop, prod_list in pairs_fac_fac:
+                # somme N envoyée au groupe (local + excréta + waste éventuel + imports énergie)
+                N_group = 0
+                allowed_items = []
+                for it in prod_list:
+                    if it in x_fac_prod:
+                        allowed_items.append(it)
+                        N_group += x_fac_prod[it]
+                    elif it in x_fac_excr:
+                        allowed_items.append(it)
+                        N_group += x_fac_excr[it]
+                    elif it == "waste" and (N_waste_fac is not None):
+                        allowed_items.append(it)
+                        N_group += N_waste_fac
+                    if (it, facility) in I_energy_vars:
+                        allowed_items.append(it)
+                        N_group += I_energy_vars[(it, facility)]
+                    # sinon: item non utilisable par cette infra → ignoré
+
+                # cible (en ktN) pour ce groupe: part de la diète * total N vers l'infrastructure
+                cible_group = prop * Nhat_fac
+
+                dv = delta_fac[(facility, tuple(prod_list))]
+                # |N_group - cible_group| <= dv
+                if cible_group > 0:
+                    prob += (
+                        (N_group - cible_group) / cible_group <= dv,
+                        f"EnergyDietDev_plus_{facility}_{hash(tuple(prod_list)) % 10**6}",
+                    )
+                    prob += (
+                        (cible_group - N_group) / cible_group <= dv,
+                        f"EnergyDietDev_moins_{facility}_{hash(tuple(prod_list)) % 10**6}",
+                    )
+
+            # --- pénalités intra-groupe : n'utiliser QUE les paires de CETTE facility ---
+            penalite_culture_fac = LpVariable.dicts(
+                f"penalite_culture_{facility}",
+                [(facility, prop, it) for _, prop, L in pairs_fac_fac for it in L],
+                lowBound=0,
+                cat=LpContinuous,
+            )
+            for _, prop, L in pairs_fac_fac:
+                allowed_items = []
+                for it in L:
+                    if (
+                        (it in x_fac_prod)
+                        or (it in x_fac_excr)
+                        or (it == "waste" and (N_waste_fac is not None))
+                        or ((it, facility) in I_energy_vars)
+                    ):
+                        allowed_items.append(it)
+                k = max(1, len(allowed_items))
+                cible_item = (prop * N_to_fac_total) / k
+                for it in allowed_items:
+                    if it in x_fac_prod:
+                        alloc_it = x_fac_prod[it]
+                    elif it in x_fac_excr:
+                        alloc_it = x_fac_excr[it]
+                    elif it == "waste":
+                        alloc_it = N_waste_fac
+                    elif (it, facility) in I_energy_vars:
+                        alloc_it = I_energy_vars[(it, facility)]
+                    pv = penalite_culture_fac[(facility, prop, it)]
+                    prob += alloc_it - cible_item <= pv
+                    prob += cible_item - alloc_it <= pv
+
+            # (facultatif) si tu veux toujours un warning « power manquant »
+            # reconstitue un petit conteneur global si besoin :
+            pairs_fac_all.extend(pairs_fac_fac)
+
+            # -- Fair-share par PRODUIT (comme pour les consommateurs)
+            # On construit les parts de ref de CETTE infra et de TOUTES les entités (consommateurs + toutes infras)
+            raw_ref_fac = defaultdict(float)
+            for _, prop, L in pairs_fac_fac:
+                if len(L) == 0:
+                    continue
+                share_each = prop / len(L)
+                for p in L:
+                    if p in df_prod.index:
+                        raw_ref_fac[p] += share_each
+
+            # Denominateur: parts consommateurs + parts de TOUTES les infras
+            # Pour éviter la double boucle, on cumule d'abord toutes les raw_ref_fac dans un dict global
+            # → plus simple: on calcule les cibles en considérant "autres consommateurs + cette infra"
+            # (approx. équitable et linéaire). Si tu veux strictement toutes les infras, tu peux
+            # pré-agréger sur le tour complet; on reste simple ici.
+            gamma_fair_abs_fac = LpVariable.dicts(
+                f"gamma_fair_abs_{facility}",
+                list(fac_prod_items),
+                lowBound=0,
+                cat=LpContinuous,
+            )
+
+            for p in fac_prod_items:
+                s_den = sum(raw_ref[(p, c)] for c in df_cons.index) + raw_ref_fac.get(
+                    p, 0.0
+                )
+                if s_den <= 0:
+                    continue
+                s_ref_fac_p = raw_ref_fac.get(p, 0.0) / s_den
+                prodN = float(
+                    df_prod.loc[p, "Nitrogen Production (ktN)"]
+                )  # si tu as Y_var, remplace ici
+                x_cible_fac = s_ref_fac_p * prodN
                 prob += (
-                    alloc_it - cible_item <= pv,
-                    f"Penalite_Meth_Plus_{hash((prop, it))}",
+                    x_fac_prod[p] - x_cible_fac <= gamma_fair_abs_fac[p],
+                    f"FairAbs_{facility}_plus_{p}",
                 )
                 prob += (
-                    cible_item - alloc_it <= pv,
-                    f"Penalite_Meth_Moins_{hash((prop, it))}",
+                    x_cible_fac - x_fac_prod[p] <= gamma_fair_abs_fac[p],
+                    f"FairAbs_{facility}_moins_{p}",
                 )
 
-        # On cumulera ces pénalités dans l'objectif avec un poids léger (reprendre 'poids_penalite_culture')
-        n_items_meth = max(1, sum(len(L) for _, _, L in pairs_meth))
-        penalite_culture_meth_term = (poids_penalite_culture / n_items_meth) * lpSum(
-            penalite_culture_meth.values()
+            # ajoute au terme fair global (même normalisation que pour les produits)
+            fair_term_energy_parts.append(
+                lpSum(gamma_fair_abs_fac[p] / prod_scale(p) for p in fac_prod_items)
+            )
+
+            n_items_fac = max(1, sum(len(L) for _, _, L in pairs_fac_fac))
+            penalite_energy_terms.append(
+                (
+                    facility,
+                    (poids_penalite_culture / n_items_fac)
+                    * lpSum(penalite_culture_fac.values()),
+                )
+            )
+
+            # -- Pour les bilans produits et la contrainte globale d'excréta
+            for p in fac_prod_items:
+                energy_prod_vars_by_p[p].append(x_fac_prod[p])
+            for e in fac_excr_items:
+                energy_excr_vars_by_e[e].append(x_fac_excr[e])
+
+        # -- Contrainte GLOBALE d'excréta (somme de toutes les infras) <= excrétion dispo
+        for e in df_excr.index:
+            if len(energy_excr_vars_by_e[e]) == 0:
+                continue
+            avail_excr = float(df_excr.loc[e, "Excretion after volatilization (ktN)"])
+            prob += (lpSum(energy_excr_vars_by_e[e]) <= avail_excr, f"Excreta_cap_{e}")
+
+        # -- Bilan produit : ajouter la somme des prises par TOUTES les infras
+        for p in df_prod.index:
+            # consommateurs qui ont p dans leur régime
+            consumers_with_p = [c for (prod, c) in valid_pairs if prod == p]
+
+            # inputs (locaux) de p vers les infrastructures énergie
+            x_to_energy_local = lpSum(
+                energy_vars[fac]["prod"][p]
+                for fac in df_energy.index
+                if ("prod" in energy_vars.get(fac, {}))
+                and (p in energy_vars[fac]["prod"])
+            )
+
+            # bilan local : feed/food locaux + énergie locale + surplus == prod locale
+            prob += (
+                lpSum(x_vars[(p, c)] for c in consumers_with_p)
+                + x_to_energy_local
+                + U_vars[p]
+                == float(df_prod.loc[p, "Available Nitrogen Production (ktN)"]),
+                f"Bilan_{p}",
+            )
+
+        # -- Ajouts à l’objectif (agrégés sur toutes les infras)
+        #    * Production d’énergie (déviation normalisée) avec W_ENERGY_PROD
+        #    * Diète des infras (deltas) avec W_ENERGY_INPUT
+        #    * Fair-share infrastructures (on additionne à ton fair_term)
+        #    * Pénalités intra-groupe des infras (comme ta penalite_culture_vars)
+        fair_term_energy = (
+            lpSum(fair_term_energy_parts) if fair_term_energy_parts else 0
+        )
+        penalite_culture_energy_term = (
+            lpSum(t for _, t in penalite_energy_terms) if penalite_energy_terms else 0
         )
 
-        # Fonction objectif
-        objective = (
-            (poids_penalite_deviation / max(1, len(pairs))) * lpSum(delta_vars.values())
-            + (poids_penalite_culture / max(1, len(df_prod)))
-            * lpSum(penalite_culture_vars.values())
-            + poids_import_brut * raw_import_term
-            + w_fair * ((fair_term + fair_term_meth) / max(1, len(df_prod)))
-            + W_METH_ENERGY * meth_energy_dev
-            + (W_METH_DIET / max(1, len(pairs_meth))) * lpSum(delta_meth.values())
-            + penalite_culture_meth_term
+        energy_dev_total = lpSum(energy_dev_terms) if energy_dev_terms else 0
+
+        imp_norm = df_cons["Ingestion (ktN)"].sum() + sum(Nhat_by_fac.values())
+
+        I_food = lpSum(
+            I_vars[(p, c)]
+            for (p, c) in I_vars
+            if c in df_cons.index and df_cons.loc[c, "Type"] == "Human"
         )
+        I_feed = lpSum(
+            I_vars[(p, c)]
+            for (p, c) in I_vars
+            if c in df_cons.index and df_cons.loc[c, "Type"] == "Animal"
+        )
+
+        I_food_normed = I_food / imp_norm
+        I_feed_normed = I_feed / imp_norm
+
+        # 2) Imports Energy -> normaliser comme la diète énergie, par la somme des Nhat_fac
+        I_energy = lpSum(I_energy_vars.values()) if len(I_energy_vars) else 0
+
+        # imp_energy_norm = max(1e-9, sum(Nhat_by_fac.values()))
+
+        I_energy_normed = I_energy / imp_norm
+
+        # Terme d'import co-normalisé
+        raw_import_term = I_food_normed + I_feed_normed + I_energy_normed
+
+        # Terme sur les diètes énetgie
+        # energy_inputs_total = lpSum(energy_inputs_terms) / max(
+        #     1, len(energy_inputs_terms)
+        # )
+
+        USE_EPS = (
+            False  # bool(int(df_global.loc["Use epsilon constraints", "value"]))  # 0/1
+        )
+        if USE_EPS:
+            EPS_EPROD = 0.1  # float(
+            #     df_global.loc["Epsilon energy production dev", "value"]
+            # )  # ex: 0.1 (10%)
+            EPS_EDIET = 0.1  # float(
+            #     df_global.loc["Epsilon energy diet dev", "value"]
+            # )  # ex: 0.1 (10%)
+            prob += energy_dev_total <= EPS_EPROD, "Bound_Energy_Prod_Dev"
+            # prob += energy_inputs_total <= EPS_EDIET, "Bound_Energy_Diet_Dev"
+            # et objectif simple:
+            objective = (
+                (poids_penalite_deviation / max(1, len(pairs)))
+                * lpSum(delta_vars.values())
+                + (poids_penalite_culture / max(1, len(df_prod)))
+                * (lpSum(penalite_culture_vars.values()) + penalite_culture_energy_term)
+                + poids_import_brut * raw_import_term
+                + w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
+            )
+        else:
+            # Fonction objectif
+            objective = (
+                (poids_penalite_deviation / max(1, len(pairs)))
+                * lpSum(delta_vars.values())
+                + (poids_penalite_culture / max(1, len(df_prod)))
+                * (lpSum(penalite_culture_vars.values()) + penalite_culture_energy_term)
+                + poids_import_brut * raw_import_term
+                + w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
+                + W_ENERGY_INPUT * lpSum(delta_fac.values())
+                + (W_ENERGY_PROD / max(1, len(df_energy.index))) * energy_dev_total
+            )
+
         prob += objective
 
         # Les besoins en feed sont complétés par la prod locale, l'importation de feed (donnees GRAFS) et un eventuel import excedentaire
@@ -2400,51 +2679,6 @@ class NitrogenFlowModel:
                 prob += (
                     cons_animale_totale == besoin * proportion_animal[cons],
                     f"Contrainte_part_animale_{cons}",
-                )
-
-        # Cette contrainte assure que la somme de l'azote alloué de chaque culture aux différents types de consommateurs + Surplus à exporter + methaniseur == l'azote disponible pour cette culture.
-        for p in df_prod.index:
-            consumers_with_p = [c for (prod, c) in valid_pairs if prod == p]
-            prodN = float(df_prod.loc[p, "Available Nitrogen Production (ktN)"])
-            x_meth_term = x_meth_prod[p] if p in x_meth_prod else 0
-            prob += (
-                lpSum(x_vars[(p, c)] for c in consumers_with_p)
-                + x_meth_term
-                + U_vars[p]
-                == prodN,
-                f"Bilan_{p}",
-            )
-
-        # Contrainte dure sur l'usage des excretions
-        for e in meth_excr_items:
-            avail_excr_soil = float(
-                df_excr.loc[e, "Excretion after volatilization (ktN)"]
-            )
-            prob += (x_meth_excr[e] <= avail_excr_soil, f"Excreta_to_meth_cap_{e}")
-
-        for cons, proportion_initiale, products_list in pairs:
-            # Récupère le besoin total en azote pour ce consommateur
-            besoin = df_cons.loc[cons, "Ingestion (ktN)"]
-
-            azote_cultures = lpSum(
-                x_vars.get((prod_i, cons), 0) for prod_i in products_list
-            ) + lpSum(I_vars.get((prod_i, cons), 0) for prod_i in products_list)
-
-            # Assure que le besoin n'est pas nul avant de calculer la proportion effective
-            if besoin > 0:
-                proportion_effective = azote_cultures / besoin
-
-                # Récupère la variable de déviation
-                delta_var = delta_vars[(cons, tuple(products_list))]
-
-                # Ajoute les contraintes pour la déviation
-                prob += (
-                    proportion_effective - proportion_initiale <= delta_var,
-                    f"Deviation_Plus_{cons}_{products_list}",
-                )
-                prob += (
-                    proportion_initiale - proportion_effective <= delta_var,
-                    f"Deviation_Moins_{cons}_{products_list}",
                 )
 
         # Interdiction d'importer des prairies naturelles
@@ -2485,7 +2719,6 @@ class NitrogenFlowModel:
                     allocation_cible_culture = (
                         allocation_groupe_cible / len(products_list)
                     )  # (azote_disponible_prod_i / azote_total_groupe) * allocation_groupe_cible
-
                     # Allocation réelle
                     allocation_reelle_culture = x_vars.get(
                         (prod_i, cons), 0
@@ -2497,256 +2730,409 @@ class NitrogenFlowModel:
                         penalite_var = penalite_culture_vars[(cons, proportion, prod_i)]
                         prob += (
                             (allocation_reelle_culture - allocation_cible_culture)
-                            / allocation_cible_culture
-                            <= penalite_var,
+                            <= penalite_var * allocation_cible_culture,
                             f"Penalite_Culture_Plus_{cons}_{proportion}_{prod_i}",
                         )
                         prob += (
                             (allocation_cible_culture - allocation_reelle_culture)
-                            / allocation_cible_culture
-                            <= penalite_var,
+                            <= penalite_var * allocation_cible_culture,
                             f"Penalite_Culture_Moins_{cons}_{proportion}_{prod_i}",
                         )
                     except KeyError:
                         # La variable n'existe pas, on ignore l'ajout des contraintes
                         pass
 
-        # Contrainte explicite pas d'importation d'un produit si il reste du surplus de ce produit
+        # (Option MILP) binaire no-swap import/surplus par produit
+        use_milp_no_swap = False  # mets False pour rester LP 100%
         if use_milp_no_swap:
+            y_vars = LpVariable.dicts("y", list(df_prod.index), 0, 1, cat="Binary")
+
+            # bornes naturelles
+            M_sur = {
+                p: float(df_prod.loc[p, "Available Nitrogen Production (ktN)"])
+                for p in df_prod.index
+            }
+
+            # besoin max importable par produit p
+            # (consommateurs + infrastructures énergie capables d’utiliser p)
+            M_imp = {}
             for p in df_prod.index:
-                I_p = lpSum(I_vars[(p, c)] for c in df_cons.index if (p, c) in I_vars)
-                prob += I_p <= M[p] * y_vars[p], f"NoSwap_I_{p}"
-                prob += U_vars[p] <= M[p] * (1 - y_vars[p]), f"NoSwap_U_{p}"
+                # consommateurs
+                cons_need = sum(
+                    float(df_cons.loc[c, "Ingestion (ktN)"])
+                    for c in df_cons.index
+                    if p in all_cultures_regime.get(c, set())
+                )
+
+                # énergie (via cibles et conversion MWh/ktN, si la fac peut utiliser p)
+                energy_need = 0.0
+                for fac in df_energy.index:
+                    # si le régime de la facility contient p
+                    fac_has_p = any(
+                        p in r["Products"]
+                        for _, r in diets[diets["Consumer"] == fac].iterrows()
+                    )
+                    if fac_has_p:
+                        target_gwh = float(
+                            df_energy.loc[fac, "Target Energy Production (GWh)"]
+                        )
+                        if target_gwh > 0:
+                            conv = self._conv_MWh_per_ktN(fac, p)  # MWh/ktN
+                            if conv > 0:
+                                energy_need += (target_gwh * 1000.0) / conv
+
+                M_imp[p] = cons_need + energy_need + 1e-6
+
+            # agrégat imports totaux pour p (consommateurs + énergie)
+            def I_total_p(p):
+                return lpSum(
+                    I_vars[(p, c)] for c in df_cons.index if (p, c) in I_vars
+                ) + lpSum(
+                    I_energy_vars[(p, fac)]
+                    for fac in df_energy.index
+                    if (p, fac) in I_energy_vars
+                )
+
+            for p in df_prod.index:
+                prob += I_total_p(p) <= M_imp[p] * y_vars[p], f"NoSwap_I_{p}"
+                prob += U_vars[p] <= M_sur[p] * (1 - y_vars[p]), f"NoSwap_U_{p}"
+
+        prob.writeLP("model.lp")
+
+        # 2) activer les logs CBC (et voir l’infeasibility si c’est le cas)
+        # from pulp import PULP_CBC_CMD
+        # prob.solve(PULP_CBC_CMD(msg=True))
 
         # Résolution du problème
         prob.solve()
 
         if self.debug:
-            # (1) Reconstruire EXACTEMENT les morceaux de l’objectif
-            expr_dev = (poids_penalite_deviation / max(1, len(pairs))) * lpSum(
+            from pulp import value, LpStatus
+            import math, pprint
+
+            def V(expr):
+                # valeur sûre, 0.0 si None
+                try:
+                    return float(value(expr)) if expr is not None else 0.0
+                except Exception:
+                    return 0.0
+
+            # ----- Normaliseurs identiques à l'objectif -----
+            n_pairs = max(1, len(pairs))
+            n_prod = max(1, len(df_prod))
+            n_energy = max(
+                1, len(df_energy.index)
+            )  # liste/itérable de toutes les vars {fac}_energy_dev
+
+            # ----- Reconstruire chaque terme EXACTEMENT comme dans l'objectif -----
+            expr_diet = (poids_penalite_deviation / max(1, len(pairs))) * lpSum(
                 delta_vars.values()
             )
-            expr_cult = (poids_penalite_culture / max(1, len(df_prod))) * lpSum(
-                penalite_culture_vars.values()
+            expr_cult = (poids_penalite_culture / max(1, len(df_prod))) * (
+                lpSum(penalite_culture_vars.values())
+                + lpSum(penalite_culture_energy_term.values())
             )
-            expr_fair = w_fair * (
-                fair_term / max(1, len(df_prod))
-            )  # moyenne par produit (optionnel)
-            expr_meth_energy = W_METH_ENERGY * meth_energy_dev
-            expr_meth_diet = (W_METH_DIET / max(1, len(pairs_meth))) * lpSum(
-                delta_meth.values()
-            )
-            expr_import_brut = (
-                poids_import_brut * raw_import_term
-            )  # Terme d'import brut ajouté
+            expr_import = poids_import_brut * raw_import_term
+            expr_fair = w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
+            expr_energy_prod = (
+                W_ENERGY_PROD * energy_dev_total / max(1, len(df_energy.index))
+            )  # attention: energy_dev_total déjà normalisé comme dans l’objectif
+            expr_energy_diets = W_ENERGY_INPUT * lpSum(delta_fac.values())
 
-            # (2) Eval brute
-            raw_dev = float(value(expr_dev))
-            raw_cult = float(value(expr_cult))
-            raw_fair = float(value(expr_fair))
-            raw_meth_energy = float(value(expr_meth_energy))
-            raw_meth_diet = float(value(expr_meth_diet))
-            raw_import_brut = float(
-                value(expr_import_brut)
-            )  # Évaluation brute du terme d'import brut
+            # ----- Valeurs pondérées -----
+            w_dev = V(expr_diet)
+            w_cult_all = V(expr_cult)
+            w_import = V(expr_import)
+            w_fair_all = V(expr_fair)
+            w_energy_inputs = V(expr_energy_diets)
+            w_energy_prod = V(expr_energy_prod) / max(1, len(df_energy.index))
 
-            # (3) Somme = valeur de l’objectif
-            obj_val = float(
-                value(
-                    expr_dev
-                    + expr_cult
-                    + expr_fair
-                    + expr_meth_energy
-                    + expr_meth_diet
-                    + expr_import_brut
-                )
+            obj_val = V(
+                expr_diet
+                + expr_cult
+                + expr_import
+                + expr_fair
+                + expr_energy_diets
+                + expr_energy_prod
             )
 
-            # (4) Parts en % (protéger division par zéro)
-            def _share(x, total):
+            def share(x):
                 return (
-                    (100.0 * x / total)
-                    if total and not math.isclose(total, 0.0)
+                    (100.0 * x / obj_val)
+                    if (obj_val and not math.isclose(obj_val, 0.0))
                     else None
                 )
 
-            shares = {
-                "dev_%": _share(raw_dev, obj_val),
-                "cult_%": _share(raw_cult, obj_val),
-                "fair_%": _share(raw_fair, obj_val),
-                "meth_energy_%": _share(raw_meth_energy, obj_val),
-                "meth_diet_%": _share(raw_meth_diet, obj_val),
-                "import_brut_%": _share(
-                    raw_import_brut, obj_val
-                ),  # Part de l'import brut dans l'objectif total
+            # ----- Détailler par infrastructure (si utile) -----
+            #  a) production d'énergie : chaque var {fac}_energy_dev participe linéairement
+            per_fac_energy_prod = {}
+            for fac in df_energy.index:
+                # variable unique : f"{fac}_energy_dev"
+                v = next(
+                    (
+                        var
+                        for var in prob.variables()
+                        if var.name == f"{fac}_energy_dev"
+                    ),
+                    None,
+                )
+                if v is not None:
+                    per_fac_energy_prod[fac] = V((W_ENERGY_PROD / n_energy) * v)
+
+            #  b) inputs d'énergie : somme des deltas de diète de la facility, puis / n_pairs_fac
+            w_energy_inputs = 0.0
+            per_fac_energy_inputs = {}
+            for fac, row in df_energy.iterrows():
+                # n_pairs_fac = nombre de lignes de diète pour CETTE facility (pas le diet_id)
+                n_pairs_fac = max(1, len(diets[diets["Consumer"] == fac]))
+                sum_deltas_fac = lpSum(
+                    [
+                        var
+                        for var in prob.variables()
+                        if var.name.startswith(f"delta_{fac}_")
+                    ]
+                )
+                val = W_ENERGY_INPUT * (sum_deltas_fac / n_pairs_fac)
+                w_energy_inputs += float(value(val))
+                per_fac_energy_inputs[fac] = float(value(val))
+
+            # ----- Rapport -----
+            w_dev = (
+                float(
+                    value(
+                        (poids_penalite_deviation / max(1, len(pairs)))
+                        * lpSum(delta_vars.values())
+                    )
+                )
+                if len(delta_vars)
+                else 0.0
+            )
+            w_cult = (
+                float(
+                    value(
+                        (poids_penalite_culture / max(1, len(df_prod)))
+                        * (
+                            lpSum(penalite_culture_vars.values())
+                            + lpSum(penalite_culture_energy_term.values())
+                        )
+                    )
+                )
+                if (penalite_culture_vars or penalite_culture_energy_term)
+                else 0.0
+            )
+            w_fair_tot = (
+                float(
+                    value(
+                        w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
+                    )
+                )
+                if "fair_term_energy" in locals()
+                else float(value(w_fair * (fair_term / max(1, len(df_prod)))))
+            )
+            w_import = float(value(poids_import_brut * raw_import_term))
+            w_eprod = float(
+                value(W_ENERGY_PROD * energy_dev_total / max(1, len(df_energy.index)))
+            )
+            w_einputs = (
+                float(value((W_ENERGY_INPUT) * lpSum(delta_fac.values())))
+                if len(delta_fac)
+                else 0.0
+            )
+            obj_val = float(value(prob.objective))
+
+            families = {
+                "diet_deviation": {
+                    "weighted": w_dev,
+                    "share_%": (100 * w_dev / obj_val) if obj_val else None,
+                    "weight": float(poids_penalite_deviation),
+                },
+                "intra_group_distribution_ALL": {
+                    "weighted": w_cult,
+                    "share_%": (100 * w_cult / obj_val) if obj_val else None,
+                    "weight": float(poids_penalite_culture),
+                    "normalizer": {"n_products": max(1, len(df_prod))},
+                    "note": "Inclut pénalités produits + pénalités des infrastructures (terme unique).",
+                },
+                "import_brut": {
+                    "weighted": w_import,
+                    "share_%": (100 * w_import / obj_val) if obj_val else None,
+                    "weight": float(poids_import_brut),
+                    "note": "raw_import_term est déjà normalisé (inchangé).",
+                },
+                "fair_total": {
+                    "weighted": w_fair_tot,
+                    "share_%": (100 * w_fair_tot / obj_val) if obj_val else None,
+                    "weight": float(w_fair),
+                },
+                "energy_inputs_total": {
+                    "weighted": w_einputs,
+                    "share_%": (100 * w_einputs / obj_val) if obj_val else None,
+                    "weight": float(W_ENERGY_INPUT),
+                },
+                "energy_production_total": {
+                    "weighted": w_eprod,
+                    "share_%": (100 * w_eprod / obj_val) if obj_val else None,
+                    "weight": float(w_eprod),
+                },
             }
 
-            # (5) État du solveur
             solver_info = {
                 "status_code": prob.status,
                 "status": LpStatus.get(prob.status, "Unknown"),
             }
-
-            # (6) Rapport complet
             report = {
                 "solver": solver_info,
                 "objective_total": obj_val,
-                "weighted_contributions": {
-                    "dev": raw_dev,
-                    "cult": raw_cult,
-                    "fair": raw_fair,
-                    "meth_energy": raw_meth_energy,
-                    "meth_diet": raw_meth_diet,
-                    "import_brut": raw_import_brut,  # Contribution de l'import brut
-                },
-                "shares_%": shares,
+                "families": families,
                 "weights_used": {
                     "Weight diet": float(poids_penalite_deviation),
                     "Weight distribution": float(poids_penalite_culture),
                     "Weight fair local split": float(w_fair),
-                    "Weight methanizer production": float(W_METH_ENERGY),
-                    "Weight methanizer inputs": float(W_METH_DIET),
-                    "Weight import brut": float(
-                        poids_import_brut
-                    ),  # Poids du terme import brut
+                    "Weight import brut": float(poids_import_brut),
+                    "Weight energy inputs": float(W_ENERGY_INPUT),
+                    "Weight energy production": float(W_ENERGY_PROD),
+                },
+                "sanity": {
+                    "sum_shares_%": sum(
+                        s
+                        for s in [
+                            share(w_dev),
+                            share(w_cult),
+                            share(w_import),
+                            share(w_fair_tot),
+                            share(w_einputs),
+                            share(w_eprod),
+                        ]
+                        if s is not None
+                    )
                 },
             }
-
-            # Affichage du rapport complet
             pprint.pp(report, sort_dicts=False)
 
-        self.methanizer_production = value(E_GWh_total)
+        from IPython import embed
 
-        df_excr["Excretion to Methanizer (ktN)"] = 0.0
-        df_excr["Excretion to soil (ktN)"] = 0.0
+        embed()
+
+        # Warning si un élément de la diète des energy facilities n'a pas de pouvoir énergétique
+        for fac, _, items in pairs_fac_all:  # ou ta structure équivalente
+            for it in items:
+                if self._conv_MWh_per_ktN(fac, it) == 0.0:
+                    warnings.warn(
+                        f"[Energy power] No power for ({fac}, {it}) → energy=0."
+                    )
+
+        # ---------- A) Table des allocations (y compris infrastructures énergie)
         allocations = []
-        meth_prod_alloc = {}  # somme ktN -> méthaniseur par produit
-        excr_to_meth = {}  # somme ktN -> méthaniseur par excréta
-        waste_to_meth = 0.0  # ktN waste vers méthaniseur (agrégé)
 
-        for var in prob.variables():
-            if not var.varValue or var.varValue <= 0:
+        # 1) allocations locales (produits -> consommateurs)
+        for (prod_i, cons), var in x_vars.items():
+            v = float(var.varValue or 0.0)
+            if v <= 1e-6:
                 continue
+            Type = (
+                "Local culture Feed"
+                if cons in df_elevage.index
+                else "Local culture Food"
+            )
+            allocations.append(
+                {
+                    "Product": prod_i,
+                    "Consumer": cons,
+                    "Allocated Nitrogen": v,
+                    "Type": Type,
+                }
+            )
 
-            name = var.name
-            val = float(var.varValue)
+        # 2) importations (produit -> consommateur)
+        for (prod_i, cons), var in I_vars.items():
+            v = float(var.varValue or 0.0)
+            if v <= 1e-6:
+                continue
+            Type = "Imported Feed" if cons in df_elevage.index else "Imported Food"
+            allocations.append(
+                {
+                    "Product": prod_i,
+                    "Consumer": cons,
+                    "Allocated Nitrogen": v,
+                    "Type": Type,
+                }
+            )
 
-            # Cas 1 : variables classiques x_(product,consumer)
-            if name.startswith("x_") and not name.startswith("x_meth"):
-                # Nom de la variable : x_('culture','cons')
-                chaine = str(var)
-                matches = re.findall(r"'([^']*)'", chaine)
-                if len(matches) >= 2:
-                    prod_i = matches[0].replace("_", " ").strip()
-                    cons = matches[1].replace("_", " ").strip()
-
-                    # Type (même logique que ton exemple)
-                    if any(idx in name for idx in df_elevage.index):
-                        Type = "Local culture feed"
-                    else:
-                        Type = "Local culture food"
-
+        # 3) infrastructures énergie : produits/excréta/waste -> infrastructure
+        for fac in df_energy.index:
+            fac_type = str(df_energy.loc[fac, "Type"])
+            # produits
+            for p, var in energy_vars.get(fac, {}).get("prod", {}).items():
+                v = float(var.varValue or 0.0)
+                if v > 1e-6:
                     allocations.append(
                         {
-                            "Product": prod_i,
-                            "Consumer": cons,
-                            "Allocated Nitrogen": val,
-                            "Type": Type,
+                            "Product": p,
+                            "Consumer": fac,
+                            "Allocated Nitrogen": v,
+                            "Type": "Local culture Energy",
                         }
                     )
-            # Cas 2 : produits -> méthaniseur
-            elif name.startswith("x_meth_prod_"):
-                prod_i = name.replace("x_meth_prod_", "").replace("_", " ").strip()
-                meth_prod_alloc[prod_i] = meth_prod_alloc.get(prod_i, 0.0) + val
+            # excréta
+            for e, var in energy_vars.get(fac, {}).get("excr", {}).items():
+                v = float(var.varValue or 0.0)
+                if v > 1e-6:
+                    allocations.append(
+                        {
+                            "Product": e,
+                            "Consumer": fac,
+                            "Allocated Nitrogen": v,
+                            "Type": "Excretion Energy",
+                        }
+                    )
+            # waste agrégé
+            from pulp import value
 
-                allocations.append(
-                    {
-                        "Product": prod_i,
-                        "Consumer": "Product to Methanizer",
-                        "Allocated Nitrogen": val,
-                        "Type": "Methanizer",
-                    }
-                )
-            # Cas 3 : excréta -> méthaniseur
-            elif name.startswith("x_meth_excr_"):
-                excr_i = name.replace("x_meth_excr_", "").replace("_", " ").strip()
-                excr_to_meth[excr_i] = excr_to_meth.get(excr_i, 0.0) + val
-
-                allocations.append(
-                    {
-                        "Product": excr_i,
-                        "Consumer": "Excretion to Methanizer",
-                        "Allocated Nitrogen": val,
-                        "Type": "Methanizer",
-                    }
-                )
-            # Cas 4 : waste agrégé -> méthaniseur
-            elif name == "N_waste_meth":
-                waste_to_meth += val
-                # Enregistrement dans allocations (source "Waste (aggregated)")
-                allocations.append(
-                    {
-                        "Product": "waste",
-                        "Consumer": "Green Waste to Methanizer",
-                        "Allocated Nitrogen": val,
-                        "Type": "Methanizer",
-                    }
-                )
-
-            elif var.name.startswith("I") and var.varValue > 0:
-                # Nom de la variable : I_(cons, culture)
-                chaine = str(var)
-                matches = re.findall(r"'([^']*)'", chaine)
-                parts = [match.replace("_", " ").strip() for match in matches]
-                prod_i = parts[0]
-                cons = parts[1]
-                if any(index in var.name for index in df_elevage.index):
-                    Type = "Imported Feed"
-                else:
-                    Type = "Imported Food"
-                allocations.append(
-                    {
-                        "Product": prod_i,
-                        "Consumer": cons,
-                        "Allocated Nitrogen": var.varValue,
-                        "Type": Type,
-                    }
-                )
+            wvar = energy_vars.get(fac, {}).get("waste", None)
+            if wvar is not None:  # wvar est un LpVariable
+                v = float(value(wvar) or 0.0)
+                if v > 1e-6:
+                    allocations.append(
+                        {
+                            "Product": "waste",
+                            "Consumer": fac,
+                            "Allocated Nitrogen": v,
+                            "Type": "Waste Energy",
+                        }
+                    )
+        for (p, fac), var in I_energy_vars.items():
+            v = float(var.varValue or 0.0)
+            if v <= 1e-6:
+                continue
+            allocations.append(
+                {
+                    "Product": p,
+                    "Consumer": fac,
+                    "Allocated Nitrogen": v,
+                    "Type": "Imported Energy",
+                }
+            )
 
         allocations_df = pd.DataFrame(allocations)
-
-        # Filtrer les lignes en supprimant celles dont 'Allocated Nitrogen' est très proche de zéro
         allocations_df = allocations_df[
             allocations_df["Allocated Nitrogen"].abs() >= 1e-6
         ]
+        self.allocations_df = allocations_df  # ← remplace self.allocations_df existant
 
-        self.allocations_df = allocations_df
-
+        # ---------- B) Déviations : consommateurs "classiques"
         deviations = []
         for cons, proportion, products_list in pairs:
-            # Récupère le type de consommateur et le besoin total
             consumer_type = df_cons.loc[cons, "Type"]
-            besoin_total = df_cons.loc[cons, "Ingestion (ktN)"]
-
-            # Calcule l'allocation totale
-            allocation_totale = sum(
-                x_vars.get((p, cons), 0).varValue for p in products_list
-            ) + sum(I_vars.get((p, cons), 0).varValue for p in products_list)
-
-            # Assure que le besoin total n'est pas nul pour le calcul de la proportion
-            proportion_effective = (
-                allocation_totale / besoin_total if besoin_total > 0 else 0
-            )
-
-            # Récupère la valeur de la variable de déviation si elle existe
+            besoin_total = float(df_cons.loc[cons, "Ingestion (ktN)"])
+            # allocation totale du groupe
+            alloc_tot = sum(
+                x_vars.get((p, cons), 0).varValue or 0 for p in products_list
+            ) + sum(I_vars.get((p, cons), 0).varValue or 0 for p in products_list)
+            prop_eff = (alloc_tot / besoin_total) if besoin_total > 0 else 0.0
             delta_var_key = (cons, tuple(products_list))
             if delta_var_key in delta_vars:
-                deviation_value = delta_vars[delta_var_key].varValue
-
-                # Détermine le signe de la déviation
-                signe = 1 if proportion_effective > proportion else -1
-
-                # Ajoute les informations à la liste
+                deviation_value = float(delta_vars[delta_var_key].varValue or 0)
+                signe = 1 if prop_eff > proportion else -1
                 deviations.append(
                     {
                         "Consumer": cons,
@@ -2761,216 +3147,303 @@ class NitrogenFlowModel:
                     }
                 )
 
-        # deviation methaniseur
-        meth_rows = []
-        meth_diet_df = diets[diets["Consumer"] == METH_DIET_NAME].copy()
-        N_meth_total = 0.0
-        N_meth_total += sum(meth_prod_alloc.values())
-        N_meth_total += sum(excr_to_meth.values())
-        N_meth_total += waste_to_meth
+        # ---------- C) Déviations : infrastructures énergie (par DIET associée)
+        energy_dev_rows = []
+        for fac in df_energy.index:
+            fac_type = str(df_energy.loc[fac, "Type"])
+            fac_diet_df = diets[diets["Consumer"] == fac].copy()
 
-        for _, row in meth_diet_df.iterrows():
-            prop = float(row["Proportion"])
-            exp_pct = prop if prop > 1.0 else (100.0 * prop)
-            prods = tuple(row["Products"])
-            label = ", ".join(prods)
-
-            # N du groupe : somme des items (produits, excréta, et waste s'il apparaît dans le groupe)
-            N_group = 0.0
-            for it in prods:
-                if it in meth_prod_alloc:
-                    N_group += meth_prod_alloc[it]
-                elif it in excr_to_meth:
-                    N_group += excr_to_meth[it]
-                else:
-                    # Si "waste" apparaît dans un groupe de la diète, on affecte la variable agrégée
-                    if it.lower().strip() in {
-                        "waste",
-                        "green waste",
-                        "municipal waste",
-                    }:
-                        N_group += waste_to_meth
-
-            alloc_pct = 100.0 * N_group / N_meth_total if N_meth_total > 0 else 0.0
-            dev_pct = alloc_pct - exp_pct
-
-            meth_rows.append(
-                {
-                    "Consumer": METH_DIET_NAME,
-                    "Type": "Methanizer",
-                    "Expected Proportion (%)": exp_pct,
-                    "Deviation (%)": dev_pct,
-                    "Proportion Allocated (%)": alloc_pct,
-                    "Product": label,
-                }
+            # N total vers la fac (local + excréta + waste + imports)
+            N_total = 0.0
+            N_total += sum(
+                float(v.varValue or 0.0) for v in energy_vars[fac]["prod"].values()
+            )
+            N_total += sum(
+                float(v.varValue or 0.0) for v in energy_vars[fac]["excr"].values()
+            )
+            if energy_vars[fac]["waste"] is not None:
+                N_total += float(value(energy_vars[fac]["waste"]))
+            N_total += sum(
+                float(v.varValue or 0.0)
+                for (p, f), v in I_energy_vars.items()
+                if f == fac
             )
 
-        deviations_meth_df = pd.DataFrame(meth_rows)
-        deviations = pd.DataFrame(deviations)
-        deviations = pd.concat([deviations, deviations_meth_df], ignore_index=True)
+            for _, row in fac_diet_df.iterrows():
+                prop = float(row["Proportion"])
+                prop = prop / 100.0 if prop > 1.0 else prop
+                prods = list(row["Products"])
+                label = ", ".join(prods)
 
-        self.deviations_df = deviations
+                N_group = 0.0
+                for it in prods:
+                    if it in energy_vars[fac]["prod"]:
+                        N_group += float(energy_vars[fac]["prod"][it].varValue or 0.0)
+                    elif it in energy_vars[fac]["excr"]:
+                        N_group += float(energy_vars[fac]["excr"][it].varValue or 0.0)
+                    elif it == "waste" and (energy_vars[fac]["waste"] is not None):
+                        N_group += float(value(energy_vars[fac]["waste"]))
+                    if (it, fac) in I_energy_vars:
+                        N_group += float(I_energy_vars[(it, fac)].varValue or 0.0)
 
-        # Extraction des importations
+                alloc_pct = 100.0 * N_group / N_total if N_total > 1e-6 else 0.0
+                exp_pct = 100.0 * prop
+                dev_pct = alloc_pct - exp_pct
+
+                energy_dev_rows.append(
+                    {
+                        "Consumer": fac,
+                        "Type": "Energy",
+                        "Expected Proportion (%)": exp_pct,
+                        "Deviation (%)": dev_pct,
+                        "Proportion Allocated (%)": alloc_pct,
+                        "Product": label,
+                    }
+                )
+
+        deviations_df = pd.DataFrame(deviations)
+        deviations_energy_df = pd.DataFrame(energy_dev_rows)
+        self.deviations_df = pd.concat(
+            [deviations_df, deviations_energy_df], ignore_index=True
+        )
+
+        # Extraction des importations (consommateurs ET bioraffineries)
         importations = []
+
+        # (a) Imports vers les consommateurs (humains & animaux)
         for cons in df_cons.index:
             for prod_i in all_cultures_regime[cons]:
                 if (prod_i, cons) in I_vars:
-                    import_value = I_vars[(prod_i, cons)].varValue
-                    if cons in df_elevage.index:
-                        Type = "Feed"
-                    else:
-                        Type = "Food"
-                    if import_value > 0:
-                        importations.append(
-                            {
-                                "Consumer": cons,
-                                "Product": prod_i,
-                                "Type": Type,
-                                "Imported Nitrogen (ktN)": import_value,
-                            }
-                        )
+                    import_value = float(I_vars[(prod_i, cons)].varValue or 0.0)
+                    if import_value <= 0:
+                        continue
+                    Type = "Feed" if cons in df_elevage.index else "Food"
+                    importations.append(
+                        {
+                            "Consumer": cons,
+                            "Product": prod_i,
+                            "Type": Type,
+                            "Imported Nitrogen (ktN)": import_value,
+                        }
+                    )
+
+        # Imports dédiés aux bioraffineries (produits -> facility)
+        for (p, fac), var in I_energy_vars.items():
+            v = float(var.varValue or 0.0)
+            if v > 0:
+                importations.append(
+                    {
+                        "Consumer": fac,
+                        "Product": p,
+                        "Type": "Energy (Bioraffinery)",
+                        "Imported Nitrogen (ktN)": v,
+                    }
+                )
 
         # Convertir en DataFrame
-        self.importations_df = pd.DataFrame(importations)
-
-        # dataframe sur le méthaniseur
-        rows = []
-        eps = 1e-9
-
-        # Produits -> méthaniseur
-        for p in meth_prod_items if len(meth_prod_items) else []:
-            N = float(value(x_meth_prod[p]))
-            if N <= 0:
-                continue
-            # MWh/ktN = (MWh/tFW) * 100000 / (%N)
-            mwh_per_ktn = (
-                float(df_prod.loc[p, "Methanization power (MWh/tFW)"])
-                * 100000.0
-                / max(eps, float(df_prod.loc[p, "Nitrogen Content (%)"]))
+        if importations is None or len(importations) == 0:
+            self.importations_df = pd.DataFrame(
+                columns=["Consumer", "Product", "Type", "Imported Nitrogen (ktN)"]
             )
-            E_gwh = N * (mwh_per_ktn / 1000.0)
-            rows.append(
-                {"source": p, "allocation (ktN)": N, "energy production (GWh)": E_gwh}
-            )
+        else:
+            self.importations_df = pd.DataFrame(importations)
 
-        # Excréta -> méthaniseur
-        for e in meth_excr_items if len(meth_excr_items) else []:
-            N = float(value(x_meth_excr[e]))
-            if N <= 0:
-                continue
-            mwh_per_ktn = (
-                float(df_excr.loc[e, "Methanization power (MWh/tFW)"])
-                * 100000.0
-                / max(eps, float(df_excr.loc[e, "Nitrogen Content (%)"]))
-            )
-            E_gwh = N * (mwh_per_ktn / 1000.0)
-            rows.append(
-                {"source": e, "allocation (ktN)": N, "energy production (GWh)": E_gwh}
-            )
-
-        # Waste (agrégé) -> méthaniseur
-        if isinstance(N_waste_meth, LpVariable):
-            N = float(value(N_waste_meth))
-            if N > 0:
-                E_gwh = N * float(WASTE_PWR_MWh_per_ktN) / 1000.0
-                src_name = (
-                    ", ".join(sorted(meth_waste_items))
-                    if len(meth_waste_items)
-                    else "waste"
-                )
-                rows.append(
+        # ---------- D) Tableau énergie (source -> target) + parts par infrastructure
+        rows_energy = []
+        for fac in df_energy.index:
+            # produits
+            for p, var in energy_vars[fac]["prod"].items():
+                N = float(var.varValue or 0.0)
+                if N <= 1e-6:
+                    continue
+                # MWh/ktN = (MWh/tFW) * 1000 / (%N/100)
+                mwh_per_ktn = self._conv_MWh_per_ktN(fac, p)
+                E_gwh = N * (mwh_per_ktn / 1000.0)
+                rows_energy.append(
                     {
-                        "source": src_name,
+                        "source": p,
+                        "target": fac,
+                        "allocation (ktN)": N,
+                        "energy production (GWh)": E_gwh,
+                    }
+                )
+            # Imports produits vers la facility : source = "<Sub Type> trade"
+            for (p, f), var in I_energy_vars.items():
+                if f != fac:
+                    continue
+                N = float(var.varValue or 0.0)
+                if N <= 1e-6:
+                    continue
+                E_gwh = N * self._conv_MWh_per_ktN(fac, p) / 1000
+                cat_trade = f"{df_prod.loc[p, 'Sub Type']} trade"
+                rows_energy.append(
+                    {
+                        "source": cat_trade,
+                        "target": fac,
                         "allocation (ktN)": N,
                         "energy production (GWh)": E_gwh,
                     }
                 )
 
-        methanizer_overview_df = pd.DataFrame(rows)
+            # excréta
+            for e, var in energy_vars[fac]["excr"].items():
+                N = float(var.varValue or 0.0)
+                if N <= 1e-6:
+                    continue
+                mwh_per_ktn = self._conv_MWh_per_ktN(fac, e)
+                E_gwh = N * (mwh_per_ktn / 1000.0)
+                rows_energy.append(
+                    {
+                        "source": e,
+                        "target": fac,
+                        "allocation (ktN)": N,
+                        "energy production (GWh)": E_gwh,
+                    }
+                )
 
-        if not methanizer_overview_df.empty:
-            total_alloc = methanizer_overview_df["allocation (ktN)"].sum()
-            total_energy = methanizer_overview_df["energy production (GWh)"].sum()
+            # waste agrégé
+            wvar = energy_vars[fac]["waste"]
+            if wvar is not None:
+                N = float(value(wvar))
+                if N > 1e-6:
+                    E_gwh = N * self._conv_MWh_per_ktN(fac, "waste") / 1000
+                    rows_energy.append(
+                        {
+                            "source": "waste",
+                            "target": fac,
+                            "allocation (ktN)": N,
+                            "energy production (GWh)": E_gwh,
+                        }
+                    )
 
-            methanizer_overview_df["allocation share (%)"] = (
-                100.0 * methanizer_overview_df["allocation (ktN)"] / total_alloc
-                if total_alloc > 0
-                else 0.0
+        df_energy_flows = pd.DataFrame(rows_energy)
+        if not df_energy_flows.empty:
+            # parts par infrastructure (target)
+            by_t = df_energy_flows.groupby("target", as_index=False).agg(
+                total_alloc=("allocation (ktN)", "sum"),
+                total_energy=("energy production (GWh)", "sum"),
             )
-            methanizer_overview_df["energy production share (%)"] = (
-                100.0 * methanizer_overview_df["energy production (GWh)"] / total_energy
-                if total_energy > 0
-                else 0.0
+            df_energy_flows = df_energy_flows.merge(by_t, on="target", how="left")
+            df_energy_flows["allocation share (%)"] = (
+                100.0
+                * df_energy_flows["allocation (ktN)"]
+                / df_energy_flows["total_alloc"]
+            ).fillna(0.0)
+            df_energy_flows["energy production share (%)"] = (
+                100.0
+                * df_energy_flows["energy production (GWh)"]
+                / df_energy_flows["total_energy"]
+            ).fillna(0.0)
+            df_energy_flows = df_energy_flows.drop(
+                columns=["total_alloc", "total_energy"]
             )
-
-            methanizer_overview_df = methanizer_overview_df.sort_values(
-                "energy production (GWh)", ascending=False
-            ).reset_index(drop=True)
+            # Ajouter Type & Diet pour information
+            df_energy_flows["Type"] = df_energy_flows["target"].map(df_energy["Type"])
+            df_energy_flows["Diet"] = df_energy_flows["target"].map(df_energy["Diet"])
         else:
-            # DataFrame vide avec les bonnes colonnes
-            methanizer_overview_df = pd.DataFrame(
+            df_energy_flows = pd.DataFrame(
                 columns=[
                     "source",
+                    "target",
                     "allocation (ktN)",
                     "allocation share (%)",
                     "energy production (GWh)",
                     "energy production share (%)",
+                    "Type",
+                    "Diet",
                 ]
             )
-        methanizer_overview_df = methanizer_overview_df.set_index("source")
-        self.methanizer_overview_df = methanizer_overview_df
 
-        # Mise à jour de df_excr
-        for e in df_excr.index:
-            to_meth = float(excr_to_meth.get(e, 0.0))
-            base = float(df_excr.loc[e, "Excretion after volatilization (ktN)"])
+        # Remplacer df_energy par la vue "source->target" demandée
+        self.df_energy_flows = df_energy_flows.copy()
 
-            to_soil = base - to_meth
+        # Mise à jour de df_energy
+        df_energy["Energy Production (GWh)"] = 0.0
 
-            df_excr.loc[e, "Excretion to Methanizer (ktN)"] = to_meth
-            df_excr.loc[e, "Excretion to soil (ktN)"] = to_soil
+        for fac, E_expr_GWh in energy_E_GWh_expr.items():
+            # evaluate the PuLP expression at the optimum
+            E_GWh = float(value(E_expr_GWh))
+            # store in GWh
+            df_energy.loc[fac, "Energy Production (GWh)"] = E_GWh
 
-        # Mise à jour de df_prod
-        for idx, row in df_prod.iterrows():
-            prod = row.name
-            azote_alloue = allocations_df[
-                (allocations_df["Product"] == prod)
-                & (
-                    allocations_df["Type"].isin(
-                        ["Local culture food", "Local culture feed", "Methanizer"]
-                    )
-                )
-            ]["Allocated Nitrogen"].sum()
-            azote_alloue_feed = allocations_df[
-                (allocations_df["Product"] == prod)
-                & (allocations_df["Type"] == "Local culture feed")
-            ]["Allocated Nitrogen"].sum()
-            azote_alloue_food = allocations_df[
-                (allocations_df["Product"] == prod)
-                & (allocations_df["Type"] == "Local culture food")
-            ]["Allocated Nitrogen"].sum()
-            azote_alloue_meth = allocations_df[
-                (allocations_df["Product"] == prod)
-                & (allocations_df["Type"] == "Methanizer")
-            ]["Allocated Nitrogen"].sum()
-            df_prod.loc[idx, "Nitrogen Exported (ktN)"] = (
-                row["Available Nitrogen Production (ktN)"] - azote_alloue
+        df_energy["Nitrogen Input to Energy (ktN)"] = 0.0
+        for fac in df_energy.index:
+            N_input = 0.0
+            for p, var in energy_vars[fac]["prod"].items():
+                v = float(var.varValue or 0.0)
+                if v > 1e-6:
+                    N_input += v
+            for e, var in energy_vars[fac]["excr"].items():
+                v = float(var.varValue or 0.0)
+                if v > 1e-6:
+                    N_input += v
+            wvar = energy_vars[fac]["waste"]
+            if wvar is not None:
+                v = float(value(wvar) or 0.0)
+                if v > 1e-6:
+                    N_input += v
+            for (p, f), var in I_energy_vars.items():
+                if f == fac:
+                    v = float(var.varValue or 0.0)
+                    if v > 1e-6:
+                        N_input += v
+            df_energy.loc[fac, "Nitrogen Input to Energy (ktN)"] = N_input
+
+        # ---------- E) Mettre à jour df_excr : "Excretion to Energy (ktN)" / "Excretion to soil (ktN)"
+        df_excr["Excretion to Energy (ktN)"] = 0.0
+        for fac in df_energy.index:
+            for e, var in energy_vars[fac]["excr"].items():
+                v = float(var.varValue or 0.0)
+                if v > 1e-6:
+                    df_excr.loc[e, "Excretion to Energy (ktN)"] += v
+        df_excr["Excretion to soil (ktN)"] = (
+            df_excr["Excretion after volatilization (ktN)"]
+            - df_excr["Excretion to Energy (ktN)"]
+        )
+
+        # ---------- F) Mettre à jour df_prod : "Nitrogen For Energy (ktN)" + Export recalculé
+        df_prod["Nitrogen For Energy (ktN)"] = 0.0
+        for fac in df_energy.index:
+            for p, var in energy_vars[fac]["prod"].items():
+                v = float(var.varValue or 0.0)
+                if v > 1e-6:
+                    df_prod.loc[p, "Nitrogen For Energy (ktN)"] += v
+
+        # (re)calcul food/feed depuis allocations_df
+        df_prod["Nitrogen For Feed (ktN)"] = 0.0
+        df_prod["Nitrogen For Food (ktN)"] = 0.0
+        if not allocations_df.empty:
+            feed_by_prod = (
+                allocations_df.loc[allocations_df["Type"] == "Local culture Feed"]
+                .groupby("Product")["Allocated Nitrogen"]
+                .sum()
             )
-            df_prod.loc[idx, "Nitrogen For Feed (ktN)"] = azote_alloue_feed
-            df_prod.loc[idx, "Nitrogen For Food (ktN)"] = azote_alloue_food
-            df_prod.loc[idx, "Nitrogen For Methanizer (ktN)"] = azote_alloue_meth
+            food_by_prod = (
+                allocations_df.loc[allocations_df["Type"] == "Local culture Food"]
+                .groupby("Product")["Allocated Nitrogen"]
+                .sum()
+            )
+            df_prod.loc[feed_by_prod.index, "Nitrogen For Feed (ktN)"] = (
+                feed_by_prod.values
+            )
+            df_prod.loc[food_by_prod.index, "Nitrogen For Food (ktN)"] = (
+                food_by_prod.values
+            )
 
-        # Correction des valeurs proches de zéro
-        df_prod["Nitrogen Exported (ktN)"] = df_prod["Nitrogen Exported (ktN)"].apply(
-            lambda x: 0 if abs(x) < 1e-6 else x
+        df_prod["Nitrogen Exported (ktN)"] = (
+            df_prod["Available Nitrogen Production (ktN)"]
+            - df_prod["Nitrogen For Feed (ktN)"]
+            - df_prod["Nitrogen For Food (ktN)"]
+            - df_prod["Nitrogen For Energy (ktN)"]
         )
-        df_prod["Nitrogen For Feed (ktN)"] = df_prod["Nitrogen For Feed (ktN)"].apply(
-            lambda x: 0 if abs(x) < 1e-6 else x
-        )
-        df_prod["Nitrogen For Food (ktN)"] = df_prod["Nitrogen For Food (ktN)"].apply(
-            lambda x: 0 if abs(x) < 1e-6 else x
-        )
+        # Petites corrections numériques
+        for col in [
+            "Nitrogen Exported (ktN)",
+            "Nitrogen For Feed (ktN)",
+            "Nitrogen For Food (ktN)",
+            "Nitrogen For Energy (ktN)",
+        ]:
+            df_prod[col] = df_prod[col].where(df_prod[col].abs() >= 1e-6, 0.0)
 
         # Mise à jour de df_elevage
         # Calcul de l'azote total alloué à chaque consommateur
@@ -2990,7 +3463,7 @@ class NitrogenFlowModel:
         df_elevage.loc[:, "Consummed nitrogen from local feed (ktN)"] = (
             df_elevage.index.map(
                 azote_alloue_elevage.get(
-                    "Local culture feed", pd.Series(0, index=df_elevage.index)
+                    "Local culture Feed", pd.Series(0, index=df_elevage.index)
                 )
             )
         )
@@ -3008,7 +3481,7 @@ class NitrogenFlowModel:
         # Génération des flux pour les produits locaux
         allocations_locales = allocations_df[
             allocations_df["Type"].isin(
-                ["Local culture food", "Local culture feed", "Methanizer"]
+                ["Local culture Food", "Local culture Feed", "Local culture Energy"]
             )
         ]
 
@@ -3091,21 +3564,39 @@ class NitrogenFlowModel:
             .reindex(df_elevage.index, fill_value=0)
         )
 
-        # Flux pour le méthaniseur
-        target = {"methanizer": 1}
-        source = methanizer_overview_df["allocation (ktN)"].to_dict()
-        if source:
-            flux_generator.generate_flux(source, target)
+        # ---------- G) Flux vers les infrastructures énergie
+        # source (produits/excréta/waste) -> infrastructure
+        if not self.df_energy_flows.empty:
+            for fac in df_energy.index:
+                target = {fac: 1}
+                # agrège N(allocation) par source pour cette infra
+                src = self.df_energy_flows.loc[
+                    self.df_energy_flows["target"] == fac,
+                    ["source", "allocation (ktN)"],
+                ]
+                if not src.empty:
+                    source = src.set_index("source")["allocation (ktN)"].to_dict()
+                    if source:
+                        flux_generator.generate_flux(source, target)
 
-        # Redirection des excretions et digestats
-        source = df_excr.loc[
-            df_excr["Type"].isin(["manure", "slurry"]), "Excretion to soil (ktN)"
-        ].to_dict()
-        flux_generator.generate_flux(source, target_epandage, True)
-
-        # digestat
-        source = {"methanizer": methanizer_overview_df["allocation (ktN)"].sum()}
-        flux_generator.generate_flux(source, target_epandage)
+        # ---------- H) Sorties des infrastructures :
+        # - Si Type == "Methanizer" : tout l'azote va vers l'épandage (digestats)
+        # - Sinon (ex. "Bioraffinery") : vers "hydrocarbures"
+        if not self.df_energy_flows.empty:
+            for fac in df_energy.index:
+                fac_type = str(df_energy.loc[fac, "Type"])
+                N_alloc_fac = float(
+                    self.df_energy_flows.loc[
+                        self.df_energy_flows["target"] == fac, "allocation (ktN)"
+                    ].sum()
+                )
+                if N_alloc_fac <= 1e-6:
+                    continue
+                source = {fac: N_alloc_fac}
+                if fac_type.lower() == "methanizer":
+                    flux_generator.generate_flux(source, target_epandage)
+                else:
+                    flux_generator.generate_flux(source, {"hydrocarbures": 1})
 
         # Equilibrage des cultures
         for label in df_cultures.index:
@@ -3184,10 +3675,14 @@ class NitrogenFlowModel:
         source = {"atmospheric N2": 1}
         flux_generator.generate_flux(source, target)
 
-        df_elevage["Conversion factor (%)"] = (
-            (df_elevage["Edible Nitrogen (ktN)"] + df_elevage["Dairy Nitrogen (ktN)"])
+        mask = df_elevage["Ingestion (ktN)"] > 0
+        df_elevage.loc[mask, "Conversion factor (%)"] = (
+            (
+                df_elevage.loc[mask, "Edible Nitrogen (ktN)"]
+                + df_elevage.loc[mask, "Dairy Nitrogen (ktN)"]
+            )
             * 100
-            / df_elevage["Ingestion (ktN)"]
+            / df_elevage.loc[mask, "Ingestion (ktN)"]
         )
 
         # On ajoute une ligne total à df_cultures et df_elevage et df_prod
@@ -3234,6 +3729,7 @@ class NitrogenFlowModel:
             "N-NH3 EM slurry (%)",
             "Conversion factor (%)",
             "Excretion / LU (kgN)",
+            "Diet",
         ]
         colonnes_a_sommer = df_elevage.columns.difference(colonnes_a_exclure)
         total = df_elevage[colonnes_a_sommer].sum()
@@ -3276,9 +3772,24 @@ class NitrogenFlowModel:
             self.df_excr_display["Excretion to soil (ktN)"] != 0
         ]
 
+        colonnes_a_exclure = [
+            "Type",
+            "Diet",
+            "Share CO2 (%)",
+        ]
+        colonnes_a_sommer = df_energy.columns.difference(colonnes_a_exclure)
+        total = df_energy[colonnes_a_sommer].sum()
+        total.name = "Total"
+        self.df_energy_display = pd.concat([df_energy, total.to_frame().T])
+        self.df_energy_display = self.df_energy_display.loc[
+            self.df_energy_display["Target Energy Production (GWh)"] != 0
+        ]
+
         self.df_cultures = df_cultures
         self.df_elevage = df_elevage
         self.df_prod = df_prod
+        self.df_excr = df_excr
+        self.df_energy = df_energy
         # self.adjacency_matrix = adjacency_matrix
 
     def get_df_culture(self):
