@@ -80,7 +80,6 @@ class Dataloader_Carbon:
             "Carbon Mechanisation Intensity (ktC/ha)",
             "Residue Humification Coefficient (%)",
             "Root Humification Coefficient (%)",
-            "Surface Root Production (kgC/ha)",
         ]
 
         self.df_cultures = self.data.init_df_cultures.copy()
@@ -199,9 +198,10 @@ class CarbonFlowModel:
         self.df_prod = self.data_loader.get_df_prod()
         self.df_excr = self.data_loader.get_df_excr()
         self.df_pop = self.data_loader.get_df_pop()
-        self.df_global = self.data_loader.data.get_global_metrics(
-            self.region, self.year, True
+        self.data_loader.data.get_global_metrics(
+            self.region, self.year, carbon=True, prospect=False
         )
+        self.df_global = self.data_loader.data.global_df
         self.df_energy = self.data_loader.get_df_energy()
         self.df_energy_display = self.data_loader.nitrogen_model.df_energy_display
 
@@ -828,21 +828,29 @@ class CarbonFlowModel:
         # Jointure de la production de carbone agrégée avec df_cultures
         df_cultures = df_cultures.join(carbon_prod_agg, how="left")
 
+        df_cultures["Main Carbon Production (ktC)"] = df_cultures[
+            "Main Nitrogen Production (ktN)"
+        ] * df_cultures["Main Production"].map(
+            df_prod.groupby("Origin compartment")["Nitrogen Content (%)"].mean()
+        )
+
         # Calcul des Résidus
         df_cultures["Residue Production (ktC)"] = 0.0
         mask_hi = df_cultures["Harvest Index"] != 0
         df_cultures.loc[mask_hi, "Residue Production (ktC)"] = (
-            df_cultures.loc[mask_hi, "Carbon Production (ktC)"]
-            * (1 - df_cultures.loc[mask_hi, "Harvest Index"])
-            / df_cultures.loc[mask_hi, "Harvest Index"]
-        ).astype(float)
+            (
+                df_cultures.loc[mask_hi, "Main Carbon Production (ktC)"]
+                / df_cultures.loc[mask_hi, "Harvest Index"]
+                - df_cultures["Carbon Production (ktC)"]
+            )
+            .clip(lower=0)
+            .astype(float)
+        )
 
         df_cultures["Root Production (ktC)"] = 0.0
-        mask_area = df_cultures["Area (ha)"] != 0
-        df_cultures.loc[mask_area, "Root Production (ktC)"] = (
-            df_cultures.loc[mask_area, "Surface Root Production (kgC/ha)"]
-            * df_cultures.loc[mask_area, "Area (ha)"]
-            / 1e6
+        df_cultures.loc[mask_hi, "Root Production (ktC)"] = (
+            df_cultures.loc[mask_hi, "Residue Production (ktC)"]
+            * (1 - df_cultures.loc[mask_hi, "BGN"]).clip(lower=0.0)
         ).astype(float)
 
         target = (

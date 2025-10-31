@@ -1902,7 +1902,7 @@ class NitrogenFlowModel:
                 # Au-dessus du sol (ktN) attendu à partir du produit principal
                 above_k = mainN_k / HI
                 # Résidus = above - main
-                res_k = max(above_k - mainN_k, 0.0)
+                res_k = max(above_k - prod_sum_k, 0.0)
                 # Racines = above * (BGN-1)
                 root_k = above_k * max(BGN - 1.0, 0.0)
 
