@@ -23,7 +23,7 @@ The **GRAFS‑E** UI is a **Streamlit** application that explores nitrogen flows
 streamlit run grafs_e/app.py
 ```
 
-Open the local URL printed by Streamlit.
+Open the local URL displayed by Streamlit.
 
 ---
 
@@ -128,15 +128,15 @@ Implementation uses helper lookups (`_find_label_indices`, `_indices_for_crops`,
 
 ## 5. User guide (step‑by‑step)
 
-1. **Upload data** (Data Uploading tab).  
-2. **Pick territory and year**; run the model if required.  
+1. **Upload data** on Data Uploading tab.  
+2. **Pick territory and year**; run the model, select prospective mode is you want to use it.  
 3. **Explore Sankey**:
    - *Detailed* for fine‑grained inspection,
    - *Simplified* for category‑level overview,
    - adjust the **threshold** to declutter weak links.
 4. **Analyze fertilization**: check how much each **source** (Haber‑Bosch, deposition, excretions, Seeds, …) feeds **crops**.  
 5. **Inspect Food/Feed & Trade**: see imports/exports explicitly.  
-6. **Compare over time** (Historic tab): choose a metric (absolute/relative) and plot.  
+6. **Compare over time** (Historic tab): choose a metric and plot.  
 7. **Export** the tables for post‑processing.
 
 ---

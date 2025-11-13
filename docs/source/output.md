@@ -1,7 +1,10 @@
 # Output
 
-The output data is organized into a transition matrix showing the flows between each compartment, along with 7 dataframes presenting the input data, intermediate calculations, and output data:
+This page documents the **outputs** produced by the Nitrogen (N) layer of GRAFS‑E. Outputs are identical in **Historical** and **Prospective** modes; differences between modes affect **how** some values are computed (via the engine) but **not** the structure of outputs.
 
+Outputs are delivered as:
+1) a **transition matrix** (territory‑scale nitrogen flows, ktN·yr⁻¹), and  
+2) a set of **dataframes** reporting per‑compartment results (some columns echo inputs for context, others are computed by the model):
 - **df_cultures**: related to crops
 - **df_elevage**: related to livestock
 - **df_pop**: related to populations
@@ -9,130 +12,159 @@ The output data is organized into a transition matrix showing the flows between 
 - **df_global**: provides the global input data.
 - **allocations_df**: shows the output of the allocation model between products and consumers (humans and animals)
 - **deviations_df**: shows the deviations between the allocation model output and the target (Diet tab from the data Excel sheet)
+- **df_energy_flows**: shows the inflows of energy infrastructures.
 
-**df_cultures**, **df_elevage**, **df_pop**, **df_prod**, and **df_global** contain both outputs and input data. **df_global** simply records the global variables provided as input.
+**df_cultures**, **df_elevage**, **df_pop**, **df_prod**, and **df_energy** contain both outputs and input data. **df_global** simply records the global variables provided as input.
 
 ## Transition Matrix
 
 The most comprehensive output from the model is a transition matrix. This square matrix shows the flows between each compartment. It has the same size as the number of compartments. Each coefficient \(c_{ij}\) represents the nitrogen flow in ktN from compartment i to compartment j. The sum of column j gives all the inputs of a compartment, while the sum of row i gives all the outputs of a compartment.
 
-For all compartments in the following sets:
-- **crops**
-- **livestock**
-- **products**
-- **population**
-
-The sum of the inputs equals the sum of the outputs. These compartments are considered **internal**, and they are balanced.
+Compartments in the sets **crops**, **livestock**, **products**, **population**, **excretion**, **energy** are **internal and balanced** by construction (sum in = sum out).
 
 ![Transition Matrix from example data](_static/matrix.png)
 
-## Crops Outputs
+## Nitrogen Layer — Output Columns
 
-The output data related to crops is recorded in **df_cultures**. In addition to the input columns for crops, the following columns are created by GRAFS-E:
+This section enumerates the **columns created by the Nitrogen layer** in each output dataframe.  
+We list **only model‑generated outputs** (not input fields). Units are indicated inline.
 
-| **Column Name**                                 | **Description**                                                                                      | **Type** | **Comment**                                                                                                           |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------- |
-| **Main Nitrogen Production (ktN)**              | Nitrogen production in ktN from the main commercial product of the crop                               |          |                                                                                                                       |
-| **Yield (qtl/ha)**                              | Yield in quintals per hectare                                                                         |          |                                                                                                                       |
-| **Yield (kgN/ha)**                              | Yield in ktN per hectare                                                                               |          |                                                                                                                       |
-| **Symbiotic Fixation (ktN)**                    | Symbiotic nitrogen fixation performed by the crop                                                     |          |                                                                                                                       |
-| **Total Non-Synthetic Fertilizer Use (ktN)**     | Total fertilizer use excluding synthetic fertilizers                                                 |          | Used to calculate the need for synthetic fertilizers                                                                  |
-| **Surface Non-Synthetic Fertilizer Use (kgN/ha)**| Total fertilizer use per unit area excluding synthetic fertilizers                                    |          |                                                                                                                       |
-| **Leguminous Nitrogen Surplus (ktN)**           | Difference between symbiotic fixation and crop nitrogen needs                                         |          | Only for crops that perform symbiotic nitrogen fixation                                                               |
-| **Leguminous heritage (ktN)**                   | Nitrogen from the surplus of symbiotic nitrogen fixation distributed to other crops                   |          | Only benefits crops categorized as 'cereal (excluding rice)'                                                          |
-| **Raw Surface Synthetic Fertilizer Use (kgN/ha)**| Theoretical need for synthetic fertilizer per unit area                                               |          | Calculated by subtracting Surface Fertilization Need (kgN/ha) and Surface Non-Synthetic Fertilizer Use (kgN/ha)       |
-| **Raw Total Synthetic Fertilizer Use (ktN)**    | Theoretical total need for synthetic fertilizer for the crop                                          |          |                                                                                                                       |
-| **Adjusted Total Synthetic Fertilizer Use (ktN)**| Adjusted need for synthetic fertilizer based on the total synthetic fertilizer consumption of the territory |          | See calculation for \(\Gamma\)                                                                                         |
-| **Adjusted Surface Synthetic Fertilizer Use (kgN/ha)**| Adjusted need per unit area based on the total synthetic fertilizer consumption of the territory      |          |                                                                                                                       |
-| **Volatilized Nitrogen N-NH3 (ktN)**            | Portion of synthetic fertilizer volatilized as ammonia                                                |          |                                                                                                                       |
-| **Volatilized Nitrogen N-N2O (ktN)**            | Portion of synthetic fertilizer volatilized as nitrous oxide                                          |          | Includes indirect emissions due to the partial recombination of ammonia into nitrous oxide in the atmosphere            |
-| **Total Nitrogen Production (ktN)**             | Sum of all the products produced by this crop                                                         |          |                                                                                                                       |
-| **Balance (ktN)**                               | Difference (positive or negative) between the inputs (fertilization) and nitrogen removal from the crop |          |                                                                                                                       |
-| **Mineral Fertilization (ktN)**                               |  Total Mineral fertilization for this crop. |          | Computed only for crops with symbiotic fixation.                                                                                                                     |
-| **Surplus Mineral Fertilization (ktN)**                               |  Mineral fertilization left in the ground after plant growth. |          | Computed only for crops with symbiotic fixation. This amount is directed toward hydro-systems.                                                                                                                     |
-| **Organic Fertilization (ktN)**                               |  Total Organic fertilization for this crop. |          | Computed only for crops with symbiotic fixation.                                                                                                                     |
-| **Surplus Organic Fertilization (ktN)**                               |  Organic fertilization left in the ground after plant growth. |          | Computed only for crops with symbiotic fixation. This amount is directed to soil stock or next crop.                                                                                                                     |
-| **Residues Production (ktN)**                               |  Residues production non harvested. |          | Computed only for crops with symbiotic fixation.                                                                                                                     |
-| **Roots Production (ktN)**                               |  Roots production non harvested. |          | Computed only for crops with symbiotic fixation.                                                                                                                     |
+### `df_cultures` (crops)
 
-For detailed calculations, refer to the **GRAFS-E Engine** section. Unless stated otherwise, the type of each column is a positive real number. The **Surface Fertilization Need (kgN/ha)** column is completed by multiplying the **Fertilization Need (kgN/qtl)** and **Yields (qtl/ha)** columns where the **Fertilization Need (kgN/qtl)** is non-zero.
+| Column Name | Description |
+|---|---|
+| **Nitrogen Harvest Index** | N‑based harvest index computed at crop level. |
+| **Main Crop Production (kton)** | Fresh‑weight production of the main product mapped back to the crop. |
+| **Main Nitrogen Production (ktN)** | Nitrogen in the main product harvested. |
+| **Yield (qtl/ha)** | Crop yield per hectare in quintals. |
+| **Yield (kgN/ha)** | Harvested nitrogen per hectare. |
+| **Seeds Input (ktN)** | Nitrogen associated with sowing seeds at crop level. |
+| **Seeds Input (kgN/ha)** | Seeds nitrogen expressed per hectare. |
+| **BNF (kgN/ha)** | Biological nitrogen fixation per hectare. |
+| **BNF (ktN)** | Area‑scaled biological nitrogen fixation. |
+| **Atmospheric deposition (ktN)** | Atmospheric nitrogen deposition attributed to the crop. |
+| **Adjusted Total Synthetic Fertilizer Use (ktN)** | Territory‑consistent synthetic nitrogen assigned to the crop (pre‑field). |
+| **Adjusted Surface Synthetic Fertilizer Use (kgN/ha)** | Surface‑normalized synthetic N usage. |
+| **Volatilized Nitrogen N‑NH3 (ktN)** | Aggregated NH₃ emissions associated with synthetic fertiliser. |
+| **Volatilized Nitrogen N‑N2O (ktN)** | Aggregated N₂O emissions associated with synthetic fertiliser. |
+| **Synthetic to field (ktN)** | Synthetic nitrogen effectively reaching the field after aggregated losses. |
+| **Harvested Production (ktN)** | Total harvested nitrogen from all products originating from the crop. |
+| **Inputs to field (ktN)** | Lumped field inputs used in the balance (dep + BNF + excreta + digestate + seeds + synthetic_to_field). |
+| **Balance (ktN)** | Signed balance before partition: `Inputs to field − Harvested Production`. |
+| **Surplus (ktN)** | Positive part of the balance (otherwise 0). |
+| **Leached to hydro‑system (ktN)** | Share of positive surplus routed to leaching. |
+| **Surplus N2O (ktN)** | Share of positive surplus routed to N₂O emissions. |
+| **Soil storage from surplus (ktN)** | Share of positive surplus stored in soil (prairie first‑store logic included). |
+| **Mining from soil (ktN)** | Positive part of the opposite balance (harvest exceeding inputs). |
+| **Soil stock (ktN)** | Net soil stock change: `Soil storage from surplus − Mining from soil`. |
+| **Total Non Synthetic Fertilizer Use (ktN)** | Sum of non‑synthetic field inputs (dep + BNF + excreta + digestate + seeds). |
+| **Surface Non Synthetic Fertilizer Use (kgN/ha)** | Previous aggregate normalized by area. |
+| **Surface Inputs to field (kgN/ha)** | Field inputs normalized by area. |
+| **Surface Surplus (kgN/ha)** | Surplus normalized by area. |
 
-## Livestock Outputs
+---
 
-The output data related to livestock is recorded in **df_elevage**. In addition to the input columns for livestock, the following columns are created by GRAFS-E:
+### `df_prod` (products)
 
-| **Column Name**                            | **Description**                                                                            | **Type** | **Comment**                                      |
-| -----------------------------------------  | ------------------------------------------------------------------------------------------ | -------- | ------------------------------------------------ |
-| **Edible Nitrogen (ktN)**                 | Total nitrogen production from edible products in the livestock                           |          |                                                  |
-| **Non-Edible Nitrogen (ktN)**             | Total nitrogen production from non-edible products in the livestock                       |          |                                                  |
-| **Dairy Nitrogen (ktN)**                  | Total nitrogen production from dairy and egg products in the livestock                    |          |                                                  |
-| **Excreted nitrogen (ktN)**               | Total nitrogen excreted, all types of management combined                                 |          |                                                  |
-| **Ingestion (ktN)**                       | Total ingestion by the livestock                                                           |          | Sum of production and excretion                  |
-| **Consumed nitrogen from local feed (ktN)**| Nitrogen consumed from local products                                                      |          | Result of the optimization model                 |
-| **Consumed Nitrogen from imported feed (ktN)** | Nitrogen consumed from imported products                                                 |          | Result of the optimization model                 |
-| **Net animal nitrogen exports (ktN)**     | Net export of products from this livestock type                                            |          |                                                  |
-| **Conversion factor (%)**                 | Ratio between production from livestock and ingestion                                     |          |                                                  |
+| Column Name | Description |
+|---|---|
+| **Nitrogen Production (ktN)** | Product nitrogen production after internal consistency checks. |
+| **Nitrogen Wasted (ktN)** | Nitrogen routed to the waste node prior to allocation. |
+| **Nitrogen for Other uses (ktN)** | Nitrogen routed to the “other sectors” node prior to allocation. |
+| **Available Nitrogen Production (ktN)** | Availability after waste and other uses. |
+| **Nitrogen For Feed (ktN)** | Total allocation of this product to livestock (local + imports). |
+| **Nitrogen For Food (ktN)** | Total allocation of this product to population (local + imports). |
+| **Nitrogen For Energy (ktN)** | Allocation of this product to energy infrastructures. |
+| **Nitrogen Exported (ktN)** | Residual exported/stored/unused nitrogen after domestic uses. |
+| **Production (kton)** | Fresh‑weight production recomputed in prospective mode from nitrogen and content data. |
 
-## Population Outputs
+---
 
-The output data related to populations is recorded in **df_pop**. In addition to the input columns for population, the following columns are created by GRAFS-E:
+### `df_elevage` (livestock)
 
-| **Column Name**         | **Description**                                      | **Type** | **Comment** |
-| ---------------------- | ---------------------------------------------------- | -------- | ----------- |
-| **Ingestion (ktN)**     | Total consumption (animal and plant) by the population |          |             |
-| **Fishery Ingestion (ktN)**| Total consumption of sea products                  |          |             |
-| **Excretion after volatilization (ktN)**| Amount of Nitrogen excreted after $N_2$, $N_2O$ and $NH_3$ losses                  |          |             |
+| Column Name | Description |
+|---|---|
+| **Excreted indoor as slurry (%)** | Completed indoor management share for excretion (convenience field). |
+| **Excreted on grassland (%)** | Outdoor excretion share (complement to indoor). |
+| **Edible Nitrogen (ktN)** | Edible animal product nitrogen. |
+| **Non‑Edible Nitrogen (ktN)** | Non‑edible animal co‑product nitrogen. |
+| **Dairy Nitrogen (ktN)** | Dairy/egg nitrogen outputs. |
+| **Excreted nitrogen (ktN)** | Total nitrogen excreted by the livestock (pre‑routing). |
+| **Ingestion (ktN)** | livestock nitrogen ingestion computed from excretion and animal production. |
+| **Consumed nitrogen from local feed (ktN)** | Nitrogen from local products allocated to the livestock. |
+| **Consumed nitrogen from imported feed (ktN)** | Nitrogen from imported products allocated to the livestock. |
+| **Net animal nitrogen exports (ktN)** | Net exports of animal products for the livestock. |
 
-## Products Outputs
+---
 
-The output data related to products is recorded in **df_prod**. In addition to the input columns for products, the following columns are created by GRAFS-E:
+### `df_excr` (animal excretions)
 
-| **Column Name**                           | **Description**                                                   | **Type** | **Comment**                                                                                              |
-| ----------------------------------------- | --------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
-| **Nitrogen Production (ktN)**             | Nitrogen production in ktN for the product                       |          |                                                                                                          |
-| **Nitrogen Wasted (ktN)**             | Nitrogen production wasted                       |          | flow from products to 'waste' compartment.                                                                                                          |
-| **Nitrogen for Other uses (ktN)**             | Nitrogen production used in other sectors                       |          | flow from products to other sectors.                                                                                                         |
-| **Available Nitrogen (ktN)** | Nitrogen from Nitrogen Production available after losses and other use |          | Used as input for optimization model.           |
-| **Nitrogen For Feed (ktN)**               | Nitrogen allocated to livestock                                  |          | For detailed allocation, see **allocations_df**                                                            |
-| **Nitrogen For Food (ktN)**               | Nitrogen allocated to populations                                |          | For detailed allocation, see **allocations_df**                                                            |
-| **Nitrogen For Energy (ktN)**               | Nitrogen allocated to Bioenergy facilities                                |          | For detailed allocation, see **allocations_df**                                                            |
-| **Nitrogen Exported (ktN)**               | Nitrogen available after waste, other uses, allocation (food, feed, energy) is exported.                                |          |                                                            |
+| Column Name | Description |
+|---|---|
+| **Excretion after volatilization (ktN)** | Excreta nitrogen available after gaseous losses. |
+| **Excretion to Energy (ktN)** | Portion of post‑volatilization excreta sent to energy. |
+| **Excretion to soil (ktN)** | Portion of post‑volatilization excreta applied to fields. |
 
-## Energy output
+---
 
-The output data related to energy production is recorded in **df_energy**. In addition to the input columns for bioenergy facilities, the following columns are created by GRAFS-E:
+### `df_pop` (population)
 
-| **Column Name**                           | **Description**                                                   | **Type** | **Comment**                                                                                              |
-| ----------------------------------------- | --------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
-| **Energy Production (GWh)**             | Energy production actually realised by GRAFS-E.                       |          | The optimization model tries to minimize the gap with the target.                                                                                                         |
-| **Nitrogen Input to Energy (ktN)**             | Nitrogen consummed for this energy production                       |          | The exact inputs composition is available in allocations_df and df_energy_flows.                                                                                                         |
+| Column Name | Description |
+|---|---|
+| **Ingestion (ktN)** | Total nitrogen ingestion by the population node. |
+| **Fishery Ingestion (ktN)** | Nitrogen ingestion from fishery products. |
+| **Excretion after volatilization (ktN)** | Human excreta nitrogen available after gaseous losses. |
 
-## Allocations Outputs
+---
 
-The output data related to the allocations proposed by the allocation model is recorded in **allocations_df**. Each row in this dataframe represents a flow between a product (or import) and a consumer. The table has four columns:
-- **Product**: Name of the product
-- **Consumer**: Name of the consumer
-- **Allocated Nitrogen**: Amount of nitrogen allocated
-- **Type**: Combination of [Imported, Local culture] + [Feed, Food, Energy] based on whether the product is locally produced or imported, and whether the consumer is a population or livestock. Waste energy and Excretion Energy are also used for bioenergy facilities.
+### `allocations_df` (product → consumer flows)
 
-## Deviations Output
+Allocation table produced by the LP/MILP solver; one row per product–consumer flow.
 
-The output data related to the deviations between the allocations proposed by the optimization model and the ideal diet defined in the input data is recorded in **deviations_df**. Each row represents an entry in the ideal diet. The table has six columns:
-- **Consumer**: The consumer
-- **Type**: Animal, Human or Energy
-- **Expected Proportion (%)**: Proportion defined in the ideal diet
-- **Deviation (%)**: Deviation between the target allocation and the allocation proposed by the optimization model (0% if the model perfectly respects the ideal diet)
-- **Proportion Allocated (%)**: Proportion allocated by the optimization model
-- **Product**: List of products for this diet entry.
+| Column Name | Description |
+|---|---|
+| **Product** | Product name. |
+| **Consumer** | Consumer name (human group, livestock group or energy facility). |
+| **Allocated Nitrogen (ktN)** | Nitrogen mass allocated in the solution. |
+| **Type** | Semantic label of the allocation (e.g., Local Feed, Imported Food, Energy). |
 
-## Energy flows
+---
 
-The output data related to allocations and production by inputs in bioenergy facilities. Each row represent an input in an bioenergy facility. Columns are :
-- **source**: the input. Can be a product, an excretion or 'waste'.
-- **target**: the bioenergy facility getting this input.
-- **allocation (ktN)**: amount of input Nitrogen from the source to the target.
-- **energy production (GWh)** Energy production linked to the this input
-- **allocation share (%)** Nitrogen input share for this input in this facility.
-- **energy production share (%)**: Energy production share for this input in this facility.
-- **Type**: Type of bioenergy facility, either Methanizer or Bioraffinery.
-- **Diet**: Diet linked to this facility.
+### `deviations_df` (diet)
+
+Diagnostics used by the objective for soft constraints.
+
+| Column Name | Description |
+|---|---|
+| **Consumer** | Identifier of the consumer or facility. |
+| **Type** | Consumer type (Human, Animal or Energy). |
+| **Expected Proportion (%)** | Target diet proportion. |
+| **Proportion Allocated (%)** | Realized proportion from allocations. |
+| **Deviation (%)** | Deviation between realized and target. |
+| **Product** | List of products of diet group. |
+
+---
+
+## 8) `df_energy` (energy infrastructures)
+
+| Column Name | Description |
+|---|---|
+| **Energy Production (GWh)** | Total energy produced by the facility (all inputs combined). |
+| **Nitrogen Input to Energy (ktN)** | Total nitrogen mass consumed by the facility. |
+
+---
+
+## 9) `df_energy_flows` (sources → facility)
+
+Per‑source breakdown of inputs and attributable energy.
+
+| Column Name | Description |
+|---|---|
+| **source** | Name of the source node (product, excreta, waste). |
+| **target** | Facility name. |
+| **allocation (ktN)** | Nitrogen allocated from source to facility. |
+| **energy production (GWh)** | Energy attributable to this allocation. |
+| **allocation share (%)** | Share of the source allocation in facility total N input. |
+| **energy production share (%)** | Share of the source’s energy in facility total energy output. |
+| **Type** | Category of the source (product / excreta / waste). |
+| **Diet** | Facility diet tag. |

@@ -8,15 +8,16 @@ from grafs_e.N_class import DataLoader, NitrogenFlowModel, FluxGenerator
 
 # --- Classe Dataloader ---
 class Dataloader_Carbon:
-    def __init__(self, project_path, data_path, region, year):
+    def __init__(self, project_path, data_path, region, year, prospective=False):
         """Charger les données nécessaires pour le modèle"""
         # Instancier NitrogenFluxModel avec l'année et la région
         self.data = DataLoader(project_path, data_path)
         self.df_data = self.data.df_data
         self.year = year
         self.region = region
+        self.prospective = prospective
         self.nitrogen_model = NitrogenFlowModel(
-            self.data, region, year
+            self.data, region, year, prospective=prospective
         )  # Modèle de flux d'azote
 
         fixed_compartments = [
@@ -80,7 +81,6 @@ class Dataloader_Carbon:
             "Carbon Mechanisation Intensity (ktC/ha)",
             "Residue Humification Coefficient (%)",
             "Root Humification Coefficient (%)",
-            "Surface Root Production (kgC/ha)",
         ]
 
         self.df_cultures = self.data.init_df_cultures.copy()
@@ -199,9 +199,10 @@ class CarbonFlowModel:
         self.df_prod = self.data_loader.get_df_prod()
         self.df_excr = self.data_loader.get_df_excr()
         self.df_pop = self.data_loader.get_df_pop()
-        self.df_global = self.data_loader.data.get_global_metrics(
-            self.region, self.year, True
+        self.data_loader.data.get_global_metrics(
+            self.region, self.year, carbon=True, prospect=False
         )
+        self.df_global = self.data_loader.data.global_df
         self.df_energy = self.data_loader.get_df_energy()
         self.df_energy_display = self.data_loader.nitrogen_model.df_energy_display
 
@@ -828,21 +829,28 @@ class CarbonFlowModel:
         # Jointure de la production de carbone agrégée avec df_cultures
         df_cultures = df_cultures.join(carbon_prod_agg, how="left")
 
+        df_cultures["Main Carbon Production (ktC)"] = df_cultures[
+            "Main Nitrogen Production (ktN)"
+        ] * df_cultures["Main Production"].map(df_prod["C/N"])
+
         # Calcul des Résidus
         df_cultures["Residue Production (ktC)"] = 0.0
         mask_hi = df_cultures["Harvest Index"] != 0
         df_cultures.loc[mask_hi, "Residue Production (ktC)"] = (
-            df_cultures.loc[mask_hi, "Carbon Production (ktC)"]
-            * (1 - df_cultures.loc[mask_hi, "Harvest Index"])
-            / df_cultures.loc[mask_hi, "Harvest Index"]
-        ).astype(float)
+            (
+                df_cultures.loc[mask_hi, "Carbon Production (ktC)"]
+                / df_cultures.loc[mask_hi, "Harvest Index"]
+                - df_cultures["Carbon Production (ktC)"]
+            )
+            .clip(lower=0)
+            .astype(float)
+        )
 
         df_cultures["Root Production (ktC)"] = 0.0
-        mask_area = df_cultures["Area (ha)"] != 0
-        df_cultures.loc[mask_area, "Root Production (ktC)"] = (
-            df_cultures.loc[mask_area, "Surface Root Production (kgC/ha)"]
-            * df_cultures.loc[mask_area, "Area (ha)"]
-            / 1e6
+        df_cultures.loc[mask_hi, "Root Production (ktC)"] = (
+            df_cultures.loc[mask_hi, "Carbon Production (ktC)"]
+            / df_cultures.loc[mask_hi, "Harvest Index"]
+            * (df_cultures.loc[mask_hi, "BGN"] - 1).clip(lower=0.0)
         ).astype(float)
 
         target = (
@@ -895,3 +903,30 @@ class CarbonFlowModel:
         :rtype: numpy.ndarray
         """
         return self.carbon_matrix
+
+    def check_balance(self):
+        """
+        Vérifie la balance des flux (sommes lignes et colonnes) de la matrice de transition M.
+        Optimisé pour un affichage rapide en utilisant une seule instruction print finale.
+        """
+        M = self.get_transition_matrix()
+
+        # Prépare les calculs en une seule fois (vectorisation)
+        # Calcule la somme de chaque ligne (flux sortant)
+        row_sums = M.sum(axis=1)
+        # Calcule la somme de chaque colonne (flux entrant)
+        col_sums = M.sum(axis=0)
+
+        output_lines = []
+
+        for i in range(len(M)):
+            label = self.data_loader.index_to_label[i]
+
+            # Ajout des informations à la liste
+            output_lines.append(label)
+            output_lines.append(f"Flux sortant (Somme Ligne): {row_sums[i]:.6f}")
+            output_lines.append(f"Flux entrant (Somme Colonne): {col_sums[i]:.6f}")
+            output_lines.append("===")
+
+        # Effectue un seul appel d'impression avec toutes les lignes jointes par un saut de ligne
+        print("\n".join(output_lines))
