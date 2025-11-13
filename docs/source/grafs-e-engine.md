@@ -1,109 +1,108 @@
 # GRAFS-E Methodology
 
-Here are described GRAFS-E mecanisms to create a coherent flow vision of agro-food systems. Flow building are described by main flow families.
+This document details the **nitrogen mechanisms** of GRAFS-E with explicit **assumptions** and **rationale for the chosen formulations**. We distinguish features that apply to **Historical [H]**, **Prospective [P]**, or **Both [B]**. Carbon is documented elsewhere.
+In prospective mode, production in endogenized. In Historic mode, the production is an input data.
 
-## Input Products flows
+## Notation
 
-Input flows from products are get with product data. For each product $i$ with 'Origin compartment' $j$, the inflow is: 
+- Indices: $a$ (Area), $t$ (Year), $c$ (crop), $p$ (product), $l$ (livestock), $e$ (excreta), $h$ (population), $f$ (facility), $G$ (diet group).
+- Sets: $\mathcal{C}$ (crops), $\mathcal{P}$ (products), $\mathcal{L}$ (livestock), $\mathcal{E}$ (excreta), $\mathcal{F}$ (facilities), $\mathcal{G}$ (diet groups).
+- Units: ktN (nitrogen masses), kgN/ha (areal terms), tFW (fresh mass). Percentages are fractions in $[0,1]$ unless stated otherwise.
+
+## Products flows [H]
+
+Input flows from products are get with product data. For each product $p$ with 'Origin compartment' $j$ (crop or livestock), the inflow is: 
 ```{math}
-F_{ij} = \text{Production}_i * \text{Nitrogen Content}_i
+F_{jp} = N^{\mathrm{prod}}_{p} * %N_p
 ```
+
+Availability after pre‑allocation losses (waste and other uses):
+```{math}
+N^{\mathrm{avail}}_{p} \;=\; N^{\mathrm{prod}}_{p}\,(1 - w^{\mathrm{waste}}_{p} - w^{\mathrm{other}}_{p})\,.
+```
+
+The avaiblable Nitrogen amount for each product is then allocated to each consummers by the allocation model (see below).
 
 This flow is now nammed $\text{Nitrogen Production}_i$
 ## Crops input fertilization flows
 
 Crops can be fertilized by several vector depending of the context : synthetic fertilizer, excretion, atmospheric deposition, seeds...
 
-### Seeds input
+### Seeds input [B]
 
-Each yearly crops required an initial seeds input to grow. This is computed as follow for a crop $i$: 
+Crops might require seeds input. This is Nitrogen input. This is computed as follow for a crop $c$: 
 ```{math}
-F_{ii} = \text{Seed input}_i * \text{Nitrogen Production}_i
+F_{\text{seeds}~c} = \text{Seed input}_c * N^{\mathrm{prod}}_{p}
 ```
 
-This is the only self loop in GRAFS-E.
-
-### Atmosperic deposition
+### Atmosperic deposition [B]
 
 Atmospheric deposition is modelled in a simple maner with a surface coefficient. The origin of this flow is 90 % from atmospheric NH3 and 10 % from atmospheric N2O as proposed by IPCC {cite:p}`intergovernmentalpanelonclimatechangeClimateChangeLand2022`.
-For a crop $i$, the input flow is: 
+For a crop $c$, the input flow is: 
 ```{math}
-F_i = \text{Atmospheric deposition coef}_i * \text{Area}_i
+F_{\text{depo}~c} = \text{Atmospheric deposition coef} * a_c
 ```
 
-### Human excretion
+### Human excretion [B]
 
-Human excretion is the sum of all Nitrogen Ingested including fischery product.
+Human excretion is the sum of all Nitrogen Ingested including fischery product. Volatilization and recycling coefficients are used to compute population output flows to atmosphere, lands and water.
 
 #### Sludge spread
 
 The excretion is partially recycled (Excretion recycling input parameter) to be spread on crops. This part is shared among crops according to their area and spreading rate.
 Spreading designate the action of manually spreading manure on a field (by opposition to direct excretion on grasslands). A streading rate of 0% means that no hectares benefited from sludges, manure and slurry (whatever is the amount). Spreading rate of 100% means that all hectares of this crop benefited from spreeding. The available amount of sludge Nitrogen is spread using this distribution: 
 ```{math}
-{\rho}_i = \frac{\text{Area}_i*\text{Spreading rate_i}}{{\sum}_{j\in \text{crops}, \notin \text{natural meadow}} \text{Area_j}*\text{Spreading rate_j}}
+{\rho}_c = \frac{a_c*\text{Spreading rate}_c}{{\sum}_{i\in \mathcal{C}} ~a_i*\text{Spreading rate}_i}
 ```
 
-With $i$ a crop. Therefore Spreading rate encompass how much a crop will get access to manure, sludge and slurry spreading. 
+With $c$ a crop. Therefore Spreading rate encompass how much a crop will get access to manure, sludge and slurry spreading. 
 
 #### Other fate of human excretion
 
-The rest of human excretion get various fate. These are studied in {cite:p}`starckFateNitrogenFrench2023a`. A part is volatilized as ammoniac ($NH_3$), a part is volatilized as nitrous oxyde ($N_2O$), a part is volilized as nitrous gas ($N_2$). Each of these ends are taken account by 'N-X EM excretion' with X the name of the volatilized molecule in input data.
+The rest of human excretion get various fate. These are studied in {cite:p}`starckFateNitrogenFrench2023a`. A part is volatilized as ammoniac ($NH_3$), a part is volatilized as nitrous oxyde ($N_2O$), a part is volilized as nitrous gas ($N_2$). Each of these ends are taken account by parameter 'N-{X} EM excretion' with {X} the name of the volatilized molecule in input data.
 All human excretion which is neither volatilized or recycled is lost in hydro-system compartment.
 
-### Animal excretion
+### Animal excretion [B]
 
-Animal excretion is the sum of ingestion (feed) and animal production (edible, non edible and dairy products). Animal spend time indoor (Excreted indoor parameter) or in grasslands (natural meadows and temporary meadows categories).
+GRAFS-E manage 3 kind of excretion managments : manure, slurry and grasslands excretion. Excreta production uses livestock units (LU), excretion factors per LU and indoor/outdoor splits to form the **streams** (e.g., manure, slurry, pasture excretion).
+
+Each stream $e$ is assigned aggregated emission factors; the **effective** ktN that can be spread or sent to energy is:
+```{math}
+E^{\mathrm{eff}}_{e} \;=\; E_{e}\,\bigl(1 - k^{e}_{\mathrm{NH3}} - k^{e}_{\mathrm{N_2O}} - k^{e}_{\mathrm{N_2}}\bigr)\,.
+```
 
 #### Animal indoor excretion
 
-The mecanisms for Indoor animal excretion are very similar than human excretion. The same distribution is used for manure and slurry spreading.
-Two excretion managments are considered in GRAFS-E : slurry and manure. Their have the same mecanisms but with differents technical coefficients. Manure has its own volatilization coefficient, as slurry. 
+The mecanisms for indoor animal excretion are very similar than human excretion. The same distribution is used for manure and slurry spreading ('Spreading rate (%)' input data).
+Two indoor excretion managments are considered in GRAFS-E : slurry and manure. Their have the same mecanisms but with differents technical coefficients. Manure has its own volatilization coefficient, as slurry. 
 Another difference with human excretion is that there is no losses in hydro-system compartment. All available manure and slurry is used on crops after volatilization.
 
-### Animal excretion on grasslands
+#### Animal excretion on grasslands
 
-The proportion of time spend outdoor (1 - Excreted indoor) is the proportion of excretion on grasslands crops. This kind of ecretion has its own volatilization coefficients. The distribution of outdoor excretion is simply proportional to grasslands area.
+The proportion of time spend outdoor (1 - Excreted indoor) is the proportion of excretion on grasslands crops. This kind of excretion has its own volatilization coefficients. The distribution of outdoor excretion is simply proportional to grasslands area.
 
-### Biological Nitrogen Fixation
+### Biological Nitrogen Fixation [B]
 
 We compute BNF following Anglade et al.{cite:p}`angladeRelationshipsEstimatingN2`:
 ```{math}
-\mathrm{BNF}\;=\;\bigl(\alpha_{\text{cult}}\cdot \frac{Y}{HI} + \beta_{\text{cult}}\bigr)\cdot BGN
+\mathrm{BNF}_c\;=\;\bigl(\alpha_c\cdot \frac{Y_c}{HI_c} + \beta_c\bigr)\cdot BGN_c
 ```
 
-With ${\alpha}_{\text{cult}}$ and ${\beta}_{\text{cult}}$ are crop specific slope and intercept of the affine function (see Anglade for values), Y the yield (kgN/ha), HI the Harvest Index and BGN the Bellowground contribution multiplicative factor. For more details and  values for ${\alpha}_{\text{cult}}$ and ${\beta}_{\text{cult}}$ and BNG, check Anglade paper.
+With ${\alpha}_c$ and ${\beta}_c$ are crop specific slope and intercept of the affine function, Y the yield (kgN/ha), HI the Harvest Index and BGN the belowground contribution multiplicative factor. For more details and  values for ${\alpha}_c$ and ${\beta}_c$ and $BGN_c$, check Anglade paper.
 
-For reference, the total plant N (harvest + residues + roots) is:
-```{math}
-Y_{\mathrm{NPP}} \;=\; Y\cdot\frac{BGN}{HI}
-```
 These flows are recorded from atmospheric $N_2$ to the corresponding legume crop nodes.
 
-### Residues, roots and "legume legacy"
+### Digestate and methanizers [B]
 
-#### Non-legume crops
-We assume a neutral residue balance from one year to the next (residues left ≈ residues received). Consequently, residues and roots are not explicitly exchanged between crops in the N balance (they cancel out at yearly scale).
+All nitrogen sent to methanizers—whatever its origin (products, excreta, waste)—fully exits as digestate and is then spread under the same rules as human indoor excretion. For excreta routed to the methanizer, we account only the post-volatilization nitrogen (i.e. effective ktN).
 
-#### Legume crops
-Legumes enrich the system. We compute residue Nitrogen and root Nitrogen from the harvested Nitrogen $Y$:
-```{math}
-N_{\text{residues}} \;=\; \frac{Y}{HI} - Y,
-\qquad
-N_{\text{roots}} \;=\; \frac{Y}{HI}\cdot(BGN-1).
-```
+Digestate fertilization is computed after solving the allocation because its quantity depends on the chosen energy production and the actual inputs to methanizers. We assume that the extra nitrogen brought by non-excreta inputs to digestate is a small residual flow that does not perturb the nitrogen balance at territory level (it is treated as an internal redistribution).
 
-Priority of fertilisation uptake is organic N first (seed + BNF + organic inputs), then mineral N to meet remaining needs.
+In Prospective mode, digestate spreading is endogenized in the allocation so that the total fertilisation per crop $F_c$ used by the yield function includes digestate (see production function below).
 
-Roots are routed to soil stock (slow pool).
-Shoot residues (and any organic surplus) form a legume legacy that is transferred to the pool of cereals crops (e.g., allocated by cereal area share).
+Methanizer cannot import Nitrogen from outside the territory, Bioreffinery can. Methanizer input can be from products, excretion and waste compartments. Bioreffinery can only use products and waste compartments.
 
-If BNF plus other non-symbiotic inputs (seeds, excretions etc.) are insufficient to close the plant N balance (harvest + residues + roots), we add an explicit soil uptake flow to close mass balance (representing the use of background soil mineral N).
-
-Note: Permanent grasslands do not pass a legacy to the next crop; their residues and organic surplus go to soil stock (storage), consistent with their role as long-lived pools.
-
-Second Note: Haber Bosch inputs for grasslands (natural and temporary) are computed before Residues and Roots managment but after for non legume crops.
-
-### Synthetic Fertilization
+### Synthetic Fertilization in Historic mode [H]
 
 #### Concept
 
@@ -158,103 +157,158 @@ All **synthetic fertiliser** supplied to crops originates from the **Haber–Bos
 
 To conserve nitrogen, the Haber–Bosch compartment is itself **mass‑balanced** by an inflow from **atmospheric $N_2$**. In other words, the total outflow of nitrogen from Haber–Bosch equals the nitrogen extracted from atmospheric $N_2$ for ammonia synthesis including volatilization losses.
 
+### Production in Prospective mode [P]
+
+#### Crops Production
+
+In prospective mode, the crops productions and therefore the crop Nitrogen balance is endogenized. The mean surface synthetic fertilizer use on crops and grasslands are still needed to give a synthetic fertilizer budget used in objective function (see allocation model section below). The yiels (kgN/ha) if function $Y_c(F)$ of the **total** Nitrogen fertilization inputs. 
+
+the yield response is:
+```{math}
+Y_c(F) \;=\; Y^{\max}_{c}\,\bigl(1 - e^{-F/F^\star_{c}}\bigr)\,.
+```
+It is enforced by a piecewise‑linear envelope (SOS2 or convex combination) with breakpoints $(F_{i c}, Y_{i c})$:
+```{math}
+\sum_i \lambda_{i c}=1,\qquad 
+f_c=\sum_i \lambda_{i c} F_{i c},\qquad 
+y_c=\sum_i \lambda_{i c} Y_{i c},\qquad 
+\lambda_{i c}\ge 0 \text{ and contiguous.}
+```
+Products of type 'plant' have a production given by 
+```{math}
+P^i_c = Y_c(F) * Q^i
+```
+
+With $Q^i$ the 'Co-production factor' given in product input data.
+
+Legumes have $N^{\mathrm{syn}}_{c}=0$ by construction. The BNF expression is **identical** to Historical, but now $y_c$ is endogenous.
+
+Volatilization and links to Haber Bosch compartment is the same as Historic mode.
+
+#### Animal 
+
+Product of type 'animal' are simply computed using co-production factor and LU :
+
+```{math}
+P^i_a = LU * Q^i
+```
+
 ## Feed–Food–Methanizer Allocation Model (GRAFS‑E)
+
+This section presents the **territory‑level** allocation model that connects **product availabilities** to **consumers** (livestock, population) and **energy facilities** under hard physical constraints and soft preference constraints.
 
 ### Philosophy
 
 Linking **food/feed demand** to a **physically coherent** system of flows (local production, imports, exports, human/animal use, methanizer) requires more than a simple mass balance. Detailed information on *who uses which product*, and *gross imports/exports by product*, is often **incomplete** or **heterogeneous**.  
 GRAFS‑E closes this gap with a **linear optimization model** (PuLP){cite:p}mitchellPuLPLinearProgramming that allocates nitrogen (N) from products to consumers **under hard constraints** (balances, availabilities, prohibitions) while **minimizing** **diet deviations**, **distribution imbalances**, **gross imports**, and **energy target deviation** for the methanizer.
 
+**In prospective mode**, the production is endogenized with a production function for crops and co-production factor for products. "Size" of compartments (LU, Inhabitant, Area...) are part of scenario by the user.
+
 ---
 
 ### Notation (mapping to code)
 
-| Concept | Meaning | In the code |
+| Concept | Meaning | In code |
 |---|---|---|
-| Products $p$ | Rows of `df_prod` (e.g., *Wheat grain*, *Soya beans grain*) | `df_prod.index` |
-| Consumers $c$ | Rows of `df_cons` (livestock & population) | `df_cons.index` |
-| Diets | Table `diets` by `Consumer`, with product groups and proportions | `pairs` |
-| Local allocation | N from product $p$ to $c$ | `x_vars[(p,c)] ≥ 0` |
-| Imports | N imported of product $p$ to $c$ | `I_vars[(p,c)] ≥ 0` |
-| Diet deviation | Slack per diet group of $c$ | `delta_vars[(c, group)] ≥ 0` |
-| Intra‑group penalty | Keep distribution within a group balanced | `penalite_culture_vars[(c,prop,p)] ≥ 0` |
-| Fair share across consumers | For each product, stay near a target split | `gamma_fair_abs[(p,c)] ≥ 0` |
-| Export surplus | Unused local N (not to methanizer) | `U_vars[p] ≥ 0` |
-| No‑swap (optional MILP) | Forbid importing when exporting same product | `y_vars[p] ∈ {0,1}` |
-| Methanizer (products) | N from products to methanizer | `x_meth_prod[p] ≥ 0` |
-| Methanizer (excreta) | N from excreta to methanizer | `x_meth_excr[e] ≥ 0` |
-| Methanizer (waste) | Aggregated waste N to methanizer | `N_waste_meth ≥ 0` |
-| Diet deviation (meth) | Slack per methanizer diet group | `delta_meth[(Meth, group)] ≥ 0` |
-| Fair share (meth, products) | Per‑product target vs allocation | `gamma_fair_abs_meth[p] ≥ 0` |
-| Intra‑group (meth) | Balanced distribution within meth groups | `penalite_culture_meth[(Meth,prop,it)] ≥ 0` |
-| Energy deviation | Distance to energy target | `meth_energy_dev ≥ 0` |
+| Products $p$ | Rows of `df_prod` (e.g., Wheat grain, Soya beans grain) | `df_prod.index` |
+| Consumers $c$ | Rows of `df_cons` (Livestock or Population) | `df_cons.index` |
+| Diet groups $G$ | Groups defined by the **Diet** table | preprocessed to `(c, G, products_in_G)` |
+| Facilities $f$ | Energy infrastructures (Methanizer, Bioraffinery, …) | `df_energy.index` |
+| Local allocation | ktN of $p$ to $c$ | `x[(p,c)] ≥ 0` |
+| Imports | ktN of $p$ to $c$ | `M[(p,c)] ≥ 0` |
+| Export/unused | ktN of $p$ not consumed internally | `U[p] ≥ 0` |
+| Facility inputs | ktN of input $i$ to $f$ | `xE[(i,f)] ≥ 0` |
+| Diet slack | Deviation for $(c,G)$ | `delta[(c,G)] ≥ 0` |
+| Intra‑group slack | Within‑group smoothing for $(c,G,p)$ | `pi[(c,G,p)] ≥ 0` |
+| Fair‑share slack | Per product & consumer | `gamma[(p,c)] ≥ 0` |
+| Facility diet slacks | Analogous to consumers | `deltaE[(f,G)]`, `piE[(f,G,i)] ≥ 0` |
+| Energy dev. | Relative deviation vs target of facility $f$ | `devE[f] ≥ 0` |
 
 ---
 
-### Inputs
+### Inputs [B]
 
-- **Local production by product** (ktN): `"Available Nitrogen Production (ktN)"` after losses and other uses.
-- **Consumers**: `df_cons["Type"] ∈ {Human, Livestock}`, `df_cons["Ingestion (ktN)"]`.
-- **Diets**: `diets` with columns `Consumer`, `Proportion`, `Products` (list). Preprocessed as  
-  `pairs = [(consumer, prop, tuple(products)), ...]`.
-- **Global parameters/weights** (from `df_global`):  
-  `Weight diet`, `Weight distribution`, `Weight import`, `Weight fair local split`,  
-  `Methanizer Energy Production (GWh)`, `Weight methanizer production`, `Weight methanizer inputs`.
-- **Excreta**: `df_excr` (e.g., `Excretion after volatilization (ktN)`, `Nitrogen Content (%)`, `Methanization power (MWh/tFW)`).
-- **Waste→methanizer**: `df_global["Green waste methanization power (MWh/ktN)"]`.
+- **Availability by product** (ktN) after waste/other uses: $N^{\mathrm{avail}}_{p}$.  
+- **Consumers**: type $\in\{\text{Human}, \text{Livestock}\}$ and **ingestion requirement** $R_c$ (ktN).  
+- **Diets**: target group shares $\pi^\star_{cG}$ and group composition (sets of products).  
+- **Facilities**: admissible inputs $i$ (products or excreta) and **powers** $P_{fi}$ (MWh/ktN), plus targets $E^{\mathrm{tar}}_f$ (GWh) if any.  
+- **Policy/domain rules**: items forbidden to import (e.g., *grazing*), facility import permissions (e.g., methanizers **no import**, bioraffineries **may import** if enabled).  
+- **Weights** (non‑negative): $w^{\mathrm{diet}},w^{\mathrm{intra}},w^{\mathrm{fair}},w^{\mathrm{imp}},w^{E},w^{E\text{-diet}},w^{E\text{-intra}}$.
+- **Ingestion requirements** $R_c$ from observed population/LU and per‑capita/LU ingestion.
+
+### Prospective‑specific Inputs [P]
+
+- **Product availabilities** are endogenous via the crop module (yield curves, co‑production).  
+- **Synthetic budgets** for crops/grasslands at territory scale.  
+- Additional weights: $w^{\mathrm{syn}}, w^{\mathrm{syn\text{-}dist}}$.
 
 ---
 
-### Decision variables (main blocks)
+### Decision variables
 
-- **Local allocations**: $x_{p,c} \ge 0$.  
-- **Imports**: $I_{p,c} \ge 0$.  
-- **Diet slacks**: $\delta_{c,G} \ge 0$.  
-- **Intra‑group slacks**: $\pi_{c,G,p} \ge 0$.  
-- **Fair‑share slacks**: $\gamma_{p,c} \ge 0$.  
-- **Export surplus**: $U_p \ge 0$.  
-- **No‑swap binary**: $y_p \in \{0,1\}$.
+#### Common [B]
 
-**Methanizer:**  
-- $x^{meth}_{p} \ge 0$ (products), $x^{meth}_{e} \ge 0$ (excreta), $N^{meth}_{waste} \ge 0$.  
-- $\delta^{meth}_G \ge 0$, $\gamma^{meth}_p \ge 0$, $\pi^{meth}_{G,it} \ge 0$, $meth\_energy\_dev \ge 0$.
+- $X_{p c}\ge 0$ : ktN of product $p$ allocated to consumer $c$.  
+- $M_{p c}\ge 0$ : ktN of product $p$ **imported** for consumer $c$.  
+- $U_p\ge 0$ : ktN of product $p$ **exported/unused** internally.  
+- $X^{E}_{i f}\ge 0$ : ktN of input $i$ to facility $f$.  
+- $\delta_{cG},\ \pi_{cGp},\ \gamma_{p c}\ge 0$ : consumer soft‑constraint slacks.  
+- $\delta^{E}_{fG},\ \pi^{E}_{fGi}\ge 0$ : facility soft‑constraint slacks.  
+- $\mathrm{dev}^{E}_{f}\ge 0$ : relative deviation from facility energy target.
+
+#### Prospective‑only [P]
+
+- $d^{\mathrm{syn}}\ge 0$ : excess synthetic ktN beyond crop budget.  
+- $d^{F^\star}_k\ge 0$ : deviation for non‑legume crop $k$ from $f_k/F^\star_k=1$ (links to crop module).
 
 ---
 
 ### Hard constraints
 
-#### (H1) Consumer balance
-Each consummer (except methanizer) has a fixed amount of Nitrogen intake. For each consumer $c$:
+> Each constraint is annotated [B] if used in both modes, [P] if Prospective‑only.
+
+#### (H‑1) Product mass balance [B]
 ```{math}
-\sum_{p \in \text{diet}(c)} x_{p,c} \;+\; \sum_{p \in \text{diet}(c)} I_{p,c} \;=\; \text{Ingestion}_c.
+\sum_{c} X_{p c} \;+\; \sum_{f} X^{E}_{p f} \;+\; U_p \;\le\; N^{\mathrm{avail}}_{p}\,,\qquad \forall p.
+```
+Internal uses and exports cannot exceed availability within the territory.
+
+#### (H‑2) Consumer ingestion requirement [B]
+```{math}
+\sum_{G}\sum_{p\in\mathcal{P}_G} \bigl(X_{p c}+M_{p c}\bigr) \;=\; R_c\,,\qquad \forall c.
+```
+Each consumer must receive exactly its requirement. Human ingestion is given in input data. Animal ingestion is the sum of excretion and production.
+
+#### (H‑3) Import prohibition for grazing [B]
+```{math}
+M_{p c} \;=\; 0\quad \text{if } p \in \texttt{grazing}.
+```
+Grazing products are not traded across the territory boundary.
+
+#### (H‑4) Facility domain constraints & energy identity [B]
+Admissible inputs only, optional facility‑type import permission, and energy production identity:
+```{math}
+X^{E}_{i f}=0 \ \text{if } i \notin \mathcal{I}_f,\qquad
+M^{E}_{p f}=0 \ \text{if facility } f \text{ forbids imports},
+```
+```{math}
+E_f \;=\; \sum_{i\in\mathcal{I}_f} X^{E}_{i f}\,P_{f i}\,,\qquad \forall f.
 ```
 
-#### (H2) Product availability (balance)
-It is not possible to use more product than available. For each product $p$:
+#### (H‑5) Excreta availability to facilities [B]
 ```{math}
-\sum_{c} x_{p,c} \;+\; x^{meth}_{p} \;+\; U_p \;=\; \text{AvailableProd}_p.
+\sum_{f} X^{E}_{e f} \;\le\; E^{\mathrm{eff}}_{e}\,,\qquad \forall e\in\mathcal{E}.
 ```
+Energy inputs from each excreta stream are limited by effective availability.
 
-#### (H3) Excreta availability
-It is not possible to use more excretat than available. For each excreta $e$:
-```{math}
-x^{meth}_{e} \;\le\; \text{ExcretionAfterVol}_e.
-```
-
-#### (H4) No imports of natural meadows
-Products with 'grazing' as Sub Type cannont be traded (imported of exported).
-```{math}
-\sum_{c \in \text{Animals}} \sum_{p \in \text{grazing}} I_{p,c} \;=\; 0.
-```
-
-#### (H5) Enforce animal share (optional)
+#### (H-6) Enforce animal share (optional) [B]
 If enabled, the model cannont substitute animal product and plant product. For each $c$:
 ```{math}
 \sum_{p \in \text{diet}(c)\cap \text{Type=animal}} (x_{p,c}+I_{p,c})
 = \text{Ingestion}_c \times \text{share_animal}(c).
 ```
 
-#### (H6) Optional anti “import & surplus” (MILP)
+#### (H-7) Optional anti “import & surplus” (MILP) [B]
 With product‑specific $M_p$:
 ```{math}
 \sum_{c} I_{p,c} \le M_p\,y_p,\qquad U_p \le M_p\,(1-y_p).
@@ -263,83 +317,56 @@ With product‑specific $M_p$:
 
 ---
 
-### Soft constraints (all linearized)
+### Soft constraints
 
-#### (S1) Diet deviation per group (consumers)
-This soft constraint limit the gap between the diet of input data and the diet made by the allocation model. For any group $G$ in $c$'s diet (target share $prop_{c,G}$):
+#### (S‑1) Diet share respect (consumers) [B]
 ```{math}
-\Big|\frac{\sum_{p\in G} (x_{p,c}+I_{p,c})}{\text{Ingestion}_c} - prop_{c,G}\Big| \;\le\; \delta_{c,G}.
+\left|\frac{\sum_{p\in \mathcal{P}_G}(X_{p c}+M_{p c})}{R_c} - \pi^{\star}_{cG}\right| \;\le\; \delta_{cG}\,.
+```
+This soft constraint limit the gap between the diet of input data and the diet made by the allocation model. Keeps realized diet shares close to targets; slack $\delta_{cG}$ is penalized.
+
+#### (S‑2) Intra‑group smoothing (consumers) [B]
+```{math}
+\left|X_{p c} - \frac{1}{|\mathcal{P}_G|}\sum_{r\in\mathcal{P}_G} X_{r c}\right| \;\le\; \pi_{c G p}\,.
+```
+Discourages corner solutions (one item taking all) when several products are nutritionally interchangeable.
+
+#### (S‑3) Fair‑share by product (across consumers) [B]
+With references $s^{\mathrm{ref}}_{p c}$ (e.g., historical splits),
+```{math}
+\left|X_{p c} - s^{\mathrm{ref}}_{p c}\,N^{\mathrm{avail}}_{p}\right| \;\le\; \gamma_{p c}\,.
+```
+Prevents a product from being monopolized by a single consumer.
+
+#### (S‑4) Facility diet & smoothing [B]
+Analogues of (S‑1)–(S‑2) at facility‑level:
+```{math}
+\left|\frac{\sum_{i\in \mathcal{I}_{f,G}} X^{E}_{i f}}{\sum_{i} X^{E}_{i f}} - \pi^{\star,E}_{fG}\right| \;\le\; \delta^{E}_{fG},\qquad
+\left|X^{E}_{i f} - \frac{1}{|\mathcal{I}_{f,G}|}\sum_{r\in \mathcal{I}_{f,G}} X^{E}_{r f}\right| \le \pi^{E}_{f G i}.
 ```
 
-#### (S2) Intra‑group balance (consumers)
-Group $G$ of size $|G|$. Target per item:
+#### (S‑5) Energy target deviation [B]
+Aim to provide as much energy as required in input data:
 ```{math}
-\text{target}_{c,G,p}=\frac{prop_{c,G}\cdot \text{Ingestion}_c}{|G|},\qquad
-\big| (x_{p,c}+I_{p,c}) - \text{target}_{c,G,p} \big| \le \pi_{c,G,p}.
+\mathrm{dev}^{E}_{f} \;\ge\; \frac{\left|E_f - E^{\mathrm{tar}}_{f}\right|}{E^{\mathrm{tar}}_{f}}\,.
 ```
-*Avoids corner solutions (one item taking all).*
-
-#### (S3) Fair‑share across consumers (per product)
-Build normalized shares $s^{ref}_{p,c}$ from all diets (by product). Target:
+With:
 ```{math}
-x^\star_{p,c} = s^{ref}_{p,c}\cdot \text{Prod}_p,\qquad
-|x_{p,c} - x^\star_{p,c}| \le \gamma_{p,c}.
+E_f = \sum_{i} P_{f,i} \cdot X^{E}_{i f},
 ```
-*Prevents a product from being monopolized by one consumer.*
+$P_{f,i}$ is the conversion power of input $i$ in MWh/ktN (from the input data).
 
----
-
-### Methanizer
-
-#### Energy conversion
-
-For nitrogen $N$ (in **ktN**) sent to the methanizer:
-
-- **Products**:  
-  $\text{MWh/ktN}=\dfrac{\text{MWh/tFW}\times 1000}{\%N}$,  
-  so $E_{\text{GWh}} = N \times \text{MWh/ktN} / 1000$.
-- **Excreta**: same formula using entries from `df_excr`.
-- **Waste**: use `Green waste methanization power (MWh/ktN)` (already per ktN).
-
-Total:
+#### (S‑6) Synthetic budget (territory) [P]
+Aim to do not exceed the synthetic fertiliser usage specified in the input data:
 ```{math}
-E_{\text{GWh}}=\frac{1}{1000}\!\left(\sum_{p} x^{meth}_{p}\!\cdot\!\frac{\text{MWh/tFW}\cdot 1000}{\%N_p}
-+ \sum_{e} x^{meth}_{e}\!\cdot\!\frac{\text{MWh/tFW}\cdot 1000}{\%N_e}
-+ N^{meth}_{waste}\!\cdot\!\text{MWh/ktN}_{waste}\right).
+d^{\mathrm{syn}} \;\ge\; \sum_{k\in\mathcal{C}_{\mathrm{crops}}} N^{\mathrm{syn}}_{k} - S^{\mathrm{tot}}_{\mathrm{crop}}\,,\qquad d^{\mathrm{syn}}\ge 0.
 ```
 
-#### Diet & balance constraints for methanizer
-
-- **Diet groups (linear, no division)**  
-  For any meth group $G$ with target $prop^{meth}_G$:
-  ```{math}
-  \big|N^{group} - prop^{meth}_{G}\cdot N^{total}_{meth}\big| \le \delta^{meth}_{G},
-  ```
-  where $N^{group}$ is the sum of allocations in $G$, and
-  $N^{total}_{meth} = \sum_p x^{meth}_p + \sum_e x^{meth}_e + N^{meth}_{waste}$.
-
-- **Fair‑share on products (meth vs other consumers)**  
-  For each product $p$:
-  ```{math}
-  |x^{meth}_{p} - s^{ref,meth}_{p}\cdot \text{Prod}_p| \le \gamma^{meth}_{p}.
-  ```
-
-- **Intra‑group balance (meth)**  
-  For any meth group $G$ of size $|G|$:
-  ```{math}
-  \big| \text{alloc}_{it} - \frac{prop^{meth}_G \cdot N^{total}_{meth}}{|G|} \big| \le \pi^{meth}_{G,it}.
-  ```
-
-- **Energy target (relative deviation, linear)**  
-  With target $E^{target}$:
-  ```{math}
-  meth\_energy\_dev \ge \frac{|E_{\text{GWh}} - E^{target}|}{E^{target}}.
-  ```
-
-- **Excreta cap (hard)**  
-  $x^{meth}_{e} \le \text{ExcretionAfterVol}_e$.
-
-> **Mass balance remark**: the methanizer **does not change** the total N returned to the system (excreta+digestate stay constant); it only **changes the origin** of these flows. Reporting distinguishes `Excretion to Methanizer` and `Excretion to soil`.
+#### (S‑7) Distribution around $F^\star$ (non‑legumes) [P]
+Aim to give to each crop a reasonable amount of fertilizer. Avoid under and over fertilization using characteristic fertilization as objective:
+```{math}
+d^{F^\star}_k \;\ge\; \left|\frac{f_k}{F^\star_{k}} - 1\right|,\qquad k\notin\mathcal{C}_{\mathrm{legume}}.
+```
 
 ---
 
@@ -356,16 +383,18 @@ This keeps the model **linear** and makes the weight comparable to other terms.
 
 ### Objective function
 
-We minimize a non‑negative weighted sum:
+We minimize a weighted sum of deviations and costs:
 ```{math}
-\min \;
-\underbrace{\omega_{dev}\,\sum \delta}_{\text{diet deviations}}
-+\underbrace{\omega_{cult}\,\sum \pi}_{\text{intra‑group balance}}
-+\underbrace{\omega_{imp}\,\text{ImportTerm}}_{\text{normalized gross imports}}
-+\underbrace{\omega_{fair}\,\tfrac{\sum \gamma + \sum \gamma^{meth}}{|\text{Products}|}}_{\text{fair‑share across consumers}}
-+\underbrace{\omega_{methE}\,meth\_energy\_dev}_{\text{meth energy target}}
-+\underbrace{\omega_{methD}\,\tfrac{\sum \delta^{meth}}{|\text{Meth groups}|}}_{\text{meth diet}}
-+\underbrace{\tfrac{\omega_{cult}}{|\text{Meth items}|}\,\sum \pi^{meth}}_{\text{meth intra‑group}}.
+\begin{aligned}
+\min\;\; 
+&\underbrace{\sum_{c,G} w^{\mathrm{diet}}\;\delta_{cG}}_{\text{respect of diet shares}}
++ \underbrace{\sum_{c,G,p} w^{\mathrm{intra}}\;\pi_{cGp}}_{\text{intra-group smoothing}}
++ \underbrace{\sum_{p,c} w^{\mathrm{fair}}\;\gamma_{p c}}_{\text{fair-share}} \\[4pt]
+&+ \underbrace{\sum_{p,c} w^{\mathrm{imp}}\;\frac{M_{p c}}{N^{\mathrm{avail}}_{p}+\varepsilon}}_{\text{imports (normalized)}} 
++ \underbrace{\sum_{f}\!\left( w^{E}\,\mathrm{dev}^{E}_{f} + \sum_{G} w^{E\text{-diet}}\delta^{E}_{fG} + \sum_{G,i} w^{E\text{-intra}}\pi^{E}_{fGi} \right)}_{\text{energy targets and facility diets}} \\[4pt]
+&+ \underbrace{w^{\mathrm{syn}}\;d^{\mathrm{syn}}}_{\text{[P] synthetic budget}} 
++ \underbrace{w^{\mathrm{syn\text{-}dist}}\sum_{k\notin \mathcal{C}_{\mathrm{legume}}} d^{F^\star}_k}_{\text{[P] distribution around }F^\star}\,.
+\end{aligned}
 ```
 
 Normalizing by counts (products, groups) stabilizes weights across data granularity.
@@ -374,14 +403,16 @@ Normalizing by counts (products, groups) stabilizes weights across data granular
 
 ### Choosing weights (guidelines)
 
-- `Weight import` ↑ → favors **local autonomy** (e.g., 19th century scenarios).  
-- `Weight diet` ↑ → keeps diets close to targets (less substitution).  
-- `Weight distribution` ↑ → prevents corner solutions within groups.  
-- `Weight fair local split` ↑ → fair split of each product across consumers.  
-- `Weight methanizer production` ↑ → meet energy target.  
-- `Weight methanizer inputs` ↑ → respect meth diet.
+- **$w^{\mathrm{diet}}$** ↑ : diets stick to targets, fewer substitutions.  
+- **$w^{\mathrm{intra}}$** ↑ : smoother within‑group allocations, fewer corner solutions.  
+- **$w^{\mathrm{fair}}$** ↑ : products shared more equitably across consumers.  
+- **$w^{\mathrm{imp}}$** ↑ : stronger preference for internal resources; imports reduced when possible.  
+- **$w^{E}$, $w^{E\text{-diet}}$, $w^{E\text{-intra}}$** ↑ : facilities meet energy targets and diet composition more tightly.  
+- **[P] $w^{\mathrm{syn}}$** ↑ : synthetic use kept within budget; exceeding becomes costly.  
+- **[P] $w^{\mathrm{syn\text{-}dist}}$** ↑ : fertilisation per non‑legume kept near $F^\star$ (prevents unrealistic extremes).
 
-`Weight distribution` and `Weight fair local split` are technical constraints weights. They should be kept lower than others. Thez can be not given in input data. A value will be automatically assigned to them based on the other weights (see input data page).
+**Rule of thumb.** Keep *stabilizers* ($w^{\mathrm{intra}}, w^{\mathrm{fair}}$ and energy analogues) about **an order of magnitude below** primary priorities (diet, imports, energy).
+
 Start with something like `(1.0, 1.0, 0.1, 0.1, 1.0, 1.0)` and run small sensitivity sweeps ×{0.5, 1, 2, 5}.  
 Inspect the **debug report** (shares %) to see which term dominates and adjust.
 
@@ -410,35 +441,98 @@ Use this to:
 
 ### Minimal example
 
-A minimal runnable example with synthetic data is available in **`example/`**:
+A minimal runnable historic mode example with synthetic data is available in **`example/`**:
 - `example/GRAFS_project_example_N.xlsx` — Project file,
 - `example/GRAFS_data_example_N.xlsx` — Data file.
 
 > You can replicate/extend the example to test different weight sets (e.g., high `Weight import` to emulate 19th‑century import frictions).
 
-## Export
+A minimal runnable historic mode example with synthetic data is available in **`example/`**:
+- `example/GRAFS_project_example_C_prospect.xlsx` — Project file,
+- `example/GRAFS_data_example_C_prospect.xlsx` — Data file.
 
-Export is deduced with mass balance on each product $i$:
+## Crop nitrogen balance [B]
+
+The nitrogen balance is computed per crop $c$ and at the territory scale. It aggregates all nitrogen inputs to the field and compares them to the harvested nitrogen.
+
+### Inputs and outputs
+
+First, we group all the inputs to the field (ktN). Each term corresponds to a vector of nitrogen received by the crop:
+
+- $N^{\mathrm{dep}}_{c}$: Atmospheric deposition.
+- $N^{\mathrm{BNF}}_{c}$: Biological nitrogen fixation.
+- $N^{\mathrm{excr}}_{c}$: Effective excreta (from both animals and humans) applied to the crop $c$ (after volatilization losses).
+- $N^{\mathrm{digest}}_{c}$: Effective digestate applied to the crop $c$ (from methanizers plants).
+- $N^{\mathrm{seed}}_{c}$: Nitrogen from seeds.
+- $N^{\mathrm{syn,field}}_{c}$: Synthetic nitrogen reaching the field after losses (NH₃, N₂O, etc.).
+
+These contributions form the total nitrogen input to the field:
+
 ```{math}
-N_{\text{export}}^i = N_{\text{local production}}^i + N_{\text{import}}^i - N_{\text{consumption}}^i
+N^{\mathrm{in}}_{c} \;=\; N^{\mathrm{dep}}_{c} + N^{\mathrm{BNF}}_{c} + N^{\mathrm{excr}}_{c}
++ N^{\mathrm{digest}}_{c} + N^{\mathrm{seed}}_{c} + N^{\mathrm{syn,field}}_{c}\,.
 ```
-Each term on the right side of the equation is given by input data or optimization model.
 
-## Final checks
+The output is the nitrogen harvested from the crop (the sum of products originating from $c$):
 
-GRAFS‑E performs **mass‑balance checks** for every crop compartment. For all other compartments, balance is enforced by the model’s mechanistic definitions.
+```{math}
+N^{\mathrm{out}}_{c} \;=\; N^{\mathrm{harv}}_{c}\,.
+```
 
-- **Deficit (outputs > inputs):**  
-  If the total nitrogen outputs of a crop compartment exceed its inputs, the deficit is taken from the **soil stock** compartment. This may indicate (i) an unsustainable agro‑food system, (ii) difficulties in closing loops at the system scale, or (iii) inconsistencies in the input data.
+### Surplus and mining
 
-- **Surplus (inputs > outputs):**  
-  If the total nitrogen inputs of a crop compartment exceed its outputs, GRAFS‑E distributes the nitrogen surplus is partitioned as:  
-     - **99.25 %** to **hydrosystem losses**,   
-     - **0.75 %** to **atmospheric $N_2O$**.
+We express the balance in terms of positive parts to clarify the subsequent steps:
+Surplus $S_c$ represents the positive part of inputs minus outputs;
+Mining $M_c$ (soil depletion) represents the positive part of outputs minus inputs.
 
-All **crop, livestock, population, and product** compartments are balanced by construction. Once these checks pass, the GRAFS‑E nitrogen‑flow representation of the agro‑food system is **closed and physically coherent**.
+```{math}
+S_c \;=\; \max\!\bigl(N^{\mathrm{in}}_{c} - N^{\mathrm{out}}_{c},\,0\bigr)\,,\qquad
+M_c \;=\; \max\!\bigl(N^{\mathrm{out}}_{c} - N^{\mathrm{in}}_{c},\,0\bigr)\,.
+```
 
-Then, for each crop compartment, inward and outward flows to “soil stock” are netted out; only the resulting net exchange with “soil stock” is retained in the accounting.
+If the inputs exceed the harvest ($S_c > 0$), the excess nitrogen must be distributed between leaching and soil storage; if the harvest exceeds the inputs ($M_c > 0$), the soil stock is depleted to balance the equation (mining).
+
+### Partition of positive surplus
+
+When $S_c > 0$, the excess nitrogen is partitioned between leaching, N₂O emissions, and soil storage (the remainder). The partitioning coefficients depend on the type of land use and are based on Anglade work {cite:p}`angladeNitrogenSoilSurface`.
+
+**Arable (non‑meadows):**
+```{math}
+L_c \;=\; 0.7\,S_c,\qquad
+E^{\mathrm{surp}}_c \;=\; 0.0025\,S_c,\qquad
+\mathrm{SoilStore}^{\mathrm{surp}}_c \;=\; S_c - L_c - E^{\mathrm{surp}}_c\,.
+```
+
+**Meadows:** We first store up to a threshold 100 (kgN/ha), and then we split the remaining surplus using same fractions as arable lands:
+```{math}
+s^{\mathrm{kg/ha}}_c = \frac{S_c\cdot 10^6}{A_c},\quad
+\mathrm{FirstStore}_c = \min(s^{\mathrm{kg/ha}}_c,\,T)\,\frac{A_c}{10^6},\quad
+R_c = S_c - \mathrm{FirstStore}_c,
+```
+```{math}
+L_c \;=\; 0.7\,R_c,\qquad
+E^{\mathrm{surp}}_c \;=\; 0.0025\,R_c,\qquad
+\mathrm{SoilStore}^{\mathrm{surp}}_c \;=\; \mathrm{FirstStore}_c + R_c - L_c - E^{\mathrm{surp}}_c\,.
+```
+
+On meadows, a portion of the surplus is guaranteed to be stored (up to 100 kgN/ha), reflecting the “buffering” effect of meadows. Beyond this threshold, the behavior is similar to arable land, following the partitioning rules.
+
+### Net soil stock change and surface indicators
+
+The net soil stock change aggregates storage from surplus and mining:
+
+```{math}
+\Delta S^{\mathrm{soil}}_c \;=\; \mathrm{SoilStore}^{\mathrm{surp}}_c - M_c\,,
+```
+
+For surface indicators (kgN/ha), we convert the masses to a per-hectare basis:
+
+```{math}
+\mathrm{Inputs}^{\mathrm{kg/ha}}_{c} \;=\; \frac{N^{\mathrm{in}}_{c}\cdot 10^6}{A_c},\qquad
+\mathrm{Surplus}^{\mathrm{kg/ha}}_{c} \;=\; \frac{S_c\cdot 10^6}{A_c}\,.
+```
+
+All **crop, livestock, population, and product** compartments are balanced by construction. The GRAFS‑E nitrogen‑flow representation of the agro‑food system is **closed and physically coherent**.
 
 ## References
 

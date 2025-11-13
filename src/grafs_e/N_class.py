@@ -1940,14 +1940,6 @@ class NitrogenFlowModel:
             "Total Non Synthetic Fertilizer Use (ktN)",
             "Harvested Production (ktN)",
             # Nouvelles colonnes bilan récolte & surplus
-            "Residues Production (ktN)",
-            "Roots Production (ktN)",
-            "Mineral Fertilization (ktN)",  # Synthétique + (TotalNonSynth - Organic_for_surplus)
-            "Surplus Organic Fertilisation (ktN)",
-            "Surplus Mineral Fertilization (ktN)",
-            "To Soil Stock (ktN)",
-            "Leached to hydro-system (ktN)",
-            "Mineral surplus N2O (ktN)",
             "Yield (kgN/ha)",
             "Yield (qtl/ha)",
             "Main Nitrogen Production (ktN)",
@@ -2468,7 +2460,7 @@ class NitrogenFlowModel:
         * Surplus N2O (ktN)               [surplus>0]
         * Soil storage from surplus (ktN) [surplus>0]
         * Mining from soil (ktN) = max(-Surplus, 0)
-        * Net Soil stock (ktN) = Residues + Roots + Soil storage from surplus - Mining
+        * Net Soil stock (ktN) = Soil storage from surplus - Mining
         * Surface indicators (kgN/ha)
 
         """
@@ -2635,8 +2627,6 @@ class NitrogenFlowModel:
 
         # --------- 7) Bilan de stock de sol (Δ stock) ----------
         df_cu["Soil stock (ktN)"] = (
-            # df_cu["Residues to soil (ktN)"].values
-            # + df_cu["Roots to soil (ktN)"].values
             +df_cu["Soil storage from surplus (ktN)"].values
             - df_cu["Mining from soil (ktN)"].values
         ).astype(float)
@@ -2665,7 +2655,7 @@ class NitrogenFlowModel:
             df_cu.loc[mask_area, "Total Non Synthetic Fertilizer Use (ktN)"]
             * 1e6
             / area[mask_area]
-        )
+        ).astype(float)
 
         # --------- 9) Construction des flux ----------
 
@@ -3073,13 +3063,6 @@ class NitrogenFlowModel:
         )
 
         flux_generator.generate_flux(source_boue, target_epandage)
-
-        # On l'enregistre dans une colonne
-        # total_excreta_N_ktN = sum(source_boue.values())
-        # target_series = pd.Series(target_epandage)
-        # self.df_cultures["Excreta Fertilization (ktN)"] = (
-        #     self.df_cultures.index.map(target_series).fillna(0) * total_excreta_N_ktN
-        # )
 
         # Le reste est perdu dans l'environnement
         source = (
@@ -4026,46 +4009,17 @@ class NitrogenFlowModel:
         # Terme d'import co-normalisé
         raw_import_term = I_food_normed + I_feed_normed + I_energy_normed
 
-        # Terme sur les diètes énetgie
-        # energy_inputs_total = lpSum(energy_inputs_terms) / max(
-        #     1, len(energy_inputs_terms)
-        # )
-
-        USE_EPS = (
-            False  # bool(int(df_global.loc["Use epsilon constraints", "value"]))  # 0/1
+        # Fonction objectif
+        objective = (
+            (poids_penalite_deviation / max(1, len(pairs))) * lpSum(delta_vars.values())
+            + (poids_penalite_culture / max(1, len(df_prod)))
+            * (lpSum(penalite_culture_vars.values()) + penalite_culture_energy_term)
+            + poids_import_brut * raw_import_term
+            + w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
+            + W_ENERGY_INPUT * lpSum(delta_fac.values())
+            + (W_ENERGY_PROD / max(1, len(df_energy.index))) * energy_dev_total
+            + self._extra_objective()
         )
-        if USE_EPS:
-            EPS_EPROD = 0.1  # float(
-            #     df_global.loc["Epsilon energy production dev", "value"]
-            # )  # ex: 0.1 (10%)
-            EPS_EDIET = 0.1  # float(
-            #     df_global.loc["Epsilon energy diet dev", "value"]
-            # )  # ex: 0.1 (10%)
-            prob += energy_dev_total <= EPS_EPROD, "Bound_Energy_Prod_Dev"
-            # prob += energy_inputs_total <= EPS_EDIET, "Bound_Energy_Diet_Dev"
-            # et objectif simple:
-            objective = (
-                (poids_penalite_deviation / max(1, len(pairs)))
-                * lpSum(delta_vars.values())
-                + (poids_penalite_culture / max(1, len(df_prod)))
-                * (lpSum(penalite_culture_vars.values()) + penalite_culture_energy_term)
-                + poids_import_brut * raw_import_term
-                + w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
-                + self._extra_objective()
-            )
-        else:
-            # Fonction objectif
-            objective = (
-                (poids_penalite_deviation / max(1, len(pairs)))
-                * lpSum(delta_vars.values())
-                + (poids_penalite_culture / max(1, len(df_prod)))
-                * (lpSum(penalite_culture_vars.values()) + penalite_culture_energy_term)
-                + poids_import_brut * raw_import_term
-                + w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
-                + W_ENERGY_INPUT * lpSum(delta_fac.values())
-                + (W_ENERGY_PROD / max(1, len(df_energy.index))) * energy_dev_total
-                + self._extra_objective()
-            )
 
         prob += objective
 
@@ -4155,7 +4109,7 @@ class NitrogenFlowModel:
                         pass
 
         # (Option MILP) binaire no-swap import/surplus par produit
-        use_milp_no_swap = False  # mets False pour rester LP 100%
+        use_milp_no_swap = True  # mets False pour rester LP 100%
         if use_milp_no_swap:
             y_vars = LpVariable.dicts("y", list(df_prod.index), 0, 1, cat="Binary")
 
@@ -4247,8 +4201,7 @@ class NitrogenFlowModel:
                 delta_vars.values()
             )
             expr_cult = (poids_penalite_culture / max(1, len(df_prod))) * (
-                lpSum(penalite_culture_vars.values())
-                + lpSum(penalite_culture_energy_term.values())
+                lpSum(penalite_culture_vars.values()) + penalite_culture_energy_term
             )
             expr_import = poids_import_brut * raw_import_term
             expr_fair = w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
@@ -4331,7 +4284,7 @@ class NitrogenFlowModel:
                         (poids_penalite_culture / max(1, len(df_prod)))
                         * (
                             lpSum(penalite_culture_vars.values())
-                            + lpSum(penalite_culture_energy_term.values())
+                            + penalite_culture_energy_term
                         )
                     )
                 )
@@ -5067,65 +5020,6 @@ class NitrogenFlowModel:
 
         # ---------- J) Bilan sol
         self._recompute_soil_budget_unified()
-
-        # # Equilibrage des cultures
-        # for label in df_cultures.index:
-        #     node_index = label_to_index.get(label)
-        #     if node_index is None:
-        #         continue
-
-        #     # Calcul de l'imbalance (sorties - entrées)
-        #     row_sum = self.adjacency_matrix[node_index, :].sum()
-        #     col_sum = self.adjacency_matrix[:, node_index].sum()
-        #     imbalance = row_sum - col_sum
-
-        #     if abs(imbalance) < 1e-6:
-        #         continue
-
-        #     if (
-        #         imbalance > 0
-        #     ):  # Déficit (Plus de sorties que d'entrées) -> Augmenter l'entrée
-        #         # Le flux manquant vient du sol (Entrée dans la culture)
-        #         target = {label: imbalance}
-        #         source = {"soil stock": 1}
-        #         flux_generator.generate_flux(source, target)
-
-        #     else:  # Excédent (Plus d'entrées que de sorties) -> Augmenter la sortie
-        #         # Le surplus va aux systèmes environnementaux (Sortie de la culture)
-        #         source = {label: -imbalance}
-        #         target = {
-        #             "hydro-system": 0.9925,
-        #             "atmospheric N2O": 0.0075,
-        #         }
-        #         flux_generator.generate_flux(source, target)
-
-        # ## On annule les flux bidirectionels entre les cultures et soil stock
-        # soil_stock_index = label_to_index.get("soil stock")
-
-        # for label in df_cultures.index:
-        #     node_index = label_to_index.get(label)
-        #     if node_index is None:
-        #         continue
-
-        #     # Flux vers la culture (du sol)
-        #     flux_in = self.adjacency_matrix[soil_stock_index, node_index]
-        #     # Flux sortant de la culture (vers le sol)
-        #     flux_out = self.adjacency_matrix[node_index, soil_stock_index]
-
-        #     net_flux = flux_out - flux_in
-
-        #     # 1. Annulation: met les flux bidirectionnels à zéro
-        #     self.adjacency_matrix[soil_stock_index, node_index] = 0
-        #     self.adjacency_matrix[node_index, soil_stock_index] = 0
-
-        #     # 2. Réintroduction du flux net
-        #     if abs(net_flux) > 1e-6:
-        #         if net_flux > 0:
-        #             # Flux net positif: culture -> soil stock
-        #             self.adjacency_matrix[node_index, soil_stock_index] = net_flux
-        #         else:
-        #             # Flux net négatif: soil stock -> culture
-        #             self.adjacency_matrix[soil_stock_index, node_index] = -net_flux
 
         # Calcul de imbalance dans df_cultures
         self.df_cultures["Balance (ktN)"] = (
