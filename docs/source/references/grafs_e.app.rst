@@ -1,4 +1,4 @@
-grafs\_e.app
+﻿grafs\_e.app
 ============
 
 .. automodule:: grafs_e.app
@@ -8,6 +8,7 @@ grafs\_e.app
 
    .. autosummary::
    
+      clear_all_variables
       compute_metric_for_model
       compute_metrics_over_years
       load_files

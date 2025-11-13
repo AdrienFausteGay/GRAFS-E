@@ -53,7 +53,7 @@ You can access the User Online Interface here:
    .. grid-item-card:: GRAFS-E Engine
       :class-card: sd-shadow-sm sd-rounded-2
       :link-type: doc
-      :link: references/api
+      :link: grafs-e-engine
       
       Full description of GRAFS-E functionning
 
