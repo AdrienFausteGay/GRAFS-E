@@ -4170,6 +4170,9 @@ class NitrogenFlowModel:
         prob.solve()
         self._post_solve_supply()
 
+        if prob.status == -1:
+            raise Exception("Allocation model infeasible. Please check input data.")
+
         # from IPython import embed
 
         # embed()
