@@ -1,4 +1,3 @@
-import os
 import re
 
 import matplotlib.pyplot as plt
@@ -7,11 +6,21 @@ import pandas as pd
 import plotly.graph_objects as go
 import seaborn as sns
 from matplotlib.colors import LogNorm
-from pulp import LpContinuous, LpMinimize, LpProblem, LpVariable, lpSum, value, LpStatus
+from pulp import (
+    LpContinuous,
+    LpMinimize,
+    LpProblem,
+    LpVariable,
+    lpSum,
+    value,
+    LpStatus,
+    LpBinary,
+    LpAffineExpression,
+)
 import warnings
 import math
-import pprint
 import hashlib
+import numbers
 
 # Afficher toutes les colonnes
 pd.set_option("display.max_columns", None)
@@ -277,9 +286,8 @@ class DataLoader:
         merged_df = merged_df.fillna(0)
         return merged_df
 
-    def generate_df_prod(self, area, year):
+    def generate_df_prod(self, area, year, prospect=False):
         categories_needed = (
-            "Production (kton)",
             "Nitrogen Content (%)",
             "Origin compartment",
             "Type",
@@ -288,11 +296,21 @@ class DataLoader:
             "Other uses (%)",
         )
 
+        if prospect:
+            categories_needed += ("Co-Production Ratio (%)",)
+        else:
+            categories_needed += ("Production (kton)",)
+
         df_prod = self.get_columns(
             area, year, self.init_df_prod, categories_needed=categories_needed
         )
 
         df_prod = df_prod[list(categories_needed)].copy()
+
+        if prospect:
+            df_prod = df_prod.fillna(0)
+            self.df_prod = df_prod
+            return df_prod
 
         # Calcul de l'azote disponible pour les cultures
         df_prod["Nitrogen Production (ktN)"] = (
@@ -338,29 +356,71 @@ class DataLoader:
 
         df_prod = df_prod.fillna(0)
         self.df_prod = df_prod
-        return df_prod
 
-    def generate_df_cultures(self, area, year):
+    def generate_df_cultures(self, area, year, prospect=False):
         categories_needed = (
             "Area (ha)",
             "Spreading Rate (%)",
             "Seed input (ktN/ktN)",
-            "Fertilization Need (kgN/qtl)",
-            "Surface Fertilization Need (kgN/ha)",
             "Harvest Index",
             "Main Production",
             "Category",
             "BNF alpha",
             "BNF beta",
             "BGN",
-            "Raw Surface Synthetic Fertilizer Use (kgN/ha)",
+            "Residue Nitrogen Content (%)",
         )
+        if prospect:
+            categories_needed += (
+                "Maximum Yield (tFW/ha)",
+                "Characteristic Fertilisation (kgN/ha)",
+            )
+        else:
+            categories_needed += (
+                "Raw Surface Synthetic Fertilizer Use (kgN/ha)",
+                "Fertilization Need (kgN/qtl)",
+                "Surface Fertilization Need (kgN/ha)",
+            )
         df_cultures = self.get_columns(
             area, year, self.init_df_cultures, categories_needed=categories_needed
         )
         df_cultures = df_cultures[list(categories_needed)].copy()
 
-        df_prod = self.generate_df_prod(area, year)
+        self.generate_df_prod(area, year, prospect)
+        df_prod = self.df_prod.copy()
+
+        if df_cultures["Residue Nitrogen Content (%)"].eq(0).all():
+            df_cultures.loc[
+                df_cultures["Category"] != "leguminous", "Residue Nitrogen Content (%)"
+            ] = 0.5
+            df_cultures.loc[
+                df_cultures["Category"] == "leguminous", "Residue Nitrogen Content (%)"
+            ] = 1.5
+
+        df_cultures["Nitrogen Harvest Index"] = (
+            df_cultures["Harvest Index"]
+            * df_cultures["Main Production"].map(df_prod["Nitrogen Content (%)"])
+            / 100
+        ) / (
+            df_cultures["Harvest Index"]
+            * df_cultures["Main Production"].map(df_prod["Nitrogen Content (%)"])
+            / 100
+            + (1 - df_cultures["Harvest Index"])
+            * df_cultures["Residue Nitrogen Content (%)"]
+            / 100
+        )
+
+        if prospect:
+            df_cultures["Ymax (kgN/ha)"] = (
+                df_cultures["Maximum Yield (tFW/ha)"]
+                * 1000
+                * df_cultures["Main Production"].map(df_prod["Nitrogen Content (%)"])
+                / 100
+            )
+            df_cultures = df_cultures.fillna(0)
+            self.df_cultures = df_cultures
+            return
+
         df_cultures["Main Crop Production (kton)"] = df_cultures["Main Production"].map(
             df_prod["Production (kton)"]
         )
@@ -414,9 +474,8 @@ class DataLoader:
 
         df_cultures = df_cultures.fillna(0)
         self.df_cultures = df_cultures
-        return df_cultures
 
-    def generate_df_elevage(self, area, year):
+    def generate_df_elevage(self, area, year, prospect=False):
         categories_needed = (
             "Excreted indoor (%)",
             "Excreted indoor as manure (%)",
@@ -436,7 +495,31 @@ class DataLoader:
             100 - df_elevage["Excreted indoor (%)"]
         )
 
-        df_prod = self.generate_df_prod(area, year)
+        self.generate_df_prod(area, year, prospect)
+        df_prod = self.df_prod.copy()
+        if prospect:
+            mask_animal = df_prod["Type"] == "animal"
+
+            df_prod.loc[mask_animal, "Production (kton)"] = (
+                df_prod.loc[mask_animal, "Co-Production Ratio (%)"]
+                * df_prod.loc[mask_animal, "Origin compartment"].map(df_elevage["LU"])
+                / 100
+            )
+            df_prod.loc[mask_animal, "Nitrogen Production (ktN)"] = (
+                df_prod.loc[mask_animal, "Production (kton)"]
+                * df_prod.loc[mask_animal, "Nitrogen Content (%)"]
+                / 100
+            )
+            df_prod.loc[mask_animal, "Available Nitrogen Production (ktN)"] = (
+                df_prod.loc[mask_animal, "Nitrogen Production (ktN)"]
+                * (
+                    1
+                    - df_prod.loc[mask_animal, "Waste (%)"] / 100
+                    - df_prod.loc[mask_animal, "Other uses (%)"] / 100
+                )
+            )
+        df_prod = df_prod.fillna(0)
+        self.df_prod = df_prod
         df_elevage["Edible Nitrogen (ktN)"] = (
             (
                 df_prod.loc[df_prod["Sub Type"] == "edible meat", :].set_index(
@@ -490,10 +573,9 @@ class DataLoader:
         )
 
         self.df_elevage = df_elevage
-        return df_elevage
 
-    def generate_df_excr(self, area, year):
-        _ = self.generate_df_elevage(area, year)
+    def generate_df_excr(self, area, year, prospect=False):
+        _ = self.generate_df_elevage(area, year, prospect)
         categories_needed = (
             "N-NH3 EM (%)",
             "N-N2 EM (%)",
@@ -576,7 +658,7 @@ class DataLoader:
         )
 
         df_excr = df_excr.fillna(0)
-        return df_excr
+        self.df_excr = df_excr
 
     def generate_df_pop(self, area, year):
         categories_needed = (
@@ -612,7 +694,6 @@ class DataLoader:
 
         df_pop = df_pop.fillna(0)
         self.df_pop = df_pop
-        return df_pop
 
     def generate_df_energy(self, area, year):
         categories_needed = (
@@ -625,9 +706,8 @@ class DataLoader:
         )
         df_energy = df_energy[list(categories_needed)].copy()
         self.df_energy = df_energy
-        return df_energy
 
-    def get_global_metrics(self, area, year, carbon=False):
+    def get_global_metrics(self, area, year, carbon=False, prospect=False):
         input_df = self.df_data["Input data"].copy()
         mask_global = (
             (input_df["category"] == "Global")
@@ -640,39 +720,31 @@ class DataLoader:
 
         global_df = global_df.combine_first(self.init_df_global)
 
+        required_items = [
+            "Total Synthetic Fertilizer Use on crops (ktN)",
+            "Total Synthetic Fertilizer Use on grasslands (ktN)",
+            "Atmospheric deposition coef (kgN/ha)",
+            "coefficient N-NH3 volatilization synthetic fertilization (%)",
+            "coefficient N-N2O emission synthetic fertilization (%)",
+            "Weight diet",
+            "Weight import",
+            "Weight distribution",
+            "Weight fair local split",
+            "Weight energy production",
+            "Weight energy inputs",
+            "Enforce animal share",
+            "Green waste nitrogen content (%)",
+        ]
+
         # The list of required items
-        if carbon is False:
-            required_items = [
-                "Total Synthetic Fertilizer Use on crops (ktN)",
-                "Total Synthetic Fertilizer Use on grasslands (ktN)",
-                "Atmospheric deposition coef (kgN/ha)",
-                "coefficient N-NH3 volatilization synthetic fertilization (%)",
-                "coefficient N-N2O emission synthetic fertilization (%)",
-                "Weight diet",
-                "Weight import",
-                "Weight distribution",
-                "Weight fair local split",
-                "Weight energy production",
-                "Weight energy inputs",
-                "Enforce animal share",
-                "Green waste nitrogen content (%)",
+        if prospect:
+            required_items += [
+                "Weight synthetic fertilizer",
+                "Weight synthetic distribution",
             ]
-        else:
-            required_items = [
-                "Total Synthetic Fertilizer Use on crops (ktN)",
-                "Total Synthetic Fertilizer Use on grasslands (ktN)",
-                "Atmospheric deposition coef (kgN/ha)",
-                "coefficient N-NH3 volatilization synthetic fertilization (%)",
-                "coefficient N-N2O emission synthetic fertilization (%)",
-                "Weight diet",
-                "Weight import",
-                "Weight distribution",
-                "Weight fair local split",
-                "Weight energy production",
-                "Weight energy inputs",
-                "Enforce animal share",
+        elif carbon:
+            required_items += [
                 "Total Haber-Bosch methan input (kgC/kgN)",
-                "Green waste nitrogen content (%)",
                 "Green waste C/N",
             ]
 
@@ -687,6 +759,9 @@ class DataLoader:
             global_df.loc["Weight fair local split", "value"] = (
                 min(non_zero_weights) / 20
             )
+        if (prospect) and ("Weight synthetic distribution" not in global_df.index):
+            weight_synth = global_df.loc["Weight synthetic fertilizer", "value"]
+            global_df.loc["Weight synthetic distribution"] = weight_synth / 10
 
         if carbon:
             if "Green waste C/N" not in global_df.index:
@@ -705,7 +780,7 @@ class DataLoader:
                 f"{', '.join(missing_items)}. Please check the input data."
             )
 
-        return global_df
+        self.global_df = global_df
 
     def load_diets_for_area_year(
         self, area: str, year: int, tol: float = 1e-6
@@ -889,6 +964,15 @@ class DataLoader:
 
         return diet_by_consumer
 
+    def generate_input_data(self, area, year, prospect=False):
+        self.generate_df_prod(area, year, prospect)
+        self.generate_df_cultures(area, year, prospect)
+        self.generate_df_elevage(area, year, prospect)
+        self.generate_df_excr(area, year, prospect)
+        self.generate_df_pop(area, year)
+        self.generate_df_energy(area, year)
+        self.get_global_metrics(area, year, prospect)
+
 
 class FluxGenerator:
     """This class generates and manages the transition matrix of fluxes between various sectors (e.g., agriculture, livestock, industry, trade).
@@ -1050,7 +1134,7 @@ class NitrogenFlowModel:
             Returns a stacked representation of plant production data.
     """
 
-    def __init__(self, data, area, year, debug=False):
+    def __init__(self, data, area, year, debug=False, prospective=False):
         """Initializes the NitrogenFlowModel class with the necessary data and model parameters.
 
         Args:
@@ -1062,6 +1146,7 @@ class NitrogenFlowModel:
         self.year = year
         self.area = area
         self.debug = debug
+        self.prospective = prospective
 
         self.data_loader = data
         self.labels = data.labels
@@ -1070,13 +1155,15 @@ class NitrogenFlowModel:
 
         self.flux_generator = FluxGenerator(self.labels)
 
-        self.df_cultures = data.generate_df_cultures(self.area, self.year)
-        self.df_elevage = data.generate_df_elevage(self.area, self.year)
-        self.df_excr = data.generate_df_excr(self.area, self.year)
-        self.df_prod = data.generate_df_prod(self.area, self.year)
-        self.df_pop = data.generate_df_pop(self.area, self.year)
-        self.df_energy = data.generate_df_energy(self.area, self.year)
-        self.df_global = data.get_global_metrics(self.area, self.year)
+        self.data_loader.generate_input_data(self.area, self.year, self.prospective)
+
+        self.df_cultures = self.data_loader.df_cultures
+        self.df_elevage = self.data_loader.df_elevage
+        self.df_excr = self.data_loader.df_excr
+        self.df_prod = self.data_loader.df_prod
+        self.df_pop = self.data_loader.df_pop
+        self.df_energy = self.data_loader.df_energy
+        self.df_global = self.data_loader.global_df
         self.diets = data.load_diets_for_area_year(self.area, self.year)
 
         self._build_energy_power_map()
@@ -1175,6 +1262,1501 @@ class NitrogenFlowModel:
         """
         pm = getattr(self, "energy_power_map", {}) or {}
         return float(pm.get(facility, {}).get(item, 0.0))
+
+    # def _secants_for_yield(
+    #     self, Ymax: float, Fstar: float, breaks: list[float]
+    # ) -> list[tuple[float, float]]:
+    #     """
+    #     Construit des sécantes (m,b) pour majorer Y(F) = Ymax * (1 - exp(-F/Fstar)).
+    #     Chaque paire (m,b) sert dans la contrainte: y <= m * F + b.
+
+    #     Paramètres
+    #     ----------
+    #     Ymax : float
+    #         Rendement frais maximum (tFW/ha).
+    #     Fstar : float
+    #         Fertilisation caractéristique (kgN/ha).
+    #     breaks : list[float]
+    #         Liste de points de rupture en F (kgN/ha), ex: [0, 0.25F*, 0.5F*, 1.0F*, 1.5F*, 2.0F*, 3.0F*].
+
+    #     Retour
+    #     ------
+    #     List[Tuple[m, b]]
+    #         Sécantes entre points consécutifs (Fi, Yi) et (Fj, Yj), plus éventuellement
+    #         d'autres protections que tu ajoutes ailleurs (ex: cap y <= Ymax).
+
+    #     Notes
+    #     -----
+    #     - La fonction est concave et croissante; les sécantes donnent donc une
+    #     sur-approximation (borne supérieure) parfaite pour un LP.
+    #     - On ajoute *en plus* côté modèle un cap explicite y <= Ymax (à garder).
+    #     """
+
+    #     # Cas limites
+    #     if Ymax <= 0 or Fstar <= 0:
+    #         return [(0.0, 0.0)]  # y <= 0
+
+    #     # Nettoyage/sécurisation des breaks
+    #     B = sorted(set(float(b) for b in breaks if b is not None and b >= 0.0))
+    #     if not B or B[0] > 1e-12:
+    #         B = [0.0] + B
+    #     # Déduplique les éventuels très proches
+    #     B_unique = [B[0]]
+    #     for x in B[1:]:
+    #         if x - B_unique[-1] > 1e-9:
+    #             B_unique.append(x)
+    #     B = B_unique
+
+    #     # Points (F, Y(F))
+    #     def Y(F):
+    #         return Ymax * (1.0 - math.exp(-F / Fstar))
+
+    #     pts = [(F, Y(F)) for F in B]
+
+    #     segs: list[tuple[float, float]] = []
+    #     for (Fi, Yi), (Fj, Yj) in zip(pts[:-1], pts[1:]):
+    #         if Fj <= Fi + 1e-12:
+    #             continue
+    #         m = (Yj - Yi) / (Fj - Fi)
+    #         b = Yi - m * Fi
+    #         segs.append((m, b))
+
+    #     # Sécurité : si aucun segment produit (ex: un seul break), on place la tangente en 0
+    #     if not segs:
+    #         # Tangente en F=0 : dY/dF|0 = Ymax/Fstar => y <= (Ymax/Fstar)*F
+    #         segs.append((Ymax / Fstar, 0.0))
+
+    #     return segs
+
+    # @staticmethod
+    # def yield_model(Ymax: float, Fstar: float, F: float) -> float:
+    #     """Formule du rendement (exponentielle)"""
+    #     return Ymax * (1.0 - np.exp(-F / Fstar))
+
+    # def _secants_for_yield_2(
+    #     self, Ymax: float, Fstar: float, breaks: list[float]
+    # ) -> tuple[list[tuple[float, float]], list[tuple[float, float]]]:
+    #     """
+    #     Calcule les sécantes (majoration concave) et les tangentes (minoration convexe)
+    #     pour encadrer la courbe de rendement Y(F) = Ymax * (1 - exp(-F/Fstar)).
+
+    #     Paramètres
+    #     ----------
+    #     Ymax : float
+    #         Rendement frais maximum (tFW/ha).
+    #     Fstar : float
+    #         Fertilisation caractéristique (kgN/ha).
+    #     breaks : list[float]
+    #         Liste de points de rupture en F (kgN/ha).
+
+    #     Retour
+    #     ------
+    #     Tuple(List[Tuple[m_sec, b_sec]], List[Tuple[m_tan, b_tan]])
+    #         - La première liste contient les coefficients des sécantes (borne supérieure: y <= m*F + b).
+    #         - La seconde liste contient les coefficients des tangentes (borne inférieure: y >= m'*F + b').
+    #     """
+
+    #     # --- Initialisation et Nettoyage ---
+
+    #     # Cas limites
+    #     if Ymax <= 0 or Fstar <= 0:
+    #         return [(0.0, 0.0)], [(0.0, 0.0)]
+
+    #     # Nettoyage/sécurisation des breaks (comme dans votre code)
+    #     B = sorted(set(float(b) for b in breaks if b is not None and b >= 0.0))
+    #     if not B or B[0] > 1e-12:
+    #         B = [0.0] + B
+    #     B_unique = [B[0]]
+    #     for x in B[1:]:
+    #         if x - B_unique[-1] > 1e-9:
+    #             B_unique.append(x)
+    #     B = B_unique
+
+    #     # Points (F, Y(F))
+    #     pts = [(F, self.yield_model(Ymax, Fstar, F)) for F in B]
+
+    #     # Dérivée de Y(F) : dY/dF = (Ymax / Fstar) * exp(-F / Fstar)
+    #     def dY_dF(F: float) -> float:
+    #         return (Ymax / Fstar) * math.exp(-F / Fstar)
+
+    #     # --- 1. Calcul des Sécantes (Majoration Concave / Borne Supérieure) ---
+    #     # La sécante entre (Fi, Yi) et (Fj, Yj) est toujours au-dessus de la courbe.
+    #     segs_upper: list[tuple[float, float]] = []
+    #     for (Fi, Yi), (Fj, Yj) in zip(pts[:-1], pts[1:]):
+    #         if Fj <= Fi + 1e-12:
+    #             continue
+    #         m_sec = (Yj - Yi) / (Fj - Fi)  # Pente de la sécante
+    #         b_sec = Yi - m_sec * Fi        # Ordonnée à l'origine
+    #         segs_upper.append((m_sec, b_sec))
+
+    #     # --- 2. Calcul des Tangentes (Minoration Convexe / Borne Inférieure) ---
+    #     # La tangente en chaque point (Fi, Yi) est toujours au-dessous de la courbe.
+    #     segs_lower: list[tuple[float, float]] = []
+
+    #     # On ajoute une tangente pour CHAQUE point de rupture
+    #     for Fi, Yi in pts:
+    #         m_tan = dY_dF(Fi)           # Pente de la tangente au point Fi
+    #         b_tan = Yi - m_tan * Fi     # Ordonnée à l'origine (Y = m*F + b => b = Y - m*F)
+    #         segs_lower.append((m_tan, b_tan))
+
+    #     # Sécurité (si B n'a qu'un ou deux points proches)
+    #     if not segs_upper:
+    #         # La tangente en 0 est aussi la sécante par défaut
+    #         m_tan_0 = dY_dF(0.0)
+    #         segs_upper.append((m_tan_0, 0.0))
+    #         if not segs_lower:
+    #             segs_lower.append((m_tan_0, 0.0)) # La tangente en 0 est déjà la première dans segs_lower
+
+    #     return segs_upper, segs_lower
+
+    @staticmethod
+    def _Y_func(F, Ymax, Fstar):
+        if Fstar <= 0:
+            return 0.0
+        return Ymax * (1.0 - math.exp(-F / Fstar))
+
+    def _pre_lp_supply(self, prob):
+        """
+        Mode prospectif :
+        - y_c (tFW/ha) via Y(F) (sécantes) avec 'Maximum Yield (tFW/ha)' et 'Characteristic fertilisation (kgN/ha)'
+        - F total (kgN/ha) alimenté par dépôt + organique épandu + graines + BNF + synthèse_eff
+        - Synthèse s_c (ktN) avec pertes NH3/N2O
+        - BNF = affine(yFW)
+        - Graines seeds_ktN = ratio * P_c (ktN)
+        - Q_p (ktN) = ratios "Co-Production Ratio (%)" en frais × %N produit
+        - Variables d'excès synthétique
+        """
+        if not self.prospective:
+            return
+        import pandas as pd
+        from pulp import LpVariable, lpSum
+
+        df_cu, df_pr, df_ex, df_pop, df_gl = (
+            self.df_cultures,
+            self.df_prod,
+            self.df_excr,
+            self.df_pop,
+            self.df_global,
+        )
+
+        # ---------- A) Dépôts / organique épandu (kgN/ha) ----------
+        if "Atmospheric deposition (kgN/ha)" in df_cu.columns:
+            depo_kg_ha = {
+                c: float(df_cu.at[c, "Atmospheric deposition (kgN/ha)"] or 0.0)
+                for c in df_cu.index
+            }
+        else:
+            depo_val = float(df_gl.loc["Atmospheric deposition coef (kgN/ha)", "value"])
+            depo_kg_ha = {c: depo_val for c in df_cu.index}
+
+        denom = (df_cu["Area (ha)"] * df_cu["Spreading Rate (%)"] / 100.0).sum()
+        share = {
+            c: (df_cu.at[c, "Area (ha)"] * df_cu.at[c, "Spreading Rate (%)"] / 100.0)
+            / max(1e-9, denom)
+            for c in df_cu.index
+        }
+
+        tot_boue = (
+            df_pop["Ingestion (ktN)"] * df_pop["Excretion recycling (%)"] / 100.0
+        ).sum()
+        excr_fields = df_ex.loc[
+            df_ex["Type"].isin(["manure", "slurry"]),
+            "Excretion after volatilization (ktN)",
+        ].sum()
+
+        excr_meadow = df_ex.loc[
+            df_ex["Type"].isin(["grasslands excretion"]),
+            "Excretion after volatilization (ktN)",
+        ].sum()
+        share_meadow = self.target_grass
+
+        boue_kg_ha, excr_kg_ha = {}, {}
+        for c in df_cu.index:
+            A = float(df_cu.at[c, "Area (ha)"]) or 0.0
+            boue_k = share.get(c, 0.0) * tot_boue
+            excr_k = share.get(c, 0.0) * excr_fields
+            boue_kg_ha[c] = (boue_k * 1e6 / A) if A > 0 else 0.0
+            excr_kg_ha[c] = (excr_k * 1e6 / A) if A > 0 else 0.0
+            excr_kg_ha[c] += (
+                (share_meadow.get(c, 0.0) * excr_meadow * 1e6 / A) if A > 0 else 0.0
+            )
+
+        org_only_kg_ha = {c: boue_kg_ha[c] + excr_kg_ha[c] for c in df_cu.index}
+        O_base_kg_ha = {c: org_only_kg_ha[c] for c in df_cu.index}
+
+        # store
+        self._pros_vars = {}
+        self._pros_vars["depo_kg_ha"] = depo_kg_ha
+        self._pros_vars["org_only_kg_ha"] = org_only_kg_ha
+        self._pros_vars["O_base_kg_ha"] = O_base_kg_ha
+
+        # ---------- B) Variables principales ----------
+        f_c = {
+            c: LpVariable(f"f_{self._slug(c)}", lowBound=0) for c in df_cu.index
+        }  # kgN/ha
+        y_c = {
+            c: LpVariable(f"yFW_{self._slug(c)}", lowBound=0) for c in df_cu.index
+        }  # tFW/ha
+        s_c = {
+            c: LpVariable(f"s_{self._slug(c)}", lowBound=0) for c in df_cu.index
+        }  # ktN
+        self._pros_vars["f_c"] = f_c
+        self._pros_vars["y_c"] = y_c
+        self._pros_vars["s_c"] = s_c
+
+        # NOUVELLES VARIABLES pour la linéarisation SOS2
+        w_c_pts = {}  # Poids (w_i) pour chaque point de rupture
+        b_c_segs = {}  # Sélecteur (b_k) pour chaque segment
+
+        YCOL, FCOL = "Ymax (kgN/ha)", "Characteristic Fertilisation (kgN/ha)"
+
+        # ---------- C) Linéarisation Y(F) ----------
+        # Version dépréciée avec borne sup uniquement
+        # YCOL, FCOL = "Ymax (kgN/ha)", "Characteristic Fertilisation (kgN/ha)"
+        # for c in df_cu.index:
+        #     Ymax = float(df_cu.at[c, YCOL]) if YCOL in df_cu.columns else 0.0
+        #     Fst = float(df_cu.at[c, FCOL]) if FCOL in df_cu.columns else 0.0
+        #     if Ymax <= 0 or Fst <= 0:
+        #         continue
+        #     B = [0.0, 0.25 * Fst, 0.5 * Fst, 1.0 * Fst, 1.5 * Fst, 2.0 * Fst, 3.0 * Fst]
+        #     for k, (m_s, b_s) in enumerate(self._secants_for_yield(Ymax, Fst, B)):
+        #         prob += (
+        #             y_c[c] <= m_s * f_c[c] + b_s,
+        #             f"yield_secant_{self._slug(c)}_{k}",
+        #         )
+
+        #     prob += (y_c[c] <= Ymax, f"cap_Ymax__{self._slug(c)}")
+
+        # Nouvelle version SOS2
+        for c in df_cu.index:
+            Ymax = float(df_cu.at[c, YCOL]) if YCOL in df_cu.columns else 0.0
+            Fst = float(df_cu.at[c, FCOL]) if FCOL in df_cu.columns else 0.0
+
+            if Ymax <= 0 or Fst <= 0:
+                # Si pas de courbe, on fixe y_c = 0 et f_c = 0
+                prob += (y_c[c] == 0, f"no_yield_{self._slug(c)}")
+                prob += (f_c[c] == 0, f"no_fert_{self._slug(c)}")
+                continue
+
+            # 1. Définir les points de rupture (F, Y)
+            B = [
+                0.0,
+                0.25 * Fst,
+                0.5 * Fst,
+                1.0 * Fst,
+                1.5 * Fst,
+                2.0 * Fst,
+                3.0 * Fst,
+                4.0 * Fst,
+                5.0 * Fst,
+                100.0 * Fst,
+            ]
+            # Nettoyage des breaks (similaire à votre fonction)
+            B_unique = sorted(set(float(b) for b in B if b is not None and b >= 0.0))
+
+            # pts contient la liste des (F_i, Y_i)
+            pts = [(F, self._Y_func(F, Ymax, Fst)) for F in B_unique]
+            F_pts = [p[0] for p in pts]
+            Y_pts = [p[1] for p in pts]
+
+            num_breaks = len(pts)
+            num_segs = num_breaks - 1
+
+            if num_segs <= 0:
+                # Cas bizarre (un seul point), on fixe à ce point
+                prob += (y_c[c] == Y_pts[0], f"fixed_yield_{self._slug(c)}")
+                prob += (f_c[c] == F_pts[0], f"fixed_fert_{self._slug(c)}")
+                continue
+
+            # 2. Créer les variables w_i et b_k pour cette culture 'c'
+            w_c_pts[c] = LpVariable.dicts(
+                f"w_{self._slug(c)}", range(num_breaks), lowBound=0
+            )
+            b_c_segs[c] = LpVariable.dicts(
+                f"b_{self._slug(c)}", range(num_segs), cat=LpBinary
+            )
+
+        for c in w_c_pts.keys():  # Boucle sur les cultures qui ont des variables w/b
+            # Récupérer les variables et les points
+            w_vars = w_c_pts[c]
+            b_vars = b_c_segs[c]
+
+            # Recalculer les points (ou les stocker)
+            Ymax = float(df_cu.at[c, YCOL])
+            Fst = float(df_cu.at[c, FCOL])
+            F_MAX_ANCORAGE = 1000  # kgN/ha, fertilisation maximale avant de considérer qu'on est à Ymax
+            B = [0.0, 0.25 * Fst, 0.5 * Fst, 1.0 * Fst, 1.5 * Fst, 2.0 * Fst, 3.0 * Fst]
+            B_unique = sorted(set(float(b) for b in B if b is not None and b >= 0.0))
+
+            pts = []
+            for F in B_unique:
+                # On ajoute les points calculés (F_i, Y_i)
+                Y = self._Y_func(F, Ymax, Fst)
+                pts.append((F, Y))
+
+            F_last_calc = pts[-1][0] if pts else 0.0
+            F_anchor = max(F_last_calc * 1.5, F_MAX_ANCORAGE)
+
+            if abs(pts[-1][1] - Ymax) > 1e-6:
+                pts.append((F_anchor, Ymax))
+
+            pts_final = sorted(list(set(pts)))
+            F_pts = [p[0] for p in pts_final]
+            Y_pts = [p[1] for p in pts_final]
+
+            num_breaks = len(pts)
+            num_segs = num_breaks - 1
+
+            # ----- LES 5 CONTRAINTES CLÉS -----
+
+            # 1. Sélection d'un seul segment
+            prob += (
+                lpSum(b_vars[k] for k in range(num_segs)) == 1,
+                f"SOS2_select_seg_{self._slug(c)}",
+            )
+
+            # 2. Somme des poids de la combinaison convexe
+            prob += (
+                lpSum(w_vars[i] for i in range(num_breaks)) == 1,
+                f"SOS2_sum_weights_{self._slug(c)}",
+            )
+
+            # 3. Reconstitution de f_c
+            prob += (
+                f_c[c] == lpSum(w_vars[i] * F_pts[i] for i in range(num_breaks)),
+                f"SOS2_calc_f_{self._slug(c)}",
+            )
+
+            # 4. Reconstitution de y_c
+            prob += (
+                y_c[c] == lpSum(w_vars[i] * Y_pts[i] for i in range(num_breaks)),
+                f"SOS2_calc_y_{self._slug(c)}",
+            )
+
+            # 5. Lien "SOS2" (forcer les w_i à 0 sauf autour du segment b_k choisi)
+            # w_0 ne peut être actif que si b_0 l'est
+            prob += (w_vars[0] <= b_vars[0], f"SOS2_link_w{0}_{self._slug(c)}")
+
+            # Les w_i intermédiaires ne peuvent être actifs que si b_{i-1} ou b_i l'est
+            for i in range(1, num_segs):
+                prob += (
+                    w_vars[i] <= b_vars[i - 1] + b_vars[i],
+                    f"SOS2_link_w{i}_{self._slug(c)}",
+                )
+
+            # Le dernier poids w_N ne peut être actif que si le dernier segment b_{N-1} l'est
+            prob += (
+                w_vars[num_breaks - 1] <= b_vars[num_segs - 1],
+                f"SOS2_link_w{num_breaks - 1}_{self._slug(c)}",
+            )
+
+            # La contrainte y_c <= Ymax est maintenant implicite,
+            # mais la garder ne fait pas de mal (elle peut aider le solveur)
+            prob += (y_c[c] <= Ymax, f"cap_Ymax__{self._slug(c)}")
+
+        self._pros_vars["w_c_pts"] = w_c_pts
+        self._pros_vars["b_c_segs"] = b_c_segs
+
+        # ---------- D) P_c (ktN) à partir de yFW ----------
+        main_of = df_cu["Main Production"].astype(str).to_dict()
+        # NC = (
+        #     df_pr["Nitrogen Content (%)"]
+        #     if "Nitrogen Content (%)" in df_pr.columns
+        #     else pd.Series(0.0, index=df_pr.index)
+        # )
+        P_c = {
+            c: LpVariable(f"PmainN_{self._slug(c)}", lowBound=0) for c in df_cu.index
+        }
+        for c in df_cu.index:
+            A = float(df_cu.at[c, "Area (ha)"]) or 0.0
+            # main = main_of.get(c, "")
+            # nc_main = float(NC.get(main, 0.0))
+            prob += (
+                P_c[c] == y_c[c] * (A / 1e6),
+                f"link_PmainN__{self._slug(c)}",
+            )
+        self._pros_vars["P_c"] = P_c
+
+        # ---------- E) Q_p (ktN) via ratios FW ----------
+        Q_p = {
+            p: LpVariable(f"Q_{self._slug(p)}", lowBound=0)
+            for p in df_pr.index
+            if str(df_pr.at[p, "Type"]).strip().lower() == "plant"
+        }
+        origin = (
+            df_pr["Origin compartment"].astype(str)
+            if "Origin compartment" in df_pr.columns
+            else pd.Series("", index=df_pr.index)
+        )
+        has_share = "Co-Production Ratio (%)" in df_pr.columns
+        for p in Q_p:
+            c = origin.at[p]
+            if c not in y_c:
+                continue
+            s_fw = 1.0 if (p == main_of.get(c, "")) else 0.0
+            if has_share:
+                val = df_pr.at[p, "Co-Production Ratio (%)"]
+                if pd.notna(val):
+                    s_fw = float(val) / 100.0
+            A = float(df_cu.at[c, "Area (ha)"]) or 0.0
+            # nc_p = float(NC.get(p, 0.0))
+            prob += (
+                Q_p[p] == s_fw * y_c[c] * (A / 1e6),  # * (nc_p / 100.0),
+                f"prodN_from_FW__{self._slug(p)}",
+            )
+        self._pros_vars["Q_p"] = Q_p
+
+        # ---------- F) BNF affine(yFW) & split use/transfer ----------
+        bnf_c = {
+            c: LpVariable(f"bnf_{self._slug(c)}", lowBound=0) for c in df_cu.index
+        }  # kgN/ha
+        for c in df_cu.index:
+            HI = float(df_cu.at[c, "Nitrogen Harvest Index"] or 1.0)
+            a = float(df_cu.at[c, "BNF alpha"] or 0.0)
+            b = float(df_cu.at[c, "BNF beta"] or 0.0)
+            BGN = float(df_cu.at[c, "BGN"] or 0.0)
+            a_c = a * BGN / max(1e-9, HI)
+            b_c = b * BGN
+            prob += bnf_c[c] == a_c * y_c[c] + b_c, f"bnf_affine__{self._slug(c)}"
+        self._pros_vars["bnf_c"] = bnf_c
+
+        # ---------- G) Graines : seeds_ktN = r_seed * P_c ----------
+        seeds_ktN = {
+            c: LpVariable(f"seeds_{self._slug(c)}", lowBound=0) for c in df_cu.index
+        }
+        for c in df_cu.index:
+            r_seed = float(df_cu.at[c, "Seed input (ktN/ktN)"] or 0.0)
+            prob += seeds_ktN[c] == r_seed * P_c[c], f"seeds_link__{self._slug(c)}"
+        self._pros_vars["seeds_ktN"] = seeds_ktN
+
+        # ---------- H) Synthèse avec pertes NH3/N2O ----------
+        a = (
+            float(
+                df_gl.loc[
+                    "coefficient N-NH3 volatilization synthetic fertilization (%)",
+                    "value",
+                ]
+            )
+            / 100.0
+        )
+        b = (
+            float(
+                df_gl.loc[
+                    "coefficient N-N2O emission synthetic fertilization (%)", "value"
+                ]
+            )
+            / 100.0
+        )
+        eff_syn = max(0.0, 1.0 - a - b)
+
+        for c in df_cu.index:
+            A = float(df_cu.at[c, "Area (ha)"]) or 0.0
+            seeds_gha = (seeds_ktN[c] * 1e6 / A) if A > 0 else 0.0
+            synth_gha = (eff_syn * s_c[c] * 1e6 / A) if A > 0 else 0.0
+            # seule la part efficace (eff_syn*s_c) nourrit F
+            prob += (
+                f_c[c]
+                == depo_kg_ha[c] + O_base_kg_ha[c] + bnf_c[c] + seeds_gha + synth_gha,
+                f"Feff_def__{self._slug(c)}",
+            )
+            # légumineuses : pas de synthé + borne
+            if str(df_cu.at[c, "Category"]).strip().lower() == "leguminous":
+                prob += s_c[c] == 0, f"no_synth_on_legumes__{self._slug(c)}"
+                # prob += (
+                #     f_c[c] == O_base_kg_ha[c] + bnf_c[c] + seeds_gha,
+                #     f"f_cap_legume__{self._slug(c)}",
+                # )
+
+        # ---------- I) Excès synthétique (pénalisation) ----------
+        is_grass = df_cu["Category"].isin(["natural meadows", "temporary meadows"])
+        S_crops = lpSum(s_c[c] for c in df_cu.index if not bool(is_grass.loc[c]))
+        S_grass = lpSum(s_c[c] for c in df_cu.index if bool(is_grass.loc[c]))
+        exc_crops = LpVariable("excess_synth_crops", lowBound=0)
+        exc_grass = LpVariable("excess_synth_grass", lowBound=0)
+        th_crops = float(
+            df_gl.loc["Total Synthetic Fertilizer Use on crops (ktN)", "value"]
+        )
+        th_grass = float(
+            df_gl.loc["Total Synthetic Fertilizer Use on grasslands (ktN)", "value"]
+        )
+        prob += exc_crops >= S_crops - th_crops
+        prob += exc_grass >= S_grass - th_grass
+
+        self._pros_vars.update(
+            S_crops=S_crops,
+            S_grass=S_grass,
+            exc_crops=exc_crops,
+            exc_grass=exc_grass,
+            th_crops=th_crops,
+            th_grass=th_grass,
+        )
+
+        # --- J) pénalité de répartition autour de F* ---
+        # Poids lu dans df_global (0 si absent)
+        w_syn_dist = self.df_global.loc["Weight synthetic distribution", "value"]
+
+        if w_syn_dist > 0:
+            from pulp import LpVariable, lpSum
+
+            # Variables d’écart absolu: f_c[c] - F*_c = dev_plus - dev_minus, dev_* >= 0
+            dev_plus = {}
+            dev_minus = {}
+
+            is_non_legume = ~self.df_cultures["Category"].astype(str).str.lower().eq(
+                "leguminous"
+            )
+
+            for c in self.df_cultures.index:
+                A = float(self.df_cultures.at[c, "Area (ha)"] or 0.0)
+                Fst = (
+                    float(self.df_cultures.at[c, FCOL])
+                    if FCOL in self.df_cultures.columns
+                    else 0.0
+                )
+
+                if not bool(is_non_legume.loc[c]):
+                    continue
+
+                if A <= 0 or Fst <= 0:
+                    continue  # rien à faire si pas d’aire ou pas de F*
+
+                # 1) variables
+                dev_plus[c] = LpVariable(f"devp_{self._slug(c)}", lowBound=0)
+                dev_minus[c] = LpVariable(f"devm_{self._slug(c)}", lowBound=0)
+
+                # 2) égalité d’écart (kgN/ha)
+                # f_c est déjà en kgN/ha (fertilisation totale, orga + minérale)
+                prob += (
+                    f_c[c] - Fst == (dev_plus[c] - dev_minus[c]) * Fst,
+                    f"dev_abs_link_{self._slug(c)}",
+                )
+
+            # stocke pour _extra_objective
+            self._pros_vars["devF_rel_pos"] = dev_plus
+            self._pros_vars["devF_rel_neg"] = dev_minus
+
+    # ── HOOK 2 ─────────────────────────────────────────────────────────────────
+    def _rhs_for_product(self, p, default_rhs, is_plant):
+        if not self.prospective:
+            return default_rhs
+        Q_p = self._pros_vars.get("Q_p", {})
+        if is_plant and p in Q_p:
+            # pertes/other uses côté df_prod (tu les remets à jour en post_solve)
+            wasted = (
+                float(self.df_prod.at[p, "Waste (%)"])
+                if "Waste (%)" in self.df_prod.columns
+                else 0.0
+            )
+            other = (
+                float(self.df_prod.at[p, "Other uses (%)"])
+                if "Other uses (%)" in self.df_prod.columns
+                else 0.0
+            )
+            return Q_p[p] * (1.0 - wasted / 100.0 - other / 100.0)
+        return default_rhs
+
+    # ── HOOK 3 ─────────────────────────────────────────────────────────────────
+    def _extra_objective(self):
+        if not self.prospective:
+            return 0
+        W_SYN = float(self.df_global.loc["Weight synthetic fertilizer", "value"])
+        th_crops = self._pros_vars["th_crops"]
+        th_grass = self._pros_vars["th_grass"]
+        exc_crops = self._pros_vars["exc_crops"]
+        exc_grass = self._pros_vars["exc_grass"]
+        # normalisation par les seuils pour avoir un ordre de grandeur ~0-1
+        term = (exc_crops / max(1e-9, th_crops)) + (exc_grass / max(1e-9, th_grass))
+
+        # Terme de distribution de l'azote synthétique
+        W_DIS = float(self.df_global.loc["Weight synthetic distribution", "value"])
+        distribution_term = 0
+        if W_DIS > 0:
+            dev_pos = self._pros_vars.get("devF_rel_pos", {})
+            dev_neg = self._pros_vars.get("devF_rel_neg", {})
+            distribution_term = lpSum(dev_pos[c] + dev_neg[c] for c in dev_pos.keys())
+
+        # # Terme poussant les rendement à la hausse pour coller à la courbe de rendement
+        # W_Y = (
+        #     -1e-1
+        # )  # Négatif et très petit, le but n'est pas de pousser à la surproduction
+        # y_c = self._pros_vars["y_c"]
+        # # Y_term = lpSum(y_c[c] for c in y_c.keys())
+        # Y_term = y_c["Natural meadow"]
+        # # + un terme pénalisant de la même manière la fertilisation quel que soit son niveau
+        # f_c = self._pros_vars["f_c"]
+        # F_term = 0 #lpSum(f_c[c] for c in f_c.keys())
+        return W_SYN * term + W_DIS * distribution_term  # + W_Y * Y_term - W_Y * F_term
+
+    # ── HOOK 4 ─────────────────────────────────────────────────────────────────
+    def _post_solve_supply(self):
+        if not self.prospective:
+            return
+
+        df_cu = self.df_cultures.copy()
+        df_pr = self.df_prod.copy()
+
+        # Vars LP
+        s_c = self._pros_vars["s_c"]  # ktN
+        P_c = self._pros_vars["P_c"]  # ktN (prod principale en N)
+        Q_p = self._pros_vars["Q_p"]  # ktN (prod par produit)
+        bnf_c = self._pros_vars["bnf_c"]  # kgN/ha
+        seeds_ktN = self._pros_vars["seeds_ktN"]  # ktN
+        depo_kg_ha = self._pros_vars["depo_kg_ha"]  # kgN/ha
+
+        # === Production par produit (ktN) & disponibles ===
+        if "Nitrogen Production (ktN)" not in df_pr.columns:
+            df_pr["Nitrogen Production (ktN)"] = 0.0
+        for p, var in Q_p.items():
+            df_pr.at[p, "Nitrogen Production (ktN)"] = float(var.varValue or 0.0)
+
+        if "Waste (%)" in df_pr.columns and "Other uses (%)" in df_pr.columns:
+            df_pr["Nitrogen Wasted (ktN)"] = (
+                df_pr["Nitrogen Production (ktN)"] * df_pr["Waste (%)"] / 100.0
+            )
+            df_pr["Nitrogen for Other uses (ktN)"] = (
+                df_pr["Nitrogen Production (ktN)"] * df_pr["Other uses (%)"] / 100.0
+            )
+            df_pr["Available Nitrogen Production (ktN)"] = (
+                df_pr["Nitrogen Production (ktN)"]
+                - df_pr["Nitrogen Wasted (ktN)"]
+                - df_pr["Nitrogen for Other uses (ktN)"]
+            )
+
+        # Colonnes garanties
+        cols = [
+            "Adjusted Total Synthetic Fertilizer Use (ktN)",
+            "Adjusted Surface Synthetic Fertilizer Use (kgN/ha)",
+            "Synthetic to field (ktN)",
+            "Volatilized Nitrogen N-NH3 (ktN)",
+            "Volatilized Nitrogen N-N2O (ktN)",
+            "BNF (kgN/ha)",
+            "BNF (ktN)",
+            "Organic Fertilization (ktN)",
+            "Atmospheric deposition (ktN)",
+            "Seeds Input (ktN)",
+            "Seeds Input (kgN/ha)",
+            "Surface Non Synthetic Fertilizer Use (kgN/ha)",
+            "Total Non Synthetic Fertilizer Use (ktN)",
+            "Harvested Production (ktN)",
+            # Nouvelles colonnes bilan récolte & surplus
+            "Yield (kgN/ha)",
+            "Yield (qtl/ha)",
+            "Main Nitrogen Production (ktN)",
+            "Production (kton)",
+        ]
+        for c in cols:
+            if c not in df_cu.columns:
+                df_cu[c] = 0.0
+
+        # Boucle cultures
+        for c in df_cu.index:
+            A = float(df_cu.at[c, "Area (ha)"]) or 0.0
+
+            # Synthétique & pertes
+            syn_ktN = float(s_c[c].varValue or 0.0)
+
+            # BNF & composantes non-synth
+            bnf_gha = float(bnf_c[c].varValue or 0.0)
+            seeds_k = float(seeds_ktN[c].varValue or 0.0)
+            seeds_gha = (seeds_k * 1e6 / A) if A > 0 else 0.0
+            depo_gha = float(depo_kg_ha[c] or 0.0)
+
+            # Écritures de base
+            df_cu.at[c, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = syn_ktN
+            df_cu.at[c, "Adjusted Surface Synthetic Fertilizer Use (kgN/ha)"] = (
+                (syn_ktN * 1e6 / A) if A > 0 else 0.0
+            )
+
+            df_cu.at[c, "BNF (kgN/ha)"] = bnf_gha
+            df_cu.at[c, "BNF (ktN)"] = bnf_gha * A / 1e6
+
+            df_cu.at[c, "Atmospheric deposition (ktN)"] = depo_gha * A / 1e6
+            df_cu.at[c, "Seeds Input (ktN)"] = seeds_k
+            df_cu.at[c, "Seeds Input (kgN/ha)"] = seeds_gha
+
+            # Production principale
+            mainN_k = float(P_c[c].varValue or 0.0)
+            Yield_kgN_ha = (mainN_k * 1e6 / A) if A > 0 else 0.0
+            Yield_qtl_ha = (
+                Yield_kgN_ha
+                / 100
+                / df_pr.loc[df_pr["Origin compartment"] == c, "Nitrogen Content (%)"]
+                * 100.0
+            ).item()  # 1 qtl = 100 kg
+            df_cu.at[c, "Main Nitrogen Production (ktN)"] = mainN_k
+            df_cu.at[c, "Yield (kgN/ha)"] = Yield_kgN_ha
+            df_cu.at[c, "Yield (qtl/ha)"] = Yield_qtl_ha
+
+            df_cu.at[c, "Harvested Production (ktN)"] = df_pr.loc[
+                df_pr["Origin compartment"] == c, "Nitrogen Production (ktN)"
+            ].sum()
+
+        # On recalcule la production brute
+        df_pr["Production (kton)"] = np.where(
+            df_pr["Nitrogen Content (%)"] != 0,
+            df_pr["Nitrogen Production (ktN)"] / (df_pr["Nitrogen Content (%)"] / 100),
+            0,
+        )
+
+        self.df_cultures = df_cu
+        self.df_prod = df_pr
+        # self._recompute_soil_budget_unified()
+
+    def _build_crops_livestock_to_product(self):
+        if not self.prospective:
+            # Calcul de la production totale récoltée d'azote par culture
+            # Étape 1 : Calculer la somme de la production d'azote par "Origin compartment"
+            nitrogen_production_sum = (
+                self.df_prod.loc[self.df_prod["Type"] == "plant"]
+                .groupby("Origin compartment")["Nitrogen Production (ktN)"]
+                .sum()
+            )
+
+            # Étape 2 : Mettre à jour la colonne "Nitrogen Production (ktN)" dans df_cultures
+            # Pandas aligne automatiquement les index de la série nitrogen_production_sum
+            # avec l'index de df_cultures.
+            self.df_cultures["Harvested Production (ktN)"] = nitrogen_production_sum
+
+            # BNF
+            HI_safe = self.df_cultures["Nitrogen Harvest Index"].replace(0, np.nan)
+
+            target_fixation = (
+                (
+                    (
+                        self.df_cultures["BNF alpha"]
+                        * self.df_cultures["Yield (kgN/ha)"]
+                        / HI_safe
+                        + self.df_cultures["BNF beta"]
+                    )
+                    * self.df_cultures["BGN"]
+                    * self.df_cultures["Area (ha)"]
+                    / 1e6
+                )
+                .fillna(0)
+                .to_dict()
+            )
+            self.df_cultures["BNF (ktN)"] = self.df_cultures.index.map(
+                target_fixation
+            ).fillna(0)
+
+            # Depot atmospherique
+            self.df_cultures["Atmospheric deposition (ktN)"] = (
+                self.df_cultures["Area (ha)"]
+                * self.df_global.loc["Atmospheric deposition coef (kgN/ha)", "value"]
+                / 1e6
+            )
+
+    def _available_expr(self, p):
+        """
+        Expression (ou constante) de la production disponible de p (ktN),
+        c'est-à-dire après Waste(%) et Other uses(%).
+        - Prospectif + végétal: (1 - waste - other) * Q_p[p]   (variable LP)
+        - Sinon: df_prod["Available Nitrogen Production (ktN)"] (constante)
+        """
+        df_pr = self.df_prod
+        waste = (
+            float(df_pr.at[p, "Waste (%)"]) / 100.0
+            if "Waste (%)" in df_pr.columns
+            else 0.0
+        )
+        other = (
+            float(df_pr.at[p, "Other uses (%)"]) / 100.0
+            if "Other uses (%)" in df_pr.columns
+            else 0.0
+        )
+
+        if getattr(self, "prospective", False) and p in self._pros_vars.get("Q_p", {}):
+            return (1.0 - waste - other) * self._pros_vars["Q_p"][
+                p
+            ]  # lpAffineExpression
+        # fallback (historique ou non-végétal)
+        if not self.prospective or df_pr.at[p, "Type"] == "animal":
+            return float(df_pr.at[p, "Available Nitrogen Production (ktN)"])
+        # très rare: si colonne absente, recompose
+        prod = (
+            float(df_pr.at[p, "Nitrogen Production (ktN)"])
+            if "Nitrogen Production (ktN)" in df_pr.columns
+            else 0.0
+        )
+        return prod * (1.0 - waste - other)
+
+    def _prod_expr(self, p):
+        """
+        Expression (ou constante) de la production TOTALE (ktN), avant Waste/Other.
+        Utile si une contrainte travaille 'sur la prod' et non sur la 'disponible'.
+        """
+        if getattr(self, "prospective", False) and p in self._pros_vars.get("Q_p", {}):
+            return self._pros_vars["Q_p"][p]
+        return (
+            float(self.df_prod.at[p, "Nitrogen Production (ktN)"])
+            if "Nitrogen Production (ktN)" in self.df_prod.columns
+            else 0.0
+        )
+
+    # def _recompute_soil_budget_unified(self):
+    #     """
+    #     Calcule un bilan sol unifié pour toutes les cultures:
+    #     - NPP (ktN)
+    #     - Résidus / Racines (ktN)
+    #     - Fertilisation Organique (ktN) = boues+effluents + graines + BNF
+    #     - Fertilisation Minérale (ktN) = dépôt atmosphérique + synthétique effectivement reçu (après pertes)
+    #     - Surplus organique / minéral
+    #     - Vers stock du sol
+    #     Ne crée AUCUN flux ici (pas de flux_generator).
+    #     """
+    #     import numpy as np
+
+    #     df_cu = self.df_cultures.copy()
+    #     df_pr = self.df_prod.copy()
+
+    #     # 2.1 – Recalcule proprement les pertes synthétiques si besoin (formule demandée)
+    #     # coef déjà stockés dans df_global
+    #     coef_volat_NH3 = (
+    #         float(
+    #             self.df_global.loc[
+    #                 "coefficient N-NH3 volatilization synthetic fertilization (%)",
+    #                 "value",
+    #             ]
+    #         )
+    #         / 100.0
+    #     )
+    #     coef_volat_N2O = (
+    #         float(
+    #             self.df_global.loc[
+    #                 "coefficient N-N2O emission synthetic fertilization (%)", "value"
+    #             ]
+    #         )
+    #         / 100.0
+    #     )
+    #     eff_syn = 1.0 - coef_volat_NH3 - coef_volat_N2O
+
+    #     # Recalcule N-NH3 et N-N2O comme demandé (1% des NH3 finit en N2O)
+    #     syn_ktN = df_cu["Adjusted Total Synthetic Fertilizer Use (ktN)"].astype(float)
+    #     df_cu["Volatilized Nitrogen N-NH3 (ktN)"] = syn_ktN * 0.99 * coef_volat_NH3
+    #     df_cu["Volatilized Nitrogen N-N2O (ktN)"] = syn_ktN * (
+    #         coef_volat_N2O + 0.01 * coef_volat_NH3
+    #     )
+    #     df_cu["Synthetic to field (ktN)"] = syn_ktN * eff_syn
+
+    #     # Surface (kgN/ha)
+    #     df_cu["Adjusted Surface Synthetic Fertilizer Use (kgN/ha)"] = 0.0
+    #     mask_non_zero_area = df_cu["Area (ha)"] > 0
+
+    #     # 3. Appliquer la division SEULEMENT aux lignes où la surface est > 0
+    #     df_cu.loc[
+    #         mask_non_zero_area, "Adjusted Surface Synthetic Fertilizer Use (kgN/ha)"
+    #     ] = (
+    #         syn_ktN.loc[mask_non_zero_area]
+    #         * 1e6
+    #         / df_cu.loc[mask_non_zero_area, "Area (ha)"]
+    #     ).astype(float)
+
+    #     # 2.2 – Productions : on garantit 'Nitrogen Production (ktN)' côté produits
+    #     # Main N (ktN) par culture : si déjà présent, on prend, sinon on recompose
+    #     if (df_cu["Main Nitrogen Production (ktN)"] == 0).all():
+    #         # map par 'Main Production'
+    #         main_map = df_pr.set_index("Product")["Nitrogen Production (ktN)"]
+    #         df_cu["Main Nitrogen Production (ktN)"] = (
+    #             df_cu["Main Production"].map(main_map).fillna(0.0)
+    #         )
+
+    #     # Somme des produits (ktN) par culture (incluant coproduits)
+    #     prod_sum_by_culture = df_pr.groupby("Origin compartment")[
+    #         "Nitrogen Production (ktN)"
+    #     ].sum()
+
+    #     # 2.3 – Résidus, racines, NPP (formule unifiée)
+    #     residues = []
+    #     roots = []
+    #     npp = []
+
+    #     for c in df_cu.index:
+    #         HI = float(df_cu.at[c, "Nitrogen Harvest Index"] or 0.0)
+    #         BGN = float(df_cu.at[c, "BGN"] or 1.0)
+
+    #         mainN_k = float(df_cu.at[c, "Main Nitrogen Production (ktN)"] or 0.0)
+    #         prod_sum_k = float(
+    #             prod_sum_by_culture.get(c, 0.0)
+    #         )  # somme de tous les produits (ktN)
+
+    #         if HI > 0:
+    #             # Au-dessus du sol (ktN) attendu à partir du produit principal
+    #             above_k = mainN_k / HI
+    #             # Résidus = above - main
+    #             res_k = max(above_k - prod_sum_k, 0.0)
+    #             # Racines = above * (BGN-1)
+    #             root_k = above_k * max(BGN - 1.0, 0.0)
+
+    #             # NPP (formule généralisée)
+    #             # NPP = sum(Produits) + Produit principal/HI + (sum produits)*(BGN-1)/HI
+    #             # NB: sum(Produits) ≈ above_k quand les coproduits couvrent tout l’aérien.
+    #             # On suit strictement ta définition ici.
+    #             npp_k = prod_sum_k + res_k + root_k
+    #         else:
+    #             res_k, root_k, npp_k = (
+    #                 0.0,
+    #                 0.0,
+    #                 prod_sum_k,
+    #             )  # pas d'info HI => on garde la somme produits
+
+    #         residues.append(res_k)
+    #         roots.append(root_k)
+    #         npp.append(npp_k)
+
+    #     df_cu["Residues Production (ktN)"] = residues
+    #     df_cu["Roots Production (ktN)"] = roots
+    #     df_cu["NPP (ktN)"] = npp
+
+    #     # 2.4 – Vecteurs de fertilisation (base)
+    #     # Orga base = boues+effluents + graines + BNF
+    #     org_base = (
+    #         df_cu["Excreta Fertilization (ktN)"].astype(float)
+    #         + df_cu["Seeds Input (ktN)"].astype(float)
+    #         + df_cu["BNF (ktN)"].astype(float)
+    #         + df_cu["Digestat Fertilization (ktN)"].astype(float)
+    #     )
+
+    #     # Minérale = dépôts atmosphériques + synthétique reçu (après pertes)
+    #     mineral = df_cu["Atmospheric deposition (ktN)"].astype(float) + df_cu[
+    #         "Synthetic to field (ktN)"
+    #     ].astype(float)
+
+    #     df_cu["Organic Fertilization (ktN)"] = org_base
+    #     df_cu["Mineral Fertilization (ktN)"] = mineral
+    #     df_cu["Harvested Production (ktN)"] = prod_sum_by_culture
+
+    #     # 2.5 – Surplus (définition demandée)
+    #     # Surplus orga = max(Forg - NPP, 0)
+    #     # Surplus minéral = max(Fmin - max(NPP - Forg, 0), 0)
+    #     npp_v = df_cu["NPP (ktN)"].values
+    #     forg_v = org_base.values
+    #     fmin_v = mineral.values
+
+    #     org_surplus = np.maximum(forg_v - npp_v, 0.0)
+    #     mineral_surplus = np.maximum(fmin_v - np.maximum(npp_v - forg_v, 0.0), 0.0)
+
+    #     df_cu["Surplus Organic Fertilisation (ktN)"] = org_surplus
+    #     df_cu["Surplus Mineral Fertilization (ktN)"] = mineral_surplus
+
+    #     # 2.6 – Stock sol (bilan sorties/entrées) : Soil stock in - Soil stock out
+    #     df_cu["Input Soil (ktN)"] = (
+    #         df_cu["Residues Production (ktN)"] + df_cu["Roots Production (ktN)"]
+    #     )
+
+    #     df_cu["Output Soil (ktN)"] = np.maximum(
+    #         df_cu["NPP (ktN)"]
+    #         - (
+    #             df_cu["Organic Fertilization (ktN)"]
+    #             + df_cu["Mineral Fertilization (ktN)"]
+    #         ),
+    #         0.0,
+    #     )
+
+    #     # Fuites minérales (comme avant)
+    #     df_cu["Leached to hydro-system (ktN)"] = (
+    #         0.9925 * df_cu["Surplus Mineral Fertilization (ktN)"]
+    #     )
+    #     df_cu["Mineral surplus N2O (ktN)"] = (
+    #         0.0075 * df_cu["Surplus Mineral Fertilization (ktN)"]
+    #     )
+
+    #     for c, row in df_cu.iterrows():
+    #         if (
+    #             row["Category"] in ["natural meadows", "temporary meadows"]
+    #             and row["Area (ha)"] > 0
+    #         ):
+    #             surplus_org_ha = (
+    #                 row["Surplus Organic Fertilisation (ktN)"] / row["Area (ha)"] * 1e6
+    #             )
+    #             stored_flow_ha = min(surplus_org_ha, 100)
+    #             leakage_flow_ha = surplus_org_ha - stored_flow_ha
+
+    #             df_cu.at[c, "Input Soil (ktN)"] += (
+    #                 stored_flow_ha * row["Area (ha)"] / 1e6
+    #             )
+
+    #             # Le flux excédentaire (fuite) est réparti selon les proportions spécifiées
+    #             if leakage_flow_ha > 0:
+    #                 # Répartition du reste de la fuite (même target que pour les non-prairies)
+    #                 df_cu.at[c, "Leached to hydro-system (ktN)"] += (
+    #                     (leakage_flow_ha * 0.7) * row["Area (ha)"] / 1e6
+    #                 )
+    #                 df_cu.at[c, "Input Soil (ktN)"] += (
+    #                     (leakage_flow_ha * 0.2925) * row["Area (ha)"] / 1e6
+    #                 )
+    #                 df_cu.at[c, "Mineral surplus N2O (ktN)"] = (
+    #                     (leakage_flow_ha * 0.0025) * row["Area (ha)"] / 1e6
+    #                 )
+    #         elif row["Area (ha)"]:
+    #             df_cu.at[c, "Leached to hydro-system (ktN)"] += (
+    #                 0.7 * row["Surplus Organic Fertilisation (ktN)"]
+    #             )
+    #             df_cu.at[c, "Mineral surplus N2O (ktN)"] += (
+    #                 0.0075 * row["Surplus Organic Fertilisation (ktN)"]
+    #             )
+    #             df_cu.at[c, "Input Soil (ktN)"] += (
+    #                 0.2925 * row["Surplus Organic Fertilisation (ktN)"]
+    #             )
+
+    #     df_cu["Net Mining (ktN)"] = (
+    #         df_cu["Output Soil (ktN)"] - df_cu["Input Soil (ktN)"]
+    #     )
+
+    #     ## Gestion des flux
+
+    #     # Flux des cultures vers les productions végétales :
+    #     for index, row in self.df_prod.iterrows():
+    #         # Création du dictionnaire target
+    #         source = {row["Origin compartment"]: 1}
+
+    #         # Création du dictionnaire source
+    #         target = {index: row["Nitrogen Production (ktN)"]}
+    #         self.flux_generator.generate_flux(source, target)
+
+    #     # Flux des produits vers Waste et other sectors:
+    #     for index, row in self.df_prod.iterrows():
+    #         source = {index: row["Nitrogen Wasted (ktN)"]}
+
+    #         target = {"waste": 1}
+    #         self.flux_generator.generate_flux(source, target)
+
+    #         source = {index: row["Nitrogen for Other uses (ktN)"]}
+    #         target = {"other sectors": 1}
+    #         self.flux_generator.generate_flux(source, target)
+
+    #     # Seeds input
+    #     target = df_cu["Seeds Input (ktN)"].to_dict()
+    #     source = {"seeds": 1}
+    #     self.flux_generator.generate_flux(source, target)
+
+    #     # BNF
+    #     source = {"atmospheric N2": 1}
+    #     target = df_cu["BNF (ktN)"].to_dict()
+    #     self.flux_generator.generate_flux(source, target)
+
+    #     # Soil Stock/pertes
+    #     for index, row in df_cu.iterrows():
+    #         if row["Net Mining (ktN)"] < 0:
+    #             source = {index: -row["Net Mining (ktN)"]}
+    #             target = {"soil stock": 1}
+    #         else:
+    #             # sortie du stock
+    #             source = {"soil stock": 1}
+    #             target = {index: row["Net Mining (ktN)"]}
+    #         self.flux_generator.generate_flux(source, target)
+
+    #     # source = df_cu["Input Soil (ktN)"].to_dict()
+    #     # target = {"soil stock": 1}
+    #     # self.flux_generator.generate_flux(source, target)
+
+    #     # source = {"soil stock": 1}
+    #     # target = df_cu["Output Soil (ktN)"].to_dict()
+    #     # self.flux_generator.generate_flux(source, target)
+
+    #     # Excreta fertilization
+    #     # Deja fait dans compute_fluxes
+
+    #     # Depot atmospherique
+    #     # Deja fait dans compute_fluxes
+
+    #     # Mise à jour colonnes
+
+    #     df_cu["Total Non Synthetic Fertilizer Use (ktN)"] = (
+    #         df_cu["Excreta Fertilization (ktN)"]
+    #         + df_cu["Digestat Fertilization (ktN)"]
+    #         + df_cu["Seeds Input (ktN)"]
+    #         + df_cu["BNF (ktN)"]
+    #         + df_cu["Atmospheric deposition (ktN)"]
+    #     )
+    #     df_cu["Surface Non Synthetic Fertilizer Use (kgN/ha)"] = df_cu.apply(
+    #         lambda row: row["Total Non Synthetic Fertilizer Use (ktN)"]
+    #         / row["Area (ha)"]
+    #         * 10**6
+    #         if row["Area (ha)"] > 0
+    #         and row["Total Non Synthetic Fertilizer Use (ktN)"] > 0
+    #         else 0,
+    #         axis=1,
+    #     )
+    #     df_cu["Surface Fertilizer Use (kgN/ha)"] = df_cu.apply(
+    #         lambda row: (
+    #             row["Organic Fertilization (ktN)"] + row["Mineral Fertilization (ktN)"]
+    #         )
+    #         / row["Area (ha)"]
+    #         * 10**6
+    #         if row["Area (ha)"] > 0
+    #         and row["Total Non Synthetic Fertilizer Use (ktN)"] > 0
+    #         else 0,
+    #         axis=1,
+    #     )
+
+    #     # On génère les flux
+    #     # Synthétique + pertes
+    #     source = {"Haber-Bosch": 1}
+    #     target = df_cu["Adjusted Total Synthetic Fertilizer Use (ktN)"].to_dict()
+
+    #     self.flux_generator.generate_flux(source, target)
+
+    #     source = df_cu["Volatilized Nitrogen N-NH3 (ktN)"].to_dict()
+    #     target = {"atmospheric NH3": 1}
+
+    #     self.flux_generator.generate_flux(source, target)
+
+    #     source = df_cu["Volatilized Nitrogen N-N2O (ktN)"].to_dict()
+    #     target = {"atmospheric N2O": 1}
+
+    #     self.flux_generator.generate_flux(source, target)
+
+    #     # A cela on ajoute les emissions indirectes de N2O lors de la fabrication des engrais
+    #     epend_tot_synt = df_cu["Adjusted Total Synthetic Fertilizer Use (ktN)"].sum()
+
+    #     coef_emis_N_N2O = (
+    #         self.df_global.loc[
+    #             "coefficient N-N2O indirect emission synthetic fertilization (%)"
+    #         ].item()
+    #         / 100
+    #     )
+    #     target = {"atmospheric N2O": 1}
+    #     source = {"Haber-Bosch": epend_tot_synt * coef_emis_N_N2O}
+
+    #     self.flux_generator.generate_flux(source, target)
+
+    #     # Et les fuites liées aux surplus de fertilisation minérale
+
+    #     source = df_cu["Leached to hydro-system (ktN)"].to_dict()
+    #     target = {"hydro-system": 1}
+    #     self.flux_generator.generate_flux(source, target)
+
+    #     source = df_cu["Mineral surplus N2O (ktN)"].to_dict()
+    #     target = {"atmospheric N2O": 1}
+    #     self.flux_generator.generate_flux(source, target)
+
+    #     # Enregistre et retourne
+    #     self.df_cultures = df_cu
+    #     return df_cu
+
+    def _recompute_soil_budget_unified(self):
+        """
+        Bilan azoté par culture dans l'esprit GRAFS (Julia Le Noë).
+
+        Principes:
+        - Surplus = Entrées AU CHAMP - Azote récolté (produits agrégés par culture).
+        - Résidus & racines : flux internes vers le sol (calculés pour tracer les flux),
+        mais non comptés comme "sorties" dans le surplus.
+        - Partition du surplus:
+            * Grandes cultures (non prairies): 70% lixiviation par défaut,
+            une petite part N2O, le reste en stockage sol (ΔSOM-N).
+            * Prairies: on stocke d'abord jusqu'à 100 kgN/ha; l'excédent est partitionné
+            (70% lixiviation par défaut, faible N2O, reste stockage sol).
+        - Mining (appauvrissement) = max(-Surplus, 0) : prélèvement net au stock du sol
+        pour équilibrer la récolte quand les entrées sont insuffisantes.
+
+        Colonnes créées (ktN sauf mention contraire):
+        * Synthetic to field, Volatilized NH3/N2O (pré-champ)
+        * Harvested Production (ktN)  (somme des produits d'origine "culture")
+        * Inputs to field (ktN) = dep + BNF + excreta + digestat + seeds + synthetic_to_field
+        * Surplus (ktN) = Inputs to field - Harvested N
+        * Leached to hydro-system (ktN)   [surplus>0]
+        * Surplus N2O (ktN)               [surplus>0]
+        * Soil storage from surplus (ktN) [surplus>0]
+        * Mining from soil (ktN) = max(-Surplus, 0)
+        * Net Soil stock (ktN) = Soil storage from surplus - Mining
+        * Surface indicators (kgN/ha)
+
+        """
+
+        import numpy as np
+
+        df_cu = self.df_cultures.copy()
+        df_pr = self.df_prod.copy()
+
+        # --------- 0) Petits utilitaires sur df_global (coeffs paramétrables) ----------
+        def _get_pct(name, default):
+            try:
+                return float(self.df_global.loc[name, "value"]) / 100.0
+            except Exception:
+                return default
+
+        def _get_val(name, default):
+            try:
+                return float(self.df_global.loc[name, "value"])
+            except Exception:
+                return default
+
+        # Pertes "pré-champ" sur engrais de synthèse (déjà dans ton modèle)
+        coef_volat_NH3 = _get_pct(
+            "coefficient N-NH3 volatilization synthetic fertilization (%)", 0.0
+        )
+        coef_N2O_dir = _get_pct(
+            "coefficient N-N2O emission synthetic fertilization (%)", 0.0
+        )
+        eff_syn = max(0.0, 1.0 - coef_volat_NH3 - coef_N2O_dir)
+
+        # Partitions du surplus (défauts cohérents GRAFS)
+        f_leach_arable = _get_pct("share of surplus leached on arable (%)", 0.70)  # 70%
+        f_leach_prairie = _get_pct(
+            "share of surplus leached on grassland excess (%)", 0.70
+        )
+        f_n2o_arable = _get_pct(
+            "share of surplus to N2O on arable (%)", 0.0075
+        )  # 0.75%
+        f_n2o_prairie = _get_pct(
+            "share of surplus to N2O on grassland excess (%)", 0.0025
+        )  # 0.25%
+        prairie_store_thr = _get_val(
+            "grassland surplus first stored (kgN/ha)", 100.0
+        )  # 100 kgN/ha
+
+        # --------- 1) Synthétique : pertes pré-champ & "to field" ----------
+        syn_ktN = (
+            df_cu["Adjusted Total Synthetic Fertilizer Use (ktN)"]
+            .astype(float)
+            .fillna(0.0)
+        )
+
+        # 1% des NH3 => N2O (ta règle), le reste NH3 reste NH3
+        df_cu["Volatilized Nitrogen N-NH3 (ktN)"] = syn_ktN * 0.99 * coef_volat_NH3
+        df_cu["Volatilized Nitrogen N-N2O (ktN)"] = syn_ktN * (
+            coef_N2O_dir + 0.01 * coef_volat_NH3
+        )
+        df_cu["Synthetic to field (ktN)"] = syn_ktN * eff_syn
+
+        # Surface (kgN/ha) pour info
+        df_cu["Adjusted Surface Synthetic Fertilizer Use (kgN/ha)"] = 0.0
+        area = df_cu["Area (ha)"].astype(float).fillna(0.0)
+        mask_area = area > 0
+        df_cu.loc[mask_area, "Adjusted Surface Synthetic Fertilizer Use (kgN/ha)"] = (
+            syn_ktN[mask_area] * 1e6 / area[mask_area]
+        )
+
+        # --------- 2) Azote récolté par culture (somme des produits) ----------
+        # # Si besoin, reconstituer le "Main Nitrogen Production (ktN)" depuis df_prod
+        # if (df_cu.get("Main Nitrogen Production (ktN)", 0) == 0).all():
+        #     main_map = df_pr.set_index("Product")["Nitrogen Production (ktN)"]
+        #     df_cu["Main Nitrogen Production (ktN)"] = (
+        #         df_cu["Main Production"].map(main_map).fillna(0.0)
+        #     )
+
+        harvested_by_culture = df_pr.groupby("Origin compartment")[
+            "Nitrogen Production (ktN)"
+        ].sum()
+        df_cu["Harvested Production (ktN)"] = (
+            df_cu.index.to_series().map(harvested_by_culture).fillna(0.0)
+        )
+
+        # --------- 4) Entrées au champ (Inputs to field) ----------
+        inputs_to_field = (
+            df_cu["Atmospheric deposition (ktN)"].astype(float).fillna(0.0)
+            + df_cu["BNF (ktN)"].astype(float).fillna(0.0)
+            + df_cu["Excreta Fertilization (ktN)"].astype(float).fillna(0.0)
+            + df_cu["Digestat Fertilization (ktN)"].astype(float).fillna(0.0)
+            + df_cu["Seeds Input (ktN)"].astype(float).fillna(0.0)
+            + df_cu["Synthetic to field (ktN)"].astype(float).fillna(0.0)
+        )
+        df_cu["Inputs to field (ktN)"] = inputs_to_field
+
+        # --------- 5) Surplus (coeur GRAFS) ----------
+        surplus = inputs_to_field - df_cu["Harvested Production (ktN)"]
+        df_cu["Surplus (ktN)"] = surplus
+
+        pos_surplus = np.maximum(surplus.values, 0.0)
+        neg_surplus = np.maximum(-surplus.values, 0.0)  # mining
+
+        # --------- 6) Partition du surplus : prairies vs autres ----------
+        # Init colonnes
+        df_cu["Leached to hydro-system (ktN)"] = 0.0
+        df_cu["Surplus N2O (ktN)"] = 0.0
+        df_cu["Soil storage from surplus (ktN)"] = 0.0
+        df_cu["Mining from soil (ktN)"] = neg_surplus  # direct
+
+        categories = df_cu["Category"].astype(str).str.lower().fillna("")
+
+        is_pasture = categories.isin(
+            [
+                "natural meadows",
+                "temporary meadows",
+            ]
+        )
+
+        # --- Prairies: stockage d'abord jusqu'au seuil (kg/ha), puis partition du reste
+        # Conversion ktN <-> kgN/ha selon surface
+        surplus_ktN = pos_surplus
+        surplus_kg_ha = np.zeros_like(surplus_ktN)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            surplus_kg_ha[mask_area.values] = (
+                surplus_ktN[mask_area.values] * 1e6 / area[mask_area].values
+            )
+
+        store_first_kg_ha = np.minimum(surplus_kg_ha, prairie_store_thr)
+        store_first_ktN = np.zeros_like(surplus_ktN)
+        store_first_ktN[mask_area.values] = (
+            store_first_kg_ha[mask_area.values] * area[mask_area].values / 1e6
+        )
+
+        remainder_ktN = np.maximum(surplus_ktN - store_first_ktN, 0.0)
+
+        # Appliquer partition prairies vs arables
+        # Arables (non prairies)
+        arable_idx = (~is_pasture).values
+        df_cu.loc[arable_idx, "Leached to hydro-system (ktN)"] = (
+            f_leach_arable * surplus_ktN[arable_idx]
+        ).astype(float)
+        df_cu.loc[arable_idx, "Surplus N2O (ktN)"] = (
+            f_n2o_arable * surplus_ktN[arable_idx]
+        ).astype(float)
+        df_cu.loc[arable_idx, "Soil storage from surplus (ktN)"] = (
+            surplus_ktN[arable_idx]
+            - df_cu.loc[arable_idx, "Leached to hydro-system (ktN)"].values
+            - df_cu.loc[arable_idx, "Surplus N2O (ktN)"].values
+        ).astype(float)
+
+        # Prairies
+        past_idx = is_pasture.values
+        df_cu.loc[past_idx, "Leached to hydro-system (ktN)"] = (
+            f_leach_prairie * remainder_ktN[past_idx]
+        ).astype(float)
+        df_cu.loc[past_idx, "Surplus N2O (ktN)"] = (
+            f_n2o_prairie * remainder_ktN[past_idx]
+        ).astype(float)
+        df_cu.loc[past_idx, "Soil storage from surplus (ktN)"] = (
+            store_first_ktN[past_idx]
+            + remainder_ktN[past_idx]
+            - df_cu.loc[past_idx, "Leached to hydro-system (ktN)"].values
+            - df_cu.loc[past_idx, "Surplus N2O (ktN)"].values
+        ).astype(float)
+
+        # --------- 7) Bilan de stock de sol (Δ stock) ----------
+        df_cu["Soil stock (ktN)"] = (
+            +df_cu["Soil storage from surplus (ktN)"].values
+            - df_cu["Mining from soil (ktN)"].values
+        ).astype(float)
+
+        # --------- 8) Indicateurs surfaciques utiles ----------
+        df_cu["Surface Surplus (kgN/ha)"] = 0.0
+        df_cu.loc[mask_area, "Surface Surplus (kgN/ha)"] = (
+            df_cu.loc[mask_area, "Surplus (ktN)"] * 1e6 / area[mask_area]
+        ).astype(float)
+
+        df_cu["Surface Inputs to field (kgN/ha)"] = 0.0
+        df_cu.loc[mask_area, "Surface Inputs to field (kgN/ha)"] = (
+            df_cu.loc[mask_area, "Inputs to field (ktN)"] * 1e6 / area[mask_area]
+        ).astype(float)
+
+        # (On garde tes colonnes d'usage si besoin)
+        df_cu["Total Non Synthetic Fertilizer Use (ktN)"] = (
+            df_cu["Excreta Fertilization (ktN)"].fillna(0.0)
+            + df_cu["Digestat Fertilization (ktN)"].fillna(0.0)
+            + df_cu["Seeds Input (ktN)"].fillna(0.0)
+            + df_cu["BNF (ktN)"].fillna(0.0)
+            + df_cu["Atmospheric deposition (ktN)"].fillna(0.0)
+        )
+        df_cu["Surface Non Synthetic Fertilizer Use (kgN/ha)"] = 0.0
+        df_cu.loc[mask_area, "Surface Non Synthetic Fertilizer Use (kgN/ha)"] = (
+            df_cu.loc[mask_area, "Total Non Synthetic Fertilizer Use (ktN)"]
+            * 1e6
+            / area[mask_area]
+        ).astype(float)
+
+        # --------- 9) Construction des flux ----------
+
+        # Flux des cultures vers les productions végétales :
+        for index, row in df_pr.iterrows():
+            # Création du dictionnaire target
+            source = {row["Origin compartment"]: 1}
+
+            # Création du dictionnaire source
+            target = {index: row["Nitrogen Production (ktN)"]}
+            self.flux_generator.generate_flux(source, target)
+
+        # Flux des produits vers Waste et other sectors:
+        for index, row in df_pr.iterrows():
+            source = {index: row["Nitrogen Wasted (ktN)"]}
+
+            target = {"waste": 1}
+            self.flux_generator.generate_flux(source, target)
+
+            source = {index: row["Nitrogen for Other uses (ktN)"]}
+            target = {"other sectors": 1}
+            self.flux_generator.generate_flux(source, target)
+
+        # Seeds input
+        target = df_cu["Seeds Input (ktN)"].to_dict()
+        source = {"seeds": 1}
+        self.flux_generator.generate_flux(source, target)
+
+        # BNF
+        source = {"atmospheric N2": 1}
+        target = df_cu["BNF (ktN)"].to_dict()
+        self.flux_generator.generate_flux(source, target)
+
+        # Soil Stock/pertes
+
+        source = df_cu["Soil storage from surplus (ktN)"].to_dict()
+        target = {"soil stock": 1}
+        self.flux_generator.generate_flux(source, target)
+
+        source = {"soil stock": 1}
+        target = df_cu["Mining from soil (ktN)"].to_dict()
+        self.flux_generator.generate_flux(source, target)
+
+        # for index, row in df_cu.iterrows():
+        #     if row["Net Mining (ktN)"] < 0:
+        #         source = {index: -row["Net Mining (ktN)"]}
+        #         target = {"soil stock": 1}
+        #     else:
+        #         # sortie du stock
+        #         source = {"soil stock": 1}
+        #         target = {index: row["Net Mining (ktN)"]}
+        #     self.flux_generator.generate_flux(source, target)
+
+        # Excreta fertilization
+        # Deja fait dans compute_fluxes
+
+        # Depot atmospherique
+        # Deja fait dans compute_fluxes
+
+        # Synthétique + pertes
+        source = {"Haber-Bosch": 1}
+        target = df_cu["Adjusted Total Synthetic Fertilizer Use (ktN)"].to_dict()
+
+        self.flux_generator.generate_flux(source, target)
+
+        source = df_cu["Volatilized Nitrogen N-NH3 (ktN)"].to_dict()
+        target = {"atmospheric NH3": 1}
+
+        self.flux_generator.generate_flux(source, target)
+
+        source = df_cu["Volatilized Nitrogen N-N2O (ktN)"].to_dict()
+        target = {"atmospheric N2O": 1}
+
+        self.flux_generator.generate_flux(source, target)
+
+        # A cela on ajoute les emissions indirectes de N2O lors de la fabrication des engrais
+        epend_tot_synt = df_cu["Adjusted Total Synthetic Fertilizer Use (ktN)"].sum()
+
+        coef_emis_N_N2O = (
+            self.df_global.loc[
+                "coefficient N-N2O indirect emission synthetic fertilization (%)"
+            ].item()
+            / 100
+        )
+        target = {"atmospheric N2O": 1}
+        source = {"Haber-Bosch": epend_tot_synt * coef_emis_N_N2O}
+
+        self.flux_generator.generate_flux(source, target)
+
+        # Et les fuites liées aux surplus de fertilisation minérale
+
+        source = df_cu["Leached to hydro-system (ktN)"].to_dict()
+        target = {"hydro-system": 1}
+        self.flux_generator.generate_flux(source, target)
+
+        source = df_cu["Surplus N2O (ktN)"].to_dict()
+        target = {"atmospheric N2O": 1}
+        self.flux_generator.generate_flux(source, target)
+
+        # Sauvegarde
+        self.df_cultures = df_cu
+        return df_cu
 
     def plot_heatmap(self):
         """
@@ -1420,8 +3002,9 @@ class NitrogenFlowModel:
 
         For an in-depth explanation of the model's functioning, please refer to the accompanying paper.
         """
+        from pulp import lpSum
+
         # Extraire les variables nécessaires
-        df_cultures = self.df_cultures
         df_elevage = self.df_elevage
         df_excr = self.df_excr
         df_prod = self.df_prod
@@ -1432,38 +3015,7 @@ class NitrogenFlowModel:
         label_to_index = self.label_to_index
         flux_generator = self.flux_generator
 
-        # Calcul de la production totale récoltée d'azote par culture
-        # Étape 1 : Calculer la somme de la production d'azote par "Origin compartment"
-        nitrogen_production_sum = (
-            df_prod.loc[df_prod["Type"] == "plant"]
-            .groupby("Origin compartment")["Nitrogen Production (ktN)"]
-            .sum()
-        )
-
-        # Étape 2 : Mettre à jour la colonne "Nitrogen Production (ktN)" dans df_cultures
-        # Pandas aligne automatiquement les index de la série nitrogen_production_sum
-        # avec l'index de df_cultures.
-        df_cultures["Total Nitrogen Production (ktN)"] = nitrogen_production_sum
-
-        # Flux des cultures vers les productions végétales :
-        for index, row in df_prod.iterrows():
-            # Création du dictionnaire target
-            source = {row["Origin compartment"]: 1}
-
-            # Création du dictionnaire source
-            target = {index: row["Nitrogen Production (ktN)"]}
-            flux_generator.generate_flux(source, target)
-
-        # Flux des produits vers Waste et other sectors:
-        for index, row in df_prod.iterrows():
-            source = {index: row["Nitrogen Wasted (ktN)"]}
-
-            target = {"waste": 1}
-            flux_generator.generate_flux(source, target)
-
-            source = {index: row["Nitrogen for Other uses (ktN)"]}
-            target = {"other sectors": 1}
-            flux_generator.generate_flux(source, target)
+        self._build_crops_livestock_to_product()
 
         # Flux des animaux vers les compartiments d'excretion
         for index, row in df_excr.iterrows():
@@ -1474,16 +3026,11 @@ class NitrogenFlowModel:
             target = {index: row["Excretion (ktN)"]}
             flux_generator.generate_flux(source, target)
 
-        # Seeds input
-        target = df_cultures["Seeds Input (ktN)"].to_dict()
-        source = {"seeds": 1}
-        flux_generator.generate_flux(source, target)
-
         ## Dépôt atmosphérique
         source = {"atmospheric N2O": 0.1, "atmospheric NH3": 0.9}
         target = (
             df_global.loc["Atmospheric deposition coef (kgN/ha)"].item()
-            * df_cultures["Area (ha)"]
+            * self.df_cultures["Area (ha)"]
             / 1e6
         ).to_dict()  # Dépôt proportionnel aux surface
         flux_generator.generate_flux(source, target)
@@ -1495,23 +3042,26 @@ class NitrogenFlowModel:
         flux_generator.generate_flux(source, target)
 
         ## Épandage de boue sur les champs
-
-        mask = ~df_cultures["Category"].isin(["natural meadows", "temporary meadows"])
         Norm = (
-            df_cultures[mask]["Area (ha)"]
-            * df_cultures[mask]["Spreading Rate (%)"]
-            / 100
+            self.df_cultures["Area (ha)"] * self.df_cultures["Spreading Rate (%)"] / 100
         ).sum()
         # Création du dictionnaire target
         target_epandage = {
             culture: row["Area (ha)"] * row["Spreading Rate (%)"] / 100 / Norm
-            for culture, row in df_cultures.iterrows()
-            if row["Category"] not in ["natural meadows", "temporary meadows"]
+            for culture, row in self.df_cultures.iterrows()
         }
 
         source_boue = (
             df_pop["Ingestion (ktN)"] * df_pop["Excretion recycling (%)"] / 100
         ).to_dict()
+
+        # On le comptabilise dans une colonne
+        target_series = pd.Series(target_epandage)
+        total_boue_ktN = sum(source_boue.values())
+
+        self.df_cultures["Excreta Fertilization (ktN)"] = (
+            self.df_cultures.index.map(target_series).fillna(0) * total_boue_ktN
+        )
 
         flux_generator.generate_flux(source_boue, target_epandage)
 
@@ -1560,19 +3110,23 @@ class NitrogenFlowModel:
         # Calculer les poids pour chaque cible
         # Calcul de la surface totale pour les prairies
 
-        total_surface_grasslands = df_cultures.loc[
-            df_cultures["Category"].isin(["natural meadows", "temporary meadows"]),
+        total_surface_grasslands = self.df_cultures.loc[
+            self.df_cultures["Category"].isin(["natural meadows", "temporary meadows"]),
             "Area (ha)",
         ].sum()
 
         # Création du dictionnaire target
-        target = (
-            df_cultures.loc[
-                df_cultures["Category"].isin(["natural meadows", "temporary meadows"]),
+        target_grass = (
+            self.df_cultures.loc[
+                self.df_cultures["Category"].isin(
+                    ["natural meadows", "temporary meadows"]
+                ),
                 "Area (ha)",
             ]
             / total_surface_grasslands
         ).to_dict()
+
+        self.target_grass = target_grass
 
         # Source
         source = df_excr.loc[
@@ -1580,7 +3134,15 @@ class NitrogenFlowModel:
             "Excretion after volatilization (ktN)",
         ].to_dict()
 
-        flux_generator.generate_flux(source, target)
+        # flux_generator.generate_flux(source, target_grass)
+
+        # On ajoute la fertilisation par excretat dans df_cultures
+        total_excr_grasslands_ktN = sum(source.values())
+        target_series = pd.Series(target_grass)
+        self.df_cultures["Excreta Fertilization (ktN)"] += (
+            self.df_cultures.index.map(target_series).fillna(0)
+            * total_excr_grasslands_ktN
+        )
 
         # Le reste est émit dans l'atmosphere
         # N2
@@ -1615,7 +3177,14 @@ class NitrogenFlowModel:
             "Excretion after volatilization (ktN)",
         ].to_dict()
 
-        flux_generator.generate_flux(source, target_epandage)
+        # flux_generator.generate_flux(source, target_epandage)
+
+        # On l'enregistre dans la colonne excretion fertilization. On reprendra ce calcul après pour les flux vers les méthaniseurs
+        total_excr_fields_ktN = sum(source.values())
+        target_series = pd.Series(target_epandage)
+        self.df_cultures["Excreta Fertilization (ktN)"] += (
+            self.df_cultures.index.map(target_series).fillna(0) * total_excr_fields_ktN
+        )
         # Le reste part dans l'atmosphere
 
         # N2
@@ -1641,362 +3210,168 @@ class NitrogenFlowModel:
         ].to_dict()
         flux_generator.generate_flux(source, target)
 
-        ## Fixation symbiotique
-        # Calcul de l'azote épendu par hectare
-        def calculer_azote_ependu(culture):
-            adj_matrix_df = pd.DataFrame(
-                self.adjacency_matrix, index=self.labels, columns=self.labels
+        if not self.prospective:
+            ## Azote synthétique
+            # Calcul de l'azote à épendre (bilan azoté)
+
+            self.df_cultures["Total Non Synthetic Fertilizer Use (ktN)"] = (
+                self.df_cultures["Excreta Fertilization (ktN)"]
+                + self.df_cultures["Seeds Input (ktN)"]
+                + self.df_cultures["BNF (ktN)"]
+                + self.df_cultures["Atmospheric deposition (ktN)"]
             )
-            return adj_matrix_df.loc[:, culture].sum().item()
 
-        HI_safe = df_cultures["Harvest Index"].replace(0, np.nan)
-
-        target_fixation = (
-            (
-                (
-                    df_cultures["BNF alpha"] * df_cultures["Yield (kgN/ha)"] / HI_safe
-                    + df_cultures["BNF beta"]
+            # Séparer les données en prairies et champs
+            # On commence par un bilan sur les prairies pour avoir un bilan complet des prairies et en déduire un bilan azoté non synthétique complet sur les culturess
+            df_prairies = self.df_cultures[
+                self.df_cultures["Category"].isin(
+                    ["natural meadows", "temporary meadows"]
                 )
-                * df_cultures["BGN"]
-                * df_cultures["Area (ha)"]
-                / 1e6
-            )
-            .fillna(0)
-            .to_dict()
-        )
-        source_fixation = {"atmospheric N2": 1}
-        flux_generator.generate_flux(source_fixation, target_fixation)
-        df_cultures["Symbiotic Fixation (ktN)"] = df_cultures.index.map(
-            target_fixation
-        ).fillna(0)
+            ].copy()
 
-        ## Azote synthétique
-        # Calcul de l'azote à épendre (bilan azoté)
-
-        df_cultures["Total Non Synthetic Fertilizer Use (ktN)"] = df_cultures.index.map(
-            calculer_azote_ependu
-        )
-
-        # Séparer les données en prairies et champs
-        # On commence par un bilan sur les prairies pour avoir un bilan complet des prairies et en déduire un bilan azoté non synthétique complet sur les culturess
-        df_prairies = df_cultures[
-            df_cultures["Category"].isin(["natural meadows", "temporary meadows"])
-        ].copy()
-
-        df_prairies["Surface Non Synthetic Fertilizer Use (kgN/ha)"] = (
-            df_prairies.apply(
-                lambda row: row["Total Non Synthetic Fertilizer Use (ktN)"]
-                / row["Area (ha)"]
-                * 10**6
-                if row["Area (ha)"] > 0
-                and row["Total Non Synthetic Fertilizer Use (ktN)"] > 0
-                else 0,
-                axis=1,
-            )
-        )
-
-        if "Raw Surface Synthetic Fertilizer Use (kgN/ha)" not in df_prairies.columns:
-            df_prairies["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = (
+            df_prairies["Surface Non Synthetic Fertilizer Use (kgN/ha)"] = (
                 df_prairies.apply(
-                    lambda row: row["Surface Fertilization Need (kgN/ha)"]
-                    - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"]
+                    lambda row: row["Total Non Synthetic Fertilizer Use (ktN)"]
+                    / row["Area (ha)"]
+                    * 10**6
                     if row["Area (ha)"] > 0
+                    and row["Total Non Synthetic Fertilizer Use (ktN)"] > 0
                     else 0,
                     axis=1,
                 )
             )
-            df_prairies["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = df_prairies[
+
+            if (
                 "Raw Surface Synthetic Fertilizer Use (kgN/ha)"
-            ].apply(lambda x: max(x, 0))
+                not in df_prairies.columns
+            ):
+                df_prairies["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = (
+                    df_prairies.apply(
+                        lambda row: row["Surface Fertilization Need (kgN/ha)"]
+                        - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"]
+                        if row["Area (ha)"] > 0
+                        else 0,
+                        axis=1,
+                    )
+                )
+                df_prairies["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = (
+                    df_prairies["Raw Surface Synthetic Fertilizer Use (kgN/ha)"].apply(
+                        lambda x: max(x, 0)
+                    )
+                )
 
-        df_prairies["Raw Total Synthetic Fertilizer Use (ktN)"] = (
-            df_prairies["Raw Surface Synthetic Fertilizer Use (kgN/ha)"]
-            * df_prairies["Area (ha)"]
-            / 1e6
-        )
+            df_prairies["Raw Total Synthetic Fertilizer Use (ktN)"] = (
+                df_prairies["Raw Surface Synthetic Fertilizer Use (kgN/ha)"]
+                * df_prairies["Area (ha)"]
+                / 1e6
+            )
 
-        moyenne_ponderee_prairies = (
-            df_prairies["Raw Total Synthetic Fertilizer Use (ktN)"]
-        ).sum()
-
-        moyenne_reel_prairies = df_global.loc[
-            df_global.index == "Total Synthetic Fertilizer Use on grasslands (ktN)"
-        ]["value"].item()
-
-        if moyenne_ponderee_prairies != 0:
-            df_prairies.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = (
+            moyenne_ponderee_prairies = (
                 df_prairies["Raw Total Synthetic Fertilizer Use (ktN)"]
-                * moyenne_reel_prairies
-                / moyenne_ponderee_prairies
-            )
-        else:
-            if len(df_prairies) > 0:
-                df_prairies.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = 0
-            warnings.warn("No Synthetic fertilizer need for grasslands.")
+            ).sum()
 
-        # source = {"Haber Bosch": 1}
-        # target = df_prairies["Adjusted Total Synthetic Fertilizer Use (ktN)"].to_dict()
-        # flux_generator.generate_flux(source, target)
+            moyenne_reel_prairies = df_global.loc[
+                df_global.index == "Total Synthetic Fertilizer Use on grasslands (ktN)"
+            ]["value"].item()
 
-        # Maintenant, on fait le bilan complet des légumineuses (de champs et de prairies)
+            if moyenne_ponderee_prairies != 0:
+                df_prairies.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = (
+                    df_prairies["Raw Total Synthetic Fertilizer Use (ktN)"]
+                    * moyenne_reel_prairies
+                    / moyenne_ponderee_prairies
+                )
+            else:
+                if len(df_prairies) > 0:
+                    df_prairies.loc[
+                        :, "Adjusted Total Synthetic Fertilizer Use (ktN)"
+                    ] = 0
+                warnings.warn("No Synthetic fertilizer need for grasslands.")
 
-        df_leg = pd.concat(
-            [df_prairies, df_cultures[df_cultures["Category"] == "leguminous"]]
-        )
+            # Bouclage du bilan des Cultures n'étant pas des prairies ou des légumineuses
+            df_champs = self.df_cultures[
+                ~self.df_cultures["Category"].isin(
+                    [
+                        "natural meadows",
+                        "temporary meadows",
+                        "leguminous",
+                    ]  # Les légumineuses sont interdit de HB
+                )
+            ].copy()
 
-        df_leg = df_leg.fillna(0)
-
-        if "Adjusted Total Synthetic Fertilizer Use (ktN)" not in df_leg.columns:
-            df_leg["Adjusted Total Synthetic Fertilizer Use (ktN)"] = 0.0
-
-        df_leg["Total Non Synthetic Fertilizer Use (ktN)"] = df_leg.index.map(
-            calculer_azote_ependu
-        )
-
-        df_leg["Organic Fertilization (ktN)"] = (
-            df_leg["Seeds Input (ktN)"] + df_leg["Symbiotic Fixation (ktN)"]
-        )
-        df_leg["Mineral Fertilization (ktN)"] = (
-            df_leg["Adjusted Total Synthetic Fertilizer Use (ktN)"]
-            + df_leg["Total Non Synthetic Fertilizer Use (ktN)"]
-            - df_leg["Organic Fertilization (ktN)"]
-        )
-
-        df_leg["Residues Production (ktN)"] = np.where(
-            df_leg["Harvest Index"] > 0,
-            (df_leg["Total Nitrogen Production (ktN)"] / df_leg["Harvest Index"])
-            - df_leg["Total Nitrogen Production (ktN)"],
-            0.0,
-        )
-
-        df_leg["Roots Production (ktN)"] = (
-            df_leg["Total Nitrogen Production (ktN)"]
-            / df_leg["Harvest Index"]
-            * (df_leg["BGN"] - 1)
-        )
-
-        # 1. Calcul de la somme des productions pour toutes les lignes (vectoriel)
-        production_sum = (
-            df_leg["Residues Production (ktN)"]
-            + df_leg["Roots Production (ktN)"]
-            + df_leg["Total Nitrogen Production (ktN)"]
-        )
-
-        # 2. Définition de la condition de surplus organique (vectoriel)
-        organic_surplus_condition = (
-            df_leg["Organic Fertilization (ktN)"] > production_sum
-        )
-
-        # 3. Calcul vectoriel des colonnes avec numpy.where (le plus condensé et efficace)
-        df_leg["Surplus Organic Fertilisation (ktN)"] = np.where(
-            organic_surplus_condition,
-            df_leg["Organic Fertilization (ktN)"]
-            - production_sum,  # VRAI (Condition 1)
-            0,  # FAUX (Condition 2)
-        )
-
-        df_leg["Surplus Mineral Fertilization (ktN)"] = np.where(
-            organic_surplus_condition,
-            df_leg["Mineral Fertilization (ktN)"],  # VRAI (Condition 1)
-            df_leg["Mineral Fertilization (ktN)"]
-            - (
-                production_sum - df_leg["Organic Fertilization (ktN)"]
-            ),  # FAUX (Condition 2)
-        )
-
-        # On répartit cet azote dans leur compartiment de destination (sauf produit pour lequel c'est déjà fait)
-        # Héritage seulement pour prairies temporaires et légumineuses (pas prairies naturelles)
-        mask = df_leg["Category"].isin(["temporary meadows", "leguminous"])
-        df_leg.loc[mask, "Nitrogen for Heritage (ktN)"] = (
-            df_leg.loc[mask, "Residues Production (ktN)"]
-            + df_leg.loc[mask, "Surplus Organic Fertilisation (ktN)"]
-        )
-
-        total_surplus_azote = df_leg.loc[mask, "Nitrogen for Heritage (ktN)"].sum()
-        total_surface_cereales = df_cultures.loc[
-            (df_cultures["Category"] == "cereals (excluding rice)"),
-            "Area (ha)",
-        ].sum()
-        df_cultures["Leguminous Heritage (ktN)"] = 0.0
-        df_cultures.loc[
-            (df_cultures["Category"] == "cereals (excluding rice)"),
-            "Leguminous Heritage (ktN)",
-        ] = (
-            df_cultures.loc[
-                (df_cultures["Category"] == "cereals (excluding rice)"),
-                "Area (ha)",
-            ]
-            / total_surface_cereales
-            * total_surplus_azote
-        ).astype(float)
-
-        # Génération des flux pour l'héritage des légumineuses et prairies temporaires
-        source_leg = (
-            df_leg.loc[df_leg["Nitrogen for Heritage (ktN)"] > 0][
-                "Nitrogen for Heritage (ktN)"
-            ]
-            / df_leg["Nitrogen for Heritage (ktN)"].sum()
-        ).to_dict()
-        target_leg = df_cultures["Leguminous Heritage (ktN)"].to_dict()
-        flux_generator.generate_flux(source_leg, target_leg)
-
-        # Stock
-
-        source = df_leg["Roots Production (ktN)"].to_dict()
-        target = {"soil stock": 1}
-        flux_generator.generate_flux(source, target)
-
-        # On ajoute organic fertilization surplus et residues vers stock pour les prairies permanentes
-        source = (
-            df_leg.loc[~mask, "Residues Production (ktN)"]
-            + df_leg.loc[~mask, "Surplus Organic Fertilisation (ktN)"]
-        ).to_dict()
-        target = {"soil stock": 1}
-        flux_generator.generate_flux(source, target)
-
-        # Et enfin part de l'azote lessivé
-
-        source = df_leg["Surplus Mineral Fertilization (ktN)"].to_dict()
-        target = {"hydro-system": 0.9925, "atmospheric N2O": 0.0075}
-        flux_generator.generate_flux(source, target)
-
-        # Bouclage du bilan des Cultures n'étant pas des prairies ou des légumineuses
-        df_champs = df_cultures[
-            ~df_cultures["Category"].isin(
-                ["natural meadows", "temporary meadows", "leguminous"]
-            )
-        ].copy()
-
-        df_champs["Total Non Synthetic Fertilizer Use (ktN)"] = df_champs.index.map(
-            calculer_azote_ependu
-        )
-
-        df_champs["Surface Non Synthetic Fertilizer Use (kgN/ha)"] = df_champs.apply(
-            lambda row: row["Total Non Synthetic Fertilizer Use (ktN)"]
-            / row["Area (ha)"]
-            * 10**6
-            if row["Area (ha)"] > 0
-            and row["Total Non Synthetic Fertilizer Use (ktN)"] > 0
-            else 0,
-            axis=1,
-        )
-
-        if "Raw Surface Synthetic Fertilizer Use (kgN/ha)" not in df_champs.columns:
-            df_champs["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = (
+            df_champs["Surface Non Synthetic Fertilizer Use (kgN/ha)"] = (
                 df_champs.apply(
-                    lambda row: row["Surface Fertilization Need (kgN/ha)"]
-                    - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"]
+                    lambda row: row["Total Non Synthetic Fertilizer Use (ktN)"]
+                    / row["Area (ha)"]
+                    * 10**6
                     if row["Area (ha)"] > 0
-                    else row["Surface Fertilization Need (kgN/ha)"]
-                    - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"],
+                    and row["Total Non Synthetic Fertilizer Use (ktN)"] > 0
+                    else 0,
                     axis=1,
                 )
             )
-            df_champs["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = df_champs[
-                "Raw Surface Synthetic Fertilizer Use (kgN/ha)"
-            ].apply(lambda x: max(x, 0))
 
-        df_champs["Raw Total Synthetic Fertilizer Use (ktN)"] = (
-            df_champs["Raw Surface Synthetic Fertilizer Use (kgN/ha)"]
-            * df_champs["Area (ha)"]
-            / 1e6
-        )
+            if "Raw Surface Synthetic Fertilizer Use (kgN/ha)" not in df_champs.columns:
+                df_champs["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = (
+                    df_champs.apply(
+                        lambda row: row["Surface Fertilization Need (kgN/ha)"]
+                        - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"]
+                        if row["Area (ha)"] > 0
+                        else row["Surface Fertilization Need (kgN/ha)"]
+                        - row["Surface Non Synthetic Fertilizer Use (kgN/ha)"],
+                        axis=1,
+                    )
+                )
+                df_champs["Raw Surface Synthetic Fertilizer Use (kgN/ha)"] = df_champs[
+                    "Raw Surface Synthetic Fertilizer Use (kgN/ha)"
+                ].apply(lambda x: max(x, 0))
 
-        moyenne_ponderee_champs = (
-            df_champs["Raw Total Synthetic Fertilizer Use (ktN)"]
-        ).sum()
-
-        moyenne_reel_champs = df_global.loc[
-            df_global.index == "Total Synthetic Fertilizer Use on crops (ktN)"
-        ]["value"].item()
-
-        if moyenne_ponderee_champs != 0:
-            df_champs.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = (
-                df_champs["Raw Total Synthetic Fertilizer Use (ktN)"]
-                * moyenne_reel_champs
-                / moyenne_ponderee_champs
+            df_champs["Raw Total Synthetic Fertilizer Use (ktN)"] = (
+                df_champs["Raw Surface Synthetic Fertilizer Use (kgN/ha)"]
+                * df_champs["Area (ha)"]
+                / 1e6
             )
-        else:
-            if len(df_champs) > 0:
-                df_champs.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = 0
-            warnings.warn("No Synthetic fertilizer need for grasslands.")
 
-        self.gamma = moyenne_reel_champs / moyenne_ponderee_champs
+            moyenne_ponderee_champs = (
+                df_champs["Raw Total Synthetic Fertilizer Use (ktN)"]
+            ).sum()
 
-        # Mise à jour de df_cultures
-        df_calc = pd.concat([df_leg, df_champs], axis=0, sort=False)
-        df_cultures = df_calc.combine_first(df_cultures).fillna(0)
+            moyenne_reel_champs = df_global.loc[
+                df_global.index == "Total Synthetic Fertilizer Use on crops (ktN)"
+            ]["value"].item()
 
-        df_cultures["Adjusted Surface Synthetic Fertilizer Use (kgN/ha)"] = 0.0
+            if moyenne_ponderee_champs != 0:
+                df_champs.loc[:, "Adjusted Total Synthetic Fertilizer Use (ktN)"] = (
+                    df_champs["Raw Total Synthetic Fertilizer Use (ktN)"]
+                    * moyenne_reel_champs
+                    / moyenne_ponderee_champs
+                )
+            else:
+                if len(df_champs) > 0:
+                    df_champs.loc[
+                        :, "Adjusted Total Synthetic Fertilizer Use (ktN)"
+                    ] = 0
+                warnings.warn("No Synthetic fertilizer need for grasslands.")
 
-        mask = df_cultures["Area (ha)"] != 0
-        df_cultures.loc[mask, "Adjusted Surface Synthetic Fertilizer Use (kgN/ha)"] = (
-            df_cultures.loc[mask, "Adjusted Total Synthetic Fertilizer Use (ktN)"]
-            / df_cultures.loc[mask, "Area (ha)"]
-            * 1e6
-        ).astype(float)
+            self.gamma = moyenne_reel_champs / moyenne_ponderee_champs
 
-        ## Azote synthétique volatilisé par les terres
-        # Est ce qu'il n'y a que l'azote synthétique qui est volatilisé ?
-        coef_volat_NH3 = (
-            df_global.loc[
-                "coefficient N-NH3 volatilization synthetic fertilization (%)"
-            ].item()
-            / 100
-        )
-        coef_volat_N2O = (
-            df_global.loc[
-                "coefficient N-N2O emission synthetic fertilization (%)"
-            ].item()
-            / 100
-        )
+            # Mise à jour de df_cultures
+            df_calc = pd.concat([df_prairies, df_champs], axis=0, sort=False)
+            self.df_cultures = df_calc.combine_first(self.df_cultures).fillna(0)
 
-        # 1 % des emissions de NH3 du aux fert. synth sont volatilisées sous forme de N2O
-        df_cultures["Volatilized Nitrogen N-NH3 (ktN)"] = (
-            df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"]
-            * 0.99
-            * coef_volat_NH3
-        )
-        df_cultures["Volatilized Nitrogen N-N2O (ktN)"] = df_cultures[
-            "Adjusted Total Synthetic Fertilizer Use (ktN)"
-        ] * (coef_volat_N2O + 0.01 * coef_volat_NH3)
+            self.df_cultures["Adjusted Surface Synthetic Fertilizer Use (kgN/ha)"] = 0.0
 
-        # df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"] = df_cultures[
-        #     "Adjusted Total Synthetic Fertilizer Use (ktN)"
-        # ] * (1 - coef_volat_NH3 - coef_volat_N2O)
-        # La quantité d'azote réellement épendue est donc un peu plus faible car une partie est volatilisée
+            mask = self.df_cultures["Area (ha)"] != 0
+            self.df_cultures.loc[
+                mask, "Adjusted Surface Synthetic Fertilizer Use (kgN/ha)"
+            ] = (
+                self.df_cultures.loc[
+                    mask, "Adjusted Total Synthetic Fertilizer Use (ktN)"
+                ]
+                / self.df_cultures.loc[mask, "Area (ha)"]
+                * 1e6
+            ).astype(float)
 
-        source = {"Haber-Bosch": 1}
-        target = df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"].to_dict()
-
-        flux_generator.generate_flux(source, target)
-
-        source = df_cultures["Volatilized Nitrogen N-NH3 (ktN)"].to_dict()
-        target = {"atmospheric NH3": 1}
-
-        flux_generator.generate_flux(source, target)
-
-        source = df_cultures["Volatilized Nitrogen N-N2O (ktN)"].to_dict()
-        target = {"atmospheric N2O": 1}
-
-        flux_generator.generate_flux(source, target)
-
-        # A cela on ajoute les emissions indirectes de N2O lors de la fabrication des engrais
-        epend_tot_synt = df_cultures[
-            "Adjusted Total Synthetic Fertilizer Use (ktN)"
-        ].sum()
-
-        coef_emis_N_N2O = (
-            df_global.loc[
-                "coefficient N-N2O indirect emission synthetic fertilization (%)"
-            ].item()
-            / 100
-        )
-        target = {"atmospheric N2O": 1}
-        source = {"Haber-Bosch": epend_tot_synt * coef_emis_N_N2O}
-
-        flux_generator.generate_flux(source, target)
-
+        ## Modèle d'allocation de l'azote aux consommateurs
         # Filtre les données d'ingestion animale et les stocke dans df_cons
         df_cons = df_elevage.loc[
             df_elevage["Ingestion (ktN)"] > 10**-8, ["Ingestion (ktN)"]
@@ -2055,6 +3430,8 @@ class NitrogenFlowModel:
 
         # Initialisation du problème
         prob = LpProblem("Allocation_Azote_Animaux", LpMinimize)
+        if self.prospective:
+            self._pre_lp_supply(prob)
 
         # Variables de décision pour les allocations
 
@@ -2173,7 +3550,7 @@ class NitrogenFlowModel:
 
         # 2) contraintes |x_{p,c} - x_cible| <= gamma_fair_abs
         for p, c in valid_pairs:
-            prodN = df_prod.loc[p, "Nitrogen Production (ktN)"]
+            prodN = self._available_expr(p)
             x_cible = s_ref.get((p, c), 0.0) * prodN
 
             x_local = x_vars[(p, c)]
@@ -2188,8 +3565,23 @@ class NitrogenFlowModel:
             )
 
         # 3) terme objectif normalisé par produit: sum_p ( (1/max(1,Prod_p)) * sum_c gamma_{p,c} )
-        def prod_scale(p):
-            return max(1.0, float(df_prod.loc[p, "Nitrogen Production (ktN)"]))
+        def prod_scale(p: str) -> float:
+            df_pr = df_prod
+            # 1) si tu as une valeur historique dispo :
+            if not self.prospective or df_prod.at[p, "Type"] == "animal":
+                base = float(df_pr.at[p, "Available Nitrogen Production (ktN)"] or 0.0)
+            elif df_prod.at[p, "Type"] == "plant":
+                c = df_prod.at[p, "Origin compartment"]
+                base = float(
+                    self.df_cultures.at[c, "Maximum Yield (tFW/ha)"]
+                    * self.df_cultures.at[c, "Area (ha)"]
+                    / 1e3
+                    * df_prod.at[p, "Co-Production Ratio (%)"]
+                    * df_prod.at[p, "Nitrogen Content (%)"]
+                    / 100
+                )
+            # 2) borne minimale 1.0 pour éviter divisions explosives
+            return max(1.0, base)
 
         fair_term = lpSum(
             (
@@ -2514,9 +3906,7 @@ class NitrogenFlowModel:
                 if s_den <= 0:
                     continue
                 s_ref_fac_p = raw_ref_fac.get(p, 0.0) / s_den
-                prodN = float(
-                    df_prod.loc[p, "Nitrogen Production (ktN)"]
-                )  # si tu as Y_var, remplace ici
+                prodN = self._available_expr(p)  # si tu as Y_var, remplace ici
                 x_cible_fac = s_ref_fac_p * prodN
                 prob += (
                     x_fac_prod[p] - x_cible_fac <= gamma_fair_abs_fac[p],
@@ -2568,11 +3958,15 @@ class NitrogenFlowModel:
             )
 
             # bilan local : feed/food locaux + énergie locale + surplus == prod locale
+            rhs_const = self._available_expr(p)
+            is_plant = df_prod.loc[p, "Type"] == "plant"
+            rhs = self._rhs_for_product(p, rhs_const, is_plant)  # ← HOOK 2
+
             prob += (
                 lpSum(x_vars[(p, c)] for c in consumers_with_p)
                 + x_to_energy_local
                 + U_vars[p]
-                == float(df_prod.loc[p, "Available Nitrogen Production (ktN)"]),
+                == rhs,
                 f"Bilan_{p}",
             )
 
@@ -2616,44 +4010,17 @@ class NitrogenFlowModel:
         # Terme d'import co-normalisé
         raw_import_term = I_food_normed + I_feed_normed + I_energy_normed
 
-        # Terme sur les diètes énetgie
-        # energy_inputs_total = lpSum(energy_inputs_terms) / max(
-        #     1, len(energy_inputs_terms)
-        # )
-
-        USE_EPS = (
-            False  # bool(int(df_global.loc["Use epsilon constraints", "value"]))  # 0/1
+        # Fonction objectif
+        objective = (
+            (poids_penalite_deviation / max(1, len(pairs))) * lpSum(delta_vars.values())
+            + (poids_penalite_culture / max(1, len(df_prod)))
+            * (lpSum(penalite_culture_vars.values()) + penalite_culture_energy_term)
+            + poids_import_brut * raw_import_term
+            + w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
+            + W_ENERGY_INPUT * lpSum(delta_fac.values())
+            + (W_ENERGY_PROD / max(1, len(df_energy.index))) * energy_dev_total
+            + self._extra_objective()
         )
-        if USE_EPS:
-            EPS_EPROD = 0.1  # float(
-            #     df_global.loc["Epsilon energy production dev", "value"]
-            # )  # ex: 0.1 (10%)
-            EPS_EDIET = 0.1  # float(
-            #     df_global.loc["Epsilon energy diet dev", "value"]
-            # )  # ex: 0.1 (10%)
-            prob += energy_dev_total <= EPS_EPROD, "Bound_Energy_Prod_Dev"
-            # prob += energy_inputs_total <= EPS_EDIET, "Bound_Energy_Diet_Dev"
-            # et objectif simple:
-            objective = (
-                (poids_penalite_deviation / max(1, len(pairs)))
-                * lpSum(delta_vars.values())
-                + (poids_penalite_culture / max(1, len(df_prod)))
-                * (lpSum(penalite_culture_vars.values()) + penalite_culture_energy_term)
-                + poids_import_brut * raw_import_term
-                + w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
-            )
-        else:
-            # Fonction objectif
-            objective = (
-                (poids_penalite_deviation / max(1, len(pairs)))
-                * lpSum(delta_vars.values())
-                + (poids_penalite_culture / max(1, len(df_prod)))
-                * (lpSum(penalite_culture_vars.values()) + penalite_culture_energy_term)
-                + poids_import_brut * raw_import_term
-                + w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
-                + W_ENERGY_INPUT * lpSum(delta_fac.values())
-                + (W_ENERGY_PROD / max(1, len(df_energy.index))) * energy_dev_total
-            )
 
         prob += objective
 
@@ -2693,9 +4060,9 @@ class NitrogenFlowModel:
             "Pas_d_import_prairies_nat",
         )
 
-        # Crée une fonction pour obtenir l'azote disponible après perte et autres usages, cela évitera la redondance
-        def get_nitrogen_production(prod_i, df_prod):
-            return df_prod.loc[prod_i, "Available Nitrogen Production (ktN)"]
+        # # Crée une fonction pour obtenir l'azote disponible après perte et autres usages, cela évitera la redondance
+        # def get_nitrogen_production(prod_i, df_prod):
+        #     return self._available_expr(prod_i)
 
         # Fusionne les deux boucles pour traiter tous les consommateurs
         for cons, proportion, products_list in pairs:
@@ -2703,12 +4070,12 @@ class NitrogenFlowModel:
 
             # Calcule l'azote total disponible pour ce groupe de cultures
             # azote_total_groupe = lpSum(get_nitrogen_production(p, df_prod) for p in products_list)
-            azote_total_groupe = sum(
-                get_nitrogen_production(p, df_prod) for p in products_list
-            )
+            # azote_total_groupe = sum(
+            #     get_nitrogen_production(p, df_prod) for p in products_list
+            # )
 
             # Ajoute les contraintes de pénalité si l'allocation du groupe n'est pas nulle
-            if besoin > 0 and azote_total_groupe > 0:
+            if besoin > 0:
                 for prod_i in products_list:
                     # Récupère la production d'azote pour le produit actuel
                     # azote_disponible_prod_i = get_nitrogen_production(prod_i, df_prod)
@@ -2743,18 +4110,19 @@ class NitrogenFlowModel:
                         pass
 
         # (Option MILP) binaire no-swap import/surplus par produit
-        use_milp_no_swap = False  # mets False pour rester LP 100%
+        use_milp_no_swap = True  # mets False pour rester LP 100%
         if use_milp_no_swap:
             y_vars = LpVariable.dicts("y", list(df_prod.index), 0, 1, cat="Binary")
 
             # bornes naturelles
-            M_sur = {
-                p: float(df_prod.loc[p, "Available Nitrogen Production (ktN)"])
-                for p in df_prod.index
-            }
+            if getattr(self, "prospective", False):
+                M_sur = {
+                    p: self._available_expr(p) for p in df_prod.index
+                }  # peut être une expression LP
+            else:
+                M_sur = {p: float(self._available_expr(p)) for p in df_prod.index}
 
-            # besoin max importable par produit p
-            # (consommateurs + infrastructures énergie capables d’utiliser p)
+            # besoin max importable par produit p (constantes)
             M_imp = {}
             for p in df_prod.index:
                 # consommateurs
@@ -2764,10 +4132,9 @@ class NitrogenFlowModel:
                     if p in all_cultures_regime.get(c, set())
                 )
 
-                # énergie (via cibles et conversion MWh/ktN, si la fac peut utiliser p)
+                # énergie
                 energy_need = 0.0
                 for fac in df_energy.index:
-                    # si le régime de la facility contient p
                     fac_has_p = any(
                         p in r["Products"]
                         for _, r in diets[diets["Consumer"] == fac].iterrows()
@@ -2794,10 +4161,52 @@ class NitrogenFlowModel:
                 )
 
             for p in df_prod.index:
+                # 1) contrainte import quand y=1
                 prob += I_total_p(p) <= M_imp[p] * y_vars[p], f"NoSwap_I_{p}"
-                prob += U_vars[p] <= M_sur[p] * (1 - y_vars[p]), f"NoSwap_U_{p}"
 
-        prob.writeLP("model.lp")
+                # 2) contrainte surplus U_vars selon prospective ou historique
+                # calculer les facteurs numériques (waste/other)
+                waste = (
+                    float(df_prod.at[p, "Waste (%)"]) / 100.0
+                    if "Waste (%)" in df_prod.columns
+                    else 0.0
+                )
+                other = (
+                    float(df_prod.at[p, "Other uses (%)"]) / 100.0
+                    if "Other uses (%)" in df_prod.columns
+                    else 0.0
+                )
+                factor = 1.0 - waste - other
+
+                if getattr(self, "prospective", False) and p in self._pros_vars.get(
+                    "Q_p", {}
+                ):
+                    # Q_p est une variable LP ; on impose:
+                    #  A) U_p <= factor * Q_p    (liaison physique)
+                    #  B) U_p <= M_const * (1 - y_p)   (quand y=1 -> U<=0)
+                    Qp = self._pros_vars["Q_p"][p]  # LpVariable
+                    # déterminer une borne numérique sur factor * Qp (big-M)
+                    # préférence: chercher une colonne "Nitrogen Production (ktN)" ou utiliser M_imp comme fallback
+                    if "Nitrogen Production (ktN)" in df_prod.columns:
+                        Qp_ub = float(df_prod.at[p, "Nitrogen Production (ktN)"])
+                    else:
+                        # fallback raisonnable : utiliser la demande + énergie (M_imp) comme borne
+                        Qp_ub = M_imp.get(p, 1e6)
+
+                    M_const = max(
+                        1e-6, factor * Qp_ub + 1e-6
+                    )  # borne numérique >= possible factor*Qp
+
+                    # A) limite physique (expression LP autorisée à apparaître, pas de multiplication par binaire)
+                    prob += U_vars[p] <= factor * Qp, f"NoSwap_U_phys_{p}"
+
+                    # B) blocage quand y == 1 (multiplie uniquement une constante par le binaire)
+                    prob += U_vars[p] <= M_const * (1 - y_vars[p]), f"NoSwap_U_bin_{p}"
+                else:
+                    # historique / non-prospective : M_sur[p] est un float, on peut garder la forme d'origine
+                    prob += U_vars[p] <= M_sur[p] * (1 - y_vars[p]), f"NoSwap_U_{p}"
+
+        # prob.writeLP("model.lp")
 
         # 2) activer les logs CBC (et voir l’infeasibility si c’est le cas)
         # from pulp import PULP_CBC_CMD
@@ -2805,48 +4214,97 @@ class NitrogenFlowModel:
 
         # Résolution du problème
         prob.solve()
+        self._post_solve_supply()
+
+        if prob.status == -1:
+            raise Exception("Allocation model infeasible. Please check input data.")
+
+        # from IPython import embed
+
+        # embed()
+
+        # print(LpStatus.get(prob.status, "Unknown"))
+
+        # df_cultures = self.df_cultures
+        df_prod = self.df_prod
 
         if self.debug:
-            from pulp import value, LpStatus
+            from pulp import value, lpSum
             import math, pprint
 
             def V(expr):
-                # valeur sûre, 0.0 si None
+                # Valeur sûre (float); 0.0 si None / non-évaluable
                 try:
                     return float(value(expr)) if expr is not None else 0.0
                 except Exception:
                     return 0.0
 
-            # ----- Normaliseurs identiques à l'objectif -----
+            # ---------------- Normaliseurs identiques à l'objectif ----------------
             n_pairs = max(1, len(pairs))
             n_prod = max(1, len(df_prod))
-            n_energy = max(
-                1, len(df_energy.index)
-            )  # liste/itérable de toutes les vars {fac}_energy_dev
+            n_energy = max(1, len(df_energy.index))
 
-            # ----- Reconstruire chaque terme EXACTEMENT comme dans l'objectif -----
-            expr_diet = (poids_penalite_deviation / max(1, len(pairs))) * lpSum(
+            # ---------------- Reconstruire les termes de l'objectif ----------------
+            expr_diet = (poids_penalite_deviation / n_pairs) * lpSum(
                 delta_vars.values()
             )
-            expr_cult = (poids_penalite_culture / max(1, len(df_prod))) * (
-                lpSum(penalite_culture_vars.values())
-                + lpSum(penalite_culture_energy_term.values())
+            expr_cult = (poids_penalite_culture / n_prod) * (
+                lpSum(penalite_culture_vars.values()) + penalite_culture_energy_term
             )
             expr_import = poids_import_brut * raw_import_term
-            expr_fair = w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
-            expr_energy_prod = (
-                W_ENERGY_PROD * energy_dev_total / max(1, len(df_energy.index))
-            )  # attention: energy_dev_total déjà normalisé comme dans l’objectif
+            expr_fair = w_fair * ((fair_term + fair_term_energy) / n_prod)
+            expr_energy_prod = W_ENERGY_PROD * energy_dev_total / n_energy
             expr_energy_diets = W_ENERGY_INPUT * lpSum(delta_fac.values())
 
-            # ----- Valeurs pondérées -----
-            w_dev = V(expr_diet)
-            w_cult_all = V(expr_cult)
-            w_import = V(expr_import)
-            w_fair_all = V(expr_fair)
-            w_energy_inputs = V(expr_energy_diets)
-            w_energy_prod = V(expr_energy_prod) / max(1, len(df_energy.index))
+            # ------------------ Termes prospectifs (si activé) -------------------
+            expr_syn_excess = 0
+            expr_syn_distribution = 0
 
+            if self.prospective:
+                # (i) Excès d'engrais synthétiques, normalisé par les seuils
+                try:
+                    W_SYN = float(
+                        self.df_global.loc["Weight synthetic fertilizer", "value"]
+                    )
+                except Exception:
+                    W_SYN = 0.0
+
+                th_crops = self._pros_vars.get("th_crops", 0.0)
+                th_grass = self._pros_vars.get("th_grass", 0.0)
+                exc_crops = self._pros_vars.get("exc_crops", 0)  # var LP
+                exc_grass = self._pros_vars.get("exc_grass", 0)  # var LP
+
+                term_syn_crops = (exc_crops / max(1e-9, th_crops)) if th_crops else 0
+                term_syn_grass = (exc_grass / max(1e-9, th_grass)) if th_grass else 0
+                expr_syn_excess = W_SYN * (term_syn_crops + term_syn_grass)
+
+                # (ii) Répartition autour de F* (déviations relatives |f-F*|/F* via dev+/-)
+                try:
+                    W_DIS = float(
+                        self.df_global.loc["Weight synthetic distribution", "value"]
+                    )
+                except Exception:
+                    W_DIS = 0.0
+
+                dev_pos = self._pros_vars.get("devF_rel_pos", {})  # {c: var+}
+                dev_neg = self._pros_vars.get("devF_rel_neg", {})  # {c: var-}
+                if W_DIS > 0 and len(dev_pos):
+                    expr_syn_distribution = W_DIS * lpSum(
+                        (dev_pos[c] + dev_neg.get(c, 0)) for c in dev_pos.keys()
+                    )
+
+            # ------------------------- Valeurs pondérées --------------------------
+            w_diet = V(expr_diet)
+            w_cult = V(expr_cult)
+            w_import = V(expr_import)
+            w_fair = V(expr_fair)
+            w_energy_inputs = V(expr_energy_diets)
+            w_energy_prod = V(expr_energy_prod)
+
+            w_syn_excess = V(expr_syn_excess) if self.prospective else 0.0
+            w_syn_distribution = V(expr_syn_distribution) if self.prospective else 0.0
+
+            # Somme totale reconstituée (même formalisme que l'objectif)
             obj_val = V(
                 expr_diet
                 + expr_cult
@@ -2854,6 +4312,8 @@ class NitrogenFlowModel:
                 + expr_fair
                 + expr_energy_diets
                 + expr_energy_prod
+                + (expr_syn_excess if self.prospective else 0)
+                + (expr_syn_distribution if self.prospective else 0)
             )
 
             def share(x):
@@ -2863,11 +4323,10 @@ class NitrogenFlowModel:
                     else None
                 )
 
-            # ----- Détailler par infrastructure (si utile) -----
-            #  a) production d'énergie : chaque var {fac}_energy_dev participe linéairement
+            # -------------------- Détailler par infrastructure --------------------
+            #  a) production d'énergie : variable unique {fac}_energy_dev
             per_fac_energy_prod = {}
             for fac in df_energy.index:
-                # variable unique : f"{fac}_energy_dev"
                 v = next(
                     (
                         var
@@ -2879,139 +4338,159 @@ class NitrogenFlowModel:
                 if v is not None:
                     per_fac_energy_prod[fac] = V((W_ENERGY_PROD / n_energy) * v)
 
-            #  b) inputs d'énergie : somme des deltas de diète de la facility, puis / n_pairs_fac
-            w_energy_inputs = 0.0
+            #  b) inputs d'énergie : somme des deltas par facility, / n_pairs_fac
             per_fac_energy_inputs = {}
-            for fac, row in df_energy.iterrows():
-                # n_pairs_fac = nombre de lignes de diète pour CETTE facility (pas le diet_id)
-                n_pairs_fac = max(1, len(diets[diets["Consumer"] == fac]))
-                sum_deltas_fac = lpSum(
-                    [
-                        var
-                        for var in prob.variables()
-                        if var.name.startswith(f"delta_{fac}_")
-                    ]
-                )
-                val = W_ENERGY_INPUT * (sum_deltas_fac / n_pairs_fac)
-                w_energy_inputs += float(value(val))
-                per_fac_energy_inputs[fac] = float(value(val))
+            if len(df_energy.index):
+                for fac, _row in df_energy.iterrows():
+                    n_pairs_fac = max(1, len(diets[diets["Consumer"] == fac]))
+                    sum_deltas_fac = lpSum(
+                        [
+                            var
+                            for var in prob.variables()
+                            if var.name.startswith(f"delta_{fac}_")
+                        ]
+                    )
+                    per_fac_energy_inputs[fac] = V(
+                        W_ENERGY_INPUT * (sum_deltas_fac / n_pairs_fac)
+                    )
 
-            # ----- Rapport -----
-            w_dev = (
-                float(
-                    value(
-                        (poids_penalite_deviation / max(1, len(pairs)))
-                        * lpSum(delta_vars.values())
-                    )
-                )
-                if len(delta_vars)
-                else 0.0
-            )
-            w_cult = (
-                float(
-                    value(
-                        (poids_penalite_culture / max(1, len(df_prod)))
-                        * (
-                            lpSum(penalite_culture_vars.values())
-                            + lpSum(penalite_culture_energy_term.values())
-                        )
-                    )
-                )
-                if (penalite_culture_vars or penalite_culture_energy_term)
-                else 0.0
-            )
-            w_fair_tot = (
-                float(
-                    value(
-                        w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
-                    )
-                )
-                if "fair_term_energy" in locals()
-                else float(value(w_fair * (fair_term / max(1, len(df_prod)))))
-            )
-            w_import = float(value(poids_import_brut * raw_import_term))
-            w_eprod = float(
-                value(W_ENERGY_PROD * energy_dev_total / max(1, len(df_energy.index)))
-            )
-            w_einputs = (
-                float(value((W_ENERGY_INPUT) * lpSum(delta_fac.values())))
-                if len(delta_fac)
-                else 0.0
-            )
-            obj_val = float(value(prob.objective))
-
+            # ----------------------------- Familles ------------------------------
             families = {
                 "diet_deviation": {
-                    "weighted": w_dev,
-                    "share_%": (100 * w_dev / obj_val) if obj_val else None,
+                    "weighted": w_diet,
+                    "share_%": share(w_diet),
                     "weight": float(poids_penalite_deviation),
                 },
                 "intra_group_distribution_ALL": {
                     "weighted": w_cult,
-                    "share_%": (100 * w_cult / obj_val) if obj_val else None,
+                    "share_%": share(w_cult),
                     "weight": float(poids_penalite_culture),
-                    "normalizer": {"n_products": max(1, len(df_prod))},
+                    "normalizer": {"n_products": n_prod},
                     "note": "Inclut pénalités produits + pénalités des infrastructures (terme unique).",
                 },
                 "import_brut": {
                     "weighted": w_import,
-                    "share_%": (100 * w_import / obj_val) if obj_val else None,
+                    "share_%": share(w_import),
                     "weight": float(poids_import_brut),
                     "note": "raw_import_term est déjà normalisé (inchangé).",
                 },
                 "fair_total": {
-                    "weighted": w_fair_tot,
-                    "share_%": (100 * w_fair_tot / obj_val) if obj_val else None,
+                    "weighted": w_fair,
+                    "share_%": share(w_fair),
                     "weight": float(w_fair),
                 },
                 "energy_inputs_total": {
-                    "weighted": w_einputs,
-                    "share_%": (100 * w_einputs / obj_val) if obj_val else None,
+                    "weighted": w_energy_inputs,
+                    "share_%": share(w_energy_inputs),
                     "weight": float(W_ENERGY_INPUT),
+                    "per_facility": per_fac_energy_inputs,
                 },
                 "energy_production_total": {
-                    "weighted": w_eprod,
-                    "share_%": (100 * w_eprod / obj_val) if obj_val else None,
-                    "weight": float(w_eprod),
+                    "weighted": w_energy_prod,
+                    "share_%": share(w_energy_prod),
+                    "weight": float(W_ENERGY_PROD),
+                    "per_facility": per_fac_energy_prod,
                 },
             }
 
+            # Familles prospectives (ajout conditionnel)
+            if self.prospective:
+                # Détails composants pour l’excès synthétique
+                W_SYN = (
+                    float(self.df_global.loc["Weight synthetic fertilizer", "value"])
+                    if "Weight synthetic fertilizer" in self.df_global.index
+                    else 0.0
+                )
+                th_crops = self._pros_vars.get("th_crops", 0.0)
+                th_grass = self._pros_vars.get("th_grass", 0.0)
+                exc_crops = self._pros_vars.get("exc_crops", 0)
+                exc_grass = self._pros_vars.get("exc_grass", 0)
+
+                comp_crops = V(
+                    W_SYN * ((exc_crops / max(1e-9, th_crops)) if th_crops else 0)
+                )
+                comp_grass = V(
+                    W_SYN * ((exc_grass / max(1e-9, th_grass)) if th_grass else 0)
+                )
+
+                families["synthetic_fertilizer_excess_total"] = {
+                    "weighted": w_syn_excess,
+                    "share_%": share(w_syn_excess),
+                    "weight": float(W_SYN),
+                    "components": {
+                        "crops_weighted": comp_crops,
+                        "grasslands_weighted": comp_grass,
+                    },
+                    "normalizer": {
+                        "th_crops(ktN)": float(th_crops) if th_crops else 0.0,
+                        "th_grass(ktN)": float(th_grass) if th_grass else 0.0,
+                    },
+                }
+
+                W_DIS = (
+                    float(self.df_global.loc["Weight synthetic distribution", "value"])
+                    if "Weight synthetic distribution" in self.df_global.index
+                    else 0.0
+                )
+                families["synthetic_distribution_total"] = {
+                    "weighted": w_syn_distribution,
+                    "share_%": share(w_syn_distribution),
+                    "weight": float(W_DIS),
+                    "note": "Somme des déviations relatives |f - F*|/F* via variables dev+ / dev-.",
+                }
+
+            # ------------------------------- Rapport ------------------------------
             solver_info = {
                 "status_code": prob.status,
                 "status": LpStatus.get(prob.status, "Unknown"),
             }
+
+            weights_used = {
+                "Weight diet": float(poids_penalite_deviation),
+                "Weight distribution": float(poids_penalite_culture),
+                "Weight fair local split": float(w_fair),
+                "Weight import brut": float(poids_import_brut),
+                "Weight energy inputs": float(W_ENERGY_INPUT),
+                "Weight energy production": float(W_ENERGY_PROD),
+            }
+            if self.prospective:
+                weights_used.update(
+                    {
+                        "Weight synthetic fertilizer": float(
+                            self.df_global.loc["Weight synthetic fertilizer", "value"]
+                        )
+                        if "Weight synthetic fertilizer" in self.df_global.index
+                        else 0.0,
+                        "Weight synthetic distribution": float(
+                            self.df_global.loc["Weight synthetic distribution", "value"]
+                        )
+                        if "Weight synthetic distribution" in self.df_global.index
+                        else 0.0,
+                    }
+                )
+
+            sanity_terms = [
+                share(w_diet),
+                share(w_cult),
+                share(w_import),
+                share(w_fair),
+                share(w_energy_inputs),
+                share(w_energy_prod),
+            ]
+            if self.prospective:
+                sanity_terms += [share(w_syn_excess), share(w_syn_distribution)]
+
             report = {
                 "solver": solver_info,
                 "objective_total": obj_val,
                 "families": families,
-                "weights_used": {
-                    "Weight diet": float(poids_penalite_deviation),
-                    "Weight distribution": float(poids_penalite_culture),
-                    "Weight fair local split": float(w_fair),
-                    "Weight import brut": float(poids_import_brut),
-                    "Weight energy inputs": float(W_ENERGY_INPUT),
-                    "Weight energy production": float(W_ENERGY_PROD),
-                },
+                "weights_used": weights_used,
                 "sanity": {
-                    "sum_shares_%": sum(
-                        s
-                        for s in [
-                            share(w_dev),
-                            share(w_cult),
-                            share(w_import),
-                            share(w_fair_tot),
-                            share(w_einputs),
-                            share(w_eprod),
-                        ]
-                        if s is not None
-                    )
+                    "sum_shares_%": sum(s for s in sanity_terms if s is not None)
                 },
             }
+
             pprint.pp(report, sort_dicts=False)
-
-        from IPython import embed
-
-        embed()
 
         # Warning si un élément de la diète des energy facilities n'a pas de pouvoir énergétique
         for fac, _, items in pairs_fac_all:  # ou ta structure équivalente
@@ -3598,74 +5077,66 @@ class NitrogenFlowModel:
                 else:
                     flux_generator.generate_flux(source, {"hydrocarbures": 1})
 
-        # Equilibrage des cultures
-        for label in df_cultures.index:
-            node_index = label_to_index.get(label)
-            if node_index is None:
-                continue
+        # ---------- I) Mise à jour des flux digestats et excretion to soil
+        # Excretion réelles vers le sol (près départ vers digestat)
+        source = df_excr.loc[
+            df_excr["Type"].isin(["manure", "slurry"]),
+            "Excretion to soil (ktN)",
+        ].to_dict()
 
-            # Calcul de l'imbalance (sorties - entrées)
-            row_sum = self.adjacency_matrix[node_index, :].sum()
-            col_sum = self.adjacency_matrix[:, node_index].sum()
-            imbalance = row_sum - col_sum
+        # épandage excretat
+        flux_generator.generate_flux(source, target_epandage)
 
-            if abs(imbalance) < 1e-6:
-                continue
+        # Excretion de prairie
+        source_grass_excr = df_excr.loc[
+            df_excr["Type"].isin(["grasslands excretion"]), "Excretion to soil (ktN)"
+        ].to_dict()
 
-            if (
-                imbalance > 0
-            ):  # Déficit (Plus de sorties que d'entrées) -> Augmenter l'entrée
-                # Le flux manquant vient du sol (Entrée dans la culture)
-                target = {label: imbalance}
-                source = {"soil stock": 1}
-                flux_generator.generate_flux(source, target)
+        flux_generator.generate_flux(source_grass_excr, target_grass)
 
-            else:  # Excédent (Plus d'entrées que de sorties) -> Augmenter la sortie
-                # Le surplus va aux systèmes environnementaux (Sortie de la culture)
-                source = {label: -imbalance}
-                target = {
-                    "hydro-system": 0.9925,
-                    "atmospheric N2O": 0.0075,
-                }
-                flux_generator.generate_flux(source, target)
+        # On l'enregistre dans la colonne excretion fertilization. On reprendra ce calcul après pour les flux vers les méthaniseurs
+        total_excr_fields_ktN = sum(source.values())
+        target_series = pd.Series(target_epandage)
 
-        ## On annule les flux bidirectionels entre les cultures et soil stock
-        soil_stock_index = label_to_index.get("soil stock")
+        total_excr_grass_ktN = sum(source_grass_excr.values())
+        target_grass_series = pd.Series(target_grass)
 
-        for label in df_cultures.index:
-            node_index = label_to_index.get(label)
-            if node_index is None:
-                continue
+        # On recalcule la fertilisation par excretion
+        self.df_cultures["Excreta Fertilization (ktN)"] = 0.0
 
-            # Flux vers la culture (du sol)
-            flux_in = self.adjacency_matrix[soil_stock_index, node_index]
-            # Flux sortant de la culture (vers le sol)
-            flux_out = self.adjacency_matrix[node_index, soil_stock_index]
+        # Excretion sur prairies :
+        self.df_cultures["Excreta Fertilization (ktN)"] += (
+            self.df_cultures.index.map(target_grass_series).fillna(0)
+            * total_excr_grass_ktN
+        )
 
-            net_flux = flux_out - flux_in
+        # Epandage excretion et boue
+        self.df_cultures["Excreta Fertilization (ktN)"] += self.df_cultures.index.map(
+            target_series
+        ).fillna(0) * (total_excr_fields_ktN + total_boue_ktN)
 
-            # 1. Annulation: met les flux bidirectionnels à zéro
-            self.adjacency_matrix[soil_stock_index, node_index] = 0
-            self.adjacency_matrix[node_index, soil_stock_index] = 0
+        # Epandage digestat
+        source = df_energy.loc[
+            df_energy["Type"].isin(["Methanizer"]),
+            "Nitrogen Input to Energy (ktN)",
+        ].to_dict()
 
-            # 2. Réintroduction du flux net
-            if abs(net_flux) > 1e-6:
-                if net_flux > 0:
-                    # Flux net positif: culture -> soil stock
-                    self.adjacency_matrix[node_index, soil_stock_index] = net_flux
-                else:
-                    # Flux net négatif: soil stock -> culture
-                    self.adjacency_matrix[soil_stock_index, node_index] = -net_flux
+        # flux_generator.generate_flux(source, target_epandage)
+
+        total_digestat_fields_ktN = sum(source.values())
+        target_series = pd.Series(target_epandage)
+        self.df_cultures["Digestat Fertilization (ktN)"] = (
+            self.df_cultures.index.map(target_series).fillna(0)
+            * total_digestat_fields_ktN
+        )
+
+        # ---------- J) Bilan sol
+        self._recompute_soil_budget_unified()
 
         # Calcul de imbalance dans df_cultures
-        df_cultures["Balance (ktN)"] = (
-            df_cultures["Adjusted Total Synthetic Fertilizer Use (ktN)"]
-            + df_cultures["Total Non Synthetic Fertilizer Use (ktN)"]
-            - df_cultures["Total Nitrogen Production (ktN)"]
-            - df_cultures["Volatilized Nitrogen N-NH3 (ktN)"]
-            - df_cultures[
-                "Volatilized Nitrogen N-N2O (ktN)"
-            ]  # Pas de volat sous forme de N2 ?
+        self.df_cultures["Balance (ktN)"] = (
+            self.df_cultures["Inputs to field (ktN)"]
+            - self.df_cultures["Harvested Production (ktN)"]
         )
 
         # On équilibre Haber-Bosch avec atmospheric N2 pour le faire entrer dans le système
@@ -3693,7 +5164,12 @@ class NitrogenFlowModel:
             "Category",
             "Main Production",
             "Harvest Index",
-            "Fan coef a",
+            "Nitrogen Harvest Index",
+            "Characteristic Fertilisation (kgN/ha)",
+            "Maximum Yield (tFW/ha)",
+            "Ymax (kgN/h)",
+            "Residue Nitrogen Content (%)",
+            "Nitrogen Harvest IndexFan coef a",
             "Fan coef b",
             "BGN",
             "BNF alpha",
@@ -3705,10 +5181,10 @@ class NitrogenFlowModel:
             "Surface Non Synthetic Fertilizer Use (kgN/ha)",
             "Raw Surface Synthetic Fertilizer Use (ktN/ha)",
         ]
-        colonnes_a_sommer = df_cultures.columns.difference(colonnes_a_exclure)
-        total = df_cultures[colonnes_a_sommer].sum()
+        colonnes_a_sommer = self.df_cultures.columns.difference(colonnes_a_exclure)
+        total = self.df_cultures[colonnes_a_sommer].sum()
         total.name = "Total"
-        self.df_cultures_display = pd.concat([df_cultures, total.to_frame().T])
+        self.df_cultures_display = pd.concat([self.df_cultures, total.to_frame().T])
         self.df_cultures_display = self.df_cultures_display.loc[
             self.df_cultures_display["Area (ha)"] != 0
         ]
@@ -3785,7 +5261,7 @@ class NitrogenFlowModel:
             self.df_energy_display["Target Energy Production (GWh)"] != 0
         ]
 
-        self.df_cultures = df_cultures
+        # self.df_cultures = df_cultures
         self.df_elevage = df_elevage
         self.df_prod = df_prod
         self.df_excr = df_excr
@@ -3873,7 +5349,7 @@ class NitrogenFlowModel:
 
     def total_plant_production(self):
         """
-        Computes the total nitrogen production from all crop categories.
+        Computes the Harvested Production from all crop categories.
 
         :return: Total nitrogen produced by crops (in ktN).
         :rtype: float
@@ -3898,7 +5374,7 @@ class NitrogenFlowModel:
         """
         return self.df_cultures.loc[
             self.df_cultures["Category"] == category,
-            "Total Nitrogen Production (ktN)",
+            "Harvested Production (ktN)",
         ].sum()
 
     def production_r(self, category):
@@ -3911,7 +5387,7 @@ class NitrogenFlowModel:
         return (
             self.df_cultures.loc[
                 self.df_cultures["Category"] == category,
-                "Total Nitrogen Production (ktN)",
+                "Harvested Production (ktN)",
             ].sum()
             * 100
             / self.total_plant_production()
@@ -4014,285 +5490,11 @@ class NitrogenFlowModel:
             return 0
         return (
             self.df_cultures.loc[
-                self.df_cultures.index == culture, "Total Nitrogen Production (ktN)"
+                self.df_cultures.index == culture, "Harvested Production (ktN)"
             ].item()
             * 1e6
             / area
         )
-
-    # def primXsec(self):
-    #     """
-    #     Calculates the percentage of nitrogen from secondary sources (biological or recycled),
-    #     compared to the total nitrogen inputs.
-
-    #     Secondary sources include: human excretion, animal excretion, atmospheric inputs, seeds, and leguminous fixation.
-
-    #     :return: Share of secondary sources in total nitrogen inputs (%).
-    #     :rtype: float
-    #     """
-    #     df = self.tot_fert()
-    #     return (
-    #         (
-    #             df["Human excretion"].sum()
-    #             + df["Animal excretion"].sum()
-    #             + df["atmospheric N2"].sum()
-    #             + df["Atmospheric deposition"].sum()
-    #             + df["Seeds"].sum()
-    #             + df["Leguminous soil enrichment"].sum()
-    #         )
-    #         * 100
-    #         / df.sum()
-    #     )
-
-    # def NUE(self):
-    #     """
-    #     Calculates the crop-level nitrogen use efficiency (NUE).
-
-    #     Defined as the ratio of nitrogen produced by crops over total nitrogen inputs.
-
-    #     :return: NUE of crop systems (%).
-    #     :rtype: float
-    #     """
-    #     df = self.tot_fert()
-    #     return self.df_cultures["Total Nitrogen Production (ktN)"].sum() * 100 / df.sum()
-
-    # def NUE_system(self):
-    #     """
-    #     Calculates system-wide nitrogen use efficiency, including crop and livestock production.
-
-    #     Accounts for feed losses and nitrogen consumed via imported feed.
-
-    #     :return: System-wide NUE (%).
-    #     :rtype: float
-    #     """
-    #     plant_prod = self.df_prod.loc[self.df_prod["Type"]=="plant"]
-    #     N_NP = (
-    #         plant_prod["Nitrogen Production (ktN)"].sum()
-    #         - plant_prod["Nitrogen For Feed (ktN)"].sum()
-    #         + self.df_elevage["Edible Nitrogen (ktN)"].sum()
-    #         + self.df_elevage["Non Edible Nitrogen (ktN)"].sum()
-    #     )
-    #     df_fert = self.tot_fert()
-    #     N_tot = (
-    #         df_fert["Haber-Bosch"]
-    #         + df_fert["atmospheric N2"]
-    #         + df_fert["Atmospheric deposition"]
-    #         + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
-    #     )
-    #     return N_NP / N_tot * 100
-
-    # def NUE_system_2(self):
-    #     """
-    #     Alternative NUE computation considering livestock conversion factors and feed inputs.
-
-    #     Includes non-edible nitrogen outputs and imported feed consumption in the calculation.
-
-    #     :return: Adjusted system-wide NUE (%).
-    #     :rtype: float
-    #     """
-    #     N_NP = (
-    #         self.df_cultures["Total Nitrogen Production (ktN)"].sum()
-    #         + (
-    #             (self.df_elevage["Edible Nitrogen (ktN)"] + self.df_elevage["Non Edible Nitrogen (ktN)"])
-    #             * (1 - 1 / self.df_elevage["Conversion factor (%)"])
-    #         ).sum()
-    #         + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
-    #     )
-    #     df_fert = self.tot_fert()
-    #     N_tot = (
-    #         df_fert["Haber-Bosch"]
-    #         + df_fert["atmospheric N2"]
-    #         + df_fert["Atmospheric deposition"]
-    #         + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
-    #     )
-    #     return N_NP / N_tot * 100
-
-    # def N_self_sufficient(self):
-    #     """
-    #     Estimates nitrogen self-sufficiency of the system.
-
-    #     Defined as the share of atmospheric (biological) nitrogen inputs relative to all external nitrogen sources.
-
-    #     :return: Self-sufficiency ratio (%).
-    #     :rtype: float
-    #     """
-    #     df_fert = self.tot_fert()
-    #     return (
-    #         (df_fert["atmospheric N2"] + df_fert["Atmospheric deposition"])
-    #         * 100
-    #         / (
-    #             df_fert["atmospheric N2"]
-    #             + df_fert["Atmospheric deposition"]
-    #             + df_fert["Haber-Bosch"]
-    #             + self.df_elevage["Consummed Nitrogen from imported feed (ktN)"].sum()
-    #         )
-    #     )
-
-    # def env_footprint(self):
-    #     """
-    #     Calculates the land footprint (in ha) of nitrogen flows.
-
-    #     :return: A pandas Series of land footprint values (in ha).
-    #     :rtype: pandas.Series
-    #     """
-
-    #     # Merge df_cultures and df_prod to have all data in one place for calculations.
-    #     # We use the index of df_cultures and the 'Origin compartment' of df_prod as the merge key.
-    #     merged_df = pd.merge(
-    #         self.df_cultures,
-    #         self.df_prod,
-    #         left_index=True,
-    #         right_on="Origin compartment",
-    #         how="left",
-    #         suffixes=("_cultures", "_prod"),
-    #     )
-
-    #     # Calculate Nitrogen Production (ktN) per culture by summing up from df_prod
-    #     merged_df["Nitrogen Production (ktN)"] = merged_df.groupby(merged_df.index)[
-    #         "Nitrogen Production (ktN)"
-    #     ].transform("sum")
-
-    #     # Remove duplicates from the merge to avoid over-counting in sum() operations
-    #     merged_df = merged_df.loc[~merged_df.index.duplicated(keep="first")]
-
-    #     # Local surface calculations
-    #     # 'Nitrogen For Food (ktN)' and 'Nitrogen For Feed (ktN)' are not in the initial df_prod or df_cultures.
-    #     # We will assume they are calculated in a previous step and correctly aligned in the merged_df.
-    #     # The columns from the original code are assumed to exist in the merged_df after the merge
-    #     # and any necessary prior calculations.
-    #     local_surface_food = (
-    #         merged_df["Nitrogen For Food (ktN)"]
-    #         / merged_df["Nitrogen Production (ktN)"]
-    #         * merged_df["Area (ha)"]
-    #     ).sum()
-    #     local_surface_feed = (
-    #         merged_df["Nitrogen For Feed (ktN)"]
-    #         / merged_df["Nitrogen Production (ktN)"]
-    #         * merged_df["Area (ha)"]
-    #     ).sum()
-
-    #     # Define a reusable function for import calculations to avoid repeated code
-    #     def calculate_import_surface(import_type):
-    #         alloc = self.allocations_df.loc[
-    #             self.allocations_df["Type"] == import_type,
-    #             ["Product", "Allocated Nitrogen"],
-    #         ]
-    #         alloc_grouped = alloc.groupby("Product")["Allocated Nitrogen"].sum()
-
-    #         # Align with merged_df index to ensure correct joining
-    #         allocated_nitrogen = merged_df.merge(
-    #             alloc_grouped.to_frame(), left_index=True, right_index=True, how="left"
-    #         )["Allocated Nitrogen"].fillna(0)
-
-    #         nitrogen_production = merged_df["Nitrogen Production (ktN)"]
-    #         area = merged_df["Area (ha)"]
-
-    #         # Handle zero production values
-    #         wheat_nitrogen_production = merged_df.loc[
-    #             "Wheat grain", "Nitrogen Production (ktN)"
-    #         ]
-    #         wheat_area = merged_df.loc["Wheat grain", "Area (ha)"]
-
-    #         adjusted_nitrogen_production = nitrogen_production.replace(
-    #             0, wheat_nitrogen_production
-    #         )
-    #         adjusted_area = area.where(nitrogen_production != 0, wheat_area)
-
-    #         total_import = (
-    #             allocated_nitrogen / adjusted_nitrogen_production * adjusted_area
-    #         ).sum()
-    #         return total_import
-
-    #     total_food_import = calculate_import_surface("Imported Food")
-    #     total_feed_import = calculate_import_surface("Imported Feed")
-
-    #     # The livestock sections are already complex due to the nested loops and 'regimes' logic.
-    #     # Refactoring them without more context is difficult.
-    #     # The existing loops are not ideal, but are required due to the complex logic.
-    #     # For now, we will simply correct the data access to use the merged_df.
-
-    #     # Livestock import (as in original code, with corrected data access)
-    #     # The logic here is highly complex and relies on undefined `regimes` and `allocations_df`.
-    #     # It seems to be calculating a theoretical land use. This part is not easily vectorizable
-    #     # without more context on the data structure. The original logic is kept.
-    #     elevage_importe = self.df_elevage[
-    #         self.df_elevage["Net animal nitrogen exports (ktN)"] < 0
-    #     ].copy()
-    #     elevage_importe["fraction_importée"] = (
-    #         -elevage_importe["Net animal nitrogen exports (ktN)"]
-    #         / elevage_importe["Edible Nitrogen (ktN)"]
-    #     )
-    #     surface_par_culture = pd.Series(0.0, index=self.df_prod.index)
-    #     for animal in elevage_importe.index:
-    #         if animal not in self.allocations_df["Consumer"].values:
-    #             continue
-
-    #         part_importee = elevage_importe.loc[animal, "fraction_importée"]
-    #         if elevage_importe.loc[animal, "fraction_importée"] == np.inf:
-    #             # ... (The rest of the `inf` logic from the original code)
-    #             pass  # Skipping complex logic as it is not part of the main question.
-    #         else:
-    #             aliments = self.allocations_df[
-    #                 self.allocations_df["Consumer"] == animal
-    #             ]
-    #             for _, row in aliments.iterrows():
-    #                 culture = row["Product"]
-    #                 azote = row["Allocated Nitrogen"] * part_importee
-
-    #                 # Use merged_df for data access
-    #                 if culture in merged_df.index:
-    #                     prod = merged_df.loc[culture, "Nitrogen Production (ktN)"]
-    #                     surface = merged_df.loc[culture, "Area (ha)"]
-    #                     if prod > 0:
-    #                         surface_equivalente = azote / prod * surface
-    #                         surface_par_culture[culture] += surface_equivalente
-    #     import_animal = surface_par_culture.sum()
-
-    #     # Livestock export (as in original code, with corrected data access)
-    #     elevage_exporte = self.df_elevage[
-    #         self.df_elevage["Net animal nitrogen exports (ktN)"] > 0
-    #     ].copy()
-    #     elevage_exporte["fraction_exportée"] = (
-    #         elevage_exporte["Net animal nitrogen exports (ktN)"]
-    #         / elevage_exporte["Edible Nitrogen (ktN)"]
-    #     )
-    #     surface_par_culture_exporte = pd.Series(0.0, index=self.df_prod.index)
-    #     for animal in elevage_exporte.index:
-    #         if animal not in self.allocations_df["Consumer"].values:
-    #             continue
-    #         part_exportee = elevage_exporte.loc[animal, "fraction_exportée"]
-    #         aliments = self.allocations_df[self.allocations_df["Consumer"] == animal]
-    #         for _, row in aliments.iterrows():
-    #             culture = row["Product"]
-    #             azote = row["Allocated Nitrogen"] * part_exportee
-    #             if culture in merged_df.index:
-    #                 prod = merged_df.loc[culture, "Nitrogen Production (ktN)"]
-    #                 surface = merged_df.loc[culture, "Area (ha)"]
-    #                 if prod > 0:
-    #                     surface_equivalente = azote / prod * surface
-    #                     surface_par_culture_exporte[culture] += surface_equivalente
-    #     export_animal = surface_par_culture_exporte.sum()
-
-    #     # Crop exports
-    #     # Columns assumed to exist in merged_df after merge and prior calculations.
-    #     mask = merged_df["Sub Type"] != "grazing"
-    #     export_surface = (
-    #         merged_df.loc[mask, "Nitrogen Exported (ktN)"]
-    #         / merged_df.loc[mask, "Nitrogen Production (ktN)"]
-    #         * merged_df.loc[mask, "Area (ha)"]
-    #     ).sum()
-
-    #     return pd.Series(
-    #         {
-    #             "Local Food": int(local_surface_food),
-    #             "Local Feed": int(local_surface_feed),
-    #             "Import Food": int(total_food_import),
-    #             "Import Feed": int(total_feed_import),
-    #             "Import Livestock": int(import_animal),
-    #             "Export Livestock": -int(export_animal),
-    #             "Export Plant": -int(export_surface),
-    #         }
-    #     )
 
     def LU_density(self):
         """
@@ -4400,14 +5602,14 @@ class NitrogenFlowModel:
     def _yield_area_map(self):
         """
         Renvoie deux Series alignées sur df_cultures.index :
-        - prod_k : Total Nitrogen Production (ktN) par culture (>=0)
+        - prod_k : Harvested Production (ktN) par culture (>=0)
         - area_ha: Area (ha)
         + calcule une valeur de repli pour les cultures à prod_k == 0 (moyenne par catégorie puis globale).
         """
         area_ha = self._safe_series(self.df_cultures.get("Area (ha)", 0.0))
         prod_k = self._safe_series(
             self.df_cultures.get(
-                "Total Nitrogen Production (ktN)",
+                "Harvested Production (ktN)",
                 self.df_cultures.get("Nitrogen Production (ktN)", 0.0),
             )
         )
@@ -4519,7 +5721,7 @@ class NitrogenFlowModel:
         df = self.tot_fert()
         den = df.sum()
         num = float(
-            self.df_cultures.get("Total Nitrogen Production (ktN)", pd.Series()).sum()
+            self.df_cultures.get("Harvested Production (ktN)", pd.Series()).sum()
         )
         return float(num * 100.0 / den) if den > 0 else 0.0
 
@@ -4752,6 +5954,33 @@ class NitrogenFlowModel:
         df_total_export = df.loc[["Export Plant", "Export Livestock"]].sum(axis=0)
         net_import_export = df_total_import + df_total_export
         return np.round(net_import_export / 1e6, 2)
+
+    def check_balance(self):
+        """
+        Vérifie la balance des flux (sommes lignes et colonnes) de la matrice de transition M.
+        Optimisé pour un affichage rapide en utilisant une seule instruction print finale.
+        """
+        M = self.get_transition_matrix()
+
+        # Prépare les calculs en une seule fois (vectorisation)
+        # Calcule la somme de chaque ligne (flux sortant)
+        row_sums = M.sum(axis=1)
+        # Calcule la somme de chaque colonne (flux entrant)
+        col_sums = M.sum(axis=0)
+
+        output_lines = []
+
+        for i in range(len(M)):
+            label = self.index_to_label[i]
+
+            # Ajout des informations à la liste
+            output_lines.append(label)
+            output_lines.append(f"Flux sortant (Somme Ligne): {row_sums[i]:.6f}")
+            output_lines.append(f"Flux entrant (Somme Colonne): {col_sums[i]:.6f}")
+            output_lines.append("===")
+
+        # Effectue un seul appel d'impression avec toutes les lignes jointes par un saut de ligne
+        print("\n".join(output_lines))
 
 
 # A reprendre

@@ -2,6 +2,8 @@
 
 In this section, we describe the **input data** required for the proper functioning of **GRAFS-E**. Data can use several sources but must be coherent. If data are lacking, you can use defaut value or hypothesis. For example, if a crop production is unavailable, use crop area and mean crop productivity. The data is organized into two Excel files: one project spreadsheet and one data spreadsheet.
 
+Names are **case-sensitive** and must match **exactly**.
+
 ## Project Spreadsheet
 
 The **project** spreadsheet contains the **metadata** for structuring the project, such as compartments and their characteristics and default values. This file consists of several sheets:
@@ -9,29 +11,25 @@ The **project** spreadsheet contains the **metadata** for structuring the projec
 - **crops**: Data on crops
 - **livestock**: Data on livestock
 - **excretion**: Data on livestock excretions
+- **energy**: Data on bioenergy facilities
 - **pop**: Data on human populations
 - **prod**: Data on agricultural products
 - **global**: Data regarding a specific territory
 
-Each sheet must contain the **List of Compartments** (names): Each compartment must be clearly defined (e.g., crops, livestock, etc.). Two compartments must not have the same name.
+Each sheet must contain at least the **List of Compartments** (names). Two compartments cannot have the same name.
 
 In each sheet, you may add **Default Values**: If a default value for an item (e.g., Nitrogen Content for Wheat is 2 %) is provided in the project file, it will be used unless another value is available in the data file.
 
-GRAFS-E manage 3 excretion types: manure, slurry and grassland excretion. The amount of each excretion type is given by livestock tab data, yet the induced flows are computed and represented with specific excretion compartments.
-The excretion tab must be composed of 3 lines per livestock defined in livestock tab. With i the name of each livestock, the following lines must be in excretion sheet :
-- i manure
-- i slurry
-- i grasslands excretion
-
-If a row is missing, it will be automatically added with data filled with 0.
+If a row or column is missing, it will be automatically added with data filled with 0.
 
 The **project** file defines the basic structures for each category of data.
 
 ## Data Spreadsheet
 
-The **data** spreadsheet consists of two main sheets:
+The **data** spreadsheet consists of tree sheets:
 1. **Input Data**: Details of data points for GRAFS-E
 2. **Diet**: Dietary distribution information for livestock and human populations
+3. **Energy power**: Potential of energy production from biomass in energy facilities
 
 ### Input Data
 
@@ -41,6 +39,8 @@ The **Input Data** sheet contains rows with specific data for each territory, ye
 - **Category**: Type of the data (e.g., Production (ktN))
 - **Item**: Concerned compartment (e.g., Wheat) or global parameter
 - **Value**: Value of the data point
+
+Each row states: *“for (Area, Year), set (category) of (item) to (value)”*. These entries are **interannual values** and take **priority** over project-sheet defaults.
 
 Example:
 
@@ -79,7 +79,7 @@ For each consummers (population, livestock and methanizer), a diet ID must be gi
 #### Bioenergy facilities diets
 
 A diet must be given for each bioenergy ficilities on the territory. This is done like diets for populations and livestock with a diet name given in "Input data". Yet Methanizer type are allowed to consume products, excretion compartments and "waste" which represent green waste. 
-Bioraffinery type can anly use products compartments and waste as inputs.
+Bioraffinery type can only use products compartments and waste as inputs.
 
 ### Energy power
 
@@ -89,113 +89,127 @@ The **Energy power** tab is used to give the power potential of each item (produ
 - **Items**: list of items concerned by the definition of energy power. Each item must be coma separated
 - **Energy Power (MWh/tFW)**: Energy production by ton of Fresh Weight in the facility.
 
+Powers are converted internally to **MWh/ktN** using the item’s `%N` from `prod`/`excretion` (for `waste`, the global `%N` is used).
+
+Example:
+| Facility   | Items | Energy Power (MWh/tFW)                  |
+| --------- | ---------- | ------------------------- |
+| Bioreffinery G1 | Wheat grain, Barley Grain       | 1.2    |
+
 ## Input Data
 
 In this section, we describe the **Input data** required for the proper functioning of **GRAFS-E**. The data can be provided by default in the project spreadsheet or in detail in the data spreadsheet (Input data tab). If there is a conflict for a given year and territory between a data point in the project spreadsheet and the data spreadsheet, the data spreadsheet takes precedence.
 
-For example, in the **crops** tab of the project spreadsheet, I indicated that the nitrogen content of wheat is 2%. But in the data spreadsheet, I indicated that in France in 2010, the nitrogen content of wheat is 3%, so the value retained for the calculations will be 3%.
+For example, in the **crops** tab of the project spreadsheet, it is indicated that the nitrogen content of wheat is 2%. But in the data spreadsheet, it is indicated that in France in 2010, the nitrogen content of wheat is 3%, so the value retained for the calculations will be 3%.
 
 It is not possible to have two compartments with the same name. For example, it is forbidden to have a crop compartment called "Wheat" and a product called "Wheat".
 
-Compartment name can use space (' ') or semicolon (';') but do not use other special characters. "meat; other" is a valid name, "meat, other" will raise error.
+Compartment name can use space (' ') but other special characters are forbiden.
+
+> Legend for Required: `✔/✔` Historical / Prospective, `✔/—` Historical-only, `—/✔` Prospective-only, `—/—` optional.
 
 ### Crops
 
-Here are the required crop-related input data. Fertilization input can be given by a mix of [**Fertilization Need (kgN/qtl)** and **Surface Fertilization Need (kgN/ha)**] or with **Raw Surface Synthetic Fertilizer Use (kgN/ha)** for all crops. Using **Fertilization Need (kgN/qtl)** and **Surface Fertilization Need (kgN/ha)** will compute a Nitrogen balance on crops but using **Raw Surface Synthetic Fertilizer Use (kgN/ha)** will give a proxy for synthetic fertilizer use.
+Here are the required crop-related input data. 
 
-| Column Name                         | Description                                                                                          | Type             | Comment                                                                                                            |
-| -----------------------------------  | ---------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------ |
-| **Crops**                            | Name of the crops                                                                                   | str              |                                                                                                                    |
-| **Main Production**                  | Name of the main production of this crop                                                             | str              | Generally, the main product is the commercial product of this crop                                                |
-| **Category**                         | Type of crop                                                                                        | str              | See the list of available types and their specificities below                                                     |
-| **Fertilization Need (kgN/qtl)**     | Total Nitrogen needs of the crop based on yield. Not only synthetic fertilization but total fertilization. Use       **Raw Surface Synthetic Fertilizer Use (kgN/ha)** to give synthetic fertilization only.                                                     | float (>=0)      | Optional. See the complete description in the methodology section                                                          |
-| **Surface Fertilization Need (kgN/ha)** | Nitrogen needs of the crop per unit area. Not only synthetic fertilization but total fertilization. Use       **Raw Surface Synthetic Fertilizer Use (kgN/ha)** to give synthetic fertilization only.                                                             | float (>=0)      | Optional. See the complete description in the methodology section                                                          |
-| **Raw Surface Synthetic Fertilizer Use (kgN/ha)** | Synthetic Nitrogen Fertilizer needs of the crop per unit area                                                            | float (>=0)      | Optional. See the complete description in the methodology section                                                          |
-| **BNF alpha**                        | Alpha coefficient for symbiotic nitrogen fixation                                                   | float            | 0 if the crop does not fix nitrogen symbiotically. Otherwise, refer to data from Anglade et al. (2015)            |
-| **BNF beta**                         | Beta coefficient for symbiotic nitrogen fixation                                                    | float            | 0 if the crop does not fix nitrogen symbiotically. Otherwise, refer to data from Anglade et al. (2015)            |
-| **BNG**                              | Contribution of roots to symbiotic nitrogen fixation                                               | float (>=1)      | 0 if the crop does not fix nitrogen symbiotically. Otherwise, refer to data from Anglade et al. (2015)            |
-| **Harvest index**                    | Part of the crop harvested. Useful only for calculating symbiotic nitrogen fixation                | float ([0,1])    |                                                                                                                    |
-| **Area (ha)**                        | Area occupied by this crop in the considered territory                                              | float (>=0)      |                                                                                                                    |
-| **Spreading Rate (%)**               | Proportion of the area of this crop benefiting from manure, slurry, fertilizer, etc.                | float ([0, 100]) | If no data is available, use 100 by default for all crops.                                                        |
-| **Seed input (ktN/ktN)**    | Amount of seeds to be sown per unit of Main Nitrogen Production                                                        | float (>=0)      |                           |
+| Column | Required (Hist./Pros.) | Unit / Type | Allowed values | Default | Description |
+|---|---|---|---|---|---|
+| `Culture` | ✔ / ✔ | string (key) | unique | — | Primary crop ID used across sheets. |
+| `Main Production` | ✔ / ✔ | string (Product) | must exist in `prod.Product` | — | Main harvested product for this crop. |
+| `Category` | ✔ / ✔ | enum | — | — | Drives agronomic rules (grasslands vs arable; legumes). |
+| `BNF alpha` | ✔ / ✔ | kgN/tFW | ≥ 0 | 0 for non-legumes | Linear term in symbiotic fixation (both modes). |
+| `BNF beta` | ✔ / ✔ | kgN/ha | ≥ 0 | 0 for non-legumes | Constant term in symbiotic fixation (both modes). |
+| `BGN` | ✔ / ✔ | ratio | ≥ 0 | — | Below-ground factor (roots). |
+| `Harvest Index` | ✔ / ✔ | ratio (0–1) | 0–1 | — | Fraction of above-ground biomass harvested. |
+| `Spreading Rate (%)` | ✔ / ✔ | % | 0–100 | 100 | Share of hectares eligible for spreading. |
+| `Seed input (ktN/ktN)` | ✔ / ✔ | ktN per ktN | ≥ 0 | 0 | Seed N per ktN of harvested N. |
+| `Fertilization Need (kgN/qtl)` | ✔ / — | kgN/ha | ≥ 0 | 0 | Historical-only: TOTAL fertilization need by yield unit. Optional if `Surface Fertilization Need (kgN/ha)` or `Raw Surface Synthetic Fertilizer Use (kgN/ha)` given |
+| `Surface Fertilization Need (kgN/ha)` | ✔ / — | kgN/ha | ≥ 0 | 0 | Historical-only: TOTAL fertilization need by area unit. Optional if `Fertilization Need (kgN/qtl)` or `Raw Surface Synthetic Fertilizer Use (kgN/ha)` given |
+| `Raw Surface Synthetic Fertilizer Use (kgN/ha)` | ✔ / — | kgN/ha | ≥ 0 | 0 | Historical-only: observed per-ha synthetic use. Optional if `Surface Fertilization Need (kgN/ha)` or `Fertilization Need (kgN/qtl)` given |
+| `Area (ha)` | ✔ / ✔ | ha | ≥ 0 | — | Land area of the crop. |
+| `Residue Nitrogen Content (%)` | ✔ / ✔ | % | ≥ 0 | 0.5 non-legumes / 1.5 legumes | Nitrogen content of aerial residues. |
+| `Maximum Yield (tFW/ha)` | — / ✔ | tFW/ha | ≥ 0 | — | Prospective-only: Y_max of the yield curve. |
+| `Characteristic Fertilisation (kgN/ha)` | — / ✔ | kgN/ha | ≥ 0 | — | Prospective-only: Caracteristic total fertilization of the yield curve. |
 
-The **Categories** available in GRAFS-E are:
-- **cereal (excluding rice)**: This category groups all cereals except rice. This distinction is made to determine which crops to direct excess symbiotic fixation toward.
-- **leguminous**: Legumes are excluded from synthetic fertilizer distribution and are the source of symbiotic nitrogen fixation.
-- **natural meadows**: Permanent natural meadows. It is not possible to export or import the products from this type of crop. Surplus production returns to the soil.
-- **temporary meadows**: Meadows that can be mowed and whose products can be sold. Any surplus from symbiotic nitrogen fixation is directed toward the **cereal (excluding rice)** category.
+Some **Category** have special rules in GRAFS-E:
+- **leguminous**: Leguminous crops are excluded from synthetic fertilizer distribution.
+- **natural meadows** and **temporary meadows**: These crops benefit from outdoor animal excretion. The input Nitrogen surplus is fully stocked in soil up to 100 kgN/ha. After, same tratment of crops.
 
 The user can define as many additional categories as desired, but these will not have special rules. Example of other common categories:
+- Cereals
 - Forage
 - Roots
 - Fruits and Legumes
 - Rice
 
+Fertilization input can be given by a mix of [**Fertilization Need (kgN/qtl)** and **Surface Fertilization Need (kgN/ha)**] or with **Raw Surface Synthetic Fertilizer Use (kgN/ha)** for all crops. Using **Fertilization Need (kgN/qtl)** and **Surface Fertilization Need (kgN/ha)** will compute a Nitrogen balance on crops but using **Raw Surface Synthetic Fertilizer Use (kgN/ha)** will give a proxy for synthetic fertilizer use. See GRAFS-E engine page for more details.
+
 ### Livestock
 
 Here are the required input data related to **livestock**:
+                  
 
-| Column Name                        | Description                                                                                        | Type             | Remark                                                                                                                                          |
-| ----------------------------------  | -------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Livestock**                       | Name of the livestock (e.g., cattle, sheep, etc.)                                                   | str              | Livestock can be defined by animal type (e.g., cattle, sheep) and differentiated by specific types of livestock (e.g., beef cattle, dairy cattle) |
-| **Excreted indoor (%)**             | Proportion of time spent indoors in a building                                                     | float ([0, 100]) | 100 - **Excreted indoor (%)** gives the proportion of time spent grazing                                                                      |
-| **Excreted indoor as manure (%)**   | Proportion of excretions indoors converted into manure                                              | float ([0, 100]) | The rest is converted into slurry.                                                                                                                |
-| **LU**                              | Number of Livestock Units                                                                           | float (>0)       |                                                                                                                                               |
-| **Excretion / LU (kgN)**            | Amount of nitrogen excreted per LU                                                                  | float (>0)       |                                                                                                                                               |                  
-| **Diet**        | Diet ID to use for this population                                                           | str | Must have a corresponding Diet ID in Diet tab                                                                            |
-
-The management of excretions distinguishes between three types:
-- **Manure**
-- **Slurry**
-- **Outdoor (non-recoverable)**
-
-For each type of excretion management **X**, the difference 100 - (N-NH3 EM X (%) + N-N2O EM X (%) + N-N2 EM manure (%)) is considered lost to continental water (compartment "hydro-system").
+| Column | Required (Hist./Pros.) | Unit / Type | Allowed values | Default | Description |
+|---|---|---|---|---|---|
+| `Livestock` | ✔ / ✔ | string (key) | unique | — | Livestock identifier. |
+| `Excreted indoor (%)` | ✔ / ✔ | % | 0–100 | — | Time in housing; remainder on grassland. |
+| `Excreted indoor as manure (%)` | ✔ / ✔ | % | 0–100 | — | Of indoor: share to manure (else slurry). |
+| `LU` | ✔ / ✔ | Livestock Unit | ≥ 0 | — |  |
+| `Excretion / LU (kgN)` | ✔ / ✔ | kgN | ≥ 0 | — | Amount of Nitrogen excreted by LU |
+| `Diet` | ✔ / ✔ | string (Diet ID) | must exist in `Diet.Diet ID` | — | Input diet for facility. |
 
 ### Excretion
 
-As stated in Here are the required input data related to **animal excretion**:
+GRAFS-E manage 3 excretion types: manure, slurry and grassland excretion. The amount of each excretion type is given by livestock tab data, yet the induced flows are computed and represented with specific excretion compartments.
+The excretion tab must be composed of 3 lines per livestock defined in livestock tab. With i the name of each livestock, the following lines must be in excretion sheet :
+- i manure
+- i slurry
+- i grasslands excretion
+*If some compulsory excreta rows (manure, slurry, grasslands) are missing for a livestock, the engine creates them with 0 and emits a warning.*
 
-| Column Name                        | Description                                                                                        | Type             | Remark                                                                                                                                          |
-| ----------------------------------  | -------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Origin compartment** | Name of the livestock compartment producing this excretion. | str              | It must match a defined  livestock compartment.      |
-| **Type**              | Type of excretion (manure, slurry or grasslands excretion)       | str              |                                                                                                         |
-| **N-NH3 EM (%)**             | Ammonia emission factor                                                                  | float ([0, 100]) |
-| **N-N2O EM (%)**            | Nitrous oxide emission factor                                             | float ([0, 100]) | 
-| **N-N2 EM (%)**             | Nitrogen N2 emission factor                                               | float ([0, 100]) |
-| **Methanization power (MWh/tFW)**          | Energy production potential in methanizer by ton of input fresh weight                     | float ([0, 100])              | Put 0 if this is not intended to methanizer                                                                                                          |
-| **Nitrogen Content (%)** | Nitrogen content of the excretion               | float ([0, 100]) | Nitrogen content of the fresh excretion, not in dry matter. Can be set to 0 for grasslands excretion. Only used for manure and slurry.                                                                 |
+Required input data related to **animal excretion**:
+
+| Column | Required (Hist./Pros.) | Unit / Type | Allowed values | Default | Description |
+|---|---|---|---|---|---|
+| `Excretion` | ✔ / ✔ | string (key) | unique | — | Excreta stream name. |
+| `Origin compartment` | ✔ / ✔ | string | must match `livestock.Livestock` | — | Animal source. |
+| `Type` | ✔ / ✔ | enum | grasslands excretion, manure, slurry | — | manure / slurry / grasslands excretion. |
+| `N-NH3 EM (%)` | ✔ / ✔ | % | 0–100 | — | $NH_3$ volatilization share. |
+| `N-N2 EM (%)` | ✔ / ✔ | % | 0–100 | — | $N_2$ emission share. |
+| `N-N2O EM (%)` | ✔ / ✔ | % | 0–100 | — | Direct $N_2O$ emission share. |
+| `Nitrogen Content (%)` | ✔ / ✔ | % | 0–100 | — | For N-based power conversion. |
 
 
 ### Population
 
 Here are the required input data related to **human populations**:
 
-| Column Name                        | Description                                                                                         | Type             | Comment                                                                                                           |
-| ----------------------------------  | --------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Population**                      | Name of the population (e.g., vegetarians, omnivores)                                                | str              |                                                                                                                   |
-| **Inhabitants**                     | Number of inhabitants in the population                                                              | int              | Ideally, consider the "real" population (official population + tourism + non-counted population)                 |
-| **N-NH3 EM excretion (%)**          | Ammonia emission factor for excretion                                                                | float ([0, 100]) |                                                                                                                   |
-| **N-N2O EM excretion (%)**          | Nitrous oxide emission factor for excretion                                                          | float ([0, 100]) |                                                                                                                   |
-| **N-N2 EM excretion (%)**           | Nitrogen N2 emission factor for excretion                                                            | float ([0, 100]) |                                                                                                                   |
-| **Total ingestion per capita (kgN)**| Total nitrogen intake from all sources (plant products, animals, and the sea)                       | float (>0)       |                                                                                                                   |
-| **Fishery ingestion per capita (kgN)**| Nitrogen intake from sea products                                                                   | float (>0)       |                                                                                                                   |
-| **Excretion recycling (%)**        | Rate of nitrogen recycling from excretions                                                           | float ([0, 100]) | Forms the slurry to be spread on crops                                                                             |
-| **Diet**        | Diet ID to use for this population                                                           | str | Must have a corresponding Diet ID in Diet tab                                                                            |
+| Column | Required (Hist./Pros.) | Unit / Type | Allowed values | Default | Description |
+|---|---|---|---|---|---|
+| `Population` | ✔ / ✔ | string (key) | unique | — | Population identifier. |
+| `Inhabitants` | ✔ / ✔ | — | integer ≥ 0 | — | Number of inhabitants for this population. |
+| `N-NH3 EM excretion (%)` | ✔ / ✔ | % | 0–100 | — | $NH_3$ excretion volatilization share. |
+| `N-N2O EM excretion (%)` | ✔ / ✔ | % | 0–100 | — | $N_2O$ excretion volatilization share. |
+| `N-N2 EM excretion (%)` | ✔ / ✔ | % | 0–100 | — | $N_2$ excretion volatilization share. |
+| `Total ingestion per capita (kgN)` | ✔ / ✔ | kgN | ≥ 0 | — | Total ingestion (fishery products, animal products and plant products) |
+| `Fishery ingestion per capita (kgN)` | ✔ / ✔ | kgN | ≥ 0 | — | Fischery only ingestion |
+| `Excretion recycling (%)` | ✔ / ✔ | % | 0–100 | — | Share of Nitrogen excreted spread on croplands after volatilization. Sum of $NH_3$, $N_2O$, $N_2$ and recycling share cannot be higher than 100 %. |
+| `Diet` | ✔ / ✔ | string (Diet ID) | must exist in `Diet.Diet ID` | — | Input diet for facility. |
 
 ### Product Data
 
-Here is the data related to **products** necessary for GRAFS-E to simulate nitrogen flows in agricultural systems:
+Here is the data related to **products**:
 
-| **Column Name**       | **Description**                                 | **Type**         | **Comment**                                                                                                           |
-| --------------------- | ----------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **Production (kton)** | Gross production in kilotons                    | float (>0)       | Be careful not to provide the production in dry matter                                                                |
-| **Nitrogen Content (%)** | Nitrogen content of the product               | float ([0, 100]) | Nitrogen content of the raw product, not in dry matter                                                                 |
-| **Origin compartment** | Name of the compartment producing the product. | str              | It must match a defined compartment. Typically, the name of the crop (crops table) or livestock (livestock table)      |
-| **Type**              | Type of production ("plant" or "animal")       | str              | See Typology                                                                                                          |
-| **Sub Type**          | Subtype of the production                      | str              | See Typology                                                                                                          |
-| **Waste (%)**          | Share of Nitrogen Production wasted                      | float ([0, 100])              | Depending of the focus of the study, this can include transport waste, processing waste, distribution and domestic waste... This describe a flow from product to waste compartment.                                                                                                        |
-| **Other uses (%)**          | Share of Nitrogen Production used outside of Agro-Food system                     | float ([0, 100])              | This can include product for energy production, building material... This describe a flow from product to other sectors.                                                                                                          |
-| **Methanization power (MWh/tFW)**          | Energy production potential in methanizer by ton of input fresh weight                     | float ([0, 100])              | Put 0 if this is not intended to methanizer                                                                                                          |
+| Column | Required (Hist./Pros.) | Unit / Type | Allowed values | Default | Description |
+|---|---|---|---|---|---|
+| `Product` | ✔ / ✔ | string (key) | unique | — | Product identifier. |
+| `Origin compartment` | ✔ / ✔ | string | `crops.Culture` or `livestock.Livestock` | — | Source entity. |
+| `Type` | ✔ / ✔ | enum | animal, plant | — | `plant` or `animal`. |
+| `Sub Type` | ✔ / ✔ | enum | see typology below | — | Governs grouping and rules. |
+| `Nitrogen Content (%)` | ✔ / ✔ | % | 0–100 | — | Used for ktN conversions and energy power per ktN. |
+| `Waste (%)` | ✔ / ✔ | % | 0–100 | 0 | Loss before allocation. |
+| `Other uses (%)` | ✔ / ✔ | % | 0–100 | 0 | Non food/energy uses removed from availability. |
+| `Co-Production Ratio (%)` | — / ✔ | % | 0–100 | — | Prospective-only: fresh-mass share by co-product. 100 if main product of the crop, other value if co-production (straw, oil, cake...)|
 
 #### Product Typology
 
@@ -222,20 +236,20 @@ The Sub Types for **animal** products are fixed and include 3 categories.
 
 ### Bioenergy Data
 
-The tab 'energy' is used to define the bioenergy facilities related to the territory. This tab can be left empty (just columns name) if no facilities are linked to the territory. A bioenergy facility is considered as a consummer and must therefore have a diet defined in Diet tab of data file. Unlike other consummers, bioenergy facilities can have products and excretion compartments and 'waste' compartment.
+The tab 'energy' is used to define the bioenergy facilities related to the territory. This tab can be left empty (just columns name) if no facilities are linked to the territory. A bioenergy facility is considered as a consummer and must therefore have a diet defined in Diet tab of data file. Unlike other consummers, bioenergy facilities of type Methanizer can have products and excretion compartments and 'waste' compartment.
 
-| **Column Name**       | **Description**                                 | **Type**         | **Comment**                                                                                                           |
-| --------------------- | ----------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **Facility** | Name of the bioenergy facility                    | str       |                                                                |
-| **Diet** | Name of the diet to use in Diet tab of data file                    | str       |                                                                |
-| **Target Energy Production (GWh)** | Target of energy production in this bioenergy facility                    | float (>0)       |                                                                |
-| **Type** | Type of bioenergy facility                    | str       |  Only two types available : 'Methanizer' or 'Bioreffinery'. See bellow definition of types.                                                              |
+| Column | Required (Hist./Pros.) | Unit / Type | Allowed values | Default | Description |
+|---|---|---|---|---|---|
+| `Facility` | ✔ / ✔ | string (key) | unique | — | Facility identifier. |
+| `Diet` | ✔ / ✔ | string (Diet ID) | must exist in `Diet.Diet ID` | — | Input diet for facility. |
+| `Target Energy Production (GWh)` | ✔ / ✔ | GWh | ≥ 0 | — | Annual energy target. |
+| `Type` | ✔ / ✔ | enum | Bioraffinery, Methanizer | — | `Methanizer` or `Bioraffinery`. |
 
 #### Bioenergy Facilities Typology
 
 Two Types are available for bioenergy facilities :
-- 'Methanizer': The Methanizer can have inputs from product, excretion or waste compartments. All Nitrogen inputs goes to digestat and is spread on crops with the same rules as excretions or sludges (see GRAFS-E engine page). 
-- 'Bioreffinery': The Bioreffinery can have inputs only from products or waste. All input nitrogen is directed to 'hydrocarbures' compartment. 
+- 'Methanizer': The Methanizer can have inputs from product, excretion or waste compartments. All Nitrogen inputs goes to digestat and is spread on crops with the same rules as excretions or sludges (see GRAFS-E engine page). Methanizer cannont import their inputs flows.
+- 'Bioreffinery': The Bioreffinery can have inputs only from products or waste. All input nitrogen is directed to 'hydrocarbures' compartment. Bioreffinery can import products.
 
     
 ### Global Data
@@ -249,21 +263,23 @@ GRAFS-E also relies on **global variables**, which apply to all compartments for
 
 #### Global Values
 
-The name and number of global variables are fixed. Any differences from this will raise an error.
+The name and number of global variables are fixed.
 
-| **Variable Name**                                            | **Description**                                                                                                                                                                                                                                    | **Type**         | **Comment**                                                                                                          |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Methanizer Energy Production (GWh)**                                              | Energy production objective for methanizer.                                                                                                                                                                                          | float (>0)       |                                        |
-| **Weight diet**                                              | Weight of the optimization model for the diet constraint                                                                                                                                                                                          | float (>0)       | Adjusts the importance of respecting the proportions defined in the diets of populations and livestock                                        |
-| **Weight import**                                              | Weight of the optimization model for the import constraint                                                                                                                                                                                          | float (>0)       | The higher is this weight, the more the model will try to limit import and change diet to consumme local production                                         |
-| **Weight energy production**                                              | Weight of the optimization model to stick to the sum of energy production target by bioenergy facilities                                                                                                                                                                                          | float (>0)       | Adjusts the importance of respecting the energy production goal. Default value is 0 is no energy facilities.                             |
-| **Weight energy inputs**                                              | Weight of the optimization model for the constraint on bioenergy facilities diets                                                                                                                                                                                        | float (>0)       | Adjusts the importance of respecting the proportions of the bioenergy facilities diets. Default value is 0 if no energy facilities.                                        |
-| **Weight distribution**                                       |Weight of the optimization model for the constraint on products allocation in diet groups.                                                                                                                                       | float (>0)       | See optimization model section for full definition. This input data is optional. If no value is given in project or data files, the distribution weight is $\text{weight diet}/10$                                                                |
-| **Weight fair local split**                                            | Weight of the optimization model for the constraint on products distribution to consummers (livestock, population and bioenergy facilities).                                                                                                                                                                                           | float (>0)       | See optimization model section for full definition. This input data is optional. If no value is given in project or data files, the distribution weight is $\text{weight diet}/20$                                                             |
-| **Total Synthetic Fertilizer Use on crops (ktN)**            | Total synthetic nitrogen use on crops not in the following categories: "natural meadow", "leguminous", "temporary meadows"                                                                                                                     | float (>0)       | Used to normalize the synthetic fertilizer usage after calculating needs.                                           |
-| **Total Synthetic Fertilizer Use on grasslands (ktN)**       | Total synthetic nitrogen use on grasslands not in the following categories: "natural meadow", "temporary meadows"                                                                                                                                | float (>0)       | Used to normalize the synthetic fertilizer usage after calculating needs.                                           |
-| **Atmospheric deposition coef (kgN/ha)**                     | Atmospheric deposition coefficient per unit of area                                                                                                                                                                                               | float (>0)       | This flux is considered to originate from ammonia and nitrous oxide present in the atmosphere                         |
-| **coefficient N-NH3 volatilization synthetic fertilization (%)** | Ammonia volatilization coefficient during the application of synthetic fertilizers                                                                                                                                                                 | float ([0, 100]) | Then 1% of this volatilization recombines into nitrous oxide in the atmosphere                                      |
-| **coefficient N-N2O volatilization synthetic fertilization (%)** | Nitrous oxide volatilization coefficient during the application of synthetic fertilizers                                                                                                                                                           | float ([0, 100]) |                                                                                                                      |
-| **Enforce animal share**                                      | If True, the proportions of animal and plant consumption defined in the diets will be set as a hard constraint by the model. The model will not propose substitutions of animal and plant proteins to balance the flows. | Bool             | Set to True if diet data is solid. False will be particularly useful for scenario analysis.                          |
-| **Green waste nitrogen content (%)**                                      | Nitrogen content of green waste. | float (>0)             |  Compartment "waste". Used to compute Nitrogen input in bioenergy facilities. Default value is 0 if no energy facilities.                        |
+| Item | Required (Hist./Pros.) | Unit / Type | Default (project) | Description |
+|---|---|---|---|---|
+| `Total Synthetic Fertilizer Use on crops (ktN)` | ✔ / ✔ | ktN | 2000 | National synthetic N stock for crops; scaling target in H and budget cap/penalty in P. |
+| `Total Synthetic Fertilizer Use on grasslands (ktN)` | ✔ / ✔ | ktN | — | National synthetic N stock for grasslands; same logic as crops. |
+| `Atmospheric deposition coef (kgN/ha)` | ✔ / ✔ | kgN/ha | — | Areal nitrogen input applied to crop surfaces. |
+| `coefficient N-NH3 volatilization synthetic fertilization (%)` | ✔ / ✔ | % | 3 | Fraction of synthetic N volatilized as $NH_3$ at field application. |
+| `coefficient N-N2O emission synthetic fertilization (%)` | ✔ / ✔ | % | 0.05 | Fraction of synthetic N emitted as direct N₂O at field application. |
+| `coefficient N-N2O indirect emission synthetic fertilization (%)` | ✔ / ✔ | % | 0.2 | Fraction of volatilized NH₃ accounted as indirect N₂O. |
+| `Weight diet` | ✔ / ✔ | non-negative scalar | 1 | Penalty on consumer diet share deviations. |
+| `Weight import` | ✔ / ✔ | non-negative scalar | 1 | Penalty on normalized imports per product. |
+| `Weight energy production` | ✔ / ✔ | non-negative scalar | 10 | Penalty on facility energy target deviation (relative). |
+| `Weight energy inputs` | ✔ / ✔ | non-negative scalar | 0.1 | Penalty on deviations from facility input diet shares. |
+| `Weight distribution` | ✔ / ✔ | non-negative scalar | — | Stabilizer for smoother within-group allocations. |
+| `Weight fair local split` | ✔ / ✔ | non-negative scalar | — | Stabilizer towards reference fair-share by product. |
+| `Weight synthetic fertilizer` | — / ✔ | non-negative scalar | 1 | Penalty when total crop synthetic N exceeds the budget. |
+| `Weight synthetic distribution` | — / ✔ | non-negative scalar | 1 | Penalty to keep per-crop f/F* close to 1. |
+| `Enforce animal share` | ✔ / ✔ | boolean | True | If true, enforce the target animal share in diets. |
+| `Green waste nitrogen content (%)` | ✔ / ✔ | % | 1 | %N used to convert MWh/tFW of `waste` into MWh/ktN. |
