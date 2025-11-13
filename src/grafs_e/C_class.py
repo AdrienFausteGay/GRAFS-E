@@ -838,7 +838,7 @@ class CarbonFlowModel:
         mask_hi = df_cultures["Harvest Index"] != 0
         df_cultures.loc[mask_hi, "Residue Production (ktC)"] = (
             (
-                df_cultures.loc[mask_hi, "Main Carbon Production (ktC)"]
+                df_cultures.loc[mask_hi, "Carbon Production (ktC)"]
                 / df_cultures.loc[mask_hi, "Harvest Index"]
                 - df_cultures["Carbon Production (ktC)"]
             )
@@ -848,8 +848,9 @@ class CarbonFlowModel:
 
         df_cultures["Root Production (ktC)"] = 0.0
         df_cultures.loc[mask_hi, "Root Production (ktC)"] = (
-            df_cultures.loc[mask_hi, "Residue Production (ktC)"]
-            * (1 - df_cultures.loc[mask_hi, "BGN"]).clip(lower=0.0)
+            df_cultures.loc[mask_hi, "Carbon Production (ktC)"]
+            / df_cultures.loc[mask_hi, "Harvest Index"]
+            * (df_cultures.loc[mask_hi, "BGN"] - 1).clip(lower=0.0)
         ).astype(float)
 
         target = (

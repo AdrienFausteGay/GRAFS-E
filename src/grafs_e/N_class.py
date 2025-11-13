@@ -1,4 +1,3 @@
-import os
 import re
 
 import matplotlib.pyplot as plt
@@ -16,12 +15,12 @@ from pulp import (
     value,
     LpStatus,
     LpBinary,
+    LpAffineExpression,
 )
 import warnings
 import math
-import pprint
 import hashlib
-from math import exp
+import numbers
 
 # Afficher toutes les colonnes
 pd.set_option("display.max_columns", None)
@@ -3003,6 +3002,8 @@ class NitrogenFlowModel:
 
         For an in-depth explanation of the model's functioning, please refer to the accompanying paper.
         """
+        from pulp import lpSum
+
         # Extraire les variables nécessaires
         df_elevage = self.df_elevage
         df_excr = self.df_excr
@@ -4114,10 +4115,14 @@ class NitrogenFlowModel:
             y_vars = LpVariable.dicts("y", list(df_prod.index), 0, 1, cat="Binary")
 
             # bornes naturelles
-            M_sur = {p: float(self._available_expr(p)) for p in df_prod.index}
+            if getattr(self, "prospective", False):
+                M_sur = {
+                    p: self._available_expr(p) for p in df_prod.index
+                }  # peut être une expression LP
+            else:
+                M_sur = {p: float(self._available_expr(p)) for p in df_prod.index}
 
-            # besoin max importable par produit p
-            # (consommateurs + infrastructures énergie capables d’utiliser p)
+            # besoin max importable par produit p (constantes)
             M_imp = {}
             for p in df_prod.index:
                 # consommateurs
@@ -4127,10 +4132,9 @@ class NitrogenFlowModel:
                     if p in all_cultures_regime.get(c, set())
                 )
 
-                # énergie (via cibles et conversion MWh/ktN, si la fac peut utiliser p)
+                # énergie
                 energy_need = 0.0
                 for fac in df_energy.index:
-                    # si le régime de la facility contient p
                     fac_has_p = any(
                         p in r["Products"]
                         for _, r in diets[diets["Consumer"] == fac].iterrows()
@@ -4157,8 +4161,50 @@ class NitrogenFlowModel:
                 )
 
             for p in df_prod.index:
+                # 1) contrainte import quand y=1
                 prob += I_total_p(p) <= M_imp[p] * y_vars[p], f"NoSwap_I_{p}"
-                prob += U_vars[p] <= M_sur[p] * (1 - y_vars[p]), f"NoSwap_U_{p}"
+
+                # 2) contrainte surplus U_vars selon prospective ou historique
+                # calculer les facteurs numériques (waste/other)
+                waste = (
+                    float(df_prod.at[p, "Waste (%)"]) / 100.0
+                    if "Waste (%)" in df_prod.columns
+                    else 0.0
+                )
+                other = (
+                    float(df_prod.at[p, "Other uses (%)"]) / 100.0
+                    if "Other uses (%)" in df_prod.columns
+                    else 0.0
+                )
+                factor = 1.0 - waste - other
+
+                if getattr(self, "prospective", False) and p in self._pros_vars.get(
+                    "Q_p", {}
+                ):
+                    # Q_p est une variable LP ; on impose:
+                    #  A) U_p <= factor * Q_p    (liaison physique)
+                    #  B) U_p <= M_const * (1 - y_p)   (quand y=1 -> U<=0)
+                    Qp = self._pros_vars["Q_p"][p]  # LpVariable
+                    # déterminer une borne numérique sur factor * Qp (big-M)
+                    # préférence: chercher une colonne "Nitrogen Production (ktN)" ou utiliser M_imp comme fallback
+                    if "Nitrogen Production (ktN)" in df_prod.columns:
+                        Qp_ub = float(df_prod.at[p, "Nitrogen Production (ktN)"])
+                    else:
+                        # fallback raisonnable : utiliser la demande + énergie (M_imp) comme borne
+                        Qp_ub = M_imp.get(p, 1e6)
+
+                    M_const = max(
+                        1e-6, factor * Qp_ub + 1e-6
+                    )  # borne numérique >= possible factor*Qp
+
+                    # A) limite physique (expression LP autorisée à apparaître, pas de multiplication par binaire)
+                    prob += U_vars[p] <= factor * Qp, f"NoSwap_U_phys_{p}"
+
+                    # B) blocage quand y == 1 (multiplie uniquement une constante par le binaire)
+                    prob += U_vars[p] <= M_const * (1 - y_vars[p]), f"NoSwap_U_bin_{p}"
+                else:
+                    # historique / non-prospective : M_sur[p] est un float, on peut garder la forme d'origine
+                    prob += U_vars[p] <= M_sur[p] * (1 - y_vars[p]), f"NoSwap_U_{p}"
 
         # prob.writeLP("model.lp")
 
@@ -4183,44 +4229,82 @@ class NitrogenFlowModel:
         df_prod = self.df_prod
 
         if self.debug:
-            from pulp import value
+            from pulp import value, lpSum
+            import math, pprint
 
             def V(expr):
-                # valeur sûre, 0.0 si None
+                # Valeur sûre (float); 0.0 si None / non-évaluable
                 try:
                     return float(value(expr)) if expr is not None else 0.0
                 except Exception:
                     return 0.0
 
-            # ----- Normaliseurs identiques à l'objectif -----
+            # ---------------- Normaliseurs identiques à l'objectif ----------------
             n_pairs = max(1, len(pairs))
             n_prod = max(1, len(df_prod))
-            n_energy = max(
-                1, len(df_energy.index)
-            )  # liste/itérable de toutes les vars {fac}_energy_dev
+            n_energy = max(1, len(df_energy.index))
 
-            # ----- Reconstruire chaque terme EXACTEMENT comme dans l'objectif -----
-            expr_diet = (poids_penalite_deviation / max(1, len(pairs))) * lpSum(
+            # ---------------- Reconstruire les termes de l'objectif ----------------
+            expr_diet = (poids_penalite_deviation / n_pairs) * lpSum(
                 delta_vars.values()
             )
-            expr_cult = (poids_penalite_culture / max(1, len(df_prod))) * (
+            expr_cult = (poids_penalite_culture / n_prod) * (
                 lpSum(penalite_culture_vars.values()) + penalite_culture_energy_term
             )
             expr_import = poids_import_brut * raw_import_term
-            expr_fair = w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
-            expr_energy_prod = (
-                W_ENERGY_PROD * energy_dev_total / max(1, len(df_energy.index))
-            )  # attention: energy_dev_total déjà normalisé comme dans l’objectif
+            expr_fair = w_fair * ((fair_term + fair_term_energy) / n_prod)
+            expr_energy_prod = W_ENERGY_PROD * energy_dev_total / n_energy
             expr_energy_diets = W_ENERGY_INPUT * lpSum(delta_fac.values())
 
-            # ----- Valeurs pondérées -----
-            w_dev = V(expr_diet)
-            w_cult_all = V(expr_cult)
-            w_import = V(expr_import)
-            w_fair_all = V(expr_fair)
-            w_energy_inputs = V(expr_energy_diets)
-            w_energy_prod = V(expr_energy_prod) / max(1, len(df_energy.index))
+            # ------------------ Termes prospectifs (si activé) -------------------
+            expr_syn_excess = 0
+            expr_syn_distribution = 0
 
+            if self.prospective:
+                # (i) Excès d'engrais synthétiques, normalisé par les seuils
+                try:
+                    W_SYN = float(
+                        self.df_global.loc["Weight synthetic fertilizer", "value"]
+                    )
+                except Exception:
+                    W_SYN = 0.0
+
+                th_crops = self._pros_vars.get("th_crops", 0.0)
+                th_grass = self._pros_vars.get("th_grass", 0.0)
+                exc_crops = self._pros_vars.get("exc_crops", 0)  # var LP
+                exc_grass = self._pros_vars.get("exc_grass", 0)  # var LP
+
+                term_syn_crops = (exc_crops / max(1e-9, th_crops)) if th_crops else 0
+                term_syn_grass = (exc_grass / max(1e-9, th_grass)) if th_grass else 0
+                expr_syn_excess = W_SYN * (term_syn_crops + term_syn_grass)
+
+                # (ii) Répartition autour de F* (déviations relatives |f-F*|/F* via dev+/-)
+                try:
+                    W_DIS = float(
+                        self.df_global.loc["Weight synthetic distribution", "value"]
+                    )
+                except Exception:
+                    W_DIS = 0.0
+
+                dev_pos = self._pros_vars.get("devF_rel_pos", {})  # {c: var+}
+                dev_neg = self._pros_vars.get("devF_rel_neg", {})  # {c: var-}
+                if W_DIS > 0 and len(dev_pos):
+                    expr_syn_distribution = W_DIS * lpSum(
+                        (dev_pos[c] + dev_neg.get(c, 0)) for c in dev_pos.keys()
+                    )
+
+            # ------------------------- Valeurs pondérées --------------------------
+            w_diet = V(expr_diet)
+            w_cult = V(expr_cult)
+            w_import = V(expr_import)
+            w_fair = V(expr_fair)
+            w_energy_inputs = V(expr_energy_diets)
+            w_energy_prod = V(expr_energy_prod)
+
+            w_syn_excess = V(expr_syn_excess) if self.prospective else 0.0
+            w_syn_distribution = V(expr_syn_distribution) if self.prospective else 0.0
+
+            # Somme totale reconstituée (même formalisme que l'objectif)
             obj_val = V(
                 expr_diet
                 + expr_cult
@@ -4228,6 +4312,8 @@ class NitrogenFlowModel:
                 + expr_fair
                 + expr_energy_diets
                 + expr_energy_prod
+                + (expr_syn_excess if self.prospective else 0)
+                + (expr_syn_distribution if self.prospective else 0)
             )
 
             def share(x):
@@ -4237,11 +4323,10 @@ class NitrogenFlowModel:
                     else None
                 )
 
-            # ----- Détailler par infrastructure (si utile) -----
-            #  a) production d'énergie : chaque var {fac}_energy_dev participe linéairement
+            # -------------------- Détailler par infrastructure --------------------
+            #  a) production d'énergie : variable unique {fac}_energy_dev
             per_fac_energy_prod = {}
             for fac in df_energy.index:
-                # variable unique : f"{fac}_energy_dev"
                 v = next(
                     (
                         var
@@ -4253,134 +4338,158 @@ class NitrogenFlowModel:
                 if v is not None:
                     per_fac_energy_prod[fac] = V((W_ENERGY_PROD / n_energy) * v)
 
-            #  b) inputs d'énergie : somme des deltas de diète de la facility, puis / n_pairs_fac
-            w_energy_inputs = 0.0
+            #  b) inputs d'énergie : somme des deltas par facility, / n_pairs_fac
             per_fac_energy_inputs = {}
-            for fac, row in df_energy.iterrows():
-                # n_pairs_fac = nombre de lignes de diète pour CETTE facility (pas le diet_id)
-                n_pairs_fac = max(1, len(diets[diets["Consumer"] == fac]))
-                sum_deltas_fac = lpSum(
-                    [
-                        var
-                        for var in prob.variables()
-                        if var.name.startswith(f"delta_{fac}_")
-                    ]
-                )
-                val = W_ENERGY_INPUT * (sum_deltas_fac / n_pairs_fac)
-                w_energy_inputs += float(value(val))
-                per_fac_energy_inputs[fac] = float(value(val))
+            if len(df_energy.index):
+                for fac, _row in df_energy.iterrows():
+                    n_pairs_fac = max(1, len(diets[diets["Consumer"] == fac]))
+                    sum_deltas_fac = lpSum(
+                        [
+                            var
+                            for var in prob.variables()
+                            if var.name.startswith(f"delta_{fac}_")
+                        ]
+                    )
+                    per_fac_energy_inputs[fac] = V(
+                        W_ENERGY_INPUT * (sum_deltas_fac / n_pairs_fac)
+                    )
 
-            # ----- Rapport -----
-            w_dev = (
-                float(
-                    value(
-                        (poids_penalite_deviation / max(1, len(pairs)))
-                        * lpSum(delta_vars.values())
-                    )
-                )
-                if len(delta_vars)
-                else 0.0
-            )
-            w_cult = (
-                float(
-                    value(
-                        (poids_penalite_culture / max(1, len(df_prod)))
-                        * (
-                            lpSum(penalite_culture_vars.values())
-                            + penalite_culture_energy_term
-                        )
-                    )
-                )
-                if (penalite_culture_vars or penalite_culture_energy_term)
-                else 0.0
-            )
-            w_fair_tot = (
-                float(
-                    value(
-                        w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
-                    )
-                )
-                if "fair_term_energy" in locals()
-                else float(value(w_fair * (fair_term / max(1, len(df_prod)))))
-            )
-            w_import = float(value(poids_import_brut * raw_import_term))
-            w_eprod = float(
-                value(W_ENERGY_PROD * energy_dev_total / max(1, len(df_energy.index)))
-            )
-            w_einputs = (
-                float(value((W_ENERGY_INPUT) * lpSum(delta_fac.values())))
-                if len(delta_fac)
-                else 0.0
-            )
-            obj_val = float(value(prob.objective))
-
+            # ----------------------------- Familles ------------------------------
             families = {
                 "diet_deviation": {
-                    "weighted": w_dev,
-                    "share_%": (100 * w_dev / obj_val) if obj_val else None,
+                    "weighted": w_diet,
+                    "share_%": share(w_diet),
                     "weight": float(poids_penalite_deviation),
                 },
                 "intra_group_distribution_ALL": {
                     "weighted": w_cult,
-                    "share_%": (100 * w_cult / obj_val) if obj_val else None,
+                    "share_%": share(w_cult),
                     "weight": float(poids_penalite_culture),
-                    "normalizer": {"n_products": max(1, len(df_prod))},
+                    "normalizer": {"n_products": n_prod},
                     "note": "Inclut pénalités produits + pénalités des infrastructures (terme unique).",
                 },
                 "import_brut": {
                     "weighted": w_import,
-                    "share_%": (100 * w_import / obj_val) if obj_val else None,
+                    "share_%": share(w_import),
                     "weight": float(poids_import_brut),
                     "note": "raw_import_term est déjà normalisé (inchangé).",
                 },
                 "fair_total": {
-                    "weighted": w_fair_tot,
-                    "share_%": (100 * w_fair_tot / obj_val) if obj_val else None,
+                    "weighted": w_fair,
+                    "share_%": share(w_fair),
                     "weight": float(w_fair),
                 },
                 "energy_inputs_total": {
-                    "weighted": w_einputs,
-                    "share_%": (100 * w_einputs / obj_val) if obj_val else None,
+                    "weighted": w_energy_inputs,
+                    "share_%": share(w_energy_inputs),
                     "weight": float(W_ENERGY_INPUT),
+                    "per_facility": per_fac_energy_inputs,
                 },
                 "energy_production_total": {
-                    "weighted": w_eprod,
-                    "share_%": (100 * w_eprod / obj_val) if obj_val else None,
-                    "weight": float(w_eprod),
+                    "weighted": w_energy_prod,
+                    "share_%": share(w_energy_prod),
+                    "weight": float(W_ENERGY_PROD),
+                    "per_facility": per_fac_energy_prod,
                 },
             }
 
+            # Familles prospectives (ajout conditionnel)
+            if self.prospective:
+                # Détails composants pour l’excès synthétique
+                W_SYN = (
+                    float(self.df_global.loc["Weight synthetic fertilizer", "value"])
+                    if "Weight synthetic fertilizer" in self.df_global.index
+                    else 0.0
+                )
+                th_crops = self._pros_vars.get("th_crops", 0.0)
+                th_grass = self._pros_vars.get("th_grass", 0.0)
+                exc_crops = self._pros_vars.get("exc_crops", 0)
+                exc_grass = self._pros_vars.get("exc_grass", 0)
+
+                comp_crops = V(
+                    W_SYN * ((exc_crops / max(1e-9, th_crops)) if th_crops else 0)
+                )
+                comp_grass = V(
+                    W_SYN * ((exc_grass / max(1e-9, th_grass)) if th_grass else 0)
+                )
+
+                families["synthetic_fertilizer_excess_total"] = {
+                    "weighted": w_syn_excess,
+                    "share_%": share(w_syn_excess),
+                    "weight": float(W_SYN),
+                    "components": {
+                        "crops_weighted": comp_crops,
+                        "grasslands_weighted": comp_grass,
+                    },
+                    "normalizer": {
+                        "th_crops(ktN)": float(th_crops) if th_crops else 0.0,
+                        "th_grass(ktN)": float(th_grass) if th_grass else 0.0,
+                    },
+                }
+
+                W_DIS = (
+                    float(self.df_global.loc["Weight synthetic distribution", "value"])
+                    if "Weight synthetic distribution" in self.df_global.index
+                    else 0.0
+                )
+                families["synthetic_distribution_total"] = {
+                    "weighted": w_syn_distribution,
+                    "share_%": share(w_syn_distribution),
+                    "weight": float(W_DIS),
+                    "note": "Somme des déviations relatives |f - F*|/F* via variables dev+ / dev-.",
+                }
+
+            # ------------------------------- Rapport ------------------------------
             solver_info = {
                 "status_code": prob.status,
                 "status": LpStatus.get(prob.status, "Unknown"),
             }
+
+            weights_used = {
+                "Weight diet": float(poids_penalite_deviation),
+                "Weight distribution": float(poids_penalite_culture),
+                "Weight fair local split": float(w_fair),
+                "Weight import brut": float(poids_import_brut),
+                "Weight energy inputs": float(W_ENERGY_INPUT),
+                "Weight energy production": float(W_ENERGY_PROD),
+            }
+            if self.prospective:
+                weights_used.update(
+                    {
+                        "Weight synthetic fertilizer": float(
+                            self.df_global.loc["Weight synthetic fertilizer", "value"]
+                        )
+                        if "Weight synthetic fertilizer" in self.df_global.index
+                        else 0.0,
+                        "Weight synthetic distribution": float(
+                            self.df_global.loc["Weight synthetic distribution", "value"]
+                        )
+                        if "Weight synthetic distribution" in self.df_global.index
+                        else 0.0,
+                    }
+                )
+
+            sanity_terms = [
+                share(w_diet),
+                share(w_cult),
+                share(w_import),
+                share(w_fair),
+                share(w_energy_inputs),
+                share(w_energy_prod),
+            ]
+            if self.prospective:
+                sanity_terms += [share(w_syn_excess), share(w_syn_distribution)]
+
             report = {
                 "solver": solver_info,
                 "objective_total": obj_val,
                 "families": families,
-                "weights_used": {
-                    "Weight diet": float(poids_penalite_deviation),
-                    "Weight distribution": float(poids_penalite_culture),
-                    "Weight fair local split": float(w_fair),
-                    "Weight import brut": float(poids_import_brut),
-                    "Weight energy inputs": float(W_ENERGY_INPUT),
-                    "Weight energy production": float(W_ENERGY_PROD),
-                },
+                "weights_used": weights_used,
                 "sanity": {
-                    "sum_shares_%": sum(
-                        s
-                        for s in [
-                            share(w_dev),
-                            share(w_cult),
-                            share(w_import),
-                            share(w_fair_tot),
-                            share(w_einputs),
-                            share(w_eprod),
-                        ]
-                        if s is not None
-                    )
+                    "sum_shares_%": sum(s for s in sanity_terms if s is not None)
                 },
             }
+
             pprint.pp(report, sort_dicts=False)
 
         # Warning si un élément de la diète des energy facilities n'a pas de pouvoir énergétique
