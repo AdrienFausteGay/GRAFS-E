@@ -763,11 +763,19 @@ with tab5:
 @st.cache_resource(show_spinner="Running GRAFS-E over all territories...")
 def run_models_for_all_years(region, _data_loader):
     models = {}
+    failed_years = []  # <- on garde la liste des années qui plantent
+
     for year in st.session_state.available_years:
+        # votre exception spéciale :
         if str(year) == "1852" and region == "Savoie":
             continue
-        models[str(year)] = NitrogenFlowModel(data=_data_loader, area=region, year=year)
-    return models
+        try:
+            models[str(year)] = NitrogenFlowModel(data=_data_loader, area=region, year=year)
+        except Exception as e:
+            failed_years.append((year, str(e)))  # on mémorise l’erreur
+            continue
+
+    return models, failed_years
 
 
 # =========================================================
@@ -1040,65 +1048,68 @@ def plot_stacked_series(
 
 
 # =========================================================
-# 5) UI - onglet historique
+# 5) UI - onglet historique 
 # =========================================================
 with tab6:
     st.title("Historic evolution of agrarian landscape")
-    st.text(
-        "Discover how agriculture changes over time. Choose a metric and a territory:"
-    )
+    st.text("Discover how agriculture changes over time. Choose a metric and a territory:")
 
     if not st.session_state.dataloader:
-        st.warning(
-            "⚠️ Please upload project and data files first in the 'Data Uploading' tab."
-        )
+        st.warning("⚠️ Please upload project and data files first in the 'Data Uploading' tab.")
     else:
-        # Sélecteurs
         available_regions = st.session_state.get("available_regions") or [
             st.session_state.get("region", "France")
         ]
-        region = st.selectbox(
-            "Select an area", available_regions, index=0, key="hist_area_selection"
-        )
-
-        metric = st.selectbox(
-            "Select a metric", SUPPORTED_METRICS, index=0, key="hist_metric_selection"
-        )
+        region = st.selectbox("Select an area", available_regions, index=0, key="hist_area_selection")
+        metric = st.selectbox("Select a metric", SUPPORTED_METRICS, index=0, key="hist_metric_selection")
 
         if st.button("Run", key="map_button_hist"):
             with st.spinner("🚀 Running models and calculating metrics..."):
-                models = run_models_for_all_years(region, st.session_state.dataloader)
+                models, failed_years = run_models_for_all_years(region, st.session_state.dataloader)
 
-                years_tuple = tuple(sorted(models.keys()))
-                metrics_over_years = compute_metrics_over_years(
-                    models,
-                    metric,
-                    cache_key=(region, metric, years_tuple),
-                )
+                # Avertir si certaines années ont échoué
+                if failed_years:
+                    txt = ", ".join([str(y) for (y, _) in failed_years])
+                    st.warning(f"⚠️ The following years failed and were skipped: {txt}")
 
-                # Scalaires vs séries
-                sample_val = next(iter(metrics_over_years.values()))
-                title = f"{metric} — {region}"
-
-                if isinstance(sample_val, (int, float, np.floating)):
-                    plot_scalar_timeseries(metrics_over_years, title, metric)
-                elif isinstance(sample_val, pd.Series):
-                    allow_negative = metric == "Environmental Footprint"
+                if not models:
+                    st.error("No model could be built for the selected region.")
+                else:
+                    years_tuple = tuple(sorted(models.keys()))
                     try:
-                        plot_stacked_series(
-                            metrics_over_years,
-                            title,
+                        metrics_over_years = compute_metrics_over_years(
+                            models,
                             metric,
-                            allow_negative=allow_negative,
+                            cache_key=(region, metric, years_tuple),
                         )
                     except Exception as e:
-                        st.error(f"Plot failed for '{metric}': {e}")
-                        st.info(
-                            "Tip: ensure the model method returns a pandas.Series (index = categories)."
-                        )
-                else:
-                    st.warning("Selected metric returned no data.")
+                        st.error(f"Metric computation failed: {e}")
+                        st.stop()
 
+                    # Sécurité si aucun résultat exploitable
+                    if not metrics_over_years:
+                        st.warning("No metrics were produced.")
+                        st.stop()
+
+                    sample_val = next(iter(metrics_over_years.values()), None)
+                    title = f"{metric} — {region}"
+
+                    if isinstance(sample_val, (int, float, np.floating)):
+                        plot_scalar_timeseries(metrics_over_years, title, metric)
+                    elif isinstance(sample_val, pd.Series):
+                        allow_negative = metric == "Environmental Footprint"
+                        try:
+                            plot_stacked_series(
+                                metrics_over_years,
+                                title,
+                                metric,
+                                allow_negative=allow_negative,
+                            )
+                        except Exception as e:
+                            st.error(f"Plot failed for '{metric}': {e}")
+                            st.info("Tip: ensure the model method returns a pandas.Series (index = categories).")
+                    else:
+                        st.warning("Selected metric returned no data.")
 
 # # 📌 Stocker et récupérer les modèles pour chaque région en cache
 # @st.cache_resource(show_spinner="Running GRAFS-E over regions...")
