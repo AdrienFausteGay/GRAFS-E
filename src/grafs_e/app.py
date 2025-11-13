@@ -1048,7 +1048,7 @@ def plot_stacked_series(
 
 
 # =========================================================
-# 5) UI - onglet historique
+# 5) UI - onglet historique 
 # =========================================================
 with tab6:
     st.title("Historic evolution of agrarian landscape")
