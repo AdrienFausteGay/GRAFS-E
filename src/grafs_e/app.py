@@ -54,20 +54,62 @@ st.set_page_config(
 # label_to_index = data.label_to_index
 
 # Initialisation de l'état des variables
-for k, v in {
-    "project": None,
-    "data": None,
-    "dataloader": None,
-    "model": None,
-    "available_years": None,
-    "available_regions": None,
-    "name": None,
-    "year": None,
-    "year_run": None,
-    "selected_region": None,
-    "region_run": None,
-}.items():
-    st.session_state.setdefault(k, v)
+if "project" not in st.session_state:
+    for k, v in {
+        "project": None,
+        "data": None,
+        "dataloader": None,
+        "model": None,
+        "available_years": None,
+        "available_regions": None,
+        "name": None,
+        "year": None,
+        "year_run": None,
+        "selected_region": None,
+        "region_run": None,
+        # Clés utilisées pour l'upload (doivent être réinitialisées)
+        "project_path": None,
+        "data_path": None,
+        "project_name": None,
+        "data_name": None,
+        "files_loaded": False,
+        "load_error": None,
+        "success_message": None,
+    }.items():
+        st.session_state.setdefault(k, v)
+
+
+def clear_all_variables():
+    """Réinitialise toutes les variables de st.session_state à leur état initial."""
+
+    # Définir l'état initial des clés concernées (inclut les clés d'upload/messages)
+    initial_state = {
+        "project": None,
+        "data": None,
+        "dataloader": None,
+        "model": None,
+        "available_years": None,
+        "available_regions": None,
+        "name": None,
+        "year": None,
+        "year_run": None,
+        "selected_region": None,
+        "region_run": None,
+        "project_path": None,
+        "data_path": None,
+        "project_name": None,
+        "data_name": None,
+        "files_loaded": False,
+        "load_error": None,
+        "success_message": None,
+    }
+
+    # Réinitialiser les clés spécifiées
+    for key in initial_state:
+        if key in st.session_state:
+            st.session_state[key] = initial_state[key]
+
+
 # %%
 # Initialisation de l'interface Streamlit
 st.title("GRAFS-E")
@@ -253,8 +295,10 @@ with tab2:
     if st.session_state.files_loaded:
         # Affiche le message formaté récupéré de st.session_state
         st.success(st.session_state.success_message)
+        st.button("🔴 Clear All Data and Cache", on_click=clear_all_variables)
     elif st.session_state.get("load_error"):
         st.error(st.session_state.load_error)
+        st.button("🔴 Clear All Data and Cache", on_click=clear_all_variables)
 
 with tab3:
     st.title("Run GRAFS-E")
@@ -277,6 +321,11 @@ with tab3:
         st.session_state.year_run = st.selectbox(
             "Select a year", st.session_state.available_years, index=0
         )
+
+        # Selection du mode prospectif
+        mode_prospective = st.toggle(
+            "Forecast mode", value=False, key="prospective_mode"
+        )  # True = sans merge
 
         # ✅ Affichage des sélections (se met à jour dynamiquement)
         if st.session_state.region_run:
@@ -305,6 +354,7 @@ with tab3:
                     data=st.session_state.dataloader,
                     area=st.session_state.region,
                     year=st.session_state.year,
+                    prospective=mode_prospective,
                 )
 
                 # ✅ Générer la heatmap et la stocker
@@ -315,7 +365,7 @@ with tab3:
                 )
 
         # 🔹 Indépendance de l'affichage de la heatmap 🔹
-        if "heatmap_fig" in st.session_state:
+        if st.session_state.get("heatmap_fig") and st.session_state.get("model"):
             if st.session_state.model:
                 st.text(
                     f"Total Throughflow : {np.round(st.session_state.model.get_transition_matrix().sum(), 1)} ktN/yr."
@@ -713,11 +763,19 @@ with tab5:
 @st.cache_resource(show_spinner="Running GRAFS-E over all territories...")
 def run_models_for_all_years(region, _data_loader):
     models = {}
+    failed_years = []  # <- on garde la liste des années qui plantent
+
     for year in st.session_state.available_years:
+        # votre exception spéciale :
         if str(year) == "1852" and region == "Savoie":
             continue
-        models[str(year)] = NitrogenFlowModel(data=_data_loader, area=region, year=year)
-    return models
+        try:
+            models[str(year)] = NitrogenFlowModel(data=_data_loader, area=region, year=year)
+        except Exception as e:
+            failed_years.append((year, str(e)))  # on mémorise l’erreur
+            continue
+
+    return models, failed_years
 
 
 # =========================================================
@@ -990,65 +1048,68 @@ def plot_stacked_series(
 
 
 # =========================================================
-# 5) UI - onglet historique
+# 5) UI - onglet historique 
 # =========================================================
 with tab6:
     st.title("Historic evolution of agrarian landscape")
-    st.text(
-        "Discover how agriculture changes over time. Choose a metric and a territory:"
-    )
+    st.text("Discover how agriculture changes over time. Choose a metric and a territory:")
 
     if not st.session_state.dataloader:
-        st.warning(
-            "⚠️ Please upload project and data files first in the 'Data Uploading' tab."
-        )
+        st.warning("⚠️ Please upload project and data files first in the 'Data Uploading' tab.")
     else:
-        # Sélecteurs
         available_regions = st.session_state.get("available_regions") or [
             st.session_state.get("region", "France")
         ]
-        region = st.selectbox(
-            "Select an area", available_regions, index=0, key="hist_area_selection"
-        )
-
-        metric = st.selectbox(
-            "Select a metric", SUPPORTED_METRICS, index=0, key="hist_metric_selection"
-        )
+        region = st.selectbox("Select an area", available_regions, index=0, key="hist_area_selection")
+        metric = st.selectbox("Select a metric", SUPPORTED_METRICS, index=0, key="hist_metric_selection")
 
         if st.button("Run", key="map_button_hist"):
             with st.spinner("🚀 Running models and calculating metrics..."):
-                models = run_models_for_all_years(region, st.session_state.dataloader)
+                models, failed_years = run_models_for_all_years(region, st.session_state.dataloader)
 
-                years_tuple = tuple(sorted(models.keys()))
-                metrics_over_years = compute_metrics_over_years(
-                    models,
-                    metric,
-                    cache_key=(region, metric, years_tuple),
-                )
+                # Avertir si certaines années ont échoué
+                if failed_years:
+                    txt = ", ".join([str(y) for (y, _) in failed_years])
+                    st.warning(f"⚠️ The following years failed and were skipped: {txt}")
 
-                # Scalaires vs séries
-                sample_val = next(iter(metrics_over_years.values()))
-                title = f"{metric} — {region}"
-
-                if isinstance(sample_val, (int, float, np.floating)):
-                    plot_scalar_timeseries(metrics_over_years, title, metric)
-                elif isinstance(sample_val, pd.Series):
-                    allow_negative = metric == "Environmental Footprint"
+                if not models:
+                    st.error("No model could be built for the selected region.")
+                else:
+                    years_tuple = tuple(sorted(models.keys()))
                     try:
-                        plot_stacked_series(
-                            metrics_over_years,
-                            title,
+                        metrics_over_years = compute_metrics_over_years(
+                            models,
                             metric,
-                            allow_negative=allow_negative,
+                            cache_key=(region, metric, years_tuple),
                         )
                     except Exception as e:
-                        st.error(f"Plot failed for '{metric}': {e}")
-                        st.info(
-                            "Tip: ensure the model method returns a pandas.Series (index = categories)."
-                        )
-                else:
-                    st.warning("Selected metric returned no data.")
+                        st.error(f"Metric computation failed: {e}")
+                        st.stop()
 
+                    # Sécurité si aucun résultat exploitable
+                    if not metrics_over_years:
+                        st.warning("No metrics were produced.")
+                        st.stop()
+
+                    sample_val = next(iter(metrics_over_years.values()), None)
+                    title = f"{metric} — {region}"
+
+                    if isinstance(sample_val, (int, float, np.floating)):
+                        plot_scalar_timeseries(metrics_over_years, title, metric)
+                    elif isinstance(sample_val, pd.Series):
+                        allow_negative = metric == "Environmental Footprint"
+                        try:
+                            plot_stacked_series(
+                                metrics_over_years,
+                                title,
+                                metric,
+                                allow_negative=allow_negative,
+                            )
+                        except Exception as e:
+                            st.error(f"Plot failed for '{metric}': {e}")
+                            st.info("Tip: ensure the model method returns a pandas.Series (index = categories).")
+                    else:
+                        st.warning("Selected metric returned no data.")
 
 # # 📌 Stocker et récupérer les modèles pour chaque région en cache
 # @st.cache_resource(show_spinner="Running GRAFS-E over regions...")
