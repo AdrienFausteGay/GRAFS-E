@@ -209,7 +209,10 @@ Here is the data related to **products**:
 | `Nitrogen Content (%)` | ✔ / ✔ | % | 0–100 | — | Used for ktN conversions and energy power per ktN. |
 | `Waste (%)` | ✔ / ✔ | % | 0–100 | 0 | Loss before allocation. |
 | `Other uses (%)` | ✔ / ✔ | % | 0–100 | 0 | Non food/energy uses removed from availability. |
+| `Production (kton)` | ✔ / — | kton FW | ≥ 0 | — | Product production in kilo ton |
 | `Co-Production Ratio (%)` | — / ✔ | % | 0–100 | — | Prospective-only: fresh-mass share by co-product. 100 if main product of the crop, other value if co-production (straw, oil, cake...)|
+
+> `Waste (%)` and `Other uses (%)` are used to compute Available Nitrogen for allocation model. The sum of these proportion must be below 100 %.
 
 #### Product Typology
 
