@@ -750,7 +750,7 @@ class DataLoader:
 
         weight_diet = global_df.loc["Weight diet", "value"]
         weight_import = global_df.loc["Weight import", "value"]
-        non_zero_weights = [w for w in [weight_diet, weight_import] if w > 0]
+        non_zero_weights = [w for w in [weight_diet, weight_import] if w > 0] + [0]
         # Weight distribution is given in option and can be computed from other weights
         if "Weight distribution" not in global_df.index:
             global_df.loc["Weight distribution", "value"] = min(non_zero_weights) / 10
@@ -3730,20 +3730,14 @@ class NitrogenFlowModel:
                         # La variable n'existe pas, on ignore l'ajout des contraintes
                         pass
 
-        # (Option MILP) binaire no-swap import/surplus par produit
+        # (Option MILP) binaire no-swap import/surplus par produit — formulation stricte
         use_milp_no_swap = True  # mets False pour rester LP 100%
         if use_milp_no_swap:
+            # binaire par produit : 1 => mode "import" (I>0 autorisé, U=0), 0 => mode "surplus" (U>0 autorisé, I=0)
             y_vars = LpVariable.dicts("y", list(df_prod.index), 0, 1, cat="Binary")
 
-            # bornes naturelles
-            if getattr(self, "prospective", False):
-                M_sur = {
-                    p: self._available_expr(p) for p in df_prod.index
-                }  # peut être une expression LP
-            else:
-                M_sur = {p: float(self._available_expr(p)) for p in df_prod.index}
-
-            # besoin max importable par produit p (constantes)
+            # --------- 1) Besoin max importable par produit p (constantes) ----------
+            # (consommateurs + infrastructures énergie capables d’utiliser p)
             M_imp = {}
             for p in df_prod.index:
                 # consommateurs
@@ -3752,8 +3746,7 @@ class NitrogenFlowModel:
                     for c in df_cons.index
                     if p in all_cultures_regime.get(c, set())
                 )
-
-                # énergie
+                # énergie (via cibles et conversion MWh/ktN, si la fac peut utiliser p)
                 energy_need = 0.0
                 for fac in df_energy.index:
                     fac_has_p = any(
@@ -3768,11 +3761,10 @@ class NitrogenFlowModel:
                             conv = self._conv_MWh_per_ktN(fac, p)  # MWh/ktN
                             if conv > 0:
                                 energy_need += (target_gwh * 1000.0) / conv
+                M_imp[p] = cons_need + energy_need + 1e-6  # Big-M import
 
-                M_imp[p] = cons_need + energy_need + 1e-6
-
-            # agrégat imports totaux pour p (consommateurs + énergie)
-            def I_total_p(p):
+            # --------- 2) Agrégat des imports (consommateurs + énergie) -------------
+            def I_total_p(p: str):
                 return lpSum(
                     I_vars[(p, c)] for c in df_cons.index if (p, c) in I_vars
                 ) + lpSum(
@@ -3781,51 +3773,68 @@ class NitrogenFlowModel:
                     if (p, fac) in I_energy_vars
                 )
 
+            # --------- 3) Big-M constant sur le surplus possible --------------------
+            # Borne CONSTANTE >= surplus maximal plausible (prospectif compatible).
+            # - Historique / produits animaux : dispo historique.
+            # - Prospectif / végétal : Ymax*Area -> ktFW, *N%, *co-prod, *(1-waste-other).
+            def _surplus_upperbound_const(p: str) -> float:
+                try:
+                    is_animal = str(df_prod.at[p, "Type"]).strip().lower() == "animal"
+                    if (not getattr(self, "prospective", False)) or is_animal:
+                        base = float(
+                            df_prod.at[p, "Available Nitrogen Production (ktN)"] or 0.0
+                        )
+                        return max(1e-6, base, M_imp.get(p, 0.0))
+                    # végétal en mode prospectif
+                    c = df_prod.at[p, "Origin compartment"]  # index culture
+                    Ymax_tFW_ha = float(
+                        self.df_cultures.at[c, "Maximum Yield (tFW/ha)"]
+                    )
+                    Area_ha = float(self.df_cultures.at[c, "Area (ha)"])
+                    Npct = (
+                        float(df_prod.at[p, "Nitrogen Content (%)"]) / 100.0
+                        if "Nitrogen Content (%)" in df_prod.columns
+                        else 0.0
+                    )
+                    copct = (
+                        float(df_prod.at[p, "Co-Production Ratio (%)"]) / 100.0
+                        if "Co-Production Ratio (%)" in df_prod.columns
+                        else 1.0
+                    )
+                    waste = (
+                        float(df_prod.at[p, "Waste (%)"]) / 100.0
+                        if "Waste (%)" in df_prod.columns
+                        else 0.0
+                    )
+                    other = (
+                        float(df_prod.at[p, "Other uses (%)"]) / 100.0
+                        if "Other uses (%)" in df_prod.columns
+                        else 0.0
+                    )
+                    # tFW -> ktFW : /1000 ; puis * N% ; puis * co-pro ; puis (1 - waste - other)
+                    ub = (
+                        (Ymax_tFW_ha * Area_ha / 1000.0)
+                        * Npct
+                        * copct
+                        * max(0.0, 1.0 - waste - other)
+                    )
+                    if not (ub > 0.0 and math.isfinite(ub)):
+                        ub = 0.0
+                    # au minimum la demande totale pour ne pas bloquer
+                    return max(1e-6, ub, M_imp.get(p, 0.0))
+                except Exception:
+                    # fallback robuste : au moins la demande
+                    return max(1.0, M_imp.get(p, 0.0))
+
+            M_sur_max = {p: _surplus_upperbound_const(p) for p in df_prod.index}
+
+            # --------- 4) Contraintes "either-or" strictes --------------------------
             for p in df_prod.index:
-                # 1) contrainte import quand y=1
+                # Si y_p = 1 (mode import)  -> autorise imports (≤ M_imp), force U_p = 0
                 prob += I_total_p(p) <= M_imp[p] * y_vars[p], f"NoSwap_I_{p}"
-
-                # 2) contrainte surplus U_vars selon prospective ou historique
-                # calculer les facteurs numériques (waste/other)
-                waste = (
-                    float(df_prod.at[p, "Waste (%)"]) / 100.0
-                    if "Waste (%)" in df_prod.columns
-                    else 0.0
-                )
-                other = (
-                    float(df_prod.at[p, "Other uses (%)"]) / 100.0
-                    if "Other uses (%)" in df_prod.columns
-                    else 0.0
-                )
-                factor = 1.0 - waste - other
-
-                if getattr(self, "prospective", False) and p in self._pros_vars.get(
-                    "Q_p", {}
-                ):
-                    # Q_p est une variable LP ; on impose:
-                    #  A) U_p <= factor * Q_p    (liaison physique)
-                    #  B) U_p <= M_const * (1 - y_p)   (quand y=1 -> U<=0)
-                    Qp = self._pros_vars["Q_p"][p]  # LpVariable
-                    # déterminer une borne numérique sur factor * Qp (big-M)
-                    # préférence: chercher une colonne "Nitrogen Production (ktN)" ou utiliser M_imp comme fallback
-                    if "Nitrogen Production (ktN)" in df_prod.columns:
-                        Qp_ub = float(df_prod.at[p, "Nitrogen Production (ktN)"])
-                    else:
-                        # fallback raisonnable : utiliser la demande + énergie (M_imp) comme borne
-                        Qp_ub = M_imp.get(p, 1e6)
-
-                    M_const = max(
-                        1e-6, factor * Qp_ub + 1e-6
-                    )  # borne numérique >= possible factor*Qp
-
-                    # A) limite physique (expression LP autorisée à apparaître, pas de multiplication par binaire)
-                    prob += U_vars[p] <= factor * Qp, f"NoSwap_U_phys_{p}"
-
-                    # B) blocage quand y == 1 (multiplie uniquement une constante par le binaire)
-                    prob += U_vars[p] <= M_const * (1 - y_vars[p]), f"NoSwap_U_bin_{p}"
-                else:
-                    # historique / non-prospective : M_sur[p] est un float, on peut garder la forme d'origine
-                    prob += U_vars[p] <= M_sur[p] * (1 - y_vars[p]), f"NoSwap_U_{p}"
+                prob += U_vars[p] <= M_sur_max[p] * (1 - y_vars[p]), f"NoSwap_U_{p}"
+                # => y_p = 1  ⇒  U_p ≤ 0  (car (1 - y_p)=0) ; y_p = 0  ⇒  I_total_p ≤ 0.
+                # Pas de produit binaire × expression : M_sur_max et M_imp sont des constantes.
 
         # prob.writeLP("model.lp")
 
