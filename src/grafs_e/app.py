@@ -338,42 +338,44 @@ with tab3:
         else:
             st.warning("⚠️ Please select a Year")
 
-        # 🟢 Fonction pour générer la heatmap et éviter les recalculs inutiles
-        @st.cache_data
-        def generate_heatmap(_model):
+        # 🟢 Fonction pour générer la heatmap (SANS cache pour éviter stale fig)
+        def generate_heatmap(_model, detailed):
             _model = copy.deepcopy(_model)
-            return _model.plot_heatmap_interactive()
+            return _model.plot_heatmap_interactive(
+                detailed_view=detailed,
+                group_axes=not detailed,          # agrège uniquement quand on N'EST PAS en detailed
+                legend_max_rows='auto'
+            )
 
-        # 🔹 Bouton "Run" avec les valeurs mises à jour
+
+        # ✅ Detailed view TOUJOURS visible (hors du bouton)
+        detailed_heat = st.checkbox("Detailed view (heatmap)", value=st.session_state.get("heatmap_detailed", False), key="heatmap_detailed")
+
+        # ✅ Placeholder unique et persistant
+        if "heatmap_slot" not in st.session_state:
+            st.session_state.heatmap_slot = st.empty()
+
         if st.button("Run"):
             st.session_state.region = st.session_state.region_run
-            st.session_state.year = st.session_state.year_run
+            st.session_state.year   = st.session_state.year_run
             if st.session_state.region and st.session_state.year:
-                # Initialiser le modèle avec les paramètres
                 st.session_state.model = NitrogenFlowModel(
                     data=st.session_state.dataloader,
                     area=st.session_state.region,
                     year=st.session_state.year,
                     prospective=mode_prospective,
                 )
-
-                # ✅ Générer la heatmap et la stocker
-                st.session_state.heatmap_fig = generate_heatmap(st.session_state.model)
             else:
-                st.warning(
-                    "❌ Please select a year and a region before visiting 'Sankey' and 'Detailed data' tabs."
-                )
+                st.warning("❌ Please select a year and a region before visiting 'Sankey' and 'Detailed data' tabs.")
 
-        # 🔹 Indépendance de l'affichage de la heatmap 🔹
-        if st.session_state.get("heatmap_fig") and st.session_state.get("model"):
-            if st.session_state.model:
-                st.text(
-                    f"Total Throughflow : {np.round(st.session_state.model.get_transition_matrix().sum(), 1)} ktN/yr."
-                )
-            st.subheader(
-                f"Heatmap of the nitrogen flows for {st.session_state.region} in {st.session_state.year}"
-            )
-            st.plotly_chart(st.session_state.heatmap_fig, use_container_width=True)
+        # 🔹 Mise à jour AUTOMATIQUE si modèle déjà là et que l’utilisateur coche/décoche le detailed
+        if st.session_state.get("model"):
+            # Recalcul à chaque rerun si detailed change (pas de cache = simple et robuste)
+            st.session_state.heatmap_fig = generate_heatmap(st.session_state.model, detailed=st.session_state.heatmap_detailed)
+            st.session_state.heatmap_slot.plotly_chart(st.session_state.heatmap_fig, use_container_width=True)
+
+            st.text(f"Total Throughflow : {np.round(st.session_state.model.get_transition_matrix().sum(), 1)} ktN/yr.")
+            st.subheader(f"Heatmap of the nitrogen flows for {st.session_state.region} in {st.session_state.year}")
 
             # Bouton pour télécharger la matrice
             # ───── Création du DataFrame à partir de la matrice ──────────
@@ -821,7 +823,7 @@ def _crop_production_series(_model, relative: bool) -> pd.Series:
         return pd.Series(dtype=float)
 
     s = (
-        _model.df_cultures.groupby("Category")["Total Nitrogen Production (ktN)"]
+        _model.df_cultures.groupby("Category")["Harvested Production (ktN)"]
         .sum()
         .sort_values(ascending=False)
     )
