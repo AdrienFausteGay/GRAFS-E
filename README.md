@@ -1,8 +1,8 @@
-# GRAFS-Extended: Comprehensive Analysis of Nitrogen Flux in Agricultural Systems
+# E-GRAFS: Comprehensive Analysis of Nitrogen Flux in Agricultural Systems
 
 ## Overview
 
-The GRAFS-extended model serves as an advanced tool designed to analyze and map the evolution of nitrogen utilization within agricultural systems, with a particular focus on 33 regions of France from 1852 to 2014. This model builds upon the GRAFS/PVAR framework and integrates graph theory to provide a detailed analysis of nitrogen flows in agriculture, identifying key patterns, transformations, and structural invariants. The model enables researchers to construct robust prospective scenarios and examine the global structure of nitrogen flows in agricultural ecosystems.
+The E-GRAFS (Extended-General Representation of Agro-Food System) model serves as an advanced tool designed to analyze and map the evolution of nitrogen utilization within agricultural systems, with a particular focus on 33 regions of France from 1852 to 2014. This model builds upon the GRAFS/PVAR framework and integrates graph theory to provide a detailed analysis of nitrogen flows in agriculture, identifying key patterns, transformations, and structural invariants. The model enables researchers to construct robust prospective scenarios and examine the global structure of nitrogen flows in agricultural ecosystems.
 
 ## 🚀 How to Run the Model
 
@@ -17,7 +17,7 @@ To run the model, follow these steps:
 2. **Launch the interface** with the following command:
 
    ```bash
-   grafs-e
+   E-GRAFS
    ```
 
 ## Features
@@ -37,7 +37,7 @@ The GRAFS model is designed to encapsulate the nitrogen utilization process in a
 
 ### Network Analysis
 
-The GRAFS-extended model creates a transition matrix for nitrogen flows between various categories. It utilizes network theory to analyze critical nodes, resilience, and structural invariants. Flow probability distributions are also studied to assess the concentration and specialization of agricultural activities.
+The E-GRAFS model creates a transition matrix for nitrogen flows between various categories. It utilizes network theory to analyze critical nodes, resilience, and structural invariants. Flow probability distributions are also studied to assess the concentration and specialization of agricultural activities.
 
 ## Results
 
@@ -50,7 +50,7 @@ The model generates extensive transition matrices representing nitrogen flows be
 
 ## Usage
 
-To replicate the results or analyze other regions using the GRAFS-extended model, ensure the following data are available:
+To replicate the results or analyze other regions using the E-GRAFS model, ensure the following data are available:
 
 - Crops: Cultivated area, production volume, nitrogen content, and nitrogen fixation coefficients.
 - Livestock: Number of animals, nitrogen excreted, and dietary composition.

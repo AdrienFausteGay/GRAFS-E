@@ -1,6 +1,6 @@
-# GRAFS-E Methodology
+# E-GRAFS Methodology
 
-This document details the **nitrogen mechanisms** of GRAFS-E with explicit **assumptions** and **rationale for the chosen formulations**. We distinguish features that apply to **Historical [H]**, **Prospective [P]**, or **Both [B]**. Carbon is documented elsewhere.
+This document details the **nitrogen mechanisms** of E-GRAFS with explicit **assumptions** and **rationale for the chosen formulations**. We distinguish features that apply to **Historical [H]**, **Prospective [P]**, or **Both [B]**. Carbon is documented elsewhere.
 In prospective mode, production in endogenized. In Historic mode, the production is an input data.
 
 ## Notation
@@ -64,7 +64,7 @@ All human excretion which is neither volatilized or recycled is lost in hydro-sy
 
 ### Animal excretion [B]
 
-GRAFS-E manage 3 kind of excretion managments : manure, slurry and grasslands excretion. Excreta production uses livestock units (LU), excretion factors per LU and indoor/outdoor splits to form the **streams** (e.g., manure, slurry, pasture excretion).
+E-GRAFS manage 3 kind of excretion managments : manure, slurry and grasslands excretion. Excreta production uses livestock units (LU), excretion factors per LU and indoor/outdoor splits to form the **streams** (e.g., manure, slurry, pasture excretion).
 
 Each stream $e$ is assigned aggregated emission factors; the **effective** ktN that can be spread or sent to energy is:
 ```{math}
@@ -74,7 +74,7 @@ E^{\mathrm{eff}}_{e} \;=\; E_{e}\,\bigl(1 - k^{e}_{\mathrm{NH3}} - k^{e}_{\mathr
 #### Animal indoor excretion
 
 The mecanisms for indoor animal excretion are very similar than human excretion. The same distribution is used for manure and slurry spreading ('Spreading rate (%)' input data).
-Two indoor excretion managments are considered in GRAFS-E : slurry and manure. Their have the same mecanisms but with differents technical coefficients. Manure has its own volatilization coefficient, as slurry. 
+Two indoor excretion managments are considered in E-GRAFS : slurry and manure. Their have the same mecanisms but with differents technical coefficients. Manure has its own volatilization coefficient, as slurry. 
 Another difference with human excretion is that there is no losses in hydro-system compartment. All available manure and slurry is used on crops after volatilization.
 
 #### Animal excretion on grasslands
@@ -149,7 +149,7 @@ The flows get after the normalization are called 'Adjusted Total Synthetic Ferti
 
 #### Volatilization Losses
 
-In addition to flows from Haber-Bosch process to crops, GRAFS-E compute Nitrogen leaks from crops to atmospheric ammoniac and nitrous oxyde. These flows are computed using 'coefficient N-NH3 volatilization synthetic fertilization (%)' and 'coefficient N-N2O volatilization synthetic fertilization (%)' input data.
+In addition to flows from Haber-Bosch process to crops, E-GRAFS compute Nitrogen leaks from crops to atmospheric ammoniac and nitrous oxyde. These flows are computed using 'coefficient N-NH3 volatilization synthetic fertilization (%)' and 'coefficient N-N2O volatilization synthetic fertilization (%)' input data.
 
 #### $N_2$ and the Haber–Bosch compartment
 

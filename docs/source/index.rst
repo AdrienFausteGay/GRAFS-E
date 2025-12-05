@@ -2,20 +2,20 @@ GRAFS-E 1.0 — Specification
 ============================
 
 .. image:: _static/logo.jpg
-   :alt: GRAFS-E Logo
+   :alt: E-GRAFS Logo
    :width: 300px
    :align: center
 
 .. admonition:: Status of this document
    :class: note
 
-   This is the **normative** specification for GRAFS-E v1.0 (tag ``v1.0.0``).
+   This is the **normative** specification for E-GRAFS v1.0 (tag ``v1.0.0``).
 
-**GRAFS-E** (Generalized Representation of Agri-Food Systems — Extended) is a flexible, open-source Python model.
+**E-GRAFS** (Generalized Representation of Agri-Food Systems — Extended) is a flexible, open-source Python model.
 Version **1.0** covers **nitrogen** at annual resolution; **carbon, energy and other flows** are under active development.
 
 You can access the User Online Interface here:
-`grafs-e.streamlit.app <https://grafs-e.streamlit.app/>`_
+`e-grafs.streamlit.app <https://e-grafs.streamlit.app/>`_
 
 .. grid:: 1 2 2 2
    :gutter: 2
@@ -25,7 +25,7 @@ You can access the User Online Interface here:
       :link-type: doc
       :link: overview
 
-      Boundaries and Research question adressed by GRAFS-E
+      Boundaries and Research question adressed by E-GRAFS
 
       +++
 
@@ -50,12 +50,12 @@ You can access the User Online Interface here:
 
          To the user guide
 
-   .. grid-item-card:: GRAFS-E Engine
+   .. grid-item-card:: E-GRAFS Engine
       :class-card: sd-shadow-sm sd-rounded-2
       :link-type: doc
       :link: grafs-e-engine
       
-      Full description of GRAFS-E functionning
+      Full description of E-GRAFS mecanisms
 
       +++
 
@@ -70,7 +70,7 @@ You can access the User Online Interface here:
       :link-type: doc
       :link: C_layer
 
-      Presentation of the beta carbon layer of GRAFS-E
+      Carbon layer of E-GRAFS
 
       +++
 

@@ -1,6 +1,6 @@
 # Graphical Interface
 
-You can access the online interface here: **[grafs-e.streamlit.app](https://grafs-e.streamlit.app/)** 
+You can access the online interface here: **[E-GRAFS.streamlit.app](https://E-GRAFS.streamlit.app/)** 
 
 ---
 
@@ -53,13 +53,13 @@ fig.show()
 ## UI tour
 
 ### Documentation
-General description of GRAFS-E model and GRAFS-E UI.
+General description of E-GRAFS model and E-GRAFS UI.
 
 ### Data Uploading
 Upload project/data files formated as explained in Input section of the documentation. You will see load status.
 
-### Run GRAFS-E
-This tab allow you to run GRAFS-E model for a selected Area and Year. It displays the transition matrix after computation.
+### Run E-GRAFS
+This tab allow you to run E-GRAFS model for a selected Area and Year. It displays the transition matrix after computation.
 
 ### Sankey
 This tab display several types of sankeys. Each sankey has a toggle switch for detailed/global view. Detailed view mode projects flows from the transition matrix, global view merge the flow belonging to the same categories.

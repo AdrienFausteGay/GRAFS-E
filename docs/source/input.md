@@ -1,6 +1,6 @@
 # Input Data
 
-In this section, we describe the **input data** required for the proper functioning of **GRAFS-E**. Data can use several sources but must be coherent. If data are lacking, you can use defaut value or hypothesis. For example, if a crop production is unavailable, use crop area and mean crop productivity. The data is organized into two Excel files: one project spreadsheet and one data spreadsheet.
+In this section, we describe the **input data** required for the proper functioning of **E-GRAFS**. Data can use several sources but must be coherent. If data are lacking, you can use defaut value or hypothesis. For example, if a crop production is unavailable, use crop area and mean crop productivity. The data is organized into two Excel files: one project spreadsheet and one data spreadsheet.
 
 Names are **case-sensitive** and must match **exactly**.
 
@@ -27,7 +27,7 @@ The **project** file defines the basic structures for each category of data.
 ## Data Spreadsheet
 
 The **data** spreadsheet consists of tree sheets:
-1. **Input Data**: Details of data points for GRAFS-E
+1. **Input Data**: Details of data points for E-GRAFS
 2. **Diet**: Dietary distribution information for livestock and human populations
 3. **Energy power**: Potential of energy production from biomass in energy facilities
 
@@ -71,7 +71,7 @@ This indicates that consumers with the diet `b_2023_fr` consume:
 
 If for a Diet ID the sum of proportions is not 1, the proportion values are normalized.
 
-For each consummers (population, livestock and methanizer), a diet ID must be given as Diet category in "Input data" tab of data file. Give the same diet for all territories for all year to a specific consummer is a valid use of GRAFS-E because the model adapt itself to local production and import availabilities. The weight values `Weight import` and `Weight diet` of optimization model make the model adapt diet to local context or import products for consummers. Here an example of how to give the diet name of a consummer :
+For each consummers (population, livestock and methanizer), a diet ID must be given as Diet category in "Input data" tab of data file. Give the same diet for all territories for all year to a specific consummer is a valid use of E-GRAFS because the model adapt itself to local production and import availabilities. The weight values `Weight import` and `Weight diet` of optimization model make the model adapt diet to local context or import products for consummers. Here an example of how to give the diet name of a consummer :
 | Area   | Year | category                  | item | value |
 | --------- | ---------- | ------------------------- | ----- | ----- |
 | France | 2023       | Diet    | bovines | b_2023_fr |
@@ -98,7 +98,7 @@ Example:
 
 ## Input Data
 
-In this section, we describe the **Input data** required for the proper functioning of **GRAFS-E**. The data can be provided by default in the project spreadsheet or in detail in the data spreadsheet (Input data tab). If there is a conflict for a given year and territory between a data point in the project spreadsheet and the data spreadsheet, the data spreadsheet takes precedence.
+In this section, we describe the **Input data** required for the proper functioning of **E-GRAFS**. The data can be provided by default in the project spreadsheet or in detail in the data spreadsheet (Input data tab). If there is a conflict for a given year and territory between a data point in the project spreadsheet and the data spreadsheet, the data spreadsheet takes precedence.
 
 For example, in the **crops** tab of the project spreadsheet, it is indicated that the nitrogen content of wheat is 2%. But in the data spreadsheet, it is indicated that in France in 2010, the nitrogen content of wheat is 3%, so the value retained for the calculations will be 3%.
 
@@ -131,7 +131,7 @@ Here are the required crop-related input data.
 | `Maximum Yield (tFW/ha)` | — / ✔ | tFW/ha | ≥ 0 | — | Prospective-only: Y_max of the yield curve. |
 | `Characteristic Fertilisation (kgN/ha)` | — / ✔ | kgN/ha | ≥ 0 | — | Prospective-only: Caracteristic total fertilization of the yield curve. |
 
-Some **Category** have special rules in GRAFS-E:
+Some **Category** have special rules in E-GRAFS:
 - **leguminous**: Leguminous crops are excluded from synthetic fertilizer distribution.
 - **natural meadows** and **temporary meadows**: These crops benefit from outdoor animal excretion. The input Nitrogen surplus is fully stocked in soil up to 100 kgN/ha. After, same tratment of crops.
 
@@ -142,7 +142,7 @@ The user can define as many additional categories as desired, but these will not
 - Fruits and Legumes
 - Rice
 
-Fertilization input can be given by a mix of [**Fertilization Need (kgN/qtl)** and **Surface Fertilization Need (kgN/ha)**] or with **Raw Surface Synthetic Fertilizer Use (kgN/ha)** for all crops. Using **Fertilization Need (kgN/qtl)** and **Surface Fertilization Need (kgN/ha)** will compute a Nitrogen balance on crops but using **Raw Surface Synthetic Fertilizer Use (kgN/ha)** will give a proxy for synthetic fertilizer use. See GRAFS-E engine page for more details.
+Fertilization input can be given by a mix of [**Fertilization Need (kgN/qtl)** and **Surface Fertilization Need (kgN/ha)**] or with **Raw Surface Synthetic Fertilizer Use (kgN/ha)** for all crops. Using **Fertilization Need (kgN/qtl)** and **Surface Fertilization Need (kgN/ha)** will compute a Nitrogen balance on crops but using **Raw Surface Synthetic Fertilizer Use (kgN/ha)** will give a proxy for synthetic fertilizer use. See E-GRAFS engine page for more details.
 
 ### Livestock
 
@@ -160,7 +160,7 @@ Here are the required input data related to **livestock**:
 
 ### Excretion
 
-GRAFS-E manage 3 excretion types: manure, slurry and grassland excretion. The amount of each excretion type is given by livestock tab data, yet the induced flows are computed and represented with specific excretion compartments.
+E-GRAFS manage 3 excretion types: manure, slurry and grassland excretion. The amount of each excretion type is given by livestock tab data, yet the induced flows are computed and represented with specific excretion compartments.
 The excretion tab must be composed of 3 lines per livestock defined in livestock tab. With i the name of each livestock, the following lines must be in excretion sheet :
 - i manure
 - i slurry
@@ -216,11 +216,11 @@ Here is the data related to **products**:
 
 #### Product Typology
 
-To handle products and the flows associated with them, GRAFS-E uses a standardized two-level typology (Type and Sub Type).
+To handle products and the flows associated with them, E-GRAFS uses a standardized two-level typology (Type and Sub Type).
 
 ##### Type
 
-Two type of products are handle by GRAFS-E. Each product must be 'animal' or 'plant'. Product in none of these type might compromise GRAFS-E functionning.
+Two type of products are handle by E-GRAFS. Each product must be 'animal' or 'plant'. Product in none of these type might compromise E-GRAFS functionning.
 
 ##### Sub Type
 Each Sub Type 'i' defines a "Trade i" compartment. This means that trade exchanges are categorized by Sub Type.
@@ -251,13 +251,13 @@ The tab 'energy' is used to define the bioenergy facilities related to the terri
 #### Bioenergy Facilities Typology
 
 Two Types are available for bioenergy facilities :
-- 'Methanizer': The Methanizer can have inputs from product, excretion or waste compartments. All Nitrogen inputs goes to digestat and is spread on crops with the same rules as excretions or sludges (see GRAFS-E engine page). Methanizer cannont import their inputs flows.
+- 'Methanizer': The Methanizer can have inputs from product, excretion or waste compartments. All Nitrogen inputs goes to digestat and is spread on crops with the same rules as excretions or sludges (see E-GRAFS engine page). Methanizer cannont import their inputs flows.
 - 'Bioreffinery': The Bioreffinery can have inputs only from products or waste. All input nitrogen is directed to 'hydrocarbures' compartment. Bioreffinery can import products.
 
     
 ### Global Data
 
-GRAFS-E also relies on **global variables**, which apply to all compartments for a given year and territory.
+E-GRAFS also relies on **global variables**, which apply to all compartments for a given year and territory.
 
 | **Column Name** | **Description**                             | **Type**         | **Comment**                                                                                                           |
 | ----------------| ------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------- |

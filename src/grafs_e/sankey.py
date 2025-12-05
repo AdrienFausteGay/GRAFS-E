@@ -642,6 +642,8 @@ def streamlit_sankey_food_flows(
         tgt_labels += list(model.df_pop.index)
     if hasattr(model, "data_loader") and hasattr(model.data_loader, "trade_labels"):
         tgt_labels += list(model.data_loader.trade_labels)
+    if hasattr(model, "df_energy") and model.df_energy is not None:
+        tgt_labels += list(model.df_energy.index)
 
     sources_merged = {
         idx
