@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 import warnings
 
 from grafs_e.N_class import DataLoader, NitrogenFlowModel, FluxGenerator
+from grafs_e.sankey import merge_nodes
 
 
 # --- Classe Dataloader ---
@@ -207,12 +208,12 @@ class CarbonFlowModel:
         self.df_energy_display = self.data_loader.nitrogen_model.df_energy_display
 
         self.flux_generator = FluxGenerator(self.labels)
-        self.carbon_matrix = self.flux_generator.adjacency_matrix
+        self.adjacency_matrix = self.flux_generator.adjacency_matrix
 
         self.compute_fluxes()
 
     def change_flow(self, source, target, factor):
-        self.carbon_matrix[
+        self.adjacency_matrix[
             self.data_loader.label_to_index[source],
             self.data_loader.label_to_index[target],
         ] = (
@@ -220,157 +221,350 @@ class CarbonFlowModel:
             * factor
         )
 
-    def plot_heatmap_interactive(self):
+    def plot_heatmap_interactive(
+        self, detailed_view=False, group_axes=True, legend_max_rows="auto"
+    ):
         """
-        Generates an interactive heatmap using Plotly to visualize the nitrogen flux transition matrix.
-
-        The heatmap has the following features:
-        - Logarithmic scale (simulated via log10(z)) to handle wide-ranging values.
-        - A horizontal colorbar placed at the bottom of the plot.
-        - A legend that maps matrix indices to sector labels, positioned on the right, ensuring no overlap.
-        - The X-axis is displayed at the top of the plot, and the title is centered above the plot.
-
-        This visualization helps to understand the relative magnitudes of the nitrogen fluxes between sectors
-        in a clear and interactive manner.
-
-        Returns:
-            plotly.graph_objects.Figure: An interactive Plotly figure containing the heatmap.
+        Heatmap interactive :
+        - detailed_view=True  → pas d’agrégation, pas de labels sur axes, tooltips OK,
+                                liste complète des labels à droite (multi-colonnes).
+        - detailed_view=False → agrégation par catégories (merges comme dans l’app),
+                                pas de labels sur axes, tooltips OK (noms agrégés),
+                                liste des labels agrégés à droite (multi-colonnes).
         """
+        import math
+        import numpy as np
+        import plotly.graph_objects as go
+        import pandas as pd
 
-        # 1) Préparation des labels numériques
-        x_labels = list(range(1, len(self.labels) + 1))
-        y_labels = list(range(1, len(self.labels) + 1))
+        # ---------- 0) Préparer labels + matrice ----------
+        labels = list(self.labels)
+        matrix = np.asarray(self.adjacency_matrix, dtype=float)
 
-        # Si vous ignorez la dernière ligne/colonne comme dans votre code :
-        # adjacency_subset = self.adjacency_matrix[: len(self.labels), : len(self.labels)]
+        # Helper: transformer tous les éléments de merges en labels (robuste indices/strings)
+        def _coerce_merges_to_labels(merges_dict, all_labels):
+            name_set = set(all_labels)
+            coerced = {}
+            for gname, members in merges_dict.items():
+                out = []
+                for m in members:
+                    if isinstance(m, (int, np.integer)):
+                        if 0 <= int(m) < len(all_labels):
+                            out.append(all_labels[int(m)])
+                    else:
+                        m = str(m)
+                        if m in name_set:
+                            out.append(m)
+                if out:
+                    coerced[gname] = sorted(set(out))
+            return coerced
 
-        adj = np.array(self.carbon_matrix)  # ou .copy()
-        adjacency_subset = adj[: len(self.labels), : len(self.labels)].copy()
+        # ---------- Agrégation (sauf si detailed_view) ----------
+        do_group = (not detailed_view) and bool(group_axes)
+        if do_group:
+            merges = {}
 
-        # 2) Gestion min/max et transformation log10
-        cmin = max(1e-2, np.min(adjacency_subset[adjacency_subset > 0]))
-        cmax = 1e4  # np.max(adjacency_subset)
-        log_matrix = np.where(adjacency_subset > 0, np.log10(adjacency_subset), np.nan)
+            # Crops par Category
+            if (
+                hasattr(self, "df_cultures")
+                and isinstance(self.df_cultures, pd.DataFrame)
+                and not self.df_cultures.empty
+            ):
+                for cat, idxs in self.df_cultures.groupby("Category").groups.items():
+                    merges[str(cat)] = list(
+                        idxs
+                    )  # indices du DF (version qui "marchait" chez toi)
 
-        # 3) Construire un tableau 2D de chaînes pour le survol
-        #    Même dimension que log_matrix
-        strings_matrix = []
-        for row_i, y_val in enumerate(y_labels):
-            row_texts = []
-            for col_i, x_val in enumerate(x_labels):
-                # Valeur réelle (non log) => adjacency_subset[row_i, col_i]
-                real_val = adjacency_subset[row_i, col_i]
-                if np.isnan(real_val):
-                    real_val_str = "0"
-                else:
-                    real_val_str = f"{real_val:.2e}"  # format décimal / exposant
-                # Construire la chaîne pour la tooltip
-                # y_val et x_val sont les indices 1..N
-                # self.labels[y_val] = nom de la source, self.labels[x_val] = nom de la cible
-                tooltip_str = f"Source : {self.labels[y_val - 1]}<br>Target : {self.labels[x_val - 1]}<br>Value  : {real_val_str} ktC/yr"
-                row_texts.append(tooltip_str)
-            strings_matrix.append(row_texts)
+            # Livestock
+            if (
+                hasattr(self, "df_elevage")
+                and isinstance(self.df_elevage, pd.DataFrame)
+                and not self.df_elevage.empty
+            ):
+                merges["Livestock"] = list(self.df_elevage.index)
 
-        # 3) Tracé Heatmap avec go.Figure + go.Heatmap
-        #    On règle "zmin" et "zmax" en valeurs log10
-        #    pour contrôler la gamme de couleurs
-        trace = go.Heatmap(
-            z=log_matrix,
-            x=x_labels,
-            y=y_labels,
-            colorscale="Plasma_r",
-            zmin=np.log10(cmin),
-            zmax=np.log10(cmax),
-            text=strings_matrix,  # tableau 2D de chaînes
-            hoverinfo="text",  # on n'affiche plus x, y, z bruts
-            # Colorbar horizontale
-            colorbar=dict(
-                title="ktC/year",
-                orientation="h",
-                x=0.5,  # centré horizontalement
-                xanchor="center",
-                y=-0.15,  # en dessous de la figure
-                thickness=15,  # épaisseur
-                len=1,  # longueur en fraction de la largeur
-            ),
-            # Valeurs de survol -> vous verrez log10(...) par défaut
-            # Pour afficher la valeur réelle, on peut plus tard utiliser "customdata"
+            # Population
+            if (
+                hasattr(self, "df_pop")
+                and isinstance(self, pd.DataFrame) is False
+                and hasattr(self, "df_pop")
+                and not self.df_pop.empty
+            ):
+                merges["Population"] = list(self.df_pop.index)
+
+            # Trade
+            trade_labels = [lbl for lbl in labels if "trade" in str(lbl).lower()]
+            if trade_labels:
+                merges["Trade"] = trade_labels
+
+            # Industry (Haber-Bosch + autres secteurs + énergie + *machines*)
+            industry_candidates = [lbl for lbl in ["Haber-Bosch", "other sectors"]]
+
+            # Énergie (si la couche expose un DF énergie)
+            if (
+                hasattr(self, "df_energy")
+                and self.df_energy is not None
+                and not self.df_energy.empty
+            ):
+                industry_candidates += [
+                    lbl
+                    for lbl in self.df_energy.index
+                    if lbl in getattr(self, "labels", [])
+                ]
+
+            # 🔹 Nouveau : tout label contenant "machine" (insensible à la casse)
+            machine_like = [
+                lbl
+                for lbl in getattr(self, "labels", [])
+                if isinstance(lbl, str) and ("machine" in lbl.lower())
+            ]
+            industry_candidates = sorted(set(industry_candidates + machine_like))
+
+            if industry_candidates:
+                merges["Industry"] = industry_candidates
+
+            # Environnement
+            env_candidates = [
+                "atmospheric NH3",
+                "atmospheric N2O",
+                "atmospheric N2",
+                "soil stock",
+                "hydro-system",
+                "other losses",
+                "atmospheric CO2",
+                "atmospheric CH4",
+            ]
+            env_kept = [lbl for lbl in env_candidates if lbl in labels]
+            if env_kept:
+                merges["Environment"] = env_kept
+
+            # Produits -> groupe du crop d'origine
+            if (
+                hasattr(self, "df_prod")
+                and isinstance(self.df_prod, pd.DataFrame)
+                and not self.df_prod.empty
+            ):
+                for prod_label, row in self.df_prod.iterrows():
+                    origin = row.get("Origin compartment")
+                    if isinstance(origin, str):
+                        dest = None
+                        for gname, members in merges.items():
+                            # on compare à des labels (pas indices)
+                            if origin in [str(x) for x in members]:
+                                dest = gname
+                                break
+                        if dest is None:
+                            dest = origin
+                            merges.setdefault(dest, []).append(origin)
+                        merges.setdefault(dest, []).append(prod_label)
+
+            # Excrétion -> groupe du bétail d’origine
+            if (
+                hasattr(self, "df_excr")
+                and isinstance(self.df_excr, pd.DataFrame)
+                and not self.df_excr.empty
+            ):
+                for ex_label, row in self.df_excr.iterrows():
+                    origin = row.get("Origin compartment")
+                    if isinstance(origin, str):
+                        dest = None
+                        for gname, members in merges.items():
+                            if origin in [str(x) for x in members]:
+                                dest = gname
+                                break
+                        if dest is None and "Livestock" in merges:
+                            dest = "Livestock"
+                        if dest is None:
+                            dest = origin
+                            merges.setdefault(dest, []).append(origin)
+                        merges.setdefault(dest, []).append(ex_label)
+
+            # → coercition vers des LISTES DE LABELS (robuste) avant merge_nodes
+            merges = _coerce_merges_to_labels(merges, labels)
+            matrix, labels, _ = merge_nodes(matrix, labels, merges)
+
+        mat = matrix[: len(labels), : len(labels)].copy()
+
+        # ═══════════════════════════════════════════════════════════════
+        # Suppression des lignes/colonnes vides (lignes ET colonnes nulles)
+        # ═══════════════════════════════════════════════════════════════
+        row_sums = np.abs(mat).sum(axis=1)  # Somme des valeurs absolues par ligne
+        col_sums = np.abs(mat).sum(axis=0)  # Somme des valeurs absolues par colonne
+
+        # Indices à conserver : ligne i ou colonne i doivent être non-nulles
+        keep_indices = np.where((row_sums > 0) | (col_sums > 0))[0]
+
+        # Filtrer matrice et labels
+        mat = mat[np.ix_(keep_indices, keep_indices)]
+        labels = [labels[i] for i in keep_indices]
+
+        # Recalculer max_abs_val après filtrage (au cas où)
+        max_abs_val = np.max(np.abs(mat)) if mat.size > 0 else 1.0
+        if max_abs_val == 0:
+            max_abs_val = 1
+
+        # ═══════════════════════════════════════════════════════════════
+        # 2) Préparation de la matrice (log10)
+        # ═══════════════════════════════════════════════════════════════
+        positive = mat > 0
+
+        if not np.any(positive):
+            positive[0, 0] = True
+            mat[0, 0] = 1e-6
+
+        cmin = max(1e-4, float(mat[positive].min()))
+        cmax = float(mat[positive].max())
+        log_matrix = np.full_like(mat, np.nan, dtype=float)
+        log_matrix[positive] = np.log10(mat[positive])
+
+        # ═══════════════════════════════════════════════════════════════
+        # 3) Heatmap + tooltips (comme plot_heatmap_interactive)
+        # ═══════════════════════════════════════════════════════════════
+        n = len(labels)
+        x_idx = list(range(1, n + 1))
+        y_idx = list(range(1, n + 1))
+
+        # customdata: [source_label, target_label, real_value]
+        custom = [
+            [[labels[i], labels[j], mat[i, j]] for j in range(n)] for i in range(n)
+        ]
+
+        fig = go.Figure(
+            data=[
+                go.Heatmap(
+                    z=log_matrix,
+                    x=x_idx,
+                    y=y_idx,
+                    colorscale="Plasma_r",
+                    zmin=np.log10(cmin),
+                    zmax=np.log10(cmax),
+                    customdata=custom,
+                    hovertemplate=(
+                        "Source : %{customdata[0]}<br>"
+                        "Target : %{customdata[1]}<br>"
+                        "Value  : %{customdata[2]:.2e} ktN/yr<extra></extra>"
+                    ),
+                    colorbar=dict(
+                        title="ktN/year",
+                        orientation="h",
+                        x=0.5,
+                        xanchor="center",
+                        y=-0.12,
+                        thickness=18,
+                        len=0.95,
+                        tickmode="array",
+                        tickvals=np.arange(
+                            np.floor(np.log10(cmin)), np.ceil(np.log10(cmax)) + 1
+                        ),
+                        ticktext=[
+                            f"{(10**v):.2e}"
+                            for v in np.arange(
+                                np.floor(np.log10(cmin)), np.ceil(np.log10(cmax)) + 1
+                            )
+                        ],
+                    ),
+                )
+            ]
         )
 
-        # Créer la figure et y ajouter le trace
-        fig = go.Figure(data=[trace])
-
-        # 4) Discrétisation manuelle des ticks sur la colorbar
-        #    On veut afficher l'échelle réelle (et pas log10)
-        #    => calcul de tickvals en log10, et ticktext en 10^(tickvals)
-        tickvals = np.linspace(np.floor(np.log10(cmin)), np.ceil(np.log10(cmax)), num=7)
-        ticktext = [
-            10**x for x in range(int(np.log(cmin)), int(np.log(cmax)), 1)
-        ]  # [f"{10**v:.2e}" for v in tickvals]
-        # Mettre à jour le trace pour forcer l'affichage
-        fig.data[0].update(
-            colorbar=dict(
-                title="ktC/year",
-                orientation="h",
-                x=0.5,
-                xanchor="center",
-                y=-0.15,
-                thickness=25,
-                len=1,
-                tickmode="array",
-                tickvals=tickvals,
-                ticktext=ticktext,
-            )
-        )
-
-        # 5) Configuration de la mise en page
-        fig.update_layout(
-            width=1000,
-            height=1000,
-            margin=dict(t=0, b=0, l=0, r=220),  # espace à droite pour la légende
-        )
-        fig.update_layout(yaxis_scaleanchor="x")
-
-        # Axe X en haut
+        # Pas de labels sur les axes (illisibles)
         fig.update_xaxes(
-            title="Target",
-            side="top",  # place les ticks en haut
-            tickangle=90,  # rotation
-            tickmode="array",
-            tickfont=dict(size=10),
-            tickvals=x_labels,  # forcer l'affichage 1..N
-            ticktext=[str(x) for x in x_labels],
+            side="top", showticklabels=False, ticks="", title_text="Target"
         )
-
-        # Axe Y : inverser l'ordre pour un style "matriciel" standard
         fig.update_yaxes(
-            title="Source",
-            autorange="reversed",
-            tickmode="array",
-            tickfont=dict(size=10),
-            tickvals=y_labels,
-            ticktext=[str(y) for y in y_labels],
+            autorange="reversed", showticklabels=False, ticks="", title_text="Source"
         )
 
-        # 6) Ajouter la légende à droite
-        #    Format : "1: label[0]" ... vertical
-        legend_text = "<br>".join(
-            f"{i + 1} : {lbl}" for i, lbl in enumerate(self.labels)
+        # ═══════════════════════════════════════════════════════════════
+        # 4) Légende multi-colonnes à DROITE (même logique que référence)
+        # ═══════════════════════════════════════════════════════════════
+        def wrap_label(label, max_chars=20):
+            """Coupe un label en plusieurs lignes si trop long."""
+            if len(label) <= max_chars:
+                return label
+            words = label.split()
+            lines, current = [], []
+            for w in words:
+                if sum(len(x) for x in current) + len(current) + len(w) <= max_chars:
+                    current.append(w)
+                else:
+                    lines.append(" ".join(current))
+                    current = [w]
+            if current:
+                lines.append(" ".join(current))
+            return "<br>".join(lines)
+
+        def _distribute_labels_multicol(
+            labels, max_lines_per_col: int = 70, max_chars: int = 20
+        ):
+            """
+            Distribue les labels en colonnes en respectant une hauteur max exprimée
+            en nombre de lignes effectives (après wrapping).
+            Retourne une liste de colonnes, chaque colonne = liste de (index, label_wrapped).
+            """
+            wrapped = [wrap_label(lbl, max_chars=max_chars) for lbl in labels]
+            line_counts = [w.count("<br>") + 1 for w in wrapped]
+            total_lines = sum(line_counts)
+
+            # Nombre de colonnes minimal pour respecter la hauteur max
+            n_cols = max(1, int(np.ceil(total_lines / max_lines_per_col)))
+
+            cols = []
+            cur_col, cur_lines = [], 0
+            for i, (w, lc) in enumerate(zip(wrapped, line_counts)):
+                # Si on dépasse la hauteur max et qu'on a encore des colonnes dispo, on passe à la suivante
+                if cur_lines + lc > max_lines_per_col and len(cols) < n_cols - 1:
+                    cols.append(cur_col)
+                    cur_col, cur_lines = [], 0
+                cur_col.append((i, w))
+                cur_lines += lc
+            if cur_col:
+                cols.append(cur_col)
+
+            # Si pour une raison quelconque on a moins de colonnes que prévu, ce n'est pas grave.
+            return cols
+
+        max_lines_per_col = 70  # Si pas de retours à la ligne, équivaut à “70 items”
+        cols = _distribute_labels_multicol(
+            labels, max_lines_per_col=max_lines_per_col, max_chars=20
         )
-        fig.add_annotation(
-            x=1.25,  # un peu à droite
-            y=0.45,  # centré en hauteur
-            xref="paper",
-            yref="paper",
-            showarrow=False,
-            text=legend_text,
-            align="left",
-            valign="middle",
-            font=dict(size=11),
-            bordercolor="rgba(0,0,0,0)",
-            borderwidth=1,
-            borderpad=4,
-            bgcolor="rgba(0,0,0,0)",
+        n_cols = len(cols)
+
+        # Mise en page: largeur supplémentaire en px selon nb de colonnes
+        fig_h = 1200
+        fig_w = 1000
+        col_w_px = 200
+        right_pad_px = 60
+        extra_w = n_cols * col_w_px + right_pad_px
+        total_w = max(1400, fig_w + extra_w)
+
+        # Annotations colonnes
+        # Chaque colonne = liste de (index_filtré, label_wrapped)
+        for col_idx, col_items in enumerate(cols):
+            # Construit le bloc en conservant la numérotation 1..n sur la base des labels filtrés
+            block = "<br>".join(f"{i + 1} : {wrapped}" for (i, wrapped) in col_items)
+            fig.add_annotation(
+                x=1.2 + 0.20 * col_idx,  # espace entre colonnes à droite
+                y=1.0,
+                xref="paper",
+                yref="paper",
+                text=block,
+                showarrow=False,
+                align="left",
+                yanchor="top",
+                font=dict(size=11),
+                bgcolor="rgba(0,0,0,0)",
+            )
+
+        fig.update_layout(
+            width=total_w,
+            height=fig_h,
+            margin=dict(t=50, b=60, l=20, r=extra_w),
+            title_text=f"Heatmap of nitrogen fluxes {'(detailed view)' if detailed_view else '(aggregated view)'} for {self.region} in {self.year}",
+            title_x=0.5,
+            paper_bgcolor="black",
+            plot_bgcolor="black",
+            font=dict(color="white"),
         )
 
         return fig
@@ -567,12 +761,23 @@ class CarbonFlowModel:
 
         # Humification
 
+        # df_excr["Humification (ktC)"] = (
+        #     df_excr["Excretion to soil (ktN)"] * df_excr["C/N"]
+        # )
+        # df_excr["Excretion (ktC)"] = df_excr["Humification (ktC)"] / (
+        #     df_excr["Humification coefficient (%)"] / 100
+        # )
+        # source = df_excr["Humification (ktC)"].to_dict()
+        # target = {"soil stock": 1}
+
+        # flux_generator.generate_flux(source, target)
+
+        df_excr["Excretion (ktC)"] = df_excr["Excretion (ktN)"] * df_excr["C/N"]
+
         df_excr["Humification (ktC)"] = (
-            df_excr["Excretion to soil (ktN)"] * df_excr["C/N"]
+            df_excr["Excretion (ktC)"] * df_excr["Humification coefficient (%)"] / 100
         )
-        df_excr["Excretion (ktC)"] = df_excr["Humification (ktC)"] / (
-            df_excr["Humification coefficient (%)"] / 100
-        )
+
         source = df_excr["Humification (ktC)"].to_dict()
         target = {"soil stock": 1}
 
@@ -596,12 +801,11 @@ class CarbonFlowModel:
 
         df_excr["Excretion to CO2 (ktC)"] = (
             df_excr["Excretion (ktC)"]
-            * (
-                1
-                - df_excr["CH4 EM (%)"] / 100
-                - df_excr["Humification coefficient (%)"] / 100
-                - df_excr["Excretion to Energy (ktC)"] / df_excr["Excretion (ktC)"]
-            )  # On enlève la part envoyer aux méthaniseurs
+            - df_excr["Humification (ktC)"]
+            - df_excr["Excretion to CH4 (ktC)"]
+            - df_excr[
+                "Excretion to Energy (ktC)"
+            ]  # On enlève la part envoyée aux méthaniseurs
         )
 
         source = df_excr["Excretion to CO2 (ktC)"].to_dict()
@@ -618,11 +822,18 @@ class CarbonFlowModel:
 
         ##flux excretion humaine (même chose sauf que les excretions humaines sont gérées dans df_pop)
         # Humification
-        df_pop["Humification (ktC)"] = (
+        # df_pop["Humification (ktC)"] = (
+        #     df_pop["Excretion after volatilization (ktN)"] * df_pop["C/N"]
+        # )
+        # df_pop["Excretion (ktC)"] = df_pop["Humification (ktC)"] / (
+        #     df_pop["Humification coefficient (%)"] / 100
+        # )
+
+        df_pop["Excretion (ktC)"] = (
             df_pop["Excretion after volatilization (ktN)"] * df_pop["C/N"]
         )
-        df_pop["Excretion (ktC)"] = df_pop["Humification (ktC)"] / (
-            df_pop["Humification coefficient (%)"] / 100
+        df_pop["Humification (ktC)"] = (
+            df_pop["Excretion (ktC)"] * df_pop["Humification coefficient (%)"] / 100
         )
         source = df_pop["Humification (ktC)"].to_dict()
         target = {"soil stock": 1}
@@ -679,7 +890,7 @@ class CarbonFlowModel:
 
         # Respiration CO2
         df_elevage["Ingestion (ktC)"] = df_elevage.index.map(
-            lambda i: self.carbon_matrix[:, self.data_loader.label_to_index[i]].sum()
+            lambda i: self.adjacency_matrix[:, self.data_loader.label_to_index[i]].sum()
         )
 
         excretion_sum_aligned = (
@@ -688,17 +899,23 @@ class CarbonFlowModel:
             .reindex(df_elevage.index, fill_value=0)
         )
 
+        df_elevage["Excretion (ktC)"] = 0.0
+        df_elevage["Excretion (ktC)"] = excretion_sum_aligned
+
         prod_sum_aligned = (
             df_prod.groupby("Origin compartment")["Carbon Production (ktC)"]
             .sum()
             .reindex(df_elevage.index, fill_value=0)
         )
 
+        df_elevage["Production (ktC)"] = 0.0
+        df_elevage["Production (ktC)"] = prod_sum_aligned
+
         df_elevage["Respiration (ktC)"] = (
             df_elevage["Ingestion (ktC)"]
             - df_elevage["CH4 enteric (ktC)"]
-            - excretion_sum_aligned
-            - prod_sum_aligned
+            - df_elevage["Production (ktC)"]
+            - df_elevage["Excretion (ktC)"]
         ).clip(lower=0)
         source = df_elevage["Respiration (ktC)"].to_dict()
         target = {"atmospheric CO2": 1}
@@ -736,38 +953,50 @@ class CarbonFlowModel:
 
             somme_sorties = row["CH4 enteric (ktC)"] + excretion_value + production
 
-            cn_mean_calc = (
-                products_df["C/N"] * products_df["Carbon Production (ktC)"]
-            ).sum() / production
-            cn_mean_str = f"{cn_mean_calc:.4f}"
+            # --- C/N moyens ingestion (alignement robuste) ---
+            alloc = self.data_loader.nitrogen_model.allocations_df
+            mask = alloc["Consumer"] == index
+            a_sel = alloc.loc[mask, ["Product", "Allocated Nitrogen"]].copy()
 
-            cn_data = {
-                "Manure (Fumier)": _calculate_cn_critical(df_excr, index + " manure"),
-                "Slurry (Lisiers)": _calculate_cn_critical(df_excr, index + " slurry"),
-                "Grasslands excretion (Pâture)": _calculate_cn_critical(
-                    df_excr, index + " grasslands excretion"
-                ),
-            }
+            # aligner sur l'index produits de df_prod
+            cn_map = df_prod["C/N"]  # index = produits
+            a_sel = a_sel.join(cn_map.rename("C/N"), on="Product")
 
-            cn_details = "\n".join(
-                [
-                    f"    {key}: {val:.4f}" if not np.isnan(val) else f"    {key}: N/A"
-                    for key, val in cn_data.items()
-                ]
-            )
+            # avertir si des produits n'ont pas de C/N
+            missing = a_sel["C/N"].isna()
+            if missing.any():
+                warnings.warn(
+                    f"[C/N] Produits sans C/N pour '{index}': "
+                    + ", ".join(map(str, a_sel.loc[missing, "Product"].unique())),
+                    category=UserWarning,
+                )
 
-            cn_details.join(f"    C/N Production Moy. : {cn_mean_str}")
+            # moyenne pondérée (sûre aux NaN et /0)
+            a_sel = a_sel.dropna(subset=["Allocated Nitrogen", "C/N"])
+            num_ing = float(np.nansum(a_sel["Allocated Nitrogen"] * a_sel["C/N"]))
+            den_ing = float(np.nansum(a_sel["Allocated Nitrogen"]))
+            mean_ingestion_cn = 0.0 if den_ing == 0.0 else num_ing / den_ing
 
+            # --- C/N moyen excrétion (inchangé, sûr /0) ---
+            mask_ex = df_excr["Origin compartment"] == index
+            w_ex = df_excr.loc[mask_ex, "Excretion (ktN)"].to_numpy()
+            cn_ex = df_excr.loc[mask_ex, "C/N"].to_numpy()
+            H_ex = df_excr.loc[mask_ex, "Humification coefficient (%)"].to_numpy() / 100
+            num_ex = float(np.nansum(w_ex * cn_ex / H_ex))
+            den_ex = float(np.nansum(w_ex))
+            mean_excretion_cn = 0.0 if den_ex == 0.0 else num_ex / den_ex
+
+            # --- Warning mis à jour ---
             message = (
-                f"La respiration de '{index}' forcée à zéro (Calcul brut: {row['Ingestion (ktC)'] - somme_sorties:.4f} ktC). \n"
-                f"  Détails des flux (ktC) : Ingestion: {row['Ingestion (ktC)']:.4f} | CH4: {row['CH4 enteric (ktC)']:.4f} | Excrétion: {excretion_value:.4f} | Produits animaux : {production:.4f} \n"
-                f"  C/N feed moyen critique: \n{cn_details}"
+                f"La respiration de '{index}' forcée à zéro (Calcul brut: {row['Ingestion (ktC)'] - somme_sorties:.4f} ktC).\n"
+                f"  Détails (ktC) : Ingestion {row['Ingestion (ktC)']:.4f} | CH4 {row['CH4 enteric (ktC)']:.4f} | Excrétion {excretion_value:.4f} | Produits {production:.4f}\n"
+                f"  C/N moyens : Ingestion={mean_ingestion_cn:.3f} | Excrétion={mean_excretion_cn:.3f} | Δ={mean_ingestion_cn - mean_excretion_cn:+.3f}"
             )
             warnings.warn(message, category=UserWarning)
 
         # Respiration humaine
         df_pop["Ingestion (ktC)"] = df_pop.index.map(
-            lambda i: self.carbon_matrix[:, self.data_loader.label_to_index[i]].sum()
+            lambda i: self.adjacency_matrix[:, self.data_loader.label_to_index[i]].sum()
         )
 
         df_pop["Respiration (ktC)"] = (
@@ -806,7 +1035,7 @@ class CarbonFlowModel:
         # Flux liés aux machines des élevages
 
         df_elevage["Mecanisation Emission (ktC)"] = (
-            df_elevage["Infrastructure CO2 emissions/LU (kgC)"] * df_elevage["LU"]
+            df_elevage["Infrastructure CO2 emissions/LU (kgC)"] * df_elevage["LU"] / 1e6
         )
         dict_mecanisation = {
             index + " machines": value
@@ -893,6 +1122,11 @@ class CarbonFlowModel:
         self.df_pop = df_pop
         self.df_prod = df_prod
 
+        self.df_elevage_display = df_elevage
+        self.df_excr_display = df_excr
+        self.df_cultures_display = df_cultures
+        self.df_prod_display = df_prod
+
     def get_transition_matrix(self):
         """
         Returns the full nitrogen transition matrix.
@@ -902,7 +1136,7 @@ class CarbonFlowModel:
         :return: A 2D NumPy array representing nitrogen fluxes between all sectors.
         :rtype: numpy.ndarray
         """
-        return self.carbon_matrix
+        return self.adjacency_matrix
 
     def check_balance(self):
         """
@@ -930,3 +1164,29 @@ class CarbonFlowModel:
 
         # Effectue un seul appel d'impression avec toutes les lignes jointes par un saut de ligne
         print("\n".join(output_lines))
+
+    def compute_CO2_eq(self):
+        CO2_eq = {}
+
+        N2O_EM = self.data_loader.nitrogen_model.N2O_em()
+        CO2_eq["N2O"] = N2O_EM * 273
+
+        M = self.get_transition_matrix()
+        CO2_EM = (
+            (
+                self.df_elevage["Mecanisation Emission (ktC)"].sum()
+                + self.df_cultures["Mecanisation Emission (ktC)"].sum()
+            )
+            * (16 * 2 + 12)
+            / 12
+        )
+        CO2_eq["CO2"] = CO2_EM * 1
+
+        CH4_EM = (
+            M[:, self.data_loader.label_to_index["atmospheric CH4"]].sum()
+            * (4 + 12)
+            / 12
+        )
+        CO2_eq["CH4"] = CH4_EM * 27.9
+
+        return CO2_eq

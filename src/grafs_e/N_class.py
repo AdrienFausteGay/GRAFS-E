@@ -1,5 +1,5 @@
 import re
-
+from grafs_e.sankey import merge_nodes
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -411,11 +411,23 @@ class DataLoader:
         )
 
         if prospect:
+            # df_cultures["Ymax (kgN/ha)"] = (
+            #     df_cultures["Maximum Yield (tFW/ha)"]
+            #     * 1000
+            #     * df_cultures["Main Production"].map(df_prod["Nitrogen Content (%)"])
+            #     / 100
+            # )
+            # Calculer simplement le rendement à partir de la production principale est source d'erreurs car plusieurs productions peuvent provenir d'une même culture. Il faut passer par les ratios de coproduction.
             df_cultures["Ymax (kgN/ha)"] = (
                 df_cultures["Maximum Yield (tFW/ha)"]
-                * 1000
-                * df_cultures["Main Production"].map(df_prod["Nitrogen Content (%)"])
-                / 100
+                * 1e3
+                / df_cultures.index.to_series().map(
+                    df_prod.groupby("Origin compartment").apply(
+                        lambda g: (
+                            g["Co-Production Ratio (%)"] / g["Nitrogen Content (%)"]
+                        ).sum()
+                    )
+                )
             )
             df_cultures = df_cultures.fillna(0)
             self.df_cultures = df_cultures
@@ -440,15 +452,41 @@ class DataLoader:
         mask = df_cultures["Area (ha)"] != 0
 
         df_cultures.loc[mask, "Yield (qtl/ha)"] = (
-            df_cultures.loc[mask, "Main Crop Production (kton)"]
-            * 1e4
+            df_cultures.loc[mask]
+            .index.to_series()
+            .map(
+                df_prod.groupby("Origin compartment").apply(
+                    lambda g: (
+                        g.loc[
+                            g["Nitrogen Content (%)"] != 0, "Nitrogen Production (ktN)"
+                        ]
+                        * 1e4
+                        / (
+                            g.loc[
+                                g["Nitrogen Content (%)"] != 0, "Nitrogen Content (%)"
+                            ]
+                            / 100
+                        )
+                    ).sum()
+                )
+            )
             / df_cultures.loc[mask, "Area (ha)"]
         )
 
+        # df_cultures.loc[mask, "Yield (kgN/ha)"] = (
+        #     df_cultures.loc[mask, "Main Nitrogen Production (ktN)"]
+        #     / df_cultures.loc[mask, "Area (ha)"]
+        #     * 1e6
+        # )
+
+        prod_by_origin = df_prod.groupby("Origin compartment")[
+            "Nitrogen Production (ktN)"
+        ].sum()
+
         df_cultures.loc[mask, "Yield (kgN/ha)"] = (
-            df_cultures.loc[mask, "Main Nitrogen Production (ktN)"]
-            / df_cultures.loc[mask, "Area (ha)"]
+            df_cultures.loc[mask].index.to_series().map(prod_by_origin)
             * 1e6
+            / df_cultures.loc[mask, "Area (ha)"]
         )
 
         mask = df_cultures["Fertilization Need (kgN/qtl)"] > 0
@@ -1447,7 +1485,13 @@ class NitrogenFlowModel:
             }
         else:
             depo_val = float(df_gl.loc["Atmospheric deposition coef (kgN/ha)", "value"])
-            depo_kg_ha = {c: depo_val for c in df_cu.index}
+            depo_kg_ha = {
+                c: depo_val / 12
+                if df_cu.loc[c, "Category"] == "cover crops"
+                else depo_val
+                for c in df_cu.index
+            }
+            # depo_kg_ha = {c: depo_val for c in df_cu.index}
 
         denom = (df_cu["Area (ha)"] * df_cu["Spreading Rate (%)"] / 100.0).sum()
         share = {
@@ -1743,8 +1787,12 @@ class NitrogenFlowModel:
                 == depo_kg_ha[c] + O_base_kg_ha[c] + bnf_c[c] + seeds_gha + synth_gha,
                 f"Feff_def__{self._slug(c)}",
             )
-            # légumineuses : pas de synthé + borne
-            if str(df_cu.at[c, "Category"]).strip().lower() == "leguminous":
+            # légumineuses et cover crops : pas de synthé + borne
+            if str(df_cu.at[c, "Category"]).strip().lower() in [
+                "leguminous",
+                "cover crops",
+                "leguminous meadows",
+            ]:
                 prob += s_c[c] == 0, f"no_synth_on_legumes__{self._slug(c)}"
                 # prob += (
                 #     f_c[c] == O_base_kg_ha[c] + bnf_c[c] + seeds_gha,
@@ -1752,7 +1800,7 @@ class NitrogenFlowModel:
                 # )
 
         # ---------- I) Excès synthétique (pénalisation) ----------
-        is_grass = df_cu["Category"].isin(["natural meadows", "temporary meadows"])
+        is_grass = df_cu["Category"].isin(["meadows", "leguminous meadows"])
         S_crops = lpSum(s_c[c] for c in df_cu.index if not bool(is_grass.loc[c]))
         S_grass = lpSum(s_c[c] for c in df_cu.index if bool(is_grass.loc[c]))
         exc_crops = LpVariable("excess_synth_crops", lowBound=0)
@@ -1840,7 +1888,7 @@ class NitrogenFlowModel:
         return default_rhs
 
     # ── HOOK 3 ─────────────────────────────────────────────────────────────────
-    def _extra_objective(self):
+    def _extra_objective(self, U_vars):
         if not self.prospective:
             return 0
         W_SYN = float(self.df_global.loc["Weight synthetic fertilizer", "value"])
@@ -1859,7 +1907,13 @@ class NitrogenFlowModel:
             dev_neg = self._pros_vars.get("devF_rel_neg", {})
             distribution_term = lpSum(dev_pos[c] + dev_neg[c] for c in dev_pos.keys())
 
-        return W_SYN * term + W_DIS * distribution_term
+        # # Terme d'export
+        # W_EXP = 0
+        # export_term = 0
+        # if W_EXP > 0:
+        #     export_term = LpSum(U_vars[u] for u in U_vars.keys())
+
+        return W_SYN * term + W_DIS * distribution_term  # + W_EXP * export_term
 
     # ── HOOK 4 ─────────────────────────────────────────────────────────────────
     def _post_solve_supply(self):
@@ -1950,13 +2004,36 @@ class NitrogenFlowModel:
 
             # Production principale
             mainN_k = float(P_c[c].varValue or 0.0)
-            Yield_kgN_ha = (mainN_k * 1e6 / A) if A > 0 else 0.0
-            Yield_qtl_ha = (
-                Yield_kgN_ha
-                / 100
-                / df_pr.loc[df_pr["Origin compartment"] == c, "Nitrogen Content (%)"]
-                * 100.0
-            ).item()  # 1 qtl = 100 kg
+
+            # main_prod = df_cu.at[c, "Main Production"]
+
+            prod_by_origin = df_pr.loc[
+                (df_pr["Origin compartment"] == c)
+                & (df_pr["Nitrogen Content (%)"] != 0),
+                "Nitrogen Production (ktN)",
+            ].sum()
+            Yield_kgN_ha = (prod_by_origin * 1e6 / A) if A > 0 else 0.0
+
+            if df_cu.at[c, "Area (ha)"] != 0:
+                Yield_qtl_ha = (
+                    df_pr.loc[
+                        (df_pr["Origin compartment"] == c)
+                        & (df_pr["Nitrogen Content (%)"] != 0),
+                        "Nitrogen Production (ktN)",
+                    ]
+                    * 1e4
+                    / (
+                        df_pr.loc[
+                            (df_pr["Origin compartment"] == c)
+                            & (df_pr["Nitrogen Content (%)"] != 0),
+                            "Nitrogen Content (%)",
+                        ]
+                        / 100
+                    )
+                ).sum() / df_cu.at[c, "Area (ha)"]
+            else:
+                Yield_qtl_ha = 0
+
             df_cu.at[c, "Main Nitrogen Production (ktN)"] = mainN_k
             df_cu.at[c, "Yield (kgN/ha)"] = Yield_kgN_ha
             df_cu.at[c, "Yield (qtl/ha)"] = Yield_qtl_ha
@@ -2203,12 +2280,7 @@ class NitrogenFlowModel:
 
         categories = df_cu["Category"].astype(str).str.lower().fillna("")
 
-        is_pasture = categories.isin(
-            [
-                "natural meadows",
-                "temporary meadows",
-            ]
-        )
+        is_pasture = categories.isin(["meadows", "leguminous meadows"])
 
         # --- Prairies: stockage d'abord jusqu'au seuil (kg/ha), puis partition du reste
         # Conversion ktN <-> kgN/ha selon surface
@@ -2458,157 +2530,335 @@ class NitrogenFlowModel:
         # Afficher la heatmap
         plt.show()
 
-    def plot_heatmap_interactive(self):
+    def plot_heatmap_interactive(
+        self, detailed_view=False, group_axes=True, legend_max_rows="auto"
+    ):
         """
-        Generates an interactive heatmap using Plotly to visualize the nitrogen flux transition matrix.
-
-        The heatmap has the following features:
-        - Logarithmic scale (simulated via log10(z)) to handle wide-ranging values.
-        - A horizontal colorbar placed at the bottom of the plot.
-        - A legend that maps matrix indices to sector labels, positioned on the right, ensuring no overlap.
-        - The X-axis is displayed at the top of the plot, and the title is centered above the plot.
-
-        This visualization helps to understand the relative magnitudes of the nitrogen fluxes between sectors
-        in a clear and interactive manner.
-
-        Returns:
-            plotly.graph_objects.Figure: An interactive Plotly figure containing the heatmap.
+        Heatmap interactive :
+        - detailed_view=True  → pas d’agrégation, pas de labels sur axes, tooltips OK,
+                                liste complète des labels à droite (multi-colonnes).
+        - detailed_view=False → agrégation par catégories (merges comme dans l’app),
+                                pas de labels sur axes, tooltips OK (noms agrégés),
+                                liste des labels agrégés à droite (multi-colonnes).
         """
+        import math
+        import numpy as np
+        import plotly.graph_objects as go
+        import pandas as pd
 
-        # 1) Préparation des labels numériques
-        x_labels = list(range(1, len(self.labels) + 1))
-        y_labels = list(range(1, len(self.labels) + 1))
+        # ---------- 0) Préparer labels + matrice ----------
+        labels = list(self.labels)
+        matrix = np.asarray(self.adjacency_matrix, dtype=float)
 
-        # Si vous ignorez la dernière ligne/colonne comme dans votre code :
-        # adjacency_subset = self.adjacency_matrix[: len(self.labels), : len(self.labels)]
+        # Helper: transformer tous les éléments de merges en labels (robuste indices/strings)
+        def _coerce_merges_to_labels(merges_dict, all_labels):
+            name_set = set(all_labels)
+            coerced = {}
+            for gname, members in merges_dict.items():
+                out = []
+                for m in members:
+                    if isinstance(m, (int, np.integer)):
+                        if 0 <= int(m) < len(all_labels):
+                            out.append(all_labels[int(m)])
+                    else:
+                        m = str(m)
+                        if m in name_set:
+                            out.append(m)
+                if out:
+                    coerced[gname] = sorted(set(out))
+            return coerced
 
-        adj = np.array(self.adjacency_matrix)  # ou .copy()
-        adjacency_subset = adj[: len(self.labels), : len(self.labels)].copy()
+        # ---------- Agrégation (sauf si detailed_view) ----------
+        do_group = (not detailed_view) and bool(group_axes)
+        if do_group:
+            merges = {}
 
-        # 2) Gestion min/max et transformation log10
-        cmin = max(1e-4, np.min(adjacency_subset[adjacency_subset > 0]))
-        cmax = 100  # np.max(adjacency_subset)
-        log_matrix = np.where(adjacency_subset > 0, np.log10(adjacency_subset), np.nan)
+            # Crops par Category
+            if (
+                hasattr(self, "df_cultures")
+                and isinstance(self.df_cultures, pd.DataFrame)
+                and not self.df_cultures.empty
+            ):
+                for cat, idxs in self.df_cultures.groupby("Category").groups.items():
+                    merges[str(cat)] = list(
+                        idxs
+                    )  # indices du DF (version qui "marchait" chez toi)
 
-        # 3) Construire un tableau 2D de chaînes pour le survol
-        #    Même dimension que log_matrix
-        strings_matrix = []
-        for row_i, y_val in enumerate(y_labels):
-            row_texts = []
-            for col_i, x_val in enumerate(x_labels):
-                # Valeur réelle (non log) => adjacency_subset[row_i, col_i]
-                real_val = adjacency_subset[row_i, col_i]
-                if np.isnan(real_val):
-                    real_val_str = "0"
-                else:
-                    real_val_str = f"{real_val:.2e}"  # format décimal / exposant
-                # Construire la chaîne pour la tooltip
-                # y_val et x_val sont les indices 1..N
-                # self.labels[y_val] = nom de la source, self.labels[x_val] = nom de la cible
-                tooltip_str = f"Source : {self.labels[y_val - 1]}<br>Target : {self.labels[x_val - 1]}<br>Value  : {real_val_str} ktN/yr"
-                row_texts.append(tooltip_str)
-            strings_matrix.append(row_texts)
+            # Livestock
+            if (
+                hasattr(self, "df_elevage")
+                and isinstance(self.df_elevage, pd.DataFrame)
+                and not self.df_elevage.empty
+            ):
+                merges["Livestock"] = list(self.df_elevage.index)
 
-        # 3) Tracé Heatmap avec go.Figure + go.Heatmap
-        #    On règle "zmin" et "zmax" en valeurs log10
-        #    pour contrôler la gamme de couleurs
-        trace = go.Heatmap(
-            z=log_matrix,
-            x=x_labels,
-            y=y_labels,
-            colorscale="Plasma_r",
-            zmin=np.log10(cmin),
-            zmax=np.log10(cmax),
-            text=strings_matrix,  # tableau 2D de chaînes
-            hoverinfo="text",  # on n'affiche plus x, y, z bruts
-            # Colorbar horizontale
-            colorbar=dict(
-                title="ktN/year",
-                orientation="h",
-                x=0.5,  # centré horizontalement
-                xanchor="center",
-                y=-0.15,  # en dessous de la figure
-                thickness=15,  # épaisseur
-                len=1,  # longueur en fraction de la largeur
-            ),
-            # Valeurs de survol -> vous verrez log10(...) par défaut
-            # Pour afficher la valeur réelle, on peut plus tard utiliser "customdata"
+            # Population
+            if (
+                hasattr(self, "df_pop")
+                and isinstance(self, pd.DataFrame) is False
+                and hasattr(self, "df_pop")
+                and not self.df_pop.empty
+            ):
+                merges["Population"] = list(self.df_pop.index)
+
+            # Trade
+            trade_labels = [lbl for lbl in labels if "trade" in str(lbl).lower()]
+            if trade_labels:
+                merges["Trade"] = trade_labels
+
+            # Industry
+            industry = [
+                lbl for lbl in ["Haber-Bosch", "other sectors"] if lbl in labels
+            ]
+            if (
+                hasattr(self, "df_energy")
+                and isinstance(getattr(self, "df_energy", pd.DataFrame()), pd.DataFrame)
+                and not getattr(self, "df_energy", pd.DataFrame()).empty
+            ):
+                industry += list(self.df_energy.index)
+            if industry:
+                merges["Industry"] = industry
+
+            # Environnement
+            env_candidates = [
+                "atmospheric NH3",
+                "atmospheric N2O",
+                "atmospheric N2",
+                "soil stock",
+                "hydro-system",
+                "other losses",
+            ]
+            env_kept = [lbl for lbl in env_candidates if lbl in labels]
+            if env_kept:
+                merges["Environment"] = env_kept
+
+            # Produits -> groupe du crop d'origine
+            if (
+                hasattr(self, "df_prod")
+                and isinstance(self.df_prod, pd.DataFrame)
+                and not self.df_prod.empty
+            ):
+                for prod_label, row in self.df_prod.iterrows():
+                    origin = row.get("Origin compartment")
+                    if isinstance(origin, str):
+                        dest = None
+                        for gname, members in merges.items():
+                            # on compare à des labels (pas indices)
+                            if origin in [str(x) for x in members]:
+                                dest = gname
+                                break
+                        if dest is None:
+                            dest = origin
+                            merges.setdefault(dest, []).append(origin)
+                        merges.setdefault(dest, []).append(prod_label)
+
+            # Excrétion -> groupe du bétail d’origine
+            if (
+                hasattr(self, "df_excr")
+                and isinstance(self.df_excr, pd.DataFrame)
+                and not self.df_excr.empty
+            ):
+                for ex_label, row in self.df_excr.iterrows():
+                    origin = row.get("Origin compartment")
+                    if isinstance(origin, str):
+                        dest = None
+                        for gname, members in merges.items():
+                            if origin in [str(x) for x in members]:
+                                dest = gname
+                                break
+                        if dest is None and "Livestock" in merges:
+                            dest = "Livestock"
+                        if dest is None:
+                            dest = origin
+                            merges.setdefault(dest, []).append(origin)
+                        merges.setdefault(dest, []).append(ex_label)
+
+            # → coercition vers des LISTES DE LABELS (robuste) avant merge_nodes
+            merges = _coerce_merges_to_labels(merges, labels)
+            matrix, labels, _ = merge_nodes(matrix, labels, merges)
+
+        mat = matrix[: len(labels), : len(labels)].copy()
+
+        # ═══════════════════════════════════════════════════════════════
+        # Suppression des lignes/colonnes vides (lignes ET colonnes nulles)
+        # ═══════════════════════════════════════════════════════════════
+        row_sums = np.abs(mat).sum(axis=1)  # Somme des valeurs absolues par ligne
+        col_sums = np.abs(mat).sum(axis=0)  # Somme des valeurs absolues par colonne
+
+        # Indices à conserver : ligne i ou colonne i doivent être non-nulles
+        keep_indices = np.where((row_sums > 0) | (col_sums > 0))[0]
+
+        # Filtrer matrice et labels
+        mat = mat[np.ix_(keep_indices, keep_indices)]
+        labels = [labels[i] for i in keep_indices]
+
+        # Recalculer max_abs_val après filtrage (au cas où)
+        max_abs_val = np.max(np.abs(mat)) if mat.size > 0 else 1.0
+        if max_abs_val == 0:
+            max_abs_val = 1
+
+        # ═══════════════════════════════════════════════════════════════
+        # 2) Préparation de la matrice (log10)
+        # ═══════════════════════════════════════════════════════════════
+        positive = mat > 0
+
+        if not np.any(positive):
+            positive[0, 0] = True
+            mat[0, 0] = 1e-6
+
+        cmin = max(1e-4, float(mat[positive].min()))
+        cmax = float(mat[positive].max())
+        log_matrix = np.full_like(mat, np.nan, dtype=float)
+        log_matrix[positive] = np.log10(mat[positive])
+
+        # ═══════════════════════════════════════════════════════════════
+        # 3) Heatmap + tooltips (comme plot_heatmap_interactive)
+        # ═══════════════════════════════════════════════════════════════
+        n = len(labels)
+        x_idx = list(range(1, n + 1))
+        y_idx = list(range(1, n + 1))
+
+        # customdata: [source_label, target_label, real_value]
+        custom = [
+            [[labels[i], labels[j], mat[i, j]] for j in range(n)] for i in range(n)
+        ]
+
+        fig = go.Figure(
+            data=[
+                go.Heatmap(
+                    z=log_matrix,
+                    x=x_idx,
+                    y=y_idx,
+                    colorscale="Plasma_r",
+                    zmin=np.log10(cmin),
+                    zmax=np.log10(cmax),
+                    customdata=custom,
+                    hovertemplate=(
+                        "Source : %{customdata[0]}<br>"
+                        "Target : %{customdata[1]}<br>"
+                        "Value  : %{customdata[2]:.2e} ktN/yr<extra></extra>"
+                    ),
+                    colorbar=dict(
+                        title="ktN/year",
+                        orientation="h",
+                        x=0.5,
+                        xanchor="center",
+                        y=-0.12,
+                        thickness=18,
+                        len=0.95,
+                        tickmode="array",
+                        tickvals=np.arange(
+                            np.floor(np.log10(cmin)), np.ceil(np.log10(cmax)) + 1
+                        ),
+                        ticktext=[
+                            f"{(10**v):.2e}"
+                            for v in np.arange(
+                                np.floor(np.log10(cmin)), np.ceil(np.log10(cmax)) + 1
+                            )
+                        ],
+                    ),
+                )
+            ]
         )
 
-        # Créer la figure et y ajouter le trace
-        fig = go.Figure(data=[trace])
-
-        # 4) Discrétisation manuelle des ticks sur la colorbar
-        #    On veut afficher l'échelle réelle (et pas log10)
-        #    => calcul de tickvals en log10, et ticktext en 10^(tickvals)
-        tickvals = np.linspace(np.floor(np.log10(cmin)), np.ceil(np.log10(cmax)), num=7)
-        ticktext = [
-            10**x for x in range(-4, 3, 1)
-        ]  # [f"{10**v:.2e}" for v in tickvals]
-        # Mettre à jour le trace pour forcer l'affichage
-        fig.data[0].update(
-            colorbar=dict(
-                title="ktN/year",
-                orientation="h",
-                x=0.5,
-                xanchor="center",
-                y=-0.15,
-                thickness=25,
-                len=1,
-                tickmode="array",
-                tickvals=tickvals,
-                ticktext=ticktext,
-            )
-        )
-
-        # 5) Configuration de la mise en page
-        fig.update_layout(
-            width=1000,
-            height=1000,
-            margin=dict(t=0, b=0, l=0, r=220),  # espace à droite pour la légende
-        )
-        fig.update_layout(yaxis_scaleanchor="x")
-
-        # Axe X en haut
+        # Pas de labels sur les axes (illisibles)
         fig.update_xaxes(
-            title="Target",
-            side="top",  # place les ticks en haut
-            tickangle=90,  # rotation
-            tickmode="array",
-            tickfont=dict(size=10),
-            tickvals=x_labels,  # forcer l'affichage 1..N
-            ticktext=[str(x) for x in x_labels],
+            side="top", showticklabels=False, ticks="", title_text="Target"
         )
-
-        # Axe Y : inverser l'ordre pour un style "matriciel" standard
         fig.update_yaxes(
-            title="Source",
-            autorange="reversed",
-            tickmode="array",
-            tickfont=dict(size=10),
-            tickvals=y_labels,
-            ticktext=[str(y) for y in y_labels],
+            autorange="reversed", showticklabels=False, ticks="", title_text="Source"
         )
 
-        # 6) Ajouter la légende à droite
-        #    Format : "1: label[0]" ... vertical
-        legend_text = "<br>".join(
-            f"{i + 1} : {lbl}" for i, lbl in enumerate(self.labels)
+        # ═══════════════════════════════════════════════════════════════
+        # 4) Légende multi-colonnes à DROITE (même logique que référence)
+        # ═══════════════════════════════════════════════════════════════
+        def wrap_label(label, max_chars=20):
+            """Coupe un label en plusieurs lignes si trop long."""
+            if len(label) <= max_chars:
+                return label
+            words = label.split()
+            lines, current = [], []
+            for w in words:
+                if sum(len(x) for x in current) + len(current) + len(w) <= max_chars:
+                    current.append(w)
+                else:
+                    lines.append(" ".join(current))
+                    current = [w]
+            if current:
+                lines.append(" ".join(current))
+            return "<br>".join(lines)
+
+        def _distribute_labels_multicol(
+            labels, max_lines_per_col: int = 70, max_chars: int = 20
+        ):
+            """
+            Distribue les labels en colonnes en respectant une hauteur max exprimée
+            en nombre de lignes effectives (après wrapping).
+            Retourne une liste de colonnes, chaque colonne = liste de (index, label_wrapped).
+            """
+            wrapped = [wrap_label(lbl, max_chars=max_chars) for lbl in labels]
+            line_counts = [w.count("<br>") + 1 for w in wrapped]
+            total_lines = sum(line_counts)
+
+            # Nombre de colonnes minimal pour respecter la hauteur max
+            n_cols = max(1, int(np.ceil(total_lines / max_lines_per_col)))
+
+            cols = []
+            cur_col, cur_lines = [], 0
+            for i, (w, lc) in enumerate(zip(wrapped, line_counts)):
+                # Si on dépasse la hauteur max et qu'on a encore des colonnes dispo, on passe à la suivante
+                if cur_lines + lc > max_lines_per_col and len(cols) < n_cols - 1:
+                    cols.append(cur_col)
+                    cur_col, cur_lines = [], 0
+                cur_col.append((i, w))
+                cur_lines += lc
+            if cur_col:
+                cols.append(cur_col)
+
+            # Si pour une raison quelconque on a moins de colonnes que prévu, ce n'est pas grave.
+            return cols
+
+        max_lines_per_col = 70  # Si pas de retours à la ligne, équivaut à “70 items”
+        cols = _distribute_labels_multicol(
+            labels, max_lines_per_col=max_lines_per_col, max_chars=20
         )
-        fig.add_annotation(
-            x=1.25,  # un peu à droite
-            y=0.45,  # centré en hauteur
-            xref="paper",
-            yref="paper",
-            showarrow=False,
-            text=legend_text,
-            align="left",
-            valign="middle",
-            font=dict(size=11),
-            bordercolor="rgba(0,0,0,0)",
-            borderwidth=1,
-            borderpad=4,
-            bgcolor="rgba(0,0,0,0)",
+        n_cols = len(cols)
+
+        # Mise en page: largeur supplémentaire en px selon nb de colonnes
+        fig_h = 1200
+        fig_w = 1000
+        col_w_px = 200
+        right_pad_px = 60
+        extra_w = n_cols * col_w_px + right_pad_px
+        total_w = max(1400, fig_w + extra_w)
+
+        # Annotations colonnes
+        # Chaque colonne = liste de (index_filtré, label_wrapped)
+        for col_idx, col_items in enumerate(cols):
+            # Construit le bloc en conservant la numérotation 1..n sur la base des labels filtrés
+            block = "<br>".join(f"{i + 1} : {wrapped}" for (i, wrapped) in col_items)
+            fig.add_annotation(
+                x=1.2 + 0.20 * col_idx,  # espace entre colonnes à droite
+                y=1.0,
+                xref="paper",
+                yref="paper",
+                text=block,
+                showarrow=False,
+                align="left",
+                yanchor="top",
+                font=dict(size=11),
+                bgcolor="rgba(0,0,0,0)",
+            )
+
+        fig.update_layout(
+            width=total_w,
+            height=fig_h,
+            margin=dict(t=50, b=60, l=20, r=extra_w),
+            title_text=f"Heatmap of nitrogen fluxes {'(detailed view)' if detailed_view else '(aggregated view)'} for {self.area} in {self.year}",
+            title_x=0.5,
+            paper_bgcolor="black",
+            plot_bgcolor="black",
+            font=dict(color="white"),
         )
 
         return fig
@@ -2651,10 +2901,12 @@ class NitrogenFlowModel:
 
         ## Dépôt atmosphérique
         source = {"atmospheric N2O": 0.1, "atmospheric NH3": 0.9}
+        depo_val = df_global.loc["Atmospheric deposition coef (kgN/ha)"].item()
+        conditional_depo_coef = np.where(
+            self.df_cultures["Category"] == "cover crops", depo_val / 12, depo_val
+        )  # cover crops ne restent que 1 mois
         target = (
-            df_global.loc["Atmospheric deposition coef (kgN/ha)"].item()
-            * self.df_cultures["Area (ha)"]
-            / 1e6
+            conditional_depo_coef * self.df_cultures["Area (ha)"] / 1e6
         ).to_dict()  # Dépôt proportionnel aux surface
         flux_generator.generate_flux(source, target)
 
@@ -2734,16 +2986,14 @@ class NitrogenFlowModel:
         # Calcul de la surface totale pour les prairies
 
         total_surface_grasslands = self.df_cultures.loc[
-            self.df_cultures["Category"].isin(["natural meadows", "temporary meadows"]),
+            self.df_cultures["Category"].isin(["meadows", "leguminous meadows"]),
             "Area (ha)",
         ].sum()
 
         # Création du dictionnaire target
         target_grass = (
             self.df_cultures.loc[
-                self.df_cultures["Category"].isin(
-                    ["natural meadows", "temporary meadows"]
-                ),
+                self.df_cultures["Category"].isin(["meadows", "leguminous meadows"]),
                 "Area (ha)",
             ]
             / total_surface_grasslands
@@ -2847,9 +3097,7 @@ class NitrogenFlowModel:
             # Séparer les données en prairies et champs
             # On commence par un bilan sur les prairies pour avoir un bilan complet des prairies et en déduire un bilan azoté non synthétique complet sur les culturess
             df_prairies = self.df_cultures[
-                self.df_cultures["Category"].isin(
-                    ["natural meadows", "temporary meadows"]
-                )
+                self.df_cultures["Category"].isin(["meadows", "leguminous meadows"])
             ].copy()
 
             df_prairies["Surface Non Synthetic Fertilizer Use (kgN/ha)"] = (
@@ -2914,9 +3162,9 @@ class NitrogenFlowModel:
             df_champs = self.df_cultures[
                 ~self.df_cultures["Category"].isin(
                     [
-                        "natural meadows",
-                        "temporary meadows",
+                        "meadows",
                         "leguminous",
+                        "leguminous meadows",
                     ]  # Les légumineuses sont interdit de HB
                 )
             ].copy()
@@ -3640,7 +3888,7 @@ class NitrogenFlowModel:
             + w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
             + W_ENERGY_INPUT * lpSum(delta_fac.values())
             + (W_ENERGY_PROD / max(1, len(df_energy.index))) * energy_dev_total
-            + self._extra_objective()
+            + self._extra_objective(U_vars)
         )
 
         prob += objective
@@ -3848,10 +4096,6 @@ class NitrogenFlowModel:
 
         if prob.status == -1:
             raise Exception("Allocation model infeasible. Please check input data.")
-
-        # from IPython import embed
-
-        # embed()
 
         # print(LpStatus.get(prob.status, "Unknown"))
 
@@ -4647,7 +4891,7 @@ class NitrogenFlowModel:
 
             source = {prod: nitrogen_value}
 
-            if categorie not in ["grazing", "non edible meat"]:
+            if categorie not in ["grazing", "non edible meat", "cover"]:
                 target = {f"{categorie} trade": 1}
             elif categorie == "non edible meat":
                 target = {"other sectors": 1}
@@ -4797,10 +5041,9 @@ class NitrogenFlowModel:
             "Nitrogen Harvest Index",
             "Characteristic Fertilisation (kgN/ha)",
             "Maximum Yield (tFW/ha)",
-            "Ymax (kgN/h)",
+            "Ymax (kgN/ha)",
             "Residue Nitrogen Content (%)",
-            "Nitrogen Harvest IndexFan coef a",
-            "Fan coef b",
+            "Nitrogen Harvest Index",
             "BGN",
             "BNF alpha",
             "BNF beta",
@@ -4960,7 +5203,9 @@ class NitrogenFlowModel:
         :rtype: float
         """
         return (
-            self.importations_df["Imported Nitrogen (ktN)"].sum()
+            self.importations_df.loc[self.importations_df["Type"] == "plant"][
+                "Imported Nitrogen (ktN)"
+            ].sum()
             - self.df_prod.loc[
                 (self.df_prod["Type"] == "plant")
                 & ~(self.df_prod["Sub Type"].isin(["grazing"])),
@@ -4984,7 +5229,9 @@ class NitrogenFlowModel:
         :return: Total nitrogen produced by crops (in ktN).
         :rtype: float
         """
-        return self.df_prod["Nitrogen Production (ktN)"].sum()
+        return self.df_prod.loc[self.df_prod["Type"] == "plant"][
+            "Nitrogen Production (ktN)"
+        ].sum()
 
     def stacked_plant_production(self):
         """
@@ -4993,7 +5240,9 @@ class NitrogenFlowModel:
         :return: A pandas Series of nitrogen production per crop.
         :rtype: pandas.Series
         """
-        return self.df_prod["Nitrogen Production (ktN)"]
+        return self.df_prod.loc[self.df_prod["Type"] == "plant"][
+            "Nitrogen Production (ktN)"
+        ]
 
     def production(self, category):
         """

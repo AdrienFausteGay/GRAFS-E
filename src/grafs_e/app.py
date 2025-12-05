@@ -1,10 +1,6 @@
 import sys
 from pathlib import Path
 
-_SRC = Path(__file__).resolve().parents[1]  # .../repo/src
-if str(_SRC) not in sys.path:
-    sys.path.insert(0, str(_SRC))
-
 import copy
 import io
 import os
@@ -17,12 +13,22 @@ import streamlit as st
 from io import BytesIO
 from plotly.colors import qualitative as qcolors
 
+import warnings
+import traceback
+import logging
+from contextlib import contextmanager
+
 from grafs_e.N_class import DataLoader, NitrogenFlowModel
 from grafs_e.sankey import (
     streamlit_sankey,
     streamlit_sankey_fertilization,
     streamlit_sankey_food_flows,
 )
+from grafs_e.C_class import Dataloader_Carbon, CarbonFlowModel
+
+_SRC = Path(__file__).resolve().parents[1]  # .../repo/src
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
@@ -42,16 +48,8 @@ with open(config_path, "w") as config_file:
     config_file.write("[theme]\nbase='dark'\n")
 
 st.set_page_config(
-    page_title="GRAFS-E App", page_icon=icon_path, layout="wide"
+    page_title="E-GRAFS App", page_icon=icon_path, layout="wide"
 )  # , layout="wide")
-
-# data = st.session_state["data"]
-# st.session_state.available_years = data.years
-# regions = data.regions
-# crops = data.crops
-# meta = data.metadata
-# labels = data.labels
-# label_to_index = data.label_to_index
 
 # Initialisation de l'état des variables
 if "project" not in st.session_state:
@@ -75,6 +73,9 @@ if "project" not in st.session_state:
         "files_loaded": False,
         "load_error": None,
         "success_message": None,
+        "model_N": None,  # +++ modèle Azote
+        "model_C": None,  # +++ modèle Carbone
+        "active_layer": "N",  # +++ 'N' ou 'C' (sélection courante)
     }.items():
         st.session_state.setdefault(k, v)
 
@@ -102,6 +103,9 @@ def clear_all_variables():
         "files_loaded": False,
         "load_error": None,
         "success_message": None,
+        "model_N": None,  # +++
+        "model_C": None,  # +++
+        "active_layer": "N",  # +++
     }
 
     # Réinitialiser les clés spécifiées
@@ -112,9 +116,9 @@ def clear_all_variables():
 
 # %%
 # Initialisation de l'interface Streamlit
-st.title("GRAFS-E")
+st.title("E-GRAFS")
 __version__ = "1.0.0"  # version("grafs_e")
-st.write(f"📦 GRAFS-E version: {__version__}")
+st.write(f"📦 E-GRAFS version: {__version__}")
 st.text("Contact: Adrien Fauste-Gay, adrien.fauste-gay@univ-grenoble-alpes.fr")
 st.title("Nitrogen Flow Simulation Model: A Territorial Ecology Approach")
 
@@ -144,7 +148,7 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
     [
         "Documentation",
         "Data uploading",
-        "Run GRAFS-E",
+        "Run E-GRAFS",
         "Sankey",
         "Detailed data",
         "Historic Evolution",
@@ -155,7 +159,7 @@ with tab1:
     st.title("Documentation")
 
     st.header(
-        "GRAFS-Extended: Comprehensive Analysis of Nitrogen Flux in Agricultural Systems"
+        "E-GRAFSxtended: Comprehensive Analysis of Nitrogen Flux in Agricultural Systems"
     )
 
     st.subheader("Overview")
@@ -163,7 +167,7 @@ with tab1:
     st.write(
         """
     <p style='text-align: justify'>
-        The GRAFS-E model (General Representation of Agro-Food Systems Extended) serves as an advanced tool designed to analyze and map the evolution of nitrogen utilization within agricultural systems. This model builds upon the GRAFS framework developed at IEES (Jussieu, Paris) provides a detailed analysis of nitrogen flows in agriculture. The model enables researchers to construct robust prospective scenarios and examine the global structure of nitrogen flows in agricultural ecosystems. Full documentation can be accessed here (access must be given by creator, see contact):
+        The E-GRAFS model (General Representation of Agro-Food Systems Extended) serves as an advanced tool designed to analyze and map the evolution of nitrogen utilization within agricultural systems. This model builds upon the GRAFS framework developed at IEES (Jussieu, Paris) provides a detailed analysis of nitrogen flows in agriculture. The model enables researchers to construct robust prospective scenarios and examine the global structure of nitrogen flows in agricultural ecosystems. Full documentation can be accessed here (access must be given by creator, see contact):
     </p>
     """,
         unsafe_allow_html=True,
@@ -172,8 +176,8 @@ with tab1:
     # Create a link button to the documentation
     st.link_button(
         "📖 Full Documentation",
-        "https://grafs-e-f43b79.gricad-pages.univ-grenoble-alpes.fr/index.html",
-        help="Opens GRAFS-E documentation in a new tab.",
+        "https://E-GRAFS-f43b79.gricad-pages.univ-grenoble-alpes.fr/index.html",
+        help="Opens E-GRAFS documentation in a new tab.",
     )
 
     st.subheader("Features")
@@ -182,7 +186,7 @@ with tab1:
         "First upload your project and dat files in the 'Upload data' tab. these files must be formated as described in the documentation."
     )
     st.text(
-        "Go to 'Run' tab to select a year and region to run GRAFS-E. This will display the nitrogen transition matrix for this territory"
+        "Go to 'Run' tab to select a year and region to run E-GRAFS. This will display the nitrogen transition matrix for this territory"
     )
     st.text(
         "The 'Sankey' tab offerts first visualization tools to analyse direct input and output flows for each object."
@@ -269,6 +273,210 @@ with tab2:
         # Tente de charger les fichiers
         load_files()
 
+    # ---------- MERGE & HEATMAP HELPERS (communs N/C) ----------
+    def build_simplified_merges_with_attachments(model) -> dict:
+        """
+        Construit un dict 'merges' suffisamment général pour N et C :
+        - Crops groupés par Category (si présent)
+        - Livestock groupé
+        - Population groupée
+        - Trade/Industry/Environment si présents
+        - Products et Excretion rattachés à leur origine (si tables présentes)
+        """
+        merges: dict[str, list[str]] = {}
+
+        # Crops par Category
+        if (
+            hasattr(model, "df_cultures")
+            and model.df_cultures is not None
+            and not model.df_cultures.empty
+        ):
+            for cat, idxs in model.df_cultures.groupby("Category").groups.items():
+                merges[cat] = list(idxs)
+
+        # Livestock
+        if (
+            hasattr(model, "df_elevage")
+            and model.df_elevage is not None
+            and not model.df_elevage.empty
+        ):
+            merges["Livestock"] = model.df_elevage.index.tolist()
+
+        # Population
+        if (
+            hasattr(model, "df_pop")
+            and model.df_pop is not None
+            and not model.df_pop.empty
+        ):
+            merges["Population"] = model.df_pop.index.tolist()
+
+        # Trade (labels contenant 'trade')
+        trade_labels = [
+            lbl
+            for lbl in getattr(model, "labels", [])
+            if isinstance(lbl, str) and "trade" in lbl.lower()
+        ]
+        if trade_labels:
+            merges["Trade"] = trade_labels
+
+        # Industry (Haber-Bosch + autres secteurs + énergie + *machines*)
+        industry_candidates = [
+            lbl
+            for lbl in ["Haber-Bosch", "other sectors"]
+            if lbl in getattr(model, "labels", [])
+        ]
+
+        # Énergie (si la couche expose un DF énergie)
+        if (
+            hasattr(model, "df_energy")
+            and model.df_energy is not None
+            and not model.df_energy.empty
+        ):
+            industry_candidates += [
+                lbl
+                for lbl in model.df_energy.index
+                if lbl in getattr(model, "labels", [])
+            ]
+
+        # 🔹 Nouveau : tout label contenant "machine" (insensible à la casse)
+        machine_like = [
+            lbl
+            for lbl in getattr(model, "labels", [])
+            if isinstance(lbl, str) and ("machine" in lbl.lower())
+        ]
+        industry_candidates = sorted(set(industry_candidates + machine_like))
+
+        if industry_candidates:
+            merges["Industry"] = industry_candidates
+
+        # Environment : on ne garde que ceux présents dans cette couche
+        env_candidates = [
+            # Azote
+            "atmospheric NH3",
+            "atmospheric N2O",
+            "atmospheric N2",
+            "soil stock",
+            "hydro-system",
+            "other losses",
+            # Carbone
+            "atmospheric CO2",
+            "atmospheric CH4",
+            "hydrocarbons",
+        ]
+        env_kept = [
+            lbl for lbl in env_candidates if lbl in getattr(model, "labels", [])
+        ]
+        if env_kept:
+            merges["Environment"] = env_kept
+
+        # Products → groupe du crop d’origine (si df_prod présent)
+        if (
+            hasattr(model, "df_prod")
+            and model.df_prod is not None
+            and not model.df_prod.empty
+        ):
+            for prod_label, row in model.df_prod.iterrows():
+                origin = row.get("Origin compartment")
+                if not isinstance(origin, str):
+                    continue
+                # cherche un groupe contenant 'origin'
+                dest_group = None
+                for gname, members in merges.items():
+                    if origin in members:
+                        dest_group = gname
+                        break
+                if dest_group is None:
+                    dest_group = origin
+                    merges.setdefault(dest_group, []).append(origin)
+                merges.setdefault(dest_group, []).append(prod_label)
+
+        # Excretion → groupe contenant l’élevage d’origine (si df_excr présent)
+        if (
+            hasattr(model, "df_excr")
+            and model.df_excr is not None
+            and not model.df_excr.empty
+        ):
+            for ex_label, row in model.df_excr.iterrows():
+                origin = row.get("Origin compartment")
+                if not isinstance(origin, str):
+                    continue
+                dest_group = None
+                for gname, members in merges.items():
+                    if origin in members:
+                        dest_group = gname
+                        break
+                if dest_group is None and "Livestock" in merges:
+                    dest_group = "Livestock"
+                if dest_group is None:
+                    dest_group = origin
+                    merges.setdefault(dest_group, []).append(origin)
+                merges.setdefault(dest_group, []).append(ex_label)
+
+        return merges
+
+    def merge_matrix_with_labels(
+        matrix: np.ndarray, labels: list[str], merges: dict
+    ) -> tuple[np.ndarray, list[str]]:
+        """
+        Fusionne lignes/colonnes selon 'merges'.
+        Toute étiquette non citée par 'merges' reste en groupe singleton.
+        Conserve l’ordre d’apparition des labels.
+        """
+        # map label -> group
+        label2group = {}
+        included = set()
+        for g, members in merges.items():
+            for m in members:
+                if m in labels:
+                    label2group[m] = g
+                    included.add(m)
+        # singletons
+        for m in labels:
+            if m not in included:
+                label2group[m] = m
+
+        # ordre des groupes = ordre de première apparition
+        new_labels = []
+        for m in labels:
+            g = label2group[m]
+            if g not in new_labels:
+                new_labels.append(g)
+
+        # indices par groupe
+        group2idx = {
+            g: [i for i, lab in enumerate(labels) if label2group[lab] == g]
+            for g in new_labels
+        }
+
+        # somme bloc par bloc
+        n = len(new_labels)
+        M = np.zeros((n, n), dtype=float)
+        for i, gi in enumerate(new_labels):
+            rows = group2idx[gi]
+            for j, gj in enumerate(new_labels):
+                cols = group2idx[gj]
+                M[i, j] = float(matrix[np.ix_(rows, cols)].sum())
+        return M, new_labels
+
+    def plot_heatmap_from_matrix(M: np.ndarray, labels: list[str], title: str):
+        import plotly.graph_objects as go
+
+        fig = go.Figure(
+            data=go.Heatmap(
+                z=M, x=labels, y=labels, coloraxis="coloraxis", hoverongaps=False
+            )
+        )
+        fig.update_layout(
+            title=title,
+            xaxis=dict(title="To", tickangle=45),
+            yaxis=dict(title="From", autorange="reversed"),
+            coloraxis=dict(colorscale="Viridis"),
+            margin=dict(l=60, r=20, t=60, b=100),
+        )
+        return fig
+
+    # ---------- /HELPERS ----------rges
+
     # --- Mise à Jour des Widgets Streamlit ---
 
     # 1. Uploader du fichier Projet
@@ -301,7 +509,7 @@ with tab2:
         st.button("🔴 Clear All Data and Cache", on_click=clear_all_variables)
 
 with tab3:
-    st.title("Run GRAFS-E")
+    st.title("Run E-GRAFS")
     if not st.session_state.dataloader:
         st.warning(
             "⚠️ Please upload project and data files first in the 'Data Uploading' tab."
@@ -327,6 +535,11 @@ with tab3:
             "Forecast mode", value=False, key="prospective_mode"
         )  # True = sans merge
 
+        # Selection couche carbone
+        compute_carbon = st.toggle(
+            "Compute carbon layer (ktC)", value=False, key="carbon_mode"
+        )
+
         # ✅ Affichage des sélections (se met à jour dynamiquement)
         if st.session_state.region_run:
             st.write(f"✅ Selected Area: {st.session_state.region_run}")
@@ -338,189 +551,290 @@ with tab3:
         else:
             st.warning("⚠️ Please select a Year")
 
-        # 🟢 Fonction pour générer la heatmap et éviter les recalculs inutiles
-        @st.cache_data
-        def generate_heatmap(_model):
-            _model = copy.deepcopy(_model)
-            return _model.plot_heatmap_interactive()
+        # # 🟢 Fonction pour générer la heatmap (SANS cache pour éviter stale fig)
+        # def generate_heatmap(_model, detailed):
+        #     _model = copy.deepcopy(_model)
+        #     try:
+        #         # Modèle Azote (signature riche)
+        #         return _model.plot_heatmap_interactive(
+        #             detailed_view=detailed,
+        #             group_axes=not detailed,
+        #             legend_max_rows="auto",
+        #         )
+        #     except TypeError:
+        #         # Modèle Carbone (signature simple)
+        #         return _model.plot_heatmap_interactive()
 
-        # 🔹 Bouton "Run" avec les valeurs mises à jour
+        # # ✅ Detailed view TOUJOURS visible (hors du bouton)
+        # detailed_heat = st.checkbox(
+        #     "Detailed view (heatmap)",
+        #     value=st.session_state.get("heatmap_detailed", False),
+        #     key="heatmap_detailed",
+        # )
+
+        # # ✅ Placeholder unique et persistant
+        # if "heatmap_slot" not in st.session_state:
+        #     st.session_state.heatmap_slot = st.empty()
+
+        @contextmanager
+        def capture_warnings_and_logs():
+            """
+            Capture:
+            - warnings.warn(...) (module warnings)
+            - logging.warning/error/critical (module logging)  [optionnel mais utile]
+            Retourne (wlist, logrecs) à la sortie du with.
+            """
+            # 1) warnings
+            with warnings.catch_warnings(record=True) as wlist:
+                warnings.simplefilter(
+                    "always"
+                )  # capter tout, même s'il a déjà été émis
+
+                # 2) logging (>= WARNING)
+                logrecs = []
+
+                class _BufHandler(logging.Handler):
+                    def emit(self, record):
+                        if record.levelno >= logging.WARNING:
+                            logrecs.append(record)
+
+                logger = logging.getLogger()
+                handler = _BufHandler()
+                logger.addHandler(handler)
+                try:
+                    yield (wlist, logrecs)
+                finally:
+                    logger.removeHandler(handler)
+
+        # =========================
+        # Bouton RUN
+        # =========================
         if st.button("Run"):
             st.session_state.region = st.session_state.region_run
             st.session_state.year = st.session_state.year_run
-            if st.session_state.region and st.session_state.year:
-                # Initialiser le modèle avec les paramètres
-                st.session_state.model = NitrogenFlowModel(
-                    data=st.session_state.dataloader,
-                    area=st.session_state.region,
-                    year=st.session_state.year,
-                    prospective=mode_prospective,
-                )
 
-                # ✅ Générer la heatmap et la stocker
-                st.session_state.heatmap_fig = generate_heatmap(st.session_state.model)
-            else:
+            if not (st.session_state.region and st.session_state.year):
                 st.warning(
                     "❌ Please select a year and a region before visiting 'Sankey' and 'Detailed data' tabs."
                 )
+            else:
+                with st.spinner("🚀 Building model(s)..."):
+                    try:
+                        # ---------- Modèle AZOTE ----------
+                        with capture_warnings_and_logs() as (wlistN, logrecsN):
+                            modelN = NitrogenFlowModel(
+                                data=st.session_state.dataloader,
+                                area=st.session_state.region,
+                                year=st.session_state.year,
+                                prospective=mode_prospective,
+                            )
+                        st.session_state.model = modelN
+                        st.session_state.model_N = modelN
+                        st.success("✅ Nitrogen model successfully built.")
 
-        # 🔹 Indépendance de l'affichage de la heatmap 🔹
-        if st.session_state.get("heatmap_fig") and st.session_state.get("model"):
-            if st.session_state.model:
-                st.text(
-                    f"Total Throughflow : {np.round(st.session_state.model.get_transition_matrix().sum(), 1)} ktN/yr."
+                        # 🔸 Stocker les warnings/logs pour affichage ultérieur (sous la heatmap)
+                        st.session_state.logs_N = {
+                            "warnings": [
+                                {
+                                    "category": w.category.__name__,
+                                    "message": str(w.message),
+                                    "filename": w.filename,
+                                    "lineno": w.lineno,
+                                }
+                                for w in wlistN
+                            ],
+                            "logs": [
+                                {
+                                    "levelname": r.levelname,
+                                    "name": r.name,
+                                    "message": r.getMessage(),
+                                    "pathname": getattr(r, "pathname", "?"),
+                                    "lineno": getattr(r, "lineno", "?"),
+                                }
+                                for r in logrecsN
+                            ],
+                        }
+
+                        # ---------- Modèle CARBONE (optionnel) ----------
+                        if compute_carbon:
+                            try:
+                                with capture_warnings_and_logs() as (wlistC, logrecsC):
+                                    dC = Dataloader_Carbon(
+                                        project_path=st.session_state.project_path,
+                                        data_path=st.session_state.data_path,
+                                        region=st.session_state.region,
+                                        year=st.session_state.year,
+                                        prospective=mode_prospective,
+                                    )
+                                    modelC = CarbonFlowModel(dC)
+                                st.session_state.model_C = modelC
+                                st.success("✅ Carbon model successfully built.")
+
+                                st.session_state.logs_C = {
+                                    "warnings": [
+                                        {
+                                            "category": w.category.__name__,
+                                            "message": str(w.message),
+                                            "filename": w.filename,
+                                            "lineno": w.lineno,
+                                        }
+                                        for w in wlistC
+                                    ],
+                                    "logs": [
+                                        {
+                                            "levelname": r.levelname,
+                                            "name": r.name,
+                                            "message": r.getMessage(),
+                                            "pathname": getattr(r, "pathname", "?"),
+                                            "lineno": getattr(r, "lineno", "?"),
+                                        }
+                                        for r in logrecsC
+                                    ],
+                                }
+                            except Exception as eC:
+                                st.error("❌ Carbon model failed with an exception.")
+                                st.exception(eC)
+
+                    except Exception as e:
+                        st.error("❌ Nitrogen model failed with an exception.")
+                        st.exception(e)
+
+        # === Heatmap + Matrix (Nitrogen/Carbon switch if Carbon exists) ===
+        has_N = st.session_state.get("model_N") is not None
+        has_C = st.session_state.get("model_C") is not None
+
+        if has_N:
+            # Sélecteur de couche (C seulement si construite)
+            if has_C:
+                layer_choice = st.radio(
+                    "Matrix layer",
+                    ["Nitrogen (ktN/yr)", "Carbon (ktC/yr)"],
+                    horizontal=True,
+                    key="heatmap_layer",
                 )
-            st.subheader(
-                f"Heatmap of the nitrogen flows for {st.session_state.region} in {st.session_state.year}"
-            )
-            st.plotly_chart(st.session_state.heatmap_fig, use_container_width=True)
+                is_carbon = layer_choice.startswith("Carbon")
+            else:
+                is_carbon = False
 
-            # Bouton pour télécharger la matrice
-            # ───── Création du DataFrame à partir de la matrice ──────────
-            matrix = st.session_state.model.get_transition_matrix()
+            active_model = (
+                st.session_state.model_C if is_carbon else st.session_state.model_N
+            )
+            unit = "ktC/yr" if is_carbon else "ktN/yr"
+
+            # ✅ Un seul interrupteur commun aux deux couches
+            merge_axes = st.toggle(
+                "Merge categories on axes (coarse view)",
+                value=True,
+                key="hm_merge_tab3_unified",
+            )
+            detailed_view = not merge_axes  # mapping pour la couche N
+
+            # Titre + throughflow AVANT la heatmap
+            st.subheader(
+                f"Heatmap of the {'carbon' if is_carbon else 'nitrogen'} flows "
+                f"for {st.session_state.region} in {st.session_state.year}"
+            )
+            try:
+                total_flow = float(active_model.get_transition_matrix().sum())
+                st.text(f"Total Throughflow : {np.round(total_flow, 1)} {unit}.")
+            except Exception as e:
+                st.warning("Couldn't compute total throughflow for this layer.")
+                st.exception(e)
+
+            # --- Génération de la heatmap ---
+            fig = None
+            try:
+                fig = active_model.plot_heatmap_interactive(
+                    detailed_view=detailed_view,
+                    group_axes=merge_axes,
+                    legend_max_rows="auto",
+                )
+            except Exception as e:
+                st.error("❌ Heatmap failed.")
+                st.exception(e)
+                fig = None
+
+            if fig is not None:
+                st.plotly_chart(fig, use_container_width=True)
+
+            # 🔻 Rapports sous la heatmap (selon couche active)
+            logs = st.session_state.get("logs_C" if is_carbon else "logs_N", None)
+            if logs and (logs.get("warnings") or logs.get("logs")):
+                with st.expander(
+                    f"Warnings & Logs ({'Carbon' if is_carbon else 'Nitrogen'})"
+                    f" — {len(logs.get('warnings', []))} warnings, {len(logs.get('logs', []))} logs"
+                ):
+                    if logs.get("warnings"):
+                        st.markdown("**Warnings:**")
+                        for w in logs["warnings"]:
+                            st.markdown(
+                                f"- **{w['category']}**: {w['message']}  \n"
+                                f"  _{w['filename']}:{w['lineno']}_"
+                            )
+                    if logs.get("logs"):
+                        st.markdown("**Logs (≥ WARNING):**")
+                        for r in logs["logs"]:
+                            st.markdown(
+                                f"- **{r['levelname']}** `{r['name']}`: {r['message']}  \n"
+                                f"  _{r['pathname']}:{r['lineno']}_"
+                            )
+
+            # 📥 Téléchargement (matrice “brute” de la couche active ; si tu veux
+            # exporter la matrice MERGEE quand merge_axes=True, dis-le et je te donne
+            # 3 lignes pour basculer sur M2/L2 ci-dessous)
+            matrix = active_model.get_transition_matrix()
             df_matrix = pd.DataFrame(
-                matrix,
-                index=st.session_state.model.labels,
-                columns=st.session_state.model.labels,
+                matrix, index=active_model.labels, columns=active_model.labels
             )
 
             @st.cache_data
-            def convert_df_to_excel(df):
-                """Convertit le DataFrame en bytes au format Excel (xlsx)."""
-                # Crée un buffer de mémoire pour stocker les données Excel
-                output = io.BytesIO()
+            def to_excel_bytes(df: pd.DataFrame, sheet_name: str = "Matrix") -> bytes:
+                out = io.BytesIO()
+                with pd.ExcelWriter(out, engine="openpyxl") as writer:
+                    df.to_excel(writer, index=True, sheet_name=sheet_name)
+                return out.getvalue()
 
-                # Écrit le DataFrame dans le buffer en tant que fichier Excel
-                # index=True inclut l'index du DataFrame dans le fichier
-                with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                    df.to_excel(writer, index=True, sheet_name="Matrice")
-
-                # Récupère les bytes du buffer
-                return output.getvalue()
-
-            # Génère les bytes du fichier Excel à partir du DataFrame
-            excel_bytes = convert_df_to_excel(df_matrix)
-
-            # ───── Bouton de téléchargement ─────────────────────────────
+            excel_bytes = to_excel_bytes(df_matrix)
+            layer_tag = "C" if is_carbon else "N"
             st.download_button(
-                label="📥 Download matrix (xlsx)",
+                label=f"📥 Download {'carbon' if is_carbon else 'nitrogen'} matrix (xlsx)",
                 data=excel_bytes,
-                file_name=f"transition_matrix_{st.session_state.region}_{st.session_state.year}.xlsx",
+                file_name=f"transition_matrix_{st.session_state.region}_{st.session_state.year}_{layer_tag}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key="hist_xlsx",  # Il est préférable de changer la clé
+                key=f"matrix_xlsx_{layer_tag}",
             )
+
 
 with tab4:
     st.title("Sankey")
 
-    # Vérifier si le modèle a été exécuté
-    if not st.session_state.model:
-        st.warning("⚠️ Please run the model first in the 'Run GRAFS-E' tab.")
+    has_N = bool(st.session_state.get("model_N"))
+    has_C = bool(st.session_state.get("model_C"))
+
+    if not (has_N or has_C):
+        st.warning(
+            "⚠️ Please run the model first in the 'Run E-GRAFS' tab (enable Carbon if you want ktC)."
+        )
     else:
-        model = st.session_state["model"]
+        # --- Sélecteur de couche ---
+        layer = st.radio(
+            "Layer",
+            ["Nitrogen (ktN/yr)"] + (["Carbon (ktC/yr)"] if has_C else []),
+            index=0 if has_N else 1,
+            horizontal=True,
+            key="sankey_layer",
+        )
+        is_carbon = layer.startswith("Carbon")
+        st.session_state.active_layer = "C" if is_carbon else "N"
+
+        model = st.session_state.model_C if is_carbon else st.session_state.model_N
+        unit = "ktC/yr" if is_carbon else "ktN/yr"
 
         # -- UI : mode d'affichage et profondeur --
         mode_complet = st.toggle(
             "Detailed view", value=False, key="first"
         )  # True = sans merge
         scope = 1
-
-        # -- Préparer les merges si on est en mode simplifié --
-        def build_simplified_merges_with_attachments(model) -> dict:
-            """
-            Construit un dict 'merges' :
-            - crops groupés par Category
-            - products attachés au groupe du crop d'origine (Origin compartment)
-            - livestock groupés en 'Livestock'
-            - excretions attachées au groupe Livestock (ou au groupe contenant l'élevage d'origine)
-            - ajoute Trade/Industry/Environment/Population comme avant, si présents
-            """
-            merges: dict[str, list[str]] = {}
-
-            # 1) Crops par Category
-            if hasattr(model, "df_cultures") and not model.df_cultures.empty:
-                for cat, idxs in model.df_cultures.groupby("Category").groups.items():
-                    merges[cat] = list(idxs)  # labels des crops de cette catégorie
-            else:
-                merges = {}
-
-            # 2) Groupe Livestock
-            if hasattr(model, "df_elevage") and not model.df_elevage.empty:
-                merges["Livestock"] = model.df_elevage.index.tolist()
-
-            # 3) Population (optionnel mais courant)
-            if hasattr(model, "df_pop") and not model.df_pop.empty:
-                merges["Population"] = model.df_pop.index.tolist()
-
-            # 4) Trade (tous les labels contenant 'trade')
-            trade_labels = [lbl for lbl in model.labels if "trade" in lbl.lower()]
-            if trade_labels:
-                merges["Trade"] = trade_labels
-
-            # 5) Industry (si présents)
-            industry_candidates = [
-                lbl for lbl in ["Haber-Bosch", "other sectors"] if lbl in model.labels
-            ] + model.df_energy.index.tolist()
-            if industry_candidates:
-                merges["Industry"] = industry_candidates
-
-            # 6) Environment (si présents)
-            env_candidates = [
-                "atmospheric NH3",
-                "atmospheric N2O",
-                "atmospheric N2",
-                "soil stock",
-                "hydro-system",
-                "other losses",
-            ]
-            env_kept = [lbl for lbl in env_candidates if lbl in model.labels]
-            if env_kept:
-                merges["Environment"] = env_kept
-
-            # ------- Attacher PRODUCTS au groupe du crop d'origine -------
-            if hasattr(model, "df_prod") and not model.df_prod.empty:
-                for prod_label, row in model.df_prod.iterrows():
-                    origin = row.get("Origin compartment")
-                    if not isinstance(origin, str):
-                        continue
-
-                    # chercher le groupe qui contient 'origin'
-                    dest_group = None
-                    for gname, members in merges.items():
-                        if origin in members:
-                            dest_group = gname
-                            break
-                    # sinon, fallback : fusionner directement avec le crop d'origine
-                    if dest_group is None:
-                        dest_group = origin
-                        merges.setdefault(dest_group, []).append(
-                            origin
-                        )  # s’assurer que le crop y est
-
-                    merges.setdefault(dest_group, []).append(prod_label)
-
-            # ------- Attacher EXCRETION au groupe contenant l'élevage d'origine -------
-            if hasattr(model, "df_excr") and not model.df_excr.empty:
-                for ex_label, row in model.df_excr.iterrows():
-                    origin = row.get("Origin compartment")
-                    if not isinstance(origin, str):
-                        continue
-
-                    dest_group = None
-                    for gname, members in merges.items():
-                        if origin in members:
-                            dest_group = gname
-                            break
-                    # si on n’a pas trouvé, mais on a un groupe Livestock, rattacher là
-                    if dest_group is None and "Livestock" in merges:
-                        dest_group = "Livestock"
-                    if dest_group is None:
-                        dest_group = origin
-                        merges.setdefault(dest_group, []).append(origin)
-
-                    merges.setdefault(dest_group, []).append(ex_label)
-
-            return merges
 
         if mode_complet:
             merges = None  # pas de merge (ou tes micro-fusions spécifiques si tu veux)
@@ -536,231 +850,223 @@ with tab4:
             scope=scope,
         )
 
-        st.subheader("Fertilization in the territory")
+        if not is_carbon:
+            st.subheader("Fertilization in the territory")
 
-        mode_complet_ferti = st.toggle("Detailed view", value=False, key="ferti")
+            mode_complet_ferti = st.toggle("Detailed view", value=False, key="ferti")
 
-        if mode_complet_ferti:
-            merges = {
-                "Population": model.df_pop.index.tolist(),
-                "Livestock": model.df_elevage.index.tolist(),
-                "Atmospheric deposition": ["atmospheric NH3", "atmospheric N2O"],
-            }
-        else:
-            merges = build_simplified_merges_with_attachments(model)
+            if mode_complet_ferti:
+                merges = {
+                    "Population": model.df_pop.index.tolist(),
+                    "Livestock": model.df_elevage.index.tolist(),
+                    "Atmospheric deposition": ["atmospheric NH3", "atmospheric N2O"],
+                }
+            else:
+                merges = build_simplified_merges_with_attachments(model)
 
-        # Seuil central = max/100
-        base_threshold = float(np.max(model.get_transition_matrix()) / 100.0)
+            # Seuil central = max/100
+            base_threshold = float(np.max(model.get_transition_matrix()) / 100.0)
 
-        # Étendue du slider : /100 → ×100 autour de la base
-        min_thr = float(base_threshold / 50.0)
-        max_thr = float(base_threshold * 50.0)
+            # Étendue du slider : /100 → ×100 autour de la base
+            min_thr = float(0)
+            max_thr = float(base_threshold * 100.0)
 
-        # Slider sur la VALEUR du seuil (pas d'exponentiel visible)
-        tre = st.slider(
-            "Flow threshold (ktN/yr)",
-            min_value=min_thr,
-            max_value=max_thr,
-            value=float(base_threshold),
-            step=(max_thr - min_thr) / 200.0,  # granularité fine ; ajuste si besoin
-        )
-
-        # % du flux total représenté par ce seuil
-        total_flow = float(np.sum(model.get_transition_matrix()))
-        pct_total = (tre / total_flow * 100.0) if total_flow > 0 else 0.0
-
-        st.write(
-            f"Threshold = {tre:.2e} ktN/yr  ·  {pct_total:.3f}% of total flow ({total_flow:.2e} ktN/yr)"
-        )
-
-        # Utilisation du seuil
-        streamlit_sankey_fertilization(model, merges, THRESHOLD=tre)
-
-        st.subheader("Feed for livestock and Food for local population")
-
-        mode_complet_food = st.toggle("Detailed view", value=False, key="food")
-
-        # -- merges
-        if mode_complet_food:
-            merges = {}  # <- (coquille: avant c'était 'merge = {}')
-        else:
-            cat_groups = model.df_cultures.groupby("Category").groups
-            sub_type_groups = model.df_prod.groupby("Sub Type").groups
-            merges = {key: list(indices) for key, indices in cat_groups.items()}
-
-            merges["Livestock"] = model.df_elevage.index.tolist()
-            merges["Population"] = model.df_pop.index.tolist()
-            merges["Excretion"] = model.df_excr.index.tolist()
-
-            merges.update(
-                {key: list(indices) for key, indices in sub_type_groups.items()}
+            # Slider sur la VALEUR du seuil (pas d'exponentiel visible)
+            tre = st.slider(
+                f"Flow threshold ({unit})",  # <--- adapte l’unité
+                min_value=min_thr,
+                max_value=max_thr,
+                value=float(base_threshold),
+                step=(max_thr - min_thr) / 200.0,
             )
 
-            trade_labels = [
-                label
-                for label in model.labels
-                if isinstance(label, str) and "trade" in label.lower()
-            ]
-            if trade_labels:
-                merges["Trade"] = trade_labels
+            # % du flux total représenté par ce seuil
+            total_flow = float(np.sum(model.get_transition_matrix()))
+            pct_total = (tre / total_flow * 100.0) if total_flow > 0 else 0.0
 
-            # (coquille précédente: la virgule finale faisait un tuple)
-            env_candidates = [
-                "atmospheric NH3",
-                "atmospheric N2O",
-                "atmospheric N2",
-                "soil stock",
-                "hydro-system",
-                "other losses",
-            ]
-            merges["Environment"] = [
-                lbl for lbl in env_candidates if lbl in model.labels
-            ]
+            st.write(
+                f"Threshold = {tre:.2e} {unit}  ·  {pct_total:.3f}% of total flow ({total_flow:.2e} {unit})"
+            )
 
-            industry_candidates = [
-                lbl for lbl in ["Haber-Bosch", "other sectors"] if lbl in model.labels
-            ] + model.df_energy.index.tolist()
-            if industry_candidates:
-                merges["Industry"] = industry_candidates
+            # Utilisation du seuil
+            streamlit_sankey_fertilization(model, merges, THRESHOLD=tre)
 
-        # -- slider de seuil (valeur directe), centré sur max/100 et borné à /100 ↔ ×100
-        base_threshold = float(np.max(model.get_transition_matrix()) / 1000.0)
-        min_thr = float(base_threshold / 100.0)
-        max_thr = float(base_threshold * 100.0)
+            st.subheader("Feed for livestock and Food for local population")
 
-        tre = st.slider(
-            "Flow threshold (ktN/yr)",
-            min_value=min_thr,
-            max_value=max_thr,
-            value=float(base_threshold),
-            step=(max_thr - min_thr) / 200.0,  # ajuste la granularité si besoin
-        )
+            mode_complet_food = st.toggle("Detailed view", value=False, key="food")
 
-        # % du flux total
-        total_flow = float(np.sum(model.get_transition_matrix()))
-        pct_total = (tre / total_flow * 100.0) if total_flow > 0 else 0.0
+            # -- merges
+            if mode_complet_food:
+                merges = {}  # <- (coquille: avant c'était 'merge = {}')
+            else:
+                cat_groups = model.df_cultures.groupby("Category").groups
+                sub_type_groups = model.df_prod.groupby("Sub Type").groups
+                merges = {key: list(indices) for key, indices in cat_groups.items()}
 
-        st.write(
-            f"Threshold = {tre:.2e} ktN/yr · {pct_total:.3f}% of total flow ({total_flow:.2e} ktN/yr)"
-        )
+                merges["Livestock"] = model.df_elevage.index.tolist()
+                merges["Population"] = model.df_pop.index.tolist()
+                merges["Excretion"] = model.df_excr.index.tolist()
 
-        # -- appel
-        streamlit_sankey_food_flows(model, merges=merges, THRESHOLD=tre)
+                merges.update(
+                    {key: list(indices) for key, indices in sub_type_groups.items()}
+                )
+
+                trade_labels = [
+                    label
+                    for label in model.labels
+                    if isinstance(label, str) and "trade" in label.lower()
+                ]
+                if trade_labels:
+                    merges["Trade"] = trade_labels
+
+                # (coquille précédente: la virgule finale faisait un tuple)
+                env_candidates = [
+                    "atmospheric NH3",
+                    "atmospheric N2O",
+                    "atmospheric N2",
+                    "soil stock",
+                    "hydro-system",
+                    "other losses",
+                ]
+                merges["Environment"] = [
+                    lbl for lbl in env_candidates if lbl in model.labels
+                ]
+
+                industry_candidates = [
+                    lbl
+                    for lbl in ["Haber-Bosch", "other sectors"]
+                    if lbl in model.labels
+                ] + model.df_energy.index.tolist()
+                if industry_candidates:
+                    merges["Industry"] = industry_candidates
+
+            # -- slider de seuil (valeur directe), centré sur max/100 et borné à /100 ↔ ×100
+            base_threshold = float(np.max(model.get_transition_matrix()) / 1000.0)
+            min_thr = float(0)
+            max_thr = float(base_threshold * 1000.0)
+
+            tre = st.slider(
+                f"Flow threshold ({unit})",
+                min_value=min_thr,
+                max_value=max_thr,
+                value=float(base_threshold),
+                step=(max_thr - min_thr) / 200.0,
+            )
+
+            # % du flux total
+            total_flow = float(np.sum(model.get_transition_matrix()))
+            pct_total = (tre / total_flow * 100.0) if total_flow > 0 else 0.0
+
+            st.write(
+                f"Threshold = {tre:.2e} {unit} · {pct_total:.3f}% of total flow ({total_flow:.2e} {unit})"
+            )
+
+            # -- appel
+            streamlit_sankey_food_flows(model, merges=merges, THRESHOLD=tre)
 
 with tab5:
     st.title("Detailed data")
 
-    if not st.session_state.model:
-        st.warning(
-            "⚠️ Please run the model first in the 'Run' tab or in the 'Prospective mode' tab."
-        )
+    has_N = st.session_state.get("model_N") is not None
+    has_C = st.session_state.get("model_C") is not None
+
+    if not (has_N or has_C):
+        st.warning("⚠️ Please run the model first in the 'Run' tab.")
     else:
-        st.text(
-            "This tab is to access to detailed data used in input but also processed by the model"
-        )
+        mN = st.session_state.get("model_N")
+        mC = st.session_state.get("model_C")
 
-        st.subheader("Cultures data")
+        # 1) Helper: préfère C si le même nom existe
+        def prefer_C_else_N(attr_name: str):
+            # N-only : ne jamais chercher en C
+            if attr_name in ("allocations_df", "deviations_df", "df_energy_flows"):
+                return getattr(mN, attr_name, None) if mN is not None else None
+            # Sinon : d'abord C, sinon N
+            if mC is not None and hasattr(mC, attr_name):
+                dfC = getattr(mC, attr_name)
+                if dfC is not None:
+                    return dfC
+            if mN is not None and hasattr(mN, attr_name):
+                return getattr(mN, attr_name)
+            return None
 
-        st.dataframe(model.df_cultures_display)
+        # 2) Helper d'affichage (essaie plusieurs alias si tu as *_display)
+        def show_df_block(title: str, *candidate_attrs: str):
+            df = None
+            for name in candidate_attrs:
+                df = prefer_C_else_N(name)
+                if df is not None:
+                    break
+            if df is not None:
+                st.subheader(title)
+                st.dataframe(df)
 
-        st.subheader("Livestock data")
+        # — Blocs communs (préférence à C si présent) —
+        show_df_block("Cultures data", "df_cultures_display", "df_cultures")
+        show_df_block("Livestock data", "df_elevage_display", "df_elevage")
+        show_df_block("Excretion data", "df_excr_display", "df_excr")
+        show_df_block("Products data", "df_prod_display", "df_prod")
+        show_df_block("Population data", "df_pop")
+        # Energie : couche C peut exposer une version consolidée
+        show_df_block("Energy data", "df_energy_display", "df_energy")
 
-        st.dataframe(model.df_elevage_display)
+        # — Blocs N-only —
+        if has_N:
+            for title, attr in [
+                (
+                    "Products allocation to livestock, population and bioenergy facilities",
+                    "allocations_df",
+                ),
+                ("Diet deviations from defined diet", "deviations_df"),
+                ("Energy flows (Nitrogen layer only)", "df_energy_flows"),
+            ]:
+                dfN = getattr(mN, attr, None)
+                if dfN is not None:
+                    st.subheader(title)
+                    st.dataframe(dfN)
 
-        st.subheader("Excretion data")
+        # — Télécharger toutes les tables (multi-feuilles) avec la même logique —
+        dfs = {}
+        for title, candidates in [
+            ("Cultures", ("df_cultures_display", "df_cultures")),
+            ("Livestock", ("df_elevage_display", "df_elevage")),
+            ("Excretion", ("df_excr_display", "df_excr")),
+            ("Products", ("df_prod_display", "df_prod")),
+            ("Population", ("df_pop",)),
+            ("Energy", ("df_energy_display", "df_energy")),
+            # N-only
+            ("Allocations (N-only)", ("allocations_df",)),
+            ("Diet deviations (N-only)", ("deviations_df",)),
+            ("Energy flows (N-only)", ("df_energy_flows",)),
+        ]:
+            df = None
+            for name in candidates:
+                df = prefer_C_else_N(name)
+                if df is not None:
+                    break
+            if df is not None:
+                dfs[title] = df
 
-        st.dataframe(model.df_excr_display)
+        if dfs:
+            import io
 
-        st.subheader("Products data")
-
-        st.dataframe(model.df_prod_display)
-
-        st.subheader("Energy data")
-
-        st.dataframe(model.df_energy_display)
-
-        st.subheader(
-            "Products allocation to livestock, population and bioenergy facilities"
-        )
-
-        st.dataframe(model.allocations_df)
-
-        st.subheader("Diet deviations from defined diet")
-
-        st.dataframe(model.deviations_df)
-
-        st.subheader("Population data")
-
-        st.dataframe(model.df_pop)
-
-        st.subheader("Energy data")
-
-        st.dataframe(model.df_energy_flows)
-
-        # --- Boutons de téléchargement ---
-        st.markdown("### Download")
-
-        # 1) Excel multi-feuilles
-        def _clean_sheet_name(name: str, used: set) -> str:
-            # Excel : max 31 chars, pas : \ / ? * [ ]
-            forbidden = {":", "\\", "/", "?", "*", "[", "]"}
-            cleaned = (
-                "".join("_" if ch in forbidden else ch for ch in str(name))[:31]
-                or "Sheet"
+            xbuf = io.BytesIO()
+            with pd.ExcelWriter(xbuf, engine="openpyxl") as writer:
+                for sheet_name, df in dfs.items():
+                    sheet = sheet_name[:31]  # Excel limit
+                    df.to_excel(writer, index=True, sheet_name=sheet)
+            st.download_button(
+                "📥 Download all tables (Excel, multi-sheet)",
+                data=xbuf.getvalue(),
+                file_name="grafs_e_tables.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
-            # assure l'unicité si doublon
-            base, suffix, i = cleaned, "", 1
-            while cleaned in used:
-                suffix = f"_{i}"
-                cleaned = base[: 31 - len(suffix)] + suffix
-                i += 1
-            used.add(cleaned)
-            return cleaned
-
-        dfs = {
-            "Cultures": model.df_cultures_display,
-            "Livestock": model.df_elevage_display,
-            "Excretion": model.df_excr,
-            "Products": model.df_prod_display,
-            "Allocations": model.allocations_df,
-            "Diet deviations": model.deviations_df,
-            "Population": model.df_pop,
-            "Energy": model.df_energy_display,
-        }
-
-        buffer = BytesIO()
-        used_names = set()
-        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-            for name, df in dfs.items():
-                sheet = _clean_sheet_name(name, used_names)
-                # index=True pour garder les index sémantiques
-                df.to_excel(writer, sheet_name=sheet, index=True)
-        buffer.seek(0)
-
-        st.download_button(
-            label="⬇️ Download all (Excel, multi-sheet)",
-            data=buffer,
-            file_name="model_data.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
-
-        # 2) (Optionnel) Boutons individuels en CSV
-        with st.expander("Download individual CSV files"):
-            for name, df in dfs.items():
-                csv_bytes = df.to_csv(index=True).encode("utf-8")
-                st.download_button(
-                    label=f"⬇️ {name}.csv",
-                    data=csv_bytes,
-                    file_name=f"{name.lower().replace(' ', '_')}.csv",
-                    mime="text/csv",
-                    key=f"dl_{name.lower().replace(' ', '_')}",
-                )
 
 
 # =========================================================
 # 1) Modèles par année
 # =========================================================
-@st.cache_resource(show_spinner="Running GRAFS-E over all territories...")
+@st.cache_resource(show_spinner="Running E-GRAFS over all territories...")
 def run_models_for_all_years(region, _data_loader):
     models = {}
     failed_years = []  # <- on garde la liste des années qui plantent
@@ -770,7 +1076,9 @@ def run_models_for_all_years(region, _data_loader):
         if str(year) == "1852" and region == "Savoie":
             continue
         try:
-            models[str(year)] = NitrogenFlowModel(data=_data_loader, area=region, year=year)
+            models[str(year)] = NitrogenFlowModel(
+                data=_data_loader, area=region, year=year
+            )
         except Exception as e:
             failed_years.append((year, str(e)))  # on mémorise l’erreur
             continue
@@ -821,7 +1129,7 @@ def _crop_production_series(_model, relative: bool) -> pd.Series:
         return pd.Series(dtype=float)
 
     s = (
-        _model.df_cultures.groupby("Category")["Total Nitrogen Production (ktN)"]
+        _model.df_cultures.groupby("Category")["Harvested Production (ktN)"]
         .sum()
         .sort_values(ascending=False)
     )
@@ -1048,24 +1356,34 @@ def plot_stacked_series(
 
 
 # =========================================================
-# 5) UI - onglet historique 
+# 5) UI - onglet historique
 # =========================================================
 with tab6:
     st.title("Historic evolution of agrarian landscape")
-    st.text("Discover how agriculture changes over time. Choose a metric and a territory:")
+    st.text(
+        "Discover how agriculture changes over time. Choose a metric and a territory:"
+    )
 
     if not st.session_state.dataloader:
-        st.warning("⚠️ Please upload project and data files first in the 'Data Uploading' tab.")
+        st.warning(
+            "⚠️ Please upload project and data files first in the 'Data Uploading' tab."
+        )
     else:
         available_regions = st.session_state.get("available_regions") or [
             st.session_state.get("region", "France")
         ]
-        region = st.selectbox("Select an area", available_regions, index=0, key="hist_area_selection")
-        metric = st.selectbox("Select a metric", SUPPORTED_METRICS, index=0, key="hist_metric_selection")
+        region = st.selectbox(
+            "Select an area", available_regions, index=0, key="hist_area_selection"
+        )
+        metric = st.selectbox(
+            "Select a metric", SUPPORTED_METRICS, index=0, key="hist_metric_selection"
+        )
 
         if st.button("Run", key="map_button_hist"):
             with st.spinner("🚀 Running models and calculating metrics..."):
-                models, failed_years = run_models_for_all_years(region, st.session_state.dataloader)
+                models, failed_years = run_models_for_all_years(
+                    region, st.session_state.dataloader
+                )
 
                 # Avertir si certaines années ont échoué
                 if failed_years:
@@ -1107,12 +1425,14 @@ with tab6:
                             )
                         except Exception as e:
                             st.error(f"Plot failed for '{metric}': {e}")
-                            st.info("Tip: ensure the model method returns a pandas.Series (index = categories).")
+                            st.info(
+                                "Tip: ensure the model method returns a pandas.Series (index = categories)."
+                            )
                     else:
                         st.warning("Selected metric returned no data.")
 
 # # 📌 Stocker et récupérer les modèles pour chaque région en cache
-# @st.cache_resource(show_spinner="Running GRAFS-E over regions...")
+# @st.cache_resource(show_spinner="Running E-GRAFS over regions...")
 # def run_models_for_all_regions(year, regions, _data_loader):
 #     models = {}
 #     for region in regions:
@@ -1399,7 +1719,7 @@ with tab6:
 #             st.warning("Please run the model to generate the map.")
 
 
-# @st.cache_resource(show_spinner="Running GRAFS-E over all territories...")
+# @st.cache_resource(show_spinner="Running E-GRAFS over all territories...")
 # def run_models_for_all_years(region, _data_loader):
 #     models = {}
 #     for year in st.session_state.available_years:
@@ -2254,7 +2574,7 @@ with tab6:
 # with tab8:
 #     st.title("Prospective mode")
 
-#     st.subheader("How to use GRAFS-E Prospective Mode")
+#     st.subheader("How to use E-GRAFS Prospective Mode")
 
 #     st.markdown(
 #         """To run the prospective mode, two options are available:\\
