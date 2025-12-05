@@ -475,7 +475,7 @@ wheels = [
 ]
 
 [[package]]
-name = "grafs-e"
+name = "E-GRAFS"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [

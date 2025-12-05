@@ -1,6 +1,6 @@
 # User Guide
 
-## GRAFS-E — User Guide (Private Package via GitLab)
+## E-GRAFS — User Guide (Private Package via GitLab)
 
 > **Status:** Private project. You must be granted access to the repository and receive a **Deploy Token** (username + token) from the maintainer to install the package.
 
@@ -25,7 +25,7 @@ $env:GL_DEPLOY_TOKEN="<deploy-token>"
 
 #### 1.2 Install with `pip`
 ```bash
-pip install   --index-url "https://${GL_DEPLOY_USER}:${GL_DEPLOY_TOKEN}@gitlab.com/api/v4/projects/35690/packages/pypi/simple"   --extra-index-url "https://pypi.org/simple"   grafs-e
+pip install   --index-url "https://${GL_DEPLOY_USER}:${GL_DEPLOY_TOKEN}@gitlab.com/api/v4/projects/35690/packages/pypi/simple"   --extra-index-url "https://pypi.org/simple"   E-GRAFS
 ```
 
 > Tip: to avoid typing credentials each time, you can add the following to your `~/.config/pip/pip.conf` (Linux), `~/Library/Application Support/pip/pip.conf` (macOS), or `%APPDATA%\pip\pip.ini` (Windows). Keep using env vars for secrets.
@@ -37,19 +37,19 @@ extra-index-url = https://pypi.org/simple
 
 #### 1.3 Verify installation
 ```bash
-python -c "import grafs_e, sys; print('grafs-e version:', getattr(grafs_e, '__version__', 'unknown'))"
+python -c "import grafs_e, sys; print('E-GRAFS version:', getattr(grafs_e, '__version__', 'unknown'))"
 ```
 
 **Upgrading**:
 ```bash
-pip install -U grafs-e
+pip install -U E-GRAFS
 ```
 
 ---
 
 ### 2) Prepare your input data
 
-GRAFS-E expects common agricultural statistics and technical coefficients prepared per the model’s input schema.  
+E-GRAFS expects common agricultural statistics and technical coefficients prepared per the model’s input schema.  
 Please follow the rules defined in **`docs/source/input.md`** (input specification, files & fields, units, and validation hints).
 
 ---
@@ -138,13 +138,13 @@ After the model is instantiated (`m`), you can retrieve key data objects:
 ### 7) Uninstall
 
 ```bash
-pip uninstall grafs-e
+pip uninstall E-GRAFS
 ```
 
 ---
 
 ### 8) What’s next?
 
-- Read **`docs/source/overview.md`** to understand the physical/systemic principles of GRAFS-E.
+- Read **`docs/source/overview.md`** to understand the physical/systemic principles of E-GRAFS.
 - Use **`docs/source/user-guide.md`** alongside **`docs/source/input.md`** to validate your data and run first scenarios.
 - Explore the API reference for advanced usage and reporting helpers.
