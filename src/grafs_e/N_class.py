@@ -1548,142 +1548,7 @@ class NitrogenFlowModel:
         self._pros_vars["y_c"] = y_c
         self._pros_vars["s_c"] = s_c
 
-        # NOUVELLES VARIABLES pour la linéarisation SOS2
-        w_c_pts = {}  # Poids (w_i) pour chaque point de rupture
-        b_c_segs = {}  # Sélecteur (b_k) pour chaque segment
-
         YCOL, FCOL = "Ymax (kgN/ha)", "Characteristic Fertilisation (kgN/ha)"
-
-        # ---------- C) Linéarisation Y(F) ----------
-        # Nouvelle version SOS2
-        for c in df_cu.index:
-            Ymax = float(df_cu.at[c, YCOL]) if YCOL in df_cu.columns else 0.0
-            Fst = float(df_cu.at[c, FCOL]) if FCOL in df_cu.columns else 0.0
-
-            if Ymax <= 0 or Fst <= 0:
-                # Si pas de courbe, on fixe y_c = 0 et f_c = 0
-                prob += (y_c[c] == 0, f"no_yield_{self._slug(c)}")
-                prob += (f_c[c] == 0, f"no_fert_{self._slug(c)}")
-                continue
-
-            # 1. Définir les points de rupture (F, Y)
-            B = [
-                0.0,
-                0.25 * Fst,
-                0.5 * Fst,
-                1.0 * Fst,
-                1.5 * Fst,
-                2.0 * Fst,
-                3.0 * Fst,
-                4.0 * Fst,
-                5.0 * Fst,
-                100.0 * Fst,
-            ]
-            # Nettoyage des breaks (similaire à votre fonction)
-            B_unique = sorted(set(float(b) for b in B if b is not None and b >= 0.0))
-
-            # pts contient la liste des (F_i, Y_i)
-            pts = [(F, self._Y_func(F, Ymax, Fst)) for F in B_unique]
-            F_pts = [p[0] for p in pts]
-            Y_pts = [p[1] for p in pts]
-
-            num_breaks = len(pts)
-            num_segs = num_breaks - 1
-
-            if num_segs <= 0:
-                # Cas bizarre (un seul point), on fixe à ce point
-                prob += (y_c[c] == Y_pts[0], f"fixed_yield_{self._slug(c)}")
-                prob += (f_c[c] == F_pts[0], f"fixed_fert_{self._slug(c)}")
-                continue
-
-            # 2. Créer les variables w_i et b_k pour cette culture 'c'
-            w_c_pts[c] = LpVariable.dicts(
-                f"w_{self._slug(c)}", range(num_breaks), lowBound=0
-            )
-            b_c_segs[c] = LpVariable.dicts(
-                f"b_{self._slug(c)}", range(num_segs), cat=LpBinary
-            )
-
-        for c in w_c_pts.keys():  # Boucle sur les cultures qui ont des variables w/b
-            # Récupérer les variables et les points
-            w_vars = w_c_pts[c]
-            b_vars = b_c_segs[c]
-
-            # Recalculer les points (ou les stocker)
-            Ymax = float(df_cu.at[c, YCOL])
-            Fst = float(df_cu.at[c, FCOL])
-            F_MAX_ANCORAGE = 1000  # kgN/ha, fertilisation maximale avant de considérer qu'on est à Ymax
-            B = [0.0, 0.25 * Fst, 0.5 * Fst, 1.0 * Fst, 1.5 * Fst, 2.0 * Fst, 3.0 * Fst]
-            B_unique = sorted(set(float(b) for b in B if b is not None and b >= 0.0))
-
-            pts = []
-            for F in B_unique:
-                # On ajoute les points calculés (F_i, Y_i)
-                Y = self._Y_func(F, Ymax, Fst)
-                pts.append((F, Y))
-
-            F_last_calc = pts[-1][0] if pts else 0.0
-            F_anchor = max(F_last_calc * 1.5, F_MAX_ANCORAGE)
-
-            if abs(pts[-1][1] - Ymax) > 1e-6:
-                pts.append((F_anchor, Ymax))
-
-            pts_final = sorted(list(set(pts)))
-            F_pts = [p[0] for p in pts_final]
-            Y_pts = [p[1] for p in pts_final]
-
-            num_breaks = len(pts)
-            num_segs = num_breaks - 1
-
-            # ----- LES 5 CONTRAINTES CLÉS -----
-
-            # 1. Sélection d'un seul segment
-            prob += (
-                lpSum(b_vars[k] for k in range(num_segs)) == 1,
-                f"SOS2_select_seg_{self._slug(c)}",
-            )
-
-            # 2. Somme des poids de la combinaison convexe
-            prob += (
-                lpSum(w_vars[i] for i in range(num_breaks)) == 1,
-                f"SOS2_sum_weights_{self._slug(c)}",
-            )
-
-            # 3. Reconstitution de f_c
-            prob += (
-                f_c[c] == lpSum(w_vars[i] * F_pts[i] for i in range(num_breaks)),
-                f"SOS2_calc_f_{self._slug(c)}",
-            )
-
-            # 4. Reconstitution de y_c
-            prob += (
-                y_c[c] == lpSum(w_vars[i] * Y_pts[i] for i in range(num_breaks)),
-                f"SOS2_calc_y_{self._slug(c)}",
-            )
-
-            # 5. Lien "SOS2" (forcer les w_i à 0 sauf autour du segment b_k choisi)
-            # w_0 ne peut être actif que si b_0 l'est
-            prob += (w_vars[0] <= b_vars[0], f"SOS2_link_w{0}_{self._slug(c)}")
-
-            # Les w_i intermédiaires ne peuvent être actifs que si b_{i-1} ou b_i l'est
-            for i in range(1, num_segs):
-                prob += (
-                    w_vars[i] <= b_vars[i - 1] + b_vars[i],
-                    f"SOS2_link_w{i}_{self._slug(c)}",
-                )
-
-            # Le dernier poids w_N ne peut être actif que si le dernier segment b_{N-1} l'est
-            prob += (
-                w_vars[num_breaks - 1] <= b_vars[num_segs - 1],
-                f"SOS2_link_w{num_breaks - 1}_{self._slug(c)}",
-            )
-
-            # La contrainte y_c <= Ymax est maintenant implicite,
-            # mais la garder ne fait pas de mal (elle peut aider le solveur)
-            prob += (y_c[c] <= Ymax, f"cap_Ymax__{self._slug(c)}")
-
-        self._pros_vars["w_c_pts"] = w_c_pts
-        self._pros_vars["b_c_segs"] = b_c_segs
 
         # ---------- D) P_c (ktN) à partir de yFW ----------
         main_of = df_cu["Main Production"].astype(str).to_dict()
@@ -1748,6 +1613,38 @@ class NitrogenFlowModel:
             prob += bnf_c[c] == a_c * y_c[c] + b_c, f"bnf_affine__{self._slug(c)}"
         self._pros_vars["bnf_c"] = bnf_c
 
+        # --- BNF : borne supérieure constante (pour linéarisation et stabilité numérique) ---
+        bnf_ub_const = {}
+        for c in df_cu.index:
+            Ymax_c = (
+                float(df_cu.at[c, YCOL]) if (YCOL in df_cu.columns) else 0.0
+            )  # kgN/ha
+            HI = float(df_cu.at[c, "Nitrogen Harvest Index"] or 1.0)
+            a = float(df_cu.at[c, "BNF alpha"] or 0.0)
+            b = float(df_cu.at[c, "BNF beta"] or 0.0)
+            BGN = float(df_cu.at[c, "BGN"] or 0.0)
+            a_c = a * BGN / max(1e-9, HI)
+            b_c = b * BGN
+
+            # 👉 borne sup, on remplace y_c par Ymax (kgN/ha)
+            ub = a_c * Ymax_c + b_c
+            bnf_ub_const[c] = ub
+
+            # (Optionnel, mais aide le solveur) : serrage explicite
+            prob += bnf_c[c] <= ub + 1e-9, f"bnf_upper_bound__{self._slug(c)}"
+
+            if c == "Miscanthus and others":
+                a_c = a * BGN / max(1e-9, HI)
+                b_c = b * BGN
+                y_thr = (
+                    0.0 if a_c <= 0 else max(0.0, -b_c / a_c)
+                )  # y minimal pour que a_c*y+b_c ≥ 0
+                print(
+                    f"[BNF check] c={c}, a_c={a_c:.4g}, b_c={b_c:.4g}, Ymax=50, y_thr={y_thr:.4g}, feasible_range? {50 >= y_thr}"
+                )
+
+        self._pros_vars["bnf_ub_const"] = bnf_ub_const
+
         # ---------- G) Graines : seeds_ktN = r_seed * P_c ----------
         seeds_ktN = {
             c: LpVariable(f"seeds_{self._slug(c)}", lowBound=0) for c in df_cu.index
@@ -1756,6 +1653,120 @@ class NitrogenFlowModel:
             r_seed = float(df_cu.at[c, "Seed input (ktN/ktN)"] or 0.0)
             prob += seeds_ktN[c] == r_seed * P_c[c], f"seeds_link__{self._slug(c)}"
         self._pros_vars["seeds_ktN"] = seeds_ktN
+
+        # ---------- C) Linéarisation Y(F) ----------
+        w_c_pts = {}
+        b_c_segs = {}
+
+        K_SAT = 7.0
+        F_MAX_CAP = 1.0e4
+
+        def _as_float(x, default=0.0):
+            try:
+                return float(x)
+            except Exception:
+                return default
+
+        for c in df_cu.index:
+            Ymax = (
+                _as_float(df_cu.at[c, YCOL]) if YCOL in df_cu.columns else 0.0
+            )  # kgN/ha
+            Fst = (
+                _as_float(df_cu.at[c, FCOL]) if FCOL in df_cu.columns else 0.0
+            )  # kgN/ha
+            if Ymax <= 0.0 or Fst <= 0.0:
+                prob += (y_c[c] == 0, f"no_yield_{self._slug(c)}")
+                prob += (f_c[c] == 0, f"no_fert_{self._slug(c)}")
+                continue
+
+            # --- composantes "fixes" en kgN/ha (NUMÉRIQUES)
+            A_ha = _as_float(df_cu.at[c, "Area (ha)"], 0.0)
+            seeds_total_ktN = _as_float(seeds_ktN.get(c, 0.0), 0.0)
+            seeds_gha = (seeds_total_ktN * 1e6 / A_ha) if A_ha > 0 else 0.0
+
+            depo = _as_float(depo_kg_ha.get(c, 0.0), 0.0)
+            orga = _as_float(O_base_kg_ha.get(c, 0.0), 0.0)
+
+            # 👉 BNF: prendre la borne supérieure constante calculée au §1
+            bnf_ub = float(self._pros_vars.get("bnf_ub_const", {}).get(c, 0.0))
+
+            # socle constant pour couvrir le domaine F
+            F_base_UB = max(0.0, depo + orga + seeds_gha + bnf_ub)  # kgN/ha
+
+            # ---- breakpoints F (kgN/ha)
+            B_base = [
+                0.0,
+                0.25 * Fst,
+                0.5 * Fst,
+                1.0 * Fst,
+                1.5 * Fst,
+                2.0 * Fst,
+                3.0 * Fst,
+                10.0 * Fst,
+            ]
+            F_anchor = min(max(3.0 * Fst, 1.10 * F_base_UB, K_SAT * Fst), F_MAX_CAP)
+
+            B = B_base + [F_base_UB, F_anchor]
+            B_unique = sorted(
+                {_as_float(b, 0.0) for b in B if b is not None and b >= 0.0}
+            )
+
+            # points (F,Y) en kgN/ha
+            pts = [(F, self._Y_func(F, Ymax, Fst)) for F in B_unique]
+            F_pts = [p[0] for p in pts]
+            Y_pts = [p[1] for p in pts]
+
+            num_breaks = len(pts)
+            num_segs = num_breaks - 1
+            if num_segs <= 0:
+                prob += (y_c[c] == Y_pts[0], f"fixed_yield_{self._slug(c)}")
+                prob += (f_c[c] == F_pts[0], f"fixed_fert_{self._slug(c)}")
+                continue
+
+            # variables SOS2 et contraintes (comme tu les as)
+            w_vars = LpVariable.dicts(
+                f"w_{self._slug(c)}", range(num_breaks), lowBound=0
+            )
+            b_vars = LpVariable.dicts(
+                f"b_{self._slug(c)}", range(num_segs), cat=LpBinary
+            )
+            w_c_pts[c] = w_vars
+            b_c_segs[c] = b_vars
+
+            prob += (
+                lpSum(b_vars[k] for k in range(num_segs)) == 1,
+                f"SOS2_select_seg_{self._slug(c)}",
+            )
+            prob += (
+                lpSum(w_vars[i] for i in range(num_breaks)) == 1,
+                f"SOS2_sum_weights_{self._slug(c)}",
+            )
+            prob += (
+                f_c[c] == lpSum(w_vars[i] * F_pts[i] for i in range(num_breaks)),
+                f"SOS2_calc_f_{self._slug(c)}",
+            )
+            prob += (
+                y_c[c] == lpSum(w_vars[i] * Y_pts[i] for i in range(num_breaks)),
+                f"SOS2_calc_y_{self._slug(c)}",
+            )
+
+            prob += (w_vars[0] <= b_vars[0], f"SOS2_link_w0_{self._slug(c)}")
+            for i in range(1, num_segs):
+                prob += (
+                    w_vars[i] <= b_vars[i - 1] + b_vars[i],
+                    f"SOS2_link_w{i}_{self._slug(c)}",
+                )
+            prob += (
+                w_vars[num_breaks - 1] <= b_vars[num_segs - 1],
+                f"SOS2_link_w{num_breaks - 1}_{self._slug(c)}",
+            )
+
+            # borne supérieure logique
+            prob += (y_c[c] <= Ymax, f"cap_YmaxN__{self._slug(c)}")
+
+        # mémorisation
+        self._pros_vars["w_c_pts"] = w_c_pts
+        self._pros_vars["b_c_segs"] = b_c_segs
 
         # ---------- H) Synthèse avec pertes NH3/N2O ----------
         a = (
@@ -3978,10 +3989,10 @@ class NitrogenFlowModel:
                         # La variable n'existe pas, on ignore l'ajout des contraintes
                         pass
 
-        # (Option MILP) binaire no-swap import/surplus par produit — formulation stricte
+        # (Option MILP) binaire no-swap import/surplus par produit — version robuste, simple
         use_milp_no_swap = True  # mets False pour rester LP 100%
         if use_milp_no_swap:
-            # binaire par produit : 1 => mode "import" (I>0 autorisé, U=0), 0 => mode "surplus" (U>0 autorisé, I=0)
+            # 0) binaire par produit : 1 => mode "import" (I>0 autorisé, U=0), 0 => mode "surplus" (U>0 autorisé, I=0)
             y_vars = LpVariable.dicts("y", list(df_prod.index), 0, 1, cat="Binary")
 
             # --------- 1) Besoin max importable par produit p (constantes) ----------
@@ -4009,7 +4020,7 @@ class NitrogenFlowModel:
                             conv = self._conv_MWh_per_ktN(fac, p)  # MWh/ktN
                             if conv > 0:
                                 energy_need += (target_gwh * 1000.0) / conv
-                M_imp[p] = cons_need + energy_need + 1e-6  # Big-M import
+                M_imp[p] = cons_need + energy_need + 1e-6  # Big-M import (ktN)
 
             # --------- 2) Agrégat des imports (consommateurs + énergie) -------------
             def I_total_p(p: str):
@@ -4021,69 +4032,104 @@ class NitrogenFlowModel:
                     if (p, fac) in I_energy_vars
                 )
 
-            # --------- 3) Big-M constant sur le surplus possible --------------------
-            # Borne CONSTANTE >= surplus maximal plausible (prospectif compatible).
-            # - Historique / produits animaux : dispo historique.
-            # - Prospectif / végétal : Ymax*Area -> ktFW, *N%, *co-prod, *(1-waste-other).
-            def _surplus_upperbound_const(p: str) -> float:
-                try:
-                    is_animal = str(df_prod.at[p, "Type"]).strip().lower() == "animal"
-                    if (not getattr(self, "prospective", False)) or is_animal:
-                        base = float(
-                            df_prod.at[p, "Available Nitrogen Production (ktN)"] or 0.0
-                        )
-                        return max(1e-6, base, M_imp.get(p, 0.0))
-                    # végétal en mode prospectif
-                    c = df_prod.at[p, "Origin compartment"]  # index culture
-                    Ymax_tFW_ha = float(
-                        self.df_cultures.at[c, "Maximum Yield (tFW/ha)"]
-                    )
-                    Area_ha = float(self.df_cultures.at[c, "Area (ha)"])
-                    Npct = (
-                        float(df_prod.at[p, "Nitrogen Content (%)"]) / 100.0
-                        if "Nitrogen Content (%)" in df_prod.columns
-                        else 0.0
-                    )
-                    copct = (
-                        float(df_prod.at[p, "Co-Production Ratio (%)"]) / 100.0
-                        if "Co-Production Ratio (%)" in df_prod.columns
-                        else 1.0
-                    )
-                    waste = (
-                        float(df_prod.at[p, "Waste (%)"]) / 100.0
-                        if "Waste (%)" in df_prod.columns
-                        else 0.0
-                    )
-                    other = (
-                        float(df_prod.at[p, "Other uses (%)"]) / 100.0
-                        if "Other uses (%)" in df_prod.columns
-                        else 0.0
-                    )
-                    # tFW -> ktFW : /1000 ; puis * N% ; puis * co-pro ; puis (1 - waste - other)
-                    ub = (
-                        (Ymax_tFW_ha * Area_ha / 1000.0)
-                        * Npct
-                        * copct
-                        * max(0.0, 1.0 - waste - other)
-                    )
-                    if not (ub > 0.0 and math.isfinite(ub)):
-                        ub = 0.0
-                    # au minimum la demande totale pour ne pas bloquer
-                    return max(1e-6, ub, M_imp.get(p, 0.0))
-                except Exception:
-                    # fallback robuste : au moins la demande
-                    return max(1.0, M_imp.get(p, 0.0))
+            # --------- 3) Big-M constant de surplus par produit (robuste, en ktN) ---
+            # On reste 100% cohérent avec ta production en kgN/ha :
+            #  - potentiel N max d'une culture c : YmaxN_c [kgN/ha] * Area_c [ha] / 1e6  -> [ktN]
+            #  - si une culture c produit plusieurs produits, on répartit via "Co-Production Ratio (%)" (optionnel)
+            #  - on applique (1 - waste_p - other_p) du produit p
+            SAFETY = 1.05  # petite marge contre arrondis
 
-            M_sur_max = {p: _surplus_upperbound_const(p) for p in df_prod.index}
+            def _f(x, default=0.0):
+                try:
+                    return float(x)
+                except Exception:
+                    return default
+
+            # somme des co-prod par culture (pour normaliser les splits), si dispo
+            cpct_sum_by_c = {}
+            if (
+                "Origin compartment" in df_prod.columns
+                and "Co-Production Ratio (%)" in df_prod.columns
+            ):
+                for c in self.df_cultures.index:
+                    s = 0.0
+                    for p in df_prod.index:
+                        if str(df_prod.at[p, "Origin compartment"]) == str(c):
+                            s += _f(df_prod.at[p, "Co-Production Ratio (%)"], 0.0)
+                    cpct_sum_by_c[c] = s
+
+            def _split_p_from_c(p, c):
+                # split ∈ [0,1] : part du N de la culture c allouée au produit p
+                if "Origin compartment" in df_prod.columns:
+                    if str(df_prod.at[p, "Origin compartment"]) != str(c):
+                        return 0.0
+                # si on a des ratios, on normalise
+                if "Co-Production Ratio (%)" in df_prod.columns and c in cpct_sum_by_c:
+                    cpct = _f(df_prod.at[p, "Co-Production Ratio (%)"], 0.0)
+                    denom = cpct_sum_by_c.get(c, 0.0)
+                    if denom > 0:
+                        return max(0.0, min(1.0, cpct / denom))
+                # sinon : 1 produit par culture
+                return 1.0
+
+            def _losses_p(p):
+                waste = (
+                    _f(df_prod.at[p, "Waste (%)"], 0.0) / 100.0
+                    if "Waste (%)" in df_prod.columns
+                    else 0.0
+                )
+                other = (
+                    _f(df_prod.at[p, "Other uses (%)"], 0.0) / 100.0
+                    if "Other uses (%)" in df_prod.columns
+                    else 0.0
+                )
+                return max(0.0, 1.0 - waste - other)
+
+            # YCOL doit être la colonne de Ymax en kgN/ha (celle utilisée pour ta SOS2)
+            # ex: YCOL = "Ymax (kgN/ha)"
+            M_sur_max = {}
+            for p in df_prod.index:
+                ub_sum = 0.0
+
+                # cultures qui peuvent produire p (ici : culture "Origin compartment"; on reste simple et robuste)
+                c = (
+                    str(df_prod.at[p, "Origin compartment"])
+                    if "Origin compartment" in df_prod.columns
+                    else None
+                )
+                if c in self.df_cultures.index:
+                    YmaxN = _f(
+                        self.df_cultures.at[c, "Ymax (kgN/ha)"], 0.0
+                    )  # kgN/ha (N, pas FW)
+                    A_ha = _f(self.df_cultures.at[c, "Area (ha)"], 0.0)  # ha
+                    potN_ktN = (YmaxN * A_ha) / 1e6  # ktN potentiels
+                    split = _split_p_from_c(p, c)  # ∈ [0,1]
+                    ub_sum += potN_ktN * split * _losses_p(p)
+
+                # fallback (ex: produit animal / pas d'origine claire) : dispo historique
+                if (
+                    ub_sum <= 0.0
+                    and "Available Nitrogen Production (ktN)" in df_prod.columns
+                ):
+                    ub_sum = max(
+                        ub_sum,
+                        _f(df_prod.at[p, "Available Nitrogen Production (ktN)"], 0.0),
+                    )
+
+                M_sur_max[p] = max(
+                    1e-6, ub_sum * SAFETY, M_imp.get(p, 0.0)
+                )  # ktN (constante)
 
             # --------- 4) Contraintes "either-or" strictes --------------------------
+            EPS = 1e-9  # slack numérique pour éviter les blocages de tolérance
             for p in df_prod.index:
-                # Si y_p = 1 (mode import)  -> autorise imports (≤ M_imp), force U_p = 0
+                # y=1 => import autorisé (<= M_imp), surplus forcé à 0
                 prob += I_total_p(p) <= M_imp[p] * y_vars[p], f"NoSwap_I_{p}"
-                prob += U_vars[p] <= M_sur_max[p] * (1 - y_vars[p]), f"NoSwap_U_{p}"
-                # => y_p = 1  ⇒  U_p ≤ 0  (car (1 - y_p)=0) ; y_p = 0  ⇒  I_total_p ≤ 0.
-                # Pas de produit binaire × expression : M_sur_max et M_imp sont des constantes.
-
+                prob += (
+                    U_vars[p] <= (M_sur_max[p] + EPS) * (1 - y_vars[p]),
+                    f"NoSwap_U_{p}",
+                )
+                # => y = 1  ⇒  U_p ≤ 0 ; y = 0  ⇒  I_total_p ≤ 0
         # prob.writeLP("model.lp")
 
         # 2) activer les logs CBC (et voir l’infeasibility si c’est le cas)
@@ -4093,6 +4139,10 @@ class NitrogenFlowModel:
         # Résolution du problème
         prob.solve()
         self._post_solve_supply()
+
+        # from IPython import embed
+
+        # embed()
 
         if prob.status == -1:
             raise Exception("Allocation model infeasible. Please check input data.")
