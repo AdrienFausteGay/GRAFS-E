@@ -586,7 +586,6 @@ def streamlit_sankey_fertilization(
         )
     )
     fig.update_layout(
-        title="Fertilization flows → crops (with Seeds box)",
         font_size=14,
         margin=dict(l=20, r=20, t=40, b=20),
     )
