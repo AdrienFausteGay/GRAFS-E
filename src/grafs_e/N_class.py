@@ -238,6 +238,22 @@ class DataLoader:
 
         wide = wide[list(categories_needed)]
 
+        # Les colonnes texte
+        TEXT_COLS = {
+            "Origin compartment",
+            "Type",
+            "Sub Type",
+            "Category",
+            "Main Production",
+            "Diet",
+        }
+
+        for col in categories_needed:
+            if col in TEXT_COLS:
+                wide[col] = wide[col].astype("string")  # garde du texte propre
+            else:
+                wide[col] = self._to_num(wide[col])  # float (gère virgules, etc.)
+
         # Remplissage manquant par 0 (ou garde NaN si tu préfères)
         # wide = wide[categories_needed].fillna(0.0)
 
@@ -247,18 +263,25 @@ class DataLoader:
 
         for col in categories_needed:
             series_added = wide[col]
-            if col in merged_df.columns and merged_df[col].dtype != object:
-                merged_df[col] = merged_df[col].astype(object)
+
+            if col in TEXT_COLS:
+                # s'assurer que merged_df[col] est string avant assign
+                if col not in merged_df.columns:
+                    merged_df[col] = pd.Series(index=merged_df.index, dtype="string")
+                else:
+                    merged_df[col] = merged_df[col].astype("string")
+                series_added = series_added.astype("string")
+            else:
+                # numérique
+                if col not in merged_df.columns:
+                    merged_df[col] = pd.Series(index=merged_df.index, dtype="float64")
+                series_added = pd.to_numeric(series_added, errors="coerce")
+
+            # assign (overwrite ou mask)
             if overwrite:
-                # On met la colonne telle quelle (même si NaN)
                 merged_df[col] = series_added
             else:
-                # On n'écrase que les positions où wide a une valeur non-nulle (non-NaN)
                 mask_has_value = series_added.notna()
-                if col not in merged_df.columns:
-                    # créer la colonne si elle n'existe pas
-                    merged_df[col] = np.nan
-                    merged_df[col] = merged_df[col].astype(object)
                 merged_df.loc[mask_has_value, col] = series_added.loc[mask_has_value]
 
         if warn_if_nans:
@@ -283,7 +306,11 @@ class DataLoader:
                 )
                 warnings.warn(msg)
 
-        merged_df = merged_df.fillna(0)
+        num_cols = [c for c in categories_needed if c not in TEXT_COLS]
+        txt_cols = [c for c in categories_needed if c in TEXT_COLS]
+
+        merged_df[num_cols] = merged_df[num_cols].apply(self._to_num).fillna(0.0)
+        merged_df[txt_cols] = merged_df[txt_cols].astype("string").fillna("")
         return merged_df
 
     def generate_df_prod(self, area, year, prospect=False):
@@ -314,11 +341,15 @@ class DataLoader:
 
         # Calcul de l'azote disponible pour les cultures
         df_prod["Nitrogen Production (ktN)"] = (
-            df_prod["Production (kton)"] * df_prod["Nitrogen Content (%)"] / 100
+            df_prod["Production (kton)"].astype(float)
+            * df_prod["Nitrogen Content (%)"].astype(float)
+            / 100
         )
 
         df_prod["Nitrogen Wasted (ktN)"] = (
-            df_prod["Nitrogen Production (ktN)"] * df_prod["Waste (%)"] / 100
+            df_prod["Nitrogen Production (ktN)"].astype(float)
+            * df_prod["Waste (%)"].astype(float)
+            / 100
         )
 
         df_prod["Nitrogen for Other uses (ktN)"] = (
@@ -482,8 +513,8 @@ class DataLoader:
         s = num.groupby(df_prod.loc[m, "Origin compartment"]).sum()
 
         df_cultures.loc[mask, "Yield (qtl/ha)"] = (
-            df_cultures.loc[mask].index.to_series().map(s).fillna(0.0)
-            / df_cultures.loc[mask, "Area (ha)"].replace(0, float("nan"))
+            df_cultures.loc[mask].index.to_series().map(s).fillna(0.0).astype(float)
+            / df_cultures.loc[mask, "Area (ha)"].replace(0, float("nan")).astype(float)
         ).fillna(0.0)
 
         # df_cultures.loc[mask, "Yield (kgN/ha)"] = (
@@ -497,9 +528,9 @@ class DataLoader:
         ].sum()
 
         df_cultures.loc[mask, "Yield (kgN/ha)"] = (
-            df_cultures.loc[mask].index.to_series().map(prod_by_origin)
+            df_cultures.loc[mask].index.to_series().map(prod_by_origin).astype(float)
             * 1e6
-            / df_cultures.loc[mask, "Area (ha)"]
+            / df_cultures.loc[mask, "Area (ha)"].astype(float)
         )
 
         mask = df_cultures["Fertilization Need (kgN/qtl)"] > 0
@@ -539,12 +570,12 @@ class DataLoader:
         )
         df_elevage = df_elevage[list(categories_needed)].copy()
 
-        df_elevage["Excreted indoor as slurry (%)"] = (
-            100 - df_elevage["Excreted indoor as manure (%)"]
-        )
-        df_elevage["Excreted on grassland (%)"] = (
-            100 - df_elevage["Excreted indoor (%)"]
-        )
+        df_elevage["Excreted indoor as slurry (%)"] = 100 - df_elevage[
+            "Excreted indoor as manure (%)"
+        ].astype(float)
+        df_elevage["Excreted on grassland (%)"] = 100 - df_elevage[
+            "Excreted indoor (%)"
+        ].astype(float)
 
         self.generate_df_prod(area, year, prospect)
         df_prod = self.df_prod.copy()
@@ -573,12 +604,12 @@ class DataLoader:
         self.df_prod = df_prod
         df_elevage["Edible Nitrogen (ktN)"] = (
             (
-                df_prod.loc[df_prod["Sub Type"] == "edible meat", :].set_index(
-                    "Origin compartment"
-                )["Nitrogen Content (%)"]
-                * df_prod.loc[df_prod["Sub Type"] == "edible meat", :].set_index(
-                    "Origin compartment"
-                )["Production (kton)"]
+                df_prod.loc[df_prod["Sub Type"] == "edible meat", :]
+                .set_index("Origin compartment")["Nitrogen Content (%)"]
+                .astype(float)
+                * df_prod.loc[df_prod["Sub Type"] == "edible meat", :]
+                .set_index("Origin compartment")["Production (kton)"]
+                .astype(float)
                 / 100
             )
             .groupby("Origin compartment")
@@ -586,12 +617,12 @@ class DataLoader:
         )
         df_elevage["Non Edible Nitrogen (ktN)"] = (
             (
-                df_prod.loc[df_prod["Sub Type"] == "non edible meat", :].set_index(
-                    "Origin compartment"
-                )["Nitrogen Content (%)"]
-                * df_prod.loc[df_prod["Sub Type"] == "non edible meat", :].set_index(
-                    "Origin compartment"
-                )["Production (kton)"]
+                df_prod.loc[df_prod["Sub Type"] == "non edible meat", :]
+                .set_index("Origin compartment")["Nitrogen Content (%)"]
+                .astype(float)
+                * df_prod.loc[df_prod["Sub Type"] == "non edible meat", :]
+                .set_index("Origin compartment")["Production (kton)"]
+                .astype(float)
                 / 100
             )
             .groupby("Origin compartment")
@@ -768,7 +799,6 @@ class DataLoader:
         global_df = (
             input_df.loc[mask_global, ["item", "value"]].copy().set_index("item")
         )
-
         global_df = global_df.combine_first(self.init_df_global)
 
         required_items = [
@@ -777,17 +807,17 @@ class DataLoader:
             "Atmospheric deposition coef (kgN/ha)",
             "coefficient N-NH3 volatilization synthetic fertilization (%)",
             "coefficient N-N2O emission synthetic fertilization (%)",
+            "coefficient N-N2O indirect emission synthetic fertilization (%)",
             "Weight diet",
             "Weight import",
-            "Weight distribution",
-            "Weight fair local split",
-            "Weight energy production",
-            "Weight energy inputs",
-            "Enforce animal share",
-            "Green waste nitrogen content (%)",
+            "Weight distribution",  # peut être défaut
+            "Weight fair local split",  # peut être défaut
+            "Weight energy production",  # peut être défaut (si pas d'énergie)
+            "Weight energy inputs",  # peut être défaut (si pas d'énergie)
+            "Enforce animal share",  # bool
+            "Green waste nitrogen content (%)",  # peut être défaut (si pas d'énergie)
         ]
 
-        # The list of required items
         if prospect:
             required_items += [
                 "Weight synthetic fertilizer",
@@ -799,36 +829,128 @@ class DataLoader:
                 "Green waste C/N",
             ]
 
-        weight_diet = global_df.loc["Weight diet", "value"]
-        weight_import = global_df.loc["Weight import", "value"]
+        # ------------------------------------------------------------
+        # 0) Créer AVANT raw les items qui peuvent être absents mais auront un défaut
+        # ------------------------------------------------------------
+        optional_defaults = {
+            "Weight distribution",
+            "Weight fair local split",
+            "Weight energy production",
+            "Weight energy inputs",
+            "Green waste nitrogen content (%)",
+        }
+        if carbon:
+            optional_defaults.add("Green waste C/N")
+        if prospect:
+            optional_defaults.add("Weight synthetic distribution")  # dérivé si manquant
+
+        for k in optional_defaults:
+            if k not in global_df.index:
+                global_df.loc[k, "value"] = np.nan
+
+        # ------------------------------------------------------------
+        # 1) Nettoyage string commun
+        # ------------------------------------------------------------
+        raw = (
+            global_df["value"]
+            .astype("string")
+            .str.strip()
+            .str.replace(",", ".", regex=False)
+        )
+
+        # ------------------------------------------------------------
+        # 2) Typage par schéma
+        # ------------------------------------------------------------
+        BOOL_ITEMS = {"Enforce animal share"}
+        NUM_ITEMS = [i for i in required_items if i not in BOOL_ITEMS]
+
+        # Convertir uniquement ce qui existe réellement (évite KeyError)
+        idx_num = [i for i in NUM_ITEMS if i in global_df.index]
+        global_df.loc[idx_num, "value"] = pd.to_numeric(
+            raw.loc[idx_num], errors="coerce"
+        )
+
+        def _parse_bool(x):
+            if pd.isna(x):
+                return pd.NA
+            s = str(x).strip().lower()
+            if s in {"1", "true", "yes", "y", "on"}:
+                return True
+            if s in {"0", "false", "no", "n", "off"}:
+                return False
+            try:
+                return bool(float(s))
+            except Exception:
+                return pd.NA
+
+        # Bool dans colonne dédiée + (optionnel) valeur numérique 0/1 dans "value" pour robustesse
+        if "Enforce animal share" not in global_df.index:
+            global_df.loc["Enforce animal share", "value"] = np.nan
+            raw = raw.reindex(global_df.index)  # au cas où
+
+        b = _parse_bool(raw.get("Enforce animal share", pd.NA))
+        global_df["value_bool"] = pd.NA
+        global_df.loc["Enforce animal share", "value_bool"] = b
+        if b is True:
+            global_df.loc["Enforce animal share", "value"] = 1.0
+        elif b is False:
+            global_df.loc["Enforce animal share", "value"] = 0.0
+
+        # ------------------------------------------------------------
+        # 3) Calculs de défauts (tester isna plutôt que "not in index")
+        # ------------------------------------------------------------
+        weight_diet = float(global_df.loc["Weight diet", "value"])
+        weight_import = float(global_df.loc["Weight import", "value"])
         non_zero_weights = [w for w in [weight_diet, weight_import] if w > 0] + [0]
-        # Weight distribution is given in option and can be computed from other weights
-        if "Weight distribution" not in global_df.index:
+
+        if pd.isna(global_df.loc["Weight distribution", "value"]):
             global_df.loc["Weight distribution", "value"] = min(non_zero_weights) / 10
-        # Weight distribution is given in option and can be computed from other weights
-        if "Weight fair local split" not in global_df.index:
+
+        if pd.isna(global_df.loc["Weight fair local split", "value"]):
             global_df.loc["Weight fair local split", "value"] = (
                 min(non_zero_weights) / 20
             )
-        if (prospect) and ("Weight synthetic distribution" not in global_df.index):
-            weight_synth = global_df.loc["Weight synthetic fertilizer", "value"]
-            global_df.loc["Weight synthetic distribution"] = weight_synth / 10
 
-        if carbon:
-            if "Green waste C/N" not in global_df.index:
-                global_df.loc["Green waste C/N", "value"] = 10
+        if prospect and pd.isna(
+            global_df.loc["Weight synthetic distribution", "value"]
+        ):
+            weight_synth = float(global_df.loc["Weight synthetic fertilizer", "value"])
+            global_df.loc["Weight synthetic distribution", "value"] = weight_synth / 10
+
+        if carbon and pd.isna(global_df.loc["Green waste C/N", "value"]):
+            global_df.loc["Green waste C/N", "value"] = 10.0
 
         if len(self.init_df_energy) == 0:
-            global_df.loc["Green waste nitrogen content (%)", "value"] = 0
-            global_df.loc["Weight energy production", "value"] = 0
-            global_df.loc["Weight energy inputs", "value"] = 0
-        # Check for the presence of each required item
-        missing_items = [item for item in required_items if item not in global_df.index]
+            global_df.loc["Green waste nitrogen content (%)", "value"] = 0.0
+            global_df.loc["Weight energy production", "value"] = 0.0
+            global_df.loc["Weight energy inputs", "value"] = 0.0
 
+        # ------------------------------------------------------------
+        # 4) Vérifs finales (après défauts)
+        # ------------------------------------------------------------
+        missing_items = [item for item in required_items if item not in global_df.index]
         if missing_items:
             raise KeyError(
-                f"❌ The following required global metrics were not found for year {year} and area {area}: "
-                f"{', '.join(missing_items)}. Please check the input data."
+                f"❌ Missing global metrics for year {year}, area {area}: {', '.join(missing_items)}"
+            )
+
+        # items numériques indispensables (tu peux ajuster la liste si certains sont aussi optionnels)
+        must_be_numeric = [
+            "Total Synthetic Fertilizer Use on crops (ktN)",
+            "Total Synthetic Fertilizer Use on grasslands (ktN)",
+            "Atmospheric deposition coef (kgN/ha)",
+            "coefficient N-NH3 volatilization synthetic fertilization (%)",
+            "coefficient N-N2O emission synthetic fertilization (%)",
+            "Weight diet",
+            "Weight import",
+        ]
+        bad = [k for k in must_be_numeric if pd.isna(global_df.loc[k, "value"])]
+        if bad:
+            raise ValueError("❌ Non-numeric global metrics:\n- " + "\n- ".join(bad))
+
+        if pd.isna(global_df.loc["Enforce animal share", "value_bool"]):
+            raise ValueError(
+                "❌ 'Enforce animal share' must be a boolean (true/false/1/0)."
             )
 
         self.global_df = global_df
@@ -2468,8 +2590,9 @@ class NitrogenFlowModel:
 
         coef_emis_N_N2O = (
             self.df_global.loc[
-                "coefficient N-N2O indirect emission synthetic fertilization (%)"
-            ].item()
+                "coefficient N-N2O indirect emission synthetic fertilization (%)",
+                "value",
+            ]
             / 100
         )
         target = {"atmospheric N2O": 1}
@@ -2939,7 +3062,7 @@ class NitrogenFlowModel:
 
         ## Dépôt atmosphérique
         source = {"atmospheric N2O": 0.1, "atmospheric NH3": 0.9}
-        depo_val = df_global.loc["Atmospheric deposition coef (kgN/ha)"].item()
+        depo_val = df_global.loc["Atmospheric deposition coef (kgN/ha)", "value"]
         conditional_depo_coef = np.where(
             self.df_cultures["Category"] == "cover crops", depo_val / 12, depo_val
         )  # cover crops ne restent que 1 mois
@@ -3942,7 +4065,9 @@ class NitrogenFlowModel:
             )
 
             # Ajout de la contrainte pour respecter la différence entre consommation animale et végétale
-            if df_global.loc[df_global.index == "Enforce animal share"]["value"].item():
+            if df_global.loc[
+                df_global.index == "Enforce animal share", "value_bool"
+            ].item():
                 # Créez une variable ou utilisez une valeur pour la consommation animale
                 cons_animale_totale = lpSum(
                     x_vars[(prod_i, cons)] + I_vars[(prod_i, cons)]
