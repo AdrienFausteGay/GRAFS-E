@@ -34,12 +34,13 @@ pd.set_option("future.no_silent_downcasting", True)
 class DataLoader:
     """Load input data files : project file and data file."""
 
-    def __init__(self, project_path, data_path):
+    def __init__(self, project_path, data_path, warn_if_nans=True):
         self.df_data = pd.read_excel(data_path, sheet_name=None)
         self.data_path = data_path
 
         self.metadata = pd.read_excel(project_path, sheet_name=None)
 
+        self.warn_if_nans = warn_if_nans
         self.check_dup()
 
         # Creation df_cultures
@@ -197,7 +198,6 @@ class DataLoader:
         init,
         categories_needed: tuple,
         overwrite=False,
-        warn_if_nans=True,
     ):
         """
         Alimente les dataframes avec les colonnes demandées en allant chercher
@@ -284,7 +284,7 @@ class DataLoader:
                 mask_has_value = series_added.notna()
                 merged_df.loc[mask_has_value, col] = series_added.loc[mask_has_value]
 
-        if warn_if_nans:
+        if self.warn_if_nans:
             nan_report = {}
             for col in categories_needed:
                 missing = merged_df[merged_df[col].isna()].index.tolist()
