@@ -130,10 +130,12 @@ Here are the required crop-related input data.
 | `Residue Nitrogen Content (%)` | ✔ / ✔ | % | ≥ 0 | 0.5 non-legumes / 1.5 legumes | Nitrogen content of aerial residues. |
 | `Maximum Yield (tFW/ha)` | — / ✔ | tFW/ha | ≥ 0 | — | Prospective-only: Y_max of the yield curve. |
 | `Characteristic Fertilisation (kgN/ha)` | — / ✔ | kgN/ha | ≥ 0 | — | Prospective-only: Caracteristic total fertilization of the yield curve. |
+| `Target Yield (qtl/ha)` | — / ✔ | qtl/ha | ≥ 0 | — | Prospective-only: Optional, yield objective for the model. Help for synthetic fertilizer distribution and overshoot. Only under target productivity are penalized. |
 
 Some **Category** have special rules in E-GRAFS:
 - **leguminous**: Leguminous crops are excluded from synthetic fertilizer distribution.
-- **natural meadows** and **temporary meadows**: These crops benefit from outdoor animal excretion. The input Nitrogen surplus is fully stocked in soil up to 100 kgN/ha. After, same tratment of crops.
+- **meadows** and **leguminous meadows**: These crops benefit from outdoor animal excretion. The input Nitrogen surplus is fully stocked in soil up to 100 kgN/ha. After, same tratment of crops. leguminous meadows are excluded from synthetic fertilizer distribution.
+- **cover crops**: cover crops are excluded from synthetic fertilizer distribution. Because cover crops are short-term crops, their atmospheric deposition is divided by 12 compared to the reference value.
 
 The user can define as many additional categories as desired, but these will not have special rules. Example of other common categories:
 - Cereals
@@ -224,7 +226,7 @@ Two type of products are handle by E-GRAFS. Each product must be 'animal' or 'pl
 
 ##### Sub Type
 Each Sub Type 'i' defines a "Trade i" compartment. This means that trade exchanges are categorized by Sub Type.
-The Sub Type of plant products are freely defined by the user. Only the **grazing** Sub Type has a special rule: **grazing** products cannot be imported or exported. Avoid diet groups with only grazing products, add at least one tradable product to prevent abnormal behaviour of the model.
+The Sub Type of plant products are freely defined by the user. Only the **grazing** and **cover** sub types have a special rule: these products cannot be imported or exported. Avoid diet groups with only grazing or cover products, add at least one tradable product to prevent abnormal behaviour of the model like uncontroled substitution with any other product of the diet.
 
 The Sub Types for **animal** products are fixed and include 3 categories.
 
