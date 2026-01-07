@@ -368,6 +368,16 @@ Aim to give to each crop a reasonable amount of fertilizer. Avoid under and over
 d^{F^\star}_k \;\ge\; \left|\frac{f_k}{F^\star_{k}} - 1\right|,\qquad k\notin\mathcal{C}_{\mathrm{legume}}.
 ```
 
+#### (S-8) Yield Target [P]
+Aim to keep yields above a crop-specific target. The target yield $Y^{\mathrm{tar}}_k$ is provided in the crop table (column *Target Yield (qtl/ha)*). We introduce a non-negative slack variable $y^{\Delta}_k$ that captures **only relative yield shortfalls**:
+
+```{math}
+y^{\Delta}_k \;\ge\; \frac{Y^{\mathrm{tar}}_k - y_k}{Y^{\mathrm{tar}}_k},\qquad
+y^{\Delta}_k \;\ge\; 0,\qquad \forall k.
+```
+
+Hence, $y^{\Delta}_k = 0$ whenever $y_k \ge Y^{\mathrm{tar}}_k$, and $y^{\Delta}_k$ equals the yield deficit otherwise.
+
 ---
 
 ### Import penalty (normalized)
@@ -393,7 +403,8 @@ We minimize a weighted sum of deviations and costs:
 &+ \underbrace{\sum_{p,c} w^{\mathrm{imp}}\;\frac{M_{p c}}{N^{\mathrm{avail}}_{p}+\varepsilon}}_{\text{imports (normalized)}} 
 + \underbrace{\sum_{f}\!\left( w^{E}\,\mathrm{dev}^{E}_{f} + \sum_{G} w^{E\text{-diet}}\delta^{E}_{fG} + \sum_{G,i} w^{E\text{-intra}}\pi^{E}_{fGi} \right)}_{\text{energy targets and facility diets}} \\[4pt]
 &+ \underbrace{w^{\mathrm{syn}}\;d^{\mathrm{syn}}}_{\text{[P] synthetic budget}} 
-+ \underbrace{w^{\mathrm{syn\text{-}dist}}\sum_{k\notin \mathcal{C}_{\mathrm{legume}}} d^{F^\star}_k}_{\text{[P] distribution around }F^\star}\,.
++ \underbrace{w^{\mathrm{syn\text{-}dist}}\sum_{k\notin \mathcal{C}_{\mathrm{legume}}} d^{F^\star}_k}_{\text{[P] distribution around }F^\star}
++ \underbrace{w^{\mathrm{Y\text{-}target}}\sum_{k} y^{\Delta}k}_{\text{[P] yield shortfall vs. target}}
 \end{aligned}
 ```
 
@@ -410,6 +421,7 @@ Normalizing by counts (products, groups) stabilizes weights across data granular
 - **$w^{E}$, $w^{E\text{-diet}}$, $w^{E\text{-intra}}$** ↑ : facilities meet energy targets and diet composition more tightly.  
 - **[P] $w^{\mathrm{syn}}$** ↑ : synthetic use kept within budget; exceeding becomes costly.  
 - **[P] $w^{\mathrm{syn\text{-}dist}}$** ↑ : fertilisation per non‑legume kept near $F^\star$ (prevents unrealistic extremes).
+- **[P] $w^{\mathrm{Y\text{-}target}}$** ↑ : synthetic fertilizer is used to reach yield target given in crop tab. Might be at the expense of total synthetic fertilizer use or other synthetic fertilizer distribution rule.
 
 **Rule of thumb.** Keep *stabilizers* ($w^{\mathrm{intra}}, w^{\mathrm{fair}}$ and energy analogues) about **an order of magnitude below** primary priorities (diet, imports, energy).
 
