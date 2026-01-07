@@ -405,6 +405,7 @@ class DataLoader:
             categories_needed += (
                 "Maximum Yield (tFW/ha)",
                 "Characteristic Fertilisation (kgN/ha)",
+                "Target Yield (qtl/ha)",
             )
         else:
             categories_needed += (
@@ -843,6 +844,7 @@ class DataLoader:
             optional_defaults.add("Green waste C/N")
         if prospect:
             optional_defaults.add("Weight synthetic distribution")  # dérivé si manquant
+            optional_defaults.add("Weight yield target")
 
         for k in optional_defaults:
             if k not in global_df.index:
@@ -916,6 +918,7 @@ class DataLoader:
         ):
             weight_synth = float(global_df.loc["Weight synthetic fertilizer", "value"])
             global_df.loc["Weight synthetic distribution", "value"] = weight_synth / 10
+            global_df.loc["Weight yield target", "value"] = weight_synth / 10
 
         if carbon and pd.isna(global_df.loc["Green waste C/N", "value"]):
             global_df.loc["Green waste C/N", "value"] = 10.0
@@ -1675,7 +1678,7 @@ class NitrogenFlowModel:
         }  # kgN/ha
         y_c = {
             c: LpVariable(f"yFW_{self._slug(c)}", lowBound=0) for c in df_cu.index
-        }  # tFW/ha
+        }  # kgN/ha
         s_c = {
             c: LpVariable(f"s_{self._slug(c)}", lowBound=0) for c in df_cu.index
         }  # ktN
@@ -1685,13 +1688,8 @@ class NitrogenFlowModel:
 
         YCOL, FCOL = "Ymax (kgN/ha)", "Characteristic Fertilisation (kgN/ha)"
 
-        # ---------- D) P_c (ktN) à partir de yFW ----------
+        # ---------- D) P_c (ktN) à partir de y_c ----------
         main_of = df_cu["Main Production"].astype(str).to_dict()
-        # NC = (
-        #     df_pr["Nitrogen Content (%)"]
-        #     if "Nitrogen Content (%)" in df_pr.columns
-        #     else pd.Series(0.0, index=df_pr.index)
-        # )
         P_c = {
             c: LpVariable(f"PmainN_{self._slug(c)}", lowBound=0) for c in df_cu.index
         }
@@ -1768,15 +1766,15 @@ class NitrogenFlowModel:
             # (Optionnel, mais aide le solveur) : serrage explicite
             prob += bnf_c[c] <= ub + 1e-9, f"bnf_upper_bound__{self._slug(c)}"
 
-            if c == "Miscanthus and others":
-                a_c = a * BGN / max(1e-9, HI)
-                b_c = b * BGN
-                y_thr = (
-                    0.0 if a_c <= 0 else max(0.0, -b_c / a_c)
-                )  # y minimal pour que a_c*y+b_c ≥ 0
-                print(
-                    f"[BNF check] c={c}, a_c={a_c:.4g}, b_c={b_c:.4g}, Ymax=50, y_thr={y_thr:.4g}, feasible_range? {50 >= y_thr}"
-                )
+            # if c == "Miscanthus and others":
+            #     a_c = a * BGN / max(1e-9, HI)
+            #     b_c = b * BGN
+            #     y_thr = (
+            #         0.0 if a_c <= 0 else max(0.0, -b_c / a_c)
+            #     )  # y minimal pour que a_c*y+b_c ≥ 0
+            #     print(
+            #         f"[BNF check] c={c}, a_c={a_c:.4g}, b_c={b_c:.4g}, Ymax=50, y_thr={y_thr:.4g}, feasible_range? {50 >= y_thr}"
+            #     )
 
         self._pros_vars["bnf_ub_const"] = bnf_ub_const
 
@@ -2013,6 +2011,34 @@ class NitrogenFlowModel:
             self._pros_vars["devF_rel_pos"] = dev_plus
             self._pros_vars["devF_rel_neg"] = dev_minus
 
+        # ---------- K) Pénalité de sous-rendement (slack linéaire) ----------
+        w_yield_target = float(
+            self.df_global.loc["Weight yield target", "value"] or 0.0
+        )
+        if w_yield_target > 0:
+            y_c = self._pros_vars["y_c"]  # kgN/ha
+            y_target_vars = {}
+
+            for c in df_cu.index:
+                if "Target Yield (qtl/ha)" not in df_cu.columns:
+                    continue
+
+                Y_target_qtl_ha = float(df_cu.at[c, "Target Yield (qtl/ha)"] or 0.0)
+                if Y_target_qtl_ha <= 0:
+                    continue
+
+                short = LpVariable(f"short_yield_{self._slug(c)}", lowBound=0)  # t/ha
+                # y_c est en kgN/ha, il faut utiliser la colonne "Main Production" dans df_cu pour identifier la ligne (index) de df_pr où aller chercher "Nitrogen Content (%)"
+                main_prod = df_cu.at[c, "Main Production"]
+                NC = df_pr.loc[main_prod, "Nitrogen Content (%)"] / 100
+                prob += (
+                    short >= (Y_target_qtl_ha - y_c[c] / NC / 100) / Y_target_qtl_ha,
+                    f"yield_target_link_{self._slug(c)}",
+                )
+                y_target_vars[c] = short
+
+            self._pros_vars["y_target_vars"] = y_target_vars
+
     # ── HOOK 2 ─────────────────────────────────────────────────────────────────
     def _rhs_for_product(self, p, default_rhs, is_plant):
         if not self.prospective:
@@ -2034,7 +2060,7 @@ class NitrogenFlowModel:
         return default_rhs
 
     # ── HOOK 3 ─────────────────────────────────────────────────────────────────
-    def _extra_objective(self, U_vars):
+    def _extra_objective(self):
         if not self.prospective:
             return 0
         W_SYN = float(self.df_global.loc["Weight synthetic fertilizer", "value"])
@@ -2053,13 +2079,13 @@ class NitrogenFlowModel:
             dev_neg = self._pros_vars.get("devF_rel_neg", {})
             distribution_term = lpSum(dev_pos[c] + dev_neg[c] for c in dev_pos.keys())
 
-        # # Terme d'export
-        # W_EXP = 0
-        # export_term = 0
-        # if W_EXP > 0:
-        #     export_term = LpSum(U_vars[u] for u in U_vars.keys())
-
-        return W_SYN * term + W_DIS * distribution_term  # + W_EXP * export_term
+        # Terme de cible de rendement
+        W_Yield = float(self.df_global.loc["Weight yield target", "value"] or 0.0)
+        yield_term = 0
+        if W_Yield > 0:
+            y_target_vars = self._pros_vars.get("y_target_vars", {})
+            yield_term = lpSum(y_target_vars[c] for c in y_target_vars.keys())
+        return W_SYN * term + W_DIS * distribution_term + W_Yield * yield_term
 
     # ── HOOK 4 ─────────────────────────────────────────────────────────────────
     def _post_solve_supply(self):
@@ -4049,7 +4075,7 @@ class NitrogenFlowModel:
             + w_fair * ((fair_term + fair_term_energy) / max(1, len(df_prod)))
             + W_ENERGY_INPUT * lpSum(delta_fac.values())
             + (W_ENERGY_PROD / max(1, len(df_energy.index))) * energy_dev_total
-            + self._extra_objective(U_vars)
+            + self._extra_objective()
         )
 
         prob += objective
@@ -4369,6 +4395,24 @@ class NitrogenFlowModel:
                     expr_syn_distribution = W_DIS * lpSum(
                         (dev_pos[c] + dev_neg.get(c, 0)) for c in dev_pos.keys()
                     )
+                else:
+                    expr_syn_distribution = 0.0
+
+                # (iii) Yield targets
+                try:
+                    W_Yield = float(self.df_global.loc["Weight yield target", "value"])
+                except Exception:
+                    W_Yield = 0.0
+
+                y_target_vars = self._pros_vars.get("y_target_vars", {})
+
+                if W_Yield > 0:
+                    y_target_vars = self._pros_vars.get("y_target_vars", {})
+                    expr_yield_term = lpSum(
+                        y_target_vars[c] for c in y_target_vars.keys()
+                    )
+                else:
+                    expr_yield_term = 0.0
 
             # ------------------------- Valeurs pondérées --------------------------
             w_diet = V(expr_diet)
@@ -4380,6 +4424,7 @@ class NitrogenFlowModel:
 
             w_syn_excess = V(expr_syn_excess) if self.prospective else 0.0
             w_syn_distribution = V(expr_syn_distribution) if self.prospective else 0.0
+            w_yield_term = V(expr_yield_term) if self.prospective else 0.0
 
             # Somme totale reconstituée (même formalisme que l'objectif)
             obj_val = V(
@@ -4391,6 +4436,7 @@ class NitrogenFlowModel:
                 + expr_energy_prod
                 + (expr_syn_excess if self.prospective else 0)
                 + (expr_syn_distribution if self.prospective else 0)
+                + (expr_yield_term if self.prospective else 0)
             )
 
             def share(x):
@@ -4516,6 +4562,18 @@ class NitrogenFlowModel:
                     "note": "Somme des déviations relatives |f - F*|/F* via variables dev+ / dev-.",
                 }
 
+                W_Yield = (
+                    float(self.df_global.loc["Weight yield target", "value"])
+                    if "Weight yield target" in self.df_global.index
+                    else 0.0
+                )
+                families["yield_targets_total"] = {
+                    "weighted": w_yield_term,
+                    "share_%": share(w_yield_term),
+                    "weight": float(W_Yield),
+                    "note": "Somme des pénalités de non-atteinte des objectifs de rendement.",
+                }
+
             # ------------------------------- Rapport ------------------------------
             solver_info = {
                 "status_code": prob.status,
@@ -4543,6 +4601,9 @@ class NitrogenFlowModel:
                         )
                         if "Weight synthetic distribution" in self.df_global.index
                         else 0.0,
+                        "Weight yield target": float(
+                            self.df_global.loc["Weight yield target", "value"]
+                        ),
                     }
                 )
 
@@ -4555,7 +4616,11 @@ class NitrogenFlowModel:
                 share(w_energy_prod),
             ]
             if self.prospective:
-                sanity_terms += [share(w_syn_excess), share(w_syn_distribution)]
+                sanity_terms += [
+                    share(w_syn_excess),
+                    share(w_syn_distribution),
+                    share(w_yield_term),
+                ]
 
             report = {
                 "solver": solver_info,
