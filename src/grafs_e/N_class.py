@@ -903,7 +903,7 @@ class DataLoader:
         # ------------------------------------------------------------
         weight_diet = float(global_df.loc["Weight diet", "value"])
         weight_import = float(global_df.loc["Weight import", "value"])
-        non_zero_weights = [w for w in [weight_diet, weight_import] if w > 0] + [0]
+        non_zero_weights = [w for w in [weight_diet, weight_import] if w > 0]
 
         if pd.isna(global_df.loc["Weight distribution", "value"]):
             global_df.loc["Weight distribution", "value"] = min(non_zero_weights) / 10
