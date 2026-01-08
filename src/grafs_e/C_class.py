@@ -864,8 +864,8 @@ class CarbonFlowModel:
         # Prendre les données nécessaires dans df_global
 
         HB_CH4_intensity = df_global.loc[
-            "Total Haber-Bosch methan input (kgC/kgN)"
-        ].item()
+            "Total Haber-Bosch methan input (kgC/kgN)", "value"
+        ]
         HB_prod = self.data_loader.nitrogen_model.flux_generator.get_coef(
             "atmospheric N2", "Haber-Bosch"
         )
