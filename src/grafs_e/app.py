@@ -176,7 +176,7 @@ with tab1:
     # Create a link button to the documentation
     st.link_button(
         "📖 Full Documentation",
-        "https://E-GRAFS-f43b79.gricad-pages.univ-grenoble-alpes.fr/index.html",
+        "https://isterre-dynamic-modeling.gricad-pages.univ-grenoble-alpes.fr/grafs-e-project/grafs-e/",
         help="Opens E-GRAFS documentation in a new tab.",
     )
 
