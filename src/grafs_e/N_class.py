@@ -282,6 +282,9 @@ class DataLoader:
                 merged_df[col] = series_added
             else:
                 mask_has_value = series_added.notna()
+                merged_df[col] = merged_df[col].astype(
+                    series_added.dtype
+                )  # align dtype
                 merged_df.loc[mask_has_value, col] = series_added.loc[mask_has_value]
 
         if self.warn_if_nans:
@@ -450,17 +453,19 @@ class DataLoader:
             #     / 100
             # )
             # Calculer simplement le rendement à partir de la production principale est source d'erreurs car plusieurs productions peuvent provenir d'une même culture. Il faut passer par les ratios de coproduction.
+            # 1) série "ratio / Ncontent" au niveau produit
+            s = df_prod["Co-Production Ratio (%)"] / df_prod["Nitrogen Content (%)"]
+
+            # (optionnel mais recommandé) éviter divisions par 0 et NaN
+            s = s.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+
+            # 2) somme par culture (Origin compartment)
+            den = s.groupby(df_prod["Origin compartment"]).sum()
+            mapped = df_cultures.index.to_series().map(den).replace(0.0, np.nan)
             df_cultures["Ymax (kgN/ha)"] = (
-                df_cultures["Maximum Yield (tFW/ha)"]
-                * 1e3
-                / df_cultures.index.to_series().map(
-                    df_prod.groupby("Origin compartment").apply(
-                        lambda g: (
-                            g["Co-Production Ratio (%)"] / g["Nitrogen Content (%)"]
-                        ).sum()
-                    )
-                )
-            )
+                df_cultures["Maximum Yield (tFW/ha)"] * 1e3 / mapped
+            ).fillna(0.0)
+
             df_cultures = df_cultures.fillna(0)
             self.df_cultures = df_cultures
             return
@@ -1666,11 +1671,26 @@ class NitrogenFlowModel:
         org_only_kg_ha = {c: boue_kg_ha[c] + excr_kg_ha[c] for c in df_cu.index}
         O_base_kg_ha = {c: org_only_kg_ha[c] for c in df_cu.index}
 
+        # Digestat non excretion
+        D_digest_nonex_ktN = LpVariable(
+            "D_digest_nonex_total", lowBound=0
+        )  # ktN (digestat issu d'intrants non-excrétions)
+
+        dig_kg_ha = {}
+        dig_ktN_by_c = {}  # utile pour reporting
+        for c in df_cu.index:
+            A = float(df_cu.at[c, "Area (ha)"]) or 0.0
+            dig_ktN_by_c[c] = share.get(c, 0.0) * D_digest_nonex_ktN
+            dig_kg_ha[c] = (dig_ktN_by_c[c] * 1e6 / A) if A > 0 else 0.0
+
         # store
         self._pros_vars = {}
         self._pros_vars["depo_kg_ha"] = depo_kg_ha
         self._pros_vars["org_only_kg_ha"] = org_only_kg_ha
         self._pros_vars["O_base_kg_ha"] = O_base_kg_ha
+        self._pros_vars["D_digest_nonex_ktN"] = D_digest_nonex_ktN
+        self._pros_vars["dig_kg_ha"] = dig_kg_ha
+        self._pros_vars["dig_ktN_by_c"] = dig_ktN_by_c
 
         # ---------- B) Variables principales ----------
         f_c = {
@@ -1829,14 +1849,24 @@ class NitrogenFlowModel:
             # ---- breakpoints F (kgN/ha)
             B_base = [
                 0.0,
-                0.25 * Fst,
-                0.5 * Fst,
-                1.0 * Fst,
-                1.5 * Fst,
-                2.0 * Fst,
-                3.0 * Fst,
-                10.0 * Fst,
+                0.10 * Fst,
+                0.20 * Fst,
+                0.35 * Fst,
+                0.50 * Fst,
+                0.70 * Fst,
+                0.90 * Fst,
+                1.10 * Fst,
+                1.30 * Fst,
+                1.50 * Fst,
+                1.80 * Fst,
+                2.20 * Fst,
+                2.80 * Fst,
+                3.60 * Fst,
+                4.80 * Fst,
+                6.50 * Fst,
+                9.00 * Fst,
             ]
+
             F_anchor = min(max(3.0 * Fst, 1.10 * F_base_UB, K_SAT * Fst), F_MAX_CAP)
 
             B = B_base + [F_base_UB, F_anchor]
@@ -1928,7 +1958,12 @@ class NitrogenFlowModel:
             # seule la part efficace (eff_syn*s_c) nourrit F
             prob += (
                 f_c[c]
-                == depo_kg_ha[c] + O_base_kg_ha[c] + bnf_c[c] + seeds_gha + synth_gha,
+                == depo_kg_ha[c]
+                + O_base_kg_ha[c]
+                + bnf_c[c]
+                + seeds_gha
+                + synth_gha
+                + dig_kg_ha[c],
                 f"Feff_def__{self._slug(c)}",
             )
             # légumineuses et cover crops : pas de synthé + borne
@@ -3992,6 +4027,38 @@ class NitrogenFlowModel:
                 energy_prod_vars_by_p[p].append(x_fac_prod[p])
             for e in fac_excr_items:
                 energy_excr_vars_by_e[e].append(x_fac_excr[e])
+
+        # ---------- Digestat (prospectif) : lien avec les intrants des Methanizer ----------
+        if getattr(self, "prospective", False):
+            D_digest_nonex_ktN = self._pros_vars.get("D_digest_nonex_ktN", None)
+            if D_digest_nonex_ktN is not None:
+                meth_facilities = [
+                    fac
+                    for fac, r in df_energy.iterrows()
+                    if str(r.get("Type", "")).strip().lower() == "methanizer"
+                ]
+
+                if len(meth_facilities) == 0:
+                    prob += D_digest_nonex_ktN == 0, "Digestate_no_methanizer"
+                else:
+                    N_to_meth_nonex = 0
+
+                    for fac in meth_facilities:
+                        # produits (NON-excréta) vers methanizer
+                        if "prod" in energy_vars.get(fac, {}):
+                            N_to_meth_nonex += lpSum(energy_vars[fac]["prod"].values())
+
+                        # waste vers methanizer (si autorisé dans la diète)
+                        w = energy_vars.get(fac, {}).get("waste", None)
+                        if w is not None:
+                            N_to_meth_nonex += w
+
+                        # NOTE: on n'ajoute PAS energy_vars[fac]["excr"] ici (double-compte avec O_base_kg_ha)
+
+                    prob += (
+                        D_digest_nonex_ktN == N_to_meth_nonex,
+                        "Digestate_link_methanizer_nonex",
+                    )
 
         # -- Contrainte GLOBALE d'excréta (somme de toutes les infras) <= excrétion dispo
         for e in df_excr.index:
