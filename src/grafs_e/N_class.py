@@ -822,6 +822,7 @@ class DataLoader:
             "Weight energy inputs",  # peut être défaut (si pas d'énergie)
             "Enforce animal share",  # bool
             "Green waste nitrogen content (%)",  # peut être défaut (si pas d'énergie)
+            "Max organic spreading (kgN/ha)",  # peut être défaut
         ]
 
         if prospect:
@@ -917,6 +918,8 @@ class DataLoader:
             global_df.loc["Weight fair local split", "value"] = (
                 min(non_zero_weights) / 20
             )
+        if pd.isna(global_df.loc["Max organic spreading (kgN/ha)", "value"]):
+            global_df.loc["Max organic spreading (kgN/ha)", "value"] = 170.0
 
         if prospect and pd.isna(
             global_df.loc["Weight synthetic distribution", "value"]
