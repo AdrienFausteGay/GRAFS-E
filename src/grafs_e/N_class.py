@@ -5254,13 +5254,13 @@ class NitrogenFlowModel:
         if not self.df_energy_flows.empty:
             for fac in df_energy.index:
                 target = {fac: 1}
-                # agrège N(allocation) par source pour cette infra
+                # agrège N(allocation) par source pour cette infra, il faut groupper car la même source peut être appelée plusieurs fois (ex. import + local)
                 src = self.df_energy_flows.loc[
                     self.df_energy_flows["target"] == fac,
                     ["source", "allocation (ktN)"],
                 ]
                 if not src.empty:
-                    source = src.set_index("source")["allocation (ktN)"].to_dict()
+                    source = src.groupby("source")["allocation (ktN)"].sum().to_dict()
                     if source:
                         flux_generator.generate_flux(source, target)
 
@@ -5353,150 +5353,6 @@ class NitrogenFlowModel:
                 target = {f"{subtype} trade": 1}
 
             flux_generator.generate_flux({prod: val}, target)
-
-        # # --- NEW: Flux sol <-> culture : NET uniquement (après calcul du Net mining)
-        # EPS = 1e-6
-        # net_series = -self.df_cultures["Soil stock (ktN)"].astype(float).fillna(0.0)
-
-        # # (A) Net mining > 0 : minage net (soil stock -> culture)
-        # pos = net_series[net_series > EPS]
-        # if not pos.empty:
-        #     flux_generator.generate_flux({"soil stock": 1}, pos.to_dict())
-
-        # # (B) Net mining < 0 : stockage net (produits -> soil stock), réparti au prorata de la production N des produits de la culture
-        # neg = net_series[net_series < -EPS]
-        # for c, neg_val in neg.items():
-        #     need = -float(neg_val)  # ktN à envoyer vers soil stock
-
-        #     # candidats = produits de la culture c qui retournent au champ (cover/grazing)…
-        #     mask_c = df_prod["Origin compartment"] == c
-        #     mask_ret = df_prod["Sub Type"].isin(["grazing", "cover"])
-        #     cand = df_prod.loc[mask_c & mask_ret, ["Nitrogen Production (ktN)"]].copy()
-
-        #     # …sinon fallback: tous les produits de la culture c
-        #     if cand["Nitrogen Production (ktN)"].sum() <= 0:
-        #         cand = df_prod.loc[mask_c, ["Nitrogen Production (ktN)"]].copy()
-
-        #     weights = cand["Nitrogen Production (ktN)"].astype(float).clip(lower=0.0)
-        #     total = weights.sum()
-        #     if total <= 0:
-        #         continue  # rien à répartir proprement
-
-        #     shares = weights / total
-        #     src = {idx: share * need for idx, share in shares.items()}
-
-        #     flux_generator.generate_flux(src, {"soil stock": 1})
-
-        # # for prod, row in df_prod.loc[mask_return].iterrows():
-        # #     origin = row["Origin compartment"]
-        # #     prod_tot = float(row.get("Nitrogen Production (ktN)", 0.0) or 0.0)
-        # #     returned = float(row.get("Nitrogen returned to field (ktN)", 0.0) or 0.0)
-        # #     displayed = max(0.0, prod_tot - returned)
-        # #     flux_generator.generate_flux({origin: 1}, {prod: displayed}, erase=True)
-
-        # # mapping mining par culture (ktN)
-        # mining_map = (
-        #     self.df_cultures["Mining from soil (ktN)"]
-        #     .astype(float)
-        #     .fillna(0.0)
-        #     .to_dict()
-        # )
-
-        # for c, mining_c in mining_map.items():
-        #     mining_c = max(0.0, float(mining_c))
-        #     if mining_c <= EPS:
-        #         continue
-
-        #     # produits issus de la culture c
-        #     mask_c = df_prod["Origin compartment"] == c
-        #     prod_c = (
-        #         df_prod.loc[mask_c, "Nitrogen Production (ktN)"]
-        #         .astype(float)
-        #         .clip(lower=0.0)
-        #     )
-        #     tot_c = prod_c.sum()
-        #     if tot_c <= EPS:
-        #         continue
-
-        #     # répartition proportionnelle du mining sur les produits
-        #     # et réécriture des arcs culture->produit
-        #     remaining = mining_c
-        #     prods = list(prod_c.index)
-        #     for i, p in enumerate(prods):
-        #         nprod = float(prod_c.loc[p])
-        #         share = nprod / tot_c
-        #         alloc = mining_c * share
-        #         if i == len(prods) - 1:
-        #             # dernier produit : ajuste pour absorber les arrondis
-        #             alloc = min(nprod, remaining)
-        #         remaining -= alloc
-        #         displayed = max(0.0, nprod - alloc)
-        #         flux_generator.generate_flux({c: 1}, {p: displayed}, erase=True)
-
-        ## V2
-
-        # # === Net mining par culture : positif => sol -> culture ; négatif => culture -> sol
-        # EPS = 1e-6
-        # net_mining = self.df_cultures["Mining from soil (ktN)"].astype(float).fillna(
-        #     0.0
-        # ) - self.df_cultures["Soil storage from surplus (ktN)"].astype(float).fillna(
-        #     0.0
-        # )
-        # # (net_mining > 0  => minage net ;  net_mining < 0 => stockage net)
-
-        # # --- A) Flux sol -> culture si minage net positif ---
-        # mining_targets = {c: v for c, v in net_mining.items() if v > EPS}
-        # if mining_targets:
-        #     flux_generator.generate_flux({"soil stock": 1}, mining_targets)
-
-        # # --- B) Si stockage net (net_mining < 0), répartir un "retour au champ"
-        # #       depuis les produits de la culture (de préférence 'grazing'/'cover')
-        # returned_to_field = {}  # par produit p
-        # for c, v in net_mining.items():
-        #     if v >= -EPS:
-        #         continue  # pas de stockage net
-        #     need = -float(v)  # ktN à renvoyer vers le sol
-
-        #     mask_c = df_prod["Origin compartment"] == c
-        #     mask_ret = df_prod["Sub Type"].isin(["grazing", "cover"])
-        #     cand = (
-        #         df_prod.loc[mask_c & mask_ret, "Nitrogen Production (ktN)"]
-        #         .astype(float)
-        #         .clip(lower=0.0)
-        #     )
-
-        #     # fallback: si aucun produit 'grazing/cover' ou production nulle, utiliser tous les produits de la culture
-        #     if cand.sum() <= EPS:
-        #         cand = (
-        #             df_prod.loc[mask_c, "Nitrogen Production (ktN)"]
-        #             .astype(float)
-        #             .clip(lower=0.0)
-        #         )
-        #     tot = cand.sum()
-        #     if tot <= EPS:
-        #         continue
-
-        #     shares = cand / tot
-        #     for p, s in shares.items():
-        #         returned_to_field[p] = returned_to_field.get(p, 0.0) + s * need
-
-        # # --- C) Corriger les flux culture -> produits pour ne retrancher que les retours (stockage net)
-        # #       et ne rien toucher en cas de minage net positif.
-        # for p, row in df_prod.iterrows():
-        #     c = row["Origin compartment"]
-        #     q = float(row.get("Nitrogen Production (ktN)", 0.0) or 0.0)
-        #     ret = float(returned_to_field.get(p, 0.0) or 0.0)
-        #     q_net = max(0.0, q - ret)  # jamais négatif
-
-        #     # réécrire (erase=True) le flux culture -> produit
-        #     if q > EPS:  # seulement si production
-        #         flux_generator.generate_flux({c: 1}, {p: q_net}, erase=True)
-
-        # # --- D) Créer les flux produits -> sol pour matérialiser le retour au champ (stockage net)
-        # if returned_to_field:
-        #     flux_generator.generate_flux(
-        #         {p: v for p, v in returned_to_field.items()}, {"soil stock": 1}
-        #     )
 
         ## V3
 
