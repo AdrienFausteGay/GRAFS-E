@@ -3814,6 +3814,7 @@ class NitrogenFlowModel:
                 prob += dev_fac >= (E_GWh_total_fac - TARGET_GWh) / TARGET_GWh
                 prob += dev_fac >= (TARGET_GWh - E_GWh_total_fac) / TARGET_GWh
             else:
+                prob += E_GWh_total_fac == 0, f"Energy_zero_{facility}"
                 prob += dev_fac == 0
             energy_dev_terms.append(dev_fac)
 
